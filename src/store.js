@@ -17,6 +17,41 @@ export const PROFILE_FILE = "profile.json";
 export const GROUP_FILE = "group.json";
 export const SETTINGS_FILE = "settings.json";
 
+export const AVATAR_SHAPES = [
+  "blob",
+  "pebble",
+  "bean",
+  "egg",
+  "squircle",
+  "tablet",
+  "capsule",
+  "cylinder",
+  "hex",
+  "gem",
+  "crystal",
+  "wedge",
+  "shield",
+  "dome",
+  "arch",
+  "cloud",
+  "teardrop",
+  "leaf",
+];
+
+export const AVATAR_COLORS = [
+  "black",
+  "brown",
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "cyan",
+  "blue",
+  "violet",
+  "magenta",
+  "gray",
+];
+
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -104,6 +139,25 @@ function readGroup(dir) {
   };
 }
 
+function readRawSettings(dir) {
+  const path = join(dir, SETTINGS_FILE);
+  if (!existsSync(path)) return {};
+  try {
+    const raw = readJson(path);
+    return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+function readSettings(dir) {
+  const raw = readRawSettings(dir);
+  return {
+    notifyOnAgentUpdates: typeof raw.notifyOnAgentUpdates === "boolean" ? raw.notifyOnAgentUpdates : true,
+    hiddenFromSidebar: typeof raw.hiddenFromSidebar === "boolean" ? raw.hiddenFromSidebar : false,
+  };
+}
+
 export function listRecords(root) {
   if (!existsSync(root)) return [];
   const out = [];
@@ -117,6 +171,7 @@ export function listRecords(root) {
       id: entry.name,
       path: dir,
       ...profile,
+      ...readSettings(dir),
       isGroup: group != null,
       memberIds: group?.memberIds ?? [],
     });
@@ -142,18 +197,35 @@ export function resolveRef(root, ref) {
   );
 }
 
+function assertAvatar(kind, value, allowed) {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return "";
+  if (!allowed.includes(trimmed)) {
+    throw new StoreError(`Unknown avatar ${kind} "${value}". Use: ${allowed.join(" ")}`);
+  }
+  return trimmed;
+}
+
 function writeProfile(dir, profile) {
   writeJson(join(dir, PROFILE_FILE), {
     name: profile.name.trim(),
     description: (profile.description ?? "").trim(),
     title: (profile.title ?? "").trim(),
-    avatarShape: (profile.avatarShape ?? "").trim(),
-    avatarColor: (profile.avatarColor ?? "").trim(),
+    avatarShape: assertAvatar("shape", profile.avatarShape, AVATAR_SHAPES),
+    avatarColor: assertAvatar("color", profile.avatarColor, AVATAR_COLORS),
   });
 }
 
 function writeSettings(dir) {
   writeJson(join(dir, SETTINGS_FILE), { notifyOnAgentUpdates: true });
+}
+
+function mergeSettings(dir, patch) {
+  const update = {};
+  if (patch.notifyOnAgentUpdates !== undefined) update.notifyOnAgentUpdates = Boolean(patch.notifyOnAgentUpdates);
+  if (patch.hiddenFromSidebar !== undefined) update.hiddenFromSidebar = Boolean(patch.hiddenFromSidebar);
+  if (Object.keys(update).length === 0) return;
+  writeJson(join(dir, SETTINGS_FILE), { ...readRawSettings(dir), ...update });
 }
 
 function writeGroup(dir, memberIds) {
@@ -205,6 +277,31 @@ export function createAgent(root, input) {
   return resolveRef(root, id);
 }
 
+export function updateAgent(root, ref, patch = {}) {
+  const rec = resolveRef(root, ref);
+  if (patch.name !== undefined) {
+    const name = String(patch.name).trim();
+    if (!name) throw new StoreError("Name cannot be blank.");
+  }
+  const hasProfile =
+    patch.name !== undefined ||
+    patch.description !== undefined ||
+    patch.title !== undefined ||
+    patch.avatarShape !== undefined ||
+    patch.avatarColor !== undefined;
+  if (hasProfile) {
+    writeProfile(rec.path, {
+      name: patch.name !== undefined ? String(patch.name) : rec.name,
+      description: patch.description !== undefined ? String(patch.description) : rec.description,
+      title: patch.title !== undefined ? String(patch.title) : rec.title,
+      avatarShape: patch.avatarShape !== undefined ? String(patch.avatarShape) : rec.avatarShape,
+      avatarColor: patch.avatarColor !== undefined ? String(patch.avatarColor) : rec.avatarColor,
+    });
+  }
+  mergeSettings(rec.path, patch);
+  return resolveRef(root, rec.id);
+}
+
 export function deleteAgent(root, ref) {
   const rec = resolveRef(root, ref);
   rmSync(rec.path, { recursive: true, force: true });
@@ -234,6 +331,8 @@ export function createGroup(root, input) {
     name: input.name,
     description: input.description ?? "",
     title: input.title ?? "",
+    avatarShape: input.avatarShape ?? "",
+    avatarColor: input.avatarColor ?? "",
   });
   writeGroup(join(root, group.id), memberIds);
   return resolveRef(root, group.id);

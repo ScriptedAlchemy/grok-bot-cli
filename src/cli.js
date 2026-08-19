@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { MAX_GROUP_MEMBERS, StoreError, defaultCandidateRoots, looksLikeAgentsRoot, resolveAgentsRoot } from "./store.js";
+import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS, StoreError, defaultCandidateRoots, looksLikeAgentsRoot, resolveAgentsRoot } from "./store.js";
 import { hasGatewayAuth } from "./gateway.js";
 import { openBackend } from "./commands.js";
 
@@ -25,11 +25,18 @@ function usage() {
     "Commands:",
     "  doctor",
     "  bots list",
-    "  bots create --name NAME [--description TEXT] [--title TEXT]",
+    "  bots create --name NAME [--description TEXT] [--instructions TEXT] [--title TEXT]",
+    "           [--avatar-shape SHAPE] [--avatar-color COLOR]",
+    "  bots update <id-or-name> [--name NAME] [--description TEXT] [--instructions TEXT]",
+    "           [--title TEXT] [--avatar-shape SHAPE] [--avatar-color COLOR]",
+    "           [--notify on|off] [--hidden on|off]",
     "  bots get <id-or-name>",
     "  bots delete <id-or-name>",
     "  groups list",
     "  groups create --name NAME --member ID_OR_NAME [--member ...]",
+    "           [--description TEXT] [--instructions TEXT] [--title TEXT]",
+    "           [--avatar-shape SHAPE] [--avatar-color COLOR]",
+    "  groups update <id-or-name>  (same flags as bots update; members stay on set/add/remove)",
     "  groups get <id-or-name>",
     "  groups members <id-or-name>",
     "  groups add <group> <bot>",
@@ -41,8 +48,11 @@ function usage() {
     "  chat <bot-or-group>     alias for thread",
     "",
     "Max group members: " + MAX_GROUP_MEMBERS,
+    "--description / --instructions is the UI Instructions field (same key).",
+    "Avatar shapes: " + AVATAR_SHAPES.join(" "),
+    "Avatar colors: " + AVATAR_COLORS.join(" "),
     "Flags: --gateway  --files  --dir DIR  --json",
-    "Env: CURSOR_ACCESS_TOKEN or GROK_BOT_GATEWAY_URL + GROK_BOT_GATEWAY_TOKEN",
+    "Auth: GROK_BOT_GATEWAY_URL + GROK_BOT_GATEWAY_TOKEN, or the Grok Bot app session, or CURSOR_ACCESS_TOKEN",
     "File fallback: GROK_BOT_AGENTS_DIR",
   ].join("\n");
 }
@@ -54,6 +64,27 @@ function takeFlag(args, name) {
   if (value == null || value.startsWith("-")) throw new StoreError(name + " needs a value");
   args.splice(i, 2);
   return value;
+}
+
+function takeLastFlag(args, ...names) {
+  let value;
+  let seen = false;
+  for (;;) {
+    let hit = false;
+    for (const name of names) {
+      const i = args.indexOf(name);
+      if (i === -1) continue;
+      const next = args[i + 1];
+      if (next == null || next.startsWith("-")) throw new StoreError(name + " needs a value");
+      args.splice(i, 2);
+      value = next;
+      seen = true;
+      hit = true;
+      break;
+    }
+    if (!hit) break;
+  }
+  return seen ? value : undefined;
 }
 
 function takeRepeating(args, name) {
@@ -73,12 +104,55 @@ function hasFlag(args, name) {
   return true;
 }
 
+function parseOnOff(value, flag) {
+  const v = String(value).trim().toLowerCase();
+  if (v === "on" || v === "true" || v === "1" || v === "yes") return true;
+  if (v === "off" || v === "false" || v === "0" || v === "no") return false;
+  throw new StoreError(flag + " must be on|off (or true|false|1|0|yes|no)");
+}
+
+function takeCreateFields(args) {
+  return {
+    name: takeFlag(args, "--name"),
+    description: takeLastFlag(args, "--description", "--instructions") ?? "",
+    title: takeFlag(args, "--title") ?? "",
+    avatarShape: takeFlag(args, "--avatar-shape") ?? "",
+    avatarColor: takeFlag(args, "--avatar-color") ?? "",
+  };
+}
+
+function takeUpdatePatch(args) {
+  const name = takeFlag(args, "--name");
+  const description = takeLastFlag(args, "--description", "--instructions");
+  const title = takeFlag(args, "--title");
+  const avatarShape = takeFlag(args, "--avatar-shape");
+  const avatarColor = takeFlag(args, "--avatar-color");
+  const notifyRaw = takeFlag(args, "--notify");
+  const hiddenRaw = takeFlag(args, "--hidden");
+  const patch = {};
+  if (name !== undefined) patch.name = name;
+  if (description !== undefined) patch.description = description;
+  if (title !== undefined) patch.title = title;
+  if (avatarShape !== undefined) patch.avatarShape = avatarShape;
+  if (avatarColor !== undefined) patch.avatarColor = avatarColor;
+  if (notifyRaw !== undefined) patch.notifyOnAgentUpdates = parseOnOff(notifyRaw, "--notify");
+  if (hiddenRaw !== undefined) patch.hiddenFromSidebar = parseOnOff(hiddenRaw, "--hidden");
+  if (Object.keys(patch).length === 0) {
+    throw new StoreError("update needs at least one of --name --description --instructions --title --avatar-shape --avatar-color --notify --hidden");
+  }
+  return patch;
+}
+
 function summarize(rec) {
   return {
     id: rec.id,
     name: rec.name,
     title: rec.title || undefined,
     description: rec.description || undefined,
+    avatarShape: rec.avatarShape || undefined,
+    avatarColor: rec.avatarColor || undefined,
+    ...(rec.notifyOnAgentUpdates !== undefined ? { notifyOnAgentUpdates: rec.notifyOnAgentUpdates } : {}),
+    ...(rec.hiddenFromSidebar !== undefined ? { hiddenFromSidebar: rec.hiddenFromSidebar } : {}),
     kind: rec.isGroup ? "group" : "bot",
     members: rec.isGroup ? rec.memberIds : undefined,
   };
@@ -98,8 +172,15 @@ function formatRecord(rec, all) {
     : "";
   const title = rec.title ? " - " + rec.title : "";
   const desc = rec.description ? "\n    " + rec.description : "";
+  const avatar = rec.avatarShape || rec.avatarColor
+    ? "\n    avatar: " + [rec.avatarShape, rec.avatarColor].filter(Boolean).join(" ")
+    : "";
+  const settings = [];
+  if (rec.notifyOnAgentUpdates !== undefined) settings.push("notify " + (rec.notifyOnAgentUpdates ? "on" : "off"));
+  if (rec.hiddenFromSidebar !== undefined) settings.push("hidden " + (rec.hiddenFromSidebar ? "on" : "off"));
+  const settingsLine = settings.length ? "\n    " + settings.join(", ") : "";
   const extra = rec.isGroup ? "\n    members (" + rec.memberIds.length + "): " + (members || "(none)") : "";
-  return kind + "  " + rec.name + title + "\n    " + rec.id + desc + extra;
+  return kind + "  " + rec.name + title + "\n    " + rec.id + desc + avatar + settingsLine + extra;
 }
 
 function entryText(e) {
@@ -191,11 +272,17 @@ async function main(argv) {
   }
 
   if (cmd === "bots" && sub === "create") {
-    const name = takeFlag(rest, "--name");
-    const description = takeFlag(rest, "--description") ?? "";
-    const title = takeFlag(rest, "--title") ?? "";
-    const rec = await backend.createAgent({ name, description, title });
+    const fields = takeCreateFields(rest);
+    const rec = await backend.createAgent(fields);
     done(json, rec, "Created bot " + rec.name + " (" + rec.id + ")");
+    return;
+  }
+
+  if (cmd === "bots" && sub === "update") {
+    const ref = rest.shift();
+    if (!ref || ref.startsWith("-")) throw new StoreError("gbot bots update <id-or-name> [--name NAME] ...");
+    const rec = await backend.updateAgent(ref, takeUpdatePatch(rest));
+    done(json, rec, "Updated " + (rec.isGroup ? "group" : "bot") + " " + rec.name + " (" + rec.id + ")");
     return;
   }
 
@@ -233,11 +320,20 @@ async function main(argv) {
   }
 
   if (cmd === "groups" && sub === "create") {
-    const name = takeFlag(rest, "--name");
-    const description = takeFlag(rest, "--description") ?? "";
+    const fields = takeCreateFields(rest);
     const members = takeRepeating(rest, "--member");
-    const rec = await backend.createGroup({ name, description, memberIds: members });
+    const rec = await backend.createGroup({ ...fields, memberIds: members });
     done(json, rec, "Created group " + rec.name + " (" + rec.id + ") with " + rec.memberIds.length + " members");
+    return;
+  }
+
+  if (cmd === "groups" && sub === "update") {
+    const ref = rest.shift();
+    if (!ref || ref.startsWith("-")) throw new StoreError("gbot groups update <id-or-name> [--name NAME] ...");
+    const current = await backend.resolve(ref);
+    if (!current.isGroup) throw new StoreError('"' + current.name + '" is a bot, not a group. Use bots update.');
+    const rec = await backend.updateAgent(ref, takeUpdatePatch(rest));
+    done(json, rec, "Updated group " + rec.name + " (" + rec.id + ")");
     return;
   }
 

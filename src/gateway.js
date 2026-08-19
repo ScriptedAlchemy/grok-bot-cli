@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ensureSandboxHeaders, headersFromEnsureSandbox, headersFromEnv, mergeGatewayHeaders, normalizeHeaderMap, requestHeaders } from "./headers.js";
 import { hasGrokBotGatewaySession, loadGrokBotGatewaySession } from "./app-session.js";
+import { AVATAR_COLORS, AVATAR_SHAPES } from "./store.js";
 
 export class GatewayError extends Error {
   constructor(message, { status, method } = {}) {
@@ -131,14 +132,29 @@ function asRecord(agent) {
   if (!agent) return null;
   const id = agent.id || agent.agentId;
   const memberIds = agent.memberIds || agent.memberAgentIds || [];
+  const notify = agent.notifyOnUpdatesEnabled ?? agent.notifyOnAgentUpdates;
+  const hidden = agent.isHiddenFromSidebar ?? agent.hiddenFromSidebar;
   return {
     id,
     name: agent.name || "",
     title: agent.title || "",
     description: agent.description || "",
+    avatarShape: agent.avatarShape || "",
+    avatarColor: agent.avatarColor || "",
+    ...(notify !== undefined ? { notifyOnAgentUpdates: Boolean(notify) } : {}),
+    ...(hidden !== undefined ? { hiddenFromSidebar: Boolean(hidden) } : {}),
     isGroup: agent.isGroup === true || (agent.isGroup == null && Array.isArray(memberIds) && memberIds.length > 0),
     memberIds: Array.isArray(memberIds) ? memberIds : [],
   };
+}
+
+function assertAvatar(kind, value, allowed) {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return "";
+  if (!allowed.includes(trimmed)) {
+    throw new GatewayError("Unknown avatar " + kind + " \"" + value + "\". Use: " + allowed.join(" "));
+  }
+  return trimmed;
 }
 
 function unwrapList(data) {
@@ -176,11 +192,34 @@ export async function createAgent(session, input) {
     name: input.name,
     description: input.description || "",
     title: input.title || "",
-    avatarShape: input.avatarShape || "",
-    avatarColor: input.avatarColor || "",
+    avatarShape: assertAvatar("shape", input.avatarShape, AVATAR_SHAPES),
+    avatarColor: assertAvatar("color", input.avatarColor, AVATAR_COLORS),
     origin: "user",
   });
   return unwrapOne(data);
+}
+
+export async function updateAgent(session, ref, patch = {}) {
+  const rec = await resolveRef(session, ref);
+  if (patch.name !== undefined && !String(patch.name).trim()) {
+    throw new GatewayError("Name cannot be blank.");
+  }
+  const profile = {
+    name: patch.name !== undefined ? String(patch.name).trim() : rec.name,
+    description: patch.description !== undefined ? String(patch.description) : rec.description,
+  };
+  if (patch.title !== undefined) profile.title = String(patch.title);
+  if (patch.avatarShape !== undefined) profile.avatarShape = assertAvatar("shape", patch.avatarShape, AVATAR_SHAPES);
+  if (patch.avatarColor !== undefined) profile.avatarColor = assertAvatar("color", patch.avatarColor, AVATAR_COLORS);
+  await gatewayCall(session, "updateAgent", { id: rec.id, profile });
+  if (patch.notifyOnAgentUpdates !== undefined) {
+    await gatewayCall(session, "setAgentNotifyOnUpdates", { id: rec.id, isEnabled: Boolean(patch.notifyOnAgentUpdates) });
+  }
+  if (patch.hiddenFromSidebar !== undefined) {
+    await gatewayCall(session, "setAgentHiddenFromSidebar", { id: rec.id, isHidden: Boolean(patch.hiddenFromSidebar) });
+  }
+  const fresh = (await listAgents(session)).find((r) => r.id === rec.id);
+  return fresh || rec;
 }
 
 export async function deleteAgent(session, ref) {
@@ -197,7 +236,13 @@ export async function createGroup(session, input) {
     description: input.description || "",
     memberAgentIds,
   });
-  return unwrapOne(data);
+  const rec = unwrapOne(data);
+  const extras = {};
+  if (input.title) extras.title = input.title;
+  if (input.avatarShape) extras.avatarShape = input.avatarShape;
+  if (input.avatarColor) extras.avatarColor = input.avatarColor;
+  if (Object.keys(extras).length && rec?.id) return updateAgent(session, rec.id, extras);
+  return rec;
 }
 
 export async function setGroupMembers(session, groupRef, memberRefs) {

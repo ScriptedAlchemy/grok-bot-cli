@@ -21,8 +21,10 @@ Requires Node.js 18+ and the Grok Bot macOS app. Open Grok Bot and sign in once;
 ```sh
 gbot bots list
 gbot bots create --name Researcher
+gbot bots update Researcher --description "Research the launch" --notify on
 gbot bots create --name Writer
-gbot groups create --name Launch --member Researcher --member Writer
+gbot groups create --name Launch --member Researcher --member Writer --description "Ship together"
+gbot groups update Launch --title "Launch room" --hidden off
 gbot send Researcher "Summarize the launch status."
 gbot send Launch "Share your updates."
 gbot thread Researcher
@@ -30,6 +32,8 @@ gbot groups delete Launch
 gbot bots delete Researcher
 gbot bots delete Writer
 ```
+
+`update` fields: `--name` `--description`/`--instructions` `--title` `--avatar-shape` `--avatar-color` `--notify` `--hidden`. `--description` is the UI Instructions field.
 
 Run `gbot --help` for every command.
 
