@@ -14,6 +14,14 @@
     "gbot": "node src/cli.js",
     "test": "node --test"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ScriptedAlchemy/grok-bot-cli.git"
+  },
+  "homepage": "https://github.com/ScriptedAlchemy/grok-bot-cli#readme",
+  "bugs": {
+    "url": "https://github.com/ScriptedAlchemy/grok-bot-cli/issues"
+  },
   "license": "MIT",
   "keywords": [
     "grok-bot",
