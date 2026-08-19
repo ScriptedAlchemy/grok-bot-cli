@@ -82,3 +82,10 @@ A group is an agent plus group.json with version 1 and memberIds.
 
 MIT
 
+
+## Routing header
+
+Direct gateway calls need `GROK_BOT_GATEWAY_HEADERS` as JSON, for example `{"x-anyrun-network-token":"..."}`.
+
+EnsureSandBox gateway headers are kept and sent on every `/api/*` request. Values are not logged.
+
