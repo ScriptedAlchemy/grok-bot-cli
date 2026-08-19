@@ -1,7 +1,7 @@
 {
   "name": "grok-bot-cli",
-  "version": "0.1.1",
-  "description": "CLI for Grok Bot agents and groups: create, delete, send, and read threads",
+  "version": "0.2.0",
+  "description": "CLI for Grok Bot agents and groups: create, update, message, inspect threads, and automate cleanup",
   "type": "module",
   "bin": {
     "gbot": "src/cli.js",
@@ -24,17 +24,23 @@
   "bugs": {
     "url": "https://github.com/ScriptedAlchemy/grok-bot-cli/issues"
   },
+  "author": "Zack Jackson (https://github.com/ScriptedAlchemy)",
   "license": "MIT",
   "keywords": [
+    "grok",
     "grok-bot",
+    "grokbot",
     "gbot",
     "cursor",
+    "ai-agents",
+    "automation",
+    "terminal",
     "cli"
   ],
   "files": [
     "src",
-    "demo",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "devDependencies": {
     "@changesets/cli": "2.31.1"
