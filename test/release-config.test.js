@@ -19,3 +19,10 @@ test("npm package metadata identifies the public source repository", () => {
     url: "https://github.com/ScriptedAlchemy/grok-bot-cli/issues",
   });
 });
+
+test("npm executable paths are already normalized for publishing", () => {
+  assert.deepEqual(packageJson.bin, {
+    gbot: "src/cli.js",
+    "grok-bot": "src/cli.js",
+  });
+});

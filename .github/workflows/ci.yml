@@ -1,0 +1,40 @@
+name: Package CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+
+      - name: Test
+        run: npm test
+
+      - name: Lint the package
+        run: npx --yes publint@0.3.24
+
+      - name: Pack and smoke-test the executable
+        shell: bash
+        run: |
+          package_file=$(npm pack --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s)[0].filename))")
+          install_root=$(mktemp -d)
+          npm install --global --prefix "$install_root" "./$package_file"
+          "$install_root/bin/gbot" --help

@@ -37,6 +37,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Lint the package
+        run: npx --yes publint@0.3.24
+
       - name: Pack and smoke-test the executable
         shell: bash
         run: |

@@ -4,8 +4,8 @@
   "description": "CLI for Grok Bot agents and groups: create, delete, send, and read threads",
   "type": "module",
   "bin": {
-    "gbot": "./src/cli.js",
-    "grok-bot": "./src/cli.js"
+    "gbot": "src/cli.js",
+    "grok-bot": "src/cli.js"
   },
   "engines": {
     "node": ">=18"
