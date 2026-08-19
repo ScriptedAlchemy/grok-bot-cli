@@ -252,14 +252,11 @@ export function setGroupMembers(root, groupRef, memberRefs) {
 
 export function addGroupMember(root, groupRef, memberRef) {
   const group = resolveRef(root, groupRef);
-  if (!group.isGroup) throw new StoreError(`"${group.name}" is a bot, not a group.`);
   return setGroupMembers(root, group.id, [...group.memberIds, memberRef]);
 }
 
 export function removeGroupMember(root, groupRef, memberRef) {
   const group = resolveRef(root, groupRef);
-  if (!group.isGroup) throw new StoreError(`"${group.name}" is a bot, not a group.`);
   const member = resolveRef(root, memberRef);
-  const next = group.memberIds.filter((id) => id !== member.id);
-  return setGroupMembers(root, group.id, next);
+  return setGroupMembers(root, group.id, group.memberIds.filter((id) => id !== member.id));
 }

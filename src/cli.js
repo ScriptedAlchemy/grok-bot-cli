@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { MAX_GROUP_MEMBERS, StoreError, defaultCandidateRoots, looksLikeAgentsRoot, resolveAgentsRoot } from "./store.js";
-import { GatewayError, hasGatewayAuth } from "./gateway.js";
+import { hasGatewayAuth } from "./gateway.js";
 import { openBackend } from "./commands.js";
 
 function print(value) {
@@ -84,6 +84,10 @@ function summarize(rec) {
   };
 }
 
+function done(json, rec, text) {
+  print(json ? summarize(rec) : text);
+}
+
 function formatRecord(rec, all) {
   const kind = rec.isGroup ? "group" : "bot";
   const members = rec.isGroup
@@ -92,7 +96,7 @@ function formatRecord(rec, all) {
         return m ? m.name + " (" + id + ")" : id;
       }).join(", ")
     : "";
-  const title = rec.title ? " — " + rec.title : "";
+  const title = rec.title ? " - " + rec.title : "";
   const desc = rec.description ? "\n    " + rec.description : "";
   const extra = rec.isGroup ? "\n    members (" + rec.memberIds.length + "): " + (members || "(none)") : "";
   return kind + "  " + rec.name + title + "\n    " + rec.id + desc + extra;
@@ -143,7 +147,7 @@ async function main(argv) {
   const json = hasFlag(args, "--json");
   const gateway = hasFlag(args, "--gateway");
   const filesMode = hasFlag(args, "--files");
-  const rootFlag = takeFlag(args, "--dir") ?? takeFlag(args, "--root-dir");
+  const rootFlag = takeFlag(args, "--dir");
   const cmd = args[0];
   const sub = args[1];
   const rest = args.slice(2);
@@ -191,8 +195,7 @@ async function main(argv) {
     const description = takeFlag(rest, "--description") ?? "";
     const title = takeFlag(rest, "--title") ?? "";
     const rec = await backend.createAgent({ name, description, title });
-    if (json) print(summarize(rec));
-    else print("Created bot " + rec.name + " (" + rec.id + ")");
+    done(json, rec, "Created bot " + rec.name + " (" + rec.id + ")");
     return;
   }
 
@@ -206,8 +209,7 @@ async function main(argv) {
       return;
     }
     const rec = await backend.deleteAgent(ref);
-    if (json) print(summarize(rec));
-    else print("Deleted " + (rec.isGroup ? "group" : "bot") + " " + rec.name + " (" + rec.id + ")");
+    done(json, rec, "Deleted " + (rec.isGroup ? "group" : "bot") + " " + rec.name + " (" + rec.id + ")");
     return;
   }
 
@@ -226,8 +228,7 @@ async function main(argv) {
     const rec = await backend.resolve(ref);
     if (!rec.isGroup) throw new StoreError('"' + rec.name + '" is a bot, not a group. Use bots delete.');
     const deleted = await backend.deleteAgent(ref);
-    if (json) print(summarize(deleted));
-    else print("Deleted group " + deleted.name + " (" + deleted.id + ")");
+    done(json, deleted, "Deleted group " + deleted.name + " (" + deleted.id + ")");
     return;
   }
 
@@ -236,8 +237,7 @@ async function main(argv) {
     const description = takeFlag(rest, "--description") ?? "";
     const members = takeRepeating(rest, "--member");
     const rec = await backend.createGroup({ name, description, memberIds: members });
-    if (json) print(summarize(rec));
-    else print("Created group " + rec.name + " (" + rec.id + ") with " + rec.memberIds.length + " members");
+    done(json, rec, "Created group " + rec.name + " (" + rec.id + ") with " + rec.memberIds.length + " members");
     return;
   }
 
@@ -251,23 +251,15 @@ async function main(argv) {
     return;
   }
 
-  if (cmd === "groups" && sub === "add") {
+  if (cmd === "groups" && (sub === "add" || sub === "remove")) {
     const group = rest[0];
     const bot = rest[1];
-    if (!group || !bot) throw new StoreError("gbot groups add <group> <bot>");
-    const rec = await backend.addGroupMember(group, bot);
-    if (json) print(summarize(rec));
-    else print("Added to " + rec.name + ". Members: " + rec.memberIds.length);
-    return;
-  }
-
-  if (cmd === "groups" && sub === "remove") {
-    const group = rest[0];
-    const bot = rest[1];
-    if (!group || !bot) throw new StoreError("gbot groups remove <group> <bot>");
-    const rec = await backend.removeGroupMember(group, bot);
-    if (json) print(summarize(rec));
-    else print("Removed from " + rec.name + ". Members: " + rec.memberIds.length);
+    if (!group || !bot) throw new StoreError("gbot groups " + sub + " <group> <bot>");
+    const rec = sub === "add"
+      ? await backend.addGroupMember(group, bot)
+      : await backend.removeGroupMember(group, bot);
+    const verb = sub === "add" ? "Added to " : "Removed from ";
+    done(json, rec, verb + rec.name + ". Members: " + rec.memberIds.length);
     return;
   }
 
@@ -276,8 +268,7 @@ async function main(argv) {
     const members = takeRepeating(rest, "--member");
     if (!group) throw new StoreError("gbot groups set <group> --member ID [--member ...]");
     const rec = await backend.setGroupMembers(group, members);
-    if (json) print(summarize(rec));
-    else print("Updated " + rec.name + ". Members: " + rec.memberIds.length);
+    done(json, rec, "Updated " + rec.name + ". Members: " + rec.memberIds.length);
     return;
   }
 

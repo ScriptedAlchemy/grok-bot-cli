@@ -43,7 +43,7 @@ export async function openBackend(opts) {
     setGroupMembers: async (group, members) => files.setGroupMembers(root, group, members),
     addGroupMember: async (group, bot) => files.addGroupMember(root, group, bot),
     removeGroupMember: async (group, bot) => files.removeGroupMember(root, group, bot),
-    send: async () => { throw new files.StoreError("send requires the live gateway (--gateway or CURSOR_ACCESS_TOKEN / GROK_BOT_GATEWAY_TOKEN)"); },
+    send: async () => { throw new files.StoreError("send requires the live gateway"); },
     transcript: async () => { throw new files.StoreError("thread requires the live gateway"); },
     thread: async () => { throw new files.StoreError("thread requires the live gateway"); },
   };

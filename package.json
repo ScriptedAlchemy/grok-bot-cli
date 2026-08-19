@@ -1,7 +1,7 @@
 {
   "name": "grok-bot-cli",
   "version": "0.1.0",
-  "description": "CLI to create, delete, and group Grok Bot agents, plus send and read threads",
+  "description": "CLI for Grok Bot agents and groups: create, delete, send, and read threads",
   "type": "module",
   "bin": {
     "gbot": "./src/cli.js",
@@ -14,5 +14,15 @@
     "gbot": "node src/cli.js",
     "test": "node --test"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "keywords": [
+    "grok-bot",
+    "gbot",
+    "cursor",
+    "cli"
+  ],
+  "files": [
+    "src",
+    "README.md"
+  ]
 }
