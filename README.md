@@ -4,9 +4,9 @@
 
 Manage [Grok Bot](https://cursor.com/help/grok-bot/plans) agents, groups, and messages from your terminal.
 
-![Live create, group, send, and delete smoke test](demo/grok-bot-cli-demo.gif)
+![Live create, group, send, and delete smoke test](https://raw.githubusercontent.com/ScriptedAlchemy/grok-bot-cli/main/demo/grok-bot-cli-demo.gif)
 
-[Watch the MP4](demo/grok-bot-cli-demo.mp4)
+[Watch the MP4](https://github.com/ScriptedAlchemy/grok-bot-cli/blob/main/demo/grok-bot-cli-demo.mp4)
 
 ## Install
 
