@@ -1,6 +1,6 @@
 {
   "name": "grok-bot-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI for Grok Bot agents and groups: create, delete, send, and read threads",
   "type": "module",
   "bin": {
