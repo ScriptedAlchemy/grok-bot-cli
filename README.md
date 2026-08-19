@@ -1,91 +1,38 @@
 # grok-bot-cli
 
-CLI for [Grok Bot](https://cursor.com/help/grok-bot/plans) agents and groups: create, delete, membership, send, and read threads.
+[![npm version](https://img.shields.io/npm/v/grok-bot-cli.svg)](https://www.npmjs.com/package/grok-bot-cli)
 
-    gbot bots list
-    gbot send Oncall status
+Manage [Grok Bot](https://cursor.com/help/grok-bot/plans) agents, groups, and messages from your terminal.
 
-There is no public HTTP API. This talks to the same box gateway the macOS app uses after EnsureSandBox. Use a Cursor session JWT, not a dashboard API key.
+![Live create, group, send, and delete smoke test](demo/grok-bot-cli-demo.gif)
 
-## Setup
+[Watch the MP4](demo/grok-bot-cli-demo.mp4)
 
-Package: grok-bot-cli. Node 18+. Bins: gbot and grok-bot.
+## Install
 
-## Auth
+```sh
+npm install --global grok-bot-cli
+```
 
-Preferred: a Cursor session JWT in CURSOR_ACCESS_TOKEN.
+Requires Node.js 18+ and the Grok Bot macOS app. Open Grok Bot and sign in once; `gbot` automatically uses the app's encrypted session and routing credentials. No token copying is required.
 
-    gbot bots list
+## Use
 
-Or set GROK_BOT_GATEWAY_URL plus GROK_BOT_GATEWAY_TOKEN and pass --gateway.
+```sh
+gbot bots list
+gbot bots create --name Researcher
+gbot bots create --name Writer
+gbot groups create --name Launch --member Researcher --member Writer
+gbot send Researcher "Summarize the launch status."
+gbot send Launch "Share your updates."
+gbot thread Researcher
+gbot groups delete Launch
+gbot bots delete Researcher
+gbot bots delete Writer
+```
 
-On a Grok Bot computer, SAND_GATEWAY_TOKEN and SAND_HOST_PORT are picked up automatically.
-
-File fallback (local profile.json folders only; no send or thread):
-
-    gbot --files --dir ./tmp-agents bots create --name Oncall
-
-`--dir` is the local agents folder. `--root` is a thread message id.
-
-## Commands
-
-    gbot doctor
-    gbot bots list
-    gbot bots create --name NAME [--description TEXT] [--title TEXT]
-    gbot bots get <id-or-name>
-    gbot bots delete <id-or-name>
-
-    gbot groups list
-    gbot groups create --name NAME --member ID_OR_NAME [--member ...]
-    gbot groups get <id-or-name>
-    gbot groups members <id-or-name>
-    gbot groups add <group> <bot>
-    gbot groups remove <group> <bot>
-    gbot groups set <group> --member ID [--member ...]
-    gbot groups delete <id-or-name>
-
-    gbot send <bot-or-group> <message...>
-    gbot thread <bot-or-group> [--limit N] [--root MESSAGE_ID]
-    gbot chat <bot-or-group>
-
-Global flags: `--json` `--gateway` `--files` `--dir DIR`.
-
-Groups follow the app: at least one member, no nesting, max 6.
-
-## Examples
-
-    gbot bots create --name Oncall --description pages
-    gbot bots create --name Docs
-    gbot groups create --name Launch --member Oncall --member Docs
-    gbot send Oncall status?
-    gbot send Launch standup
-    gbot thread Oncall --limit 20
-    gbot groups delete Launch
-    gbot bots delete Oncall
-
-## Gateway
-
-The macOS app (com.anysphere.sand 0.20.0) calls:
-
-    POST {gateway}/api/listAgents
-    POST {gateway}/api/createAgent
-    POST {gateway}/api/deleteAgent
-    POST {gateway}/api/createGroup
-    POST {gateway}/api/setGroupMembers
-    POST {gateway}/api/sendPrompt
-    POST {gateway}/api/getAgentTranscriptTail
-    POST {gateway}/api/getAgentThread
-
-A group is an agent plus group.json with version 1 and memberIds.
+Run `gbot --help` for every command.
 
 ## License
 
 MIT
-
-
-## Routing header
-
-Direct gateway calls need `GROK_BOT_GATEWAY_HEADERS` as JSON, for example `{"x-anyrun-network-token":"..."}`.
-
-EnsureSandBox gateway headers are kept and sent on every `/api/*` request. Values are not logged.
-

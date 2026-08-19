@@ -23,6 +23,7 @@
   ],
   "files": [
     "src",
+    "demo",
     "README.md"
   ]
 }
