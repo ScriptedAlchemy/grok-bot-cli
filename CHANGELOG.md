@@ -1,5 +1,11 @@
 # grok-bot-cli
 
+## 0.2.1
+
+### Patch Changes
+
+- 13f6858: Remove redundant group-member normalization branches.
+
 ## 0.2.0
 
 ### Minor Changes
