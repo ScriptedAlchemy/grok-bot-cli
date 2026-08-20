@@ -45,9 +45,13 @@ jobs:
       - name: Pack and smoke-test the executable
         shell: bash
         run: |
-          package_file=$(npm pack --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s)[0].filename))")
+          package_root=$(mktemp -d)
           install_root=$(mktemp -d)
-          npm install --global --prefix "$install_root" "./$package_file"
+          npm pack --pack-destination "$package_root"
+          package_files=("$package_root"/*.tgz)
+          test -f "${package_files[0]}"
+          test "${#package_files[@]}" -eq 1
+          npm install --global --prefix "$install_root" "${package_files[0]}"
           "$install_root/bin/gbot" --help
 
       - name: Create release pull request or publish
