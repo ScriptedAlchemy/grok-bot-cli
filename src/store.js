@@ -235,9 +235,8 @@ function writeGroup(dir, memberIds) {
   });
 }
 
-function normalizeMemberIds(root, memberRefs, { groupId } = {}) {
+function normalizeMemberIds(root, memberRefs) {
   const records = listRecords(root);
-  const byId = new Map(records.map((r) => [r.id, r]));
   const groups = new Set(records.filter((r) => r.isGroup).map((r) => r.id));
   const resolved = [];
   const seen = new Set();
@@ -246,8 +245,6 @@ function normalizeMemberIds(root, memberRefs, { groupId } = {}) {
     if (groups.has(rec.id)) {
       throw new StoreError(`Cannot add group "${rec.name}" as a member. Nested groups are not allowed.`);
     }
-    if (groupId && rec.id === groupId) continue;
-    if (!byId.has(rec.id)) continue;
     if (seen.has(rec.id)) continue;
     seen.add(rec.id);
     resolved.push(rec.id);
@@ -341,7 +338,7 @@ export function createGroup(root, input) {
 export function setGroupMembers(root, groupRef, memberRefs) {
   const group = resolveRef(root, groupRef);
   if (!group.isGroup) throw new StoreError(`"${group.name}" is a bot, not a group.`);
-  const memberIds = normalizeMemberIds(root, memberRefs, { groupId: group.id });
+  const memberIds = normalizeMemberIds(root, memberRefs);
   if (memberIds.length === 0) {
     throw new StoreError("A group needs at least one existing member agent.");
   }
