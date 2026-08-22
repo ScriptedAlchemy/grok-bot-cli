@@ -8,7 +8,9 @@ import test from "node:test";
 
 const CLI = fileURLToPath(new URL("../src/cli.js", import.meta.url));
 
-test("doctor reports a present but unusable Grok Bot app session", () => {
+test("doctor reports a present but unusable Grok Bot app session", {
+  skip: process.platform !== "darwin" && "Grok Bot app sessions are macOS-only",
+}, () => {
   const home = mkdtempSync(join(tmpdir(), "gbot-doctor-home-"));
   const descriptorPath = join(
     home,
