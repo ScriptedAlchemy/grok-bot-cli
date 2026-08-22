@@ -6,6 +6,49 @@ import { join } from "node:path";
 
 const SAFE_STORAGE_PREFIX = Buffer.from("v10");
 
+export class GrokBotGatewaySessionError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "GrokBotGatewaySessionError";
+    this.code = code;
+  }
+}
+
+function encryptedPayload(wrapped) {
+  if (wrapped.version != null && wrapped.version !== 1 && wrapped.version !== 2) {
+    throw new GrokBotGatewaySessionError(
+      "UNSUPPORTED_VERSION",
+      `Unsupported Grok Bot gateway descriptor version ${wrapped.version}.`,
+    );
+  }
+  let encrypted;
+  if (wrapped.version === 2) {
+    const entries = Object.values(wrapped.entries ?? {});
+    if (entries.length === 0) {
+      throw new GrokBotGatewaySessionError(
+        "EMPTY_ENTRIES",
+        "Grok Bot gateway descriptor has no saved gateway entries.",
+      );
+    }
+    if (entries.length > 1) {
+      throw new GrokBotGatewaySessionError(
+        "AMBIGUOUS_ENTRIES",
+        "Grok Bot gateway descriptor has multiple saved gateway entries and no active entry selection.",
+      );
+    }
+    encrypted = entries[0]?.encrypted;
+  } else {
+    encrypted = wrapped.encrypted;
+  }
+  if (typeof encrypted !== "string" || !encrypted) {
+    throw new GrokBotGatewaySessionError(
+      "MISSING_ENCRYPTED_PAYLOAD",
+      "Grok Bot gateway descriptor is missing an encrypted payload.",
+    );
+  }
+  return encrypted;
+}
+
 export function decryptSafeStorageString(encryptedBase64, password) {
   const encrypted = Buffer.from(encryptedBase64, "base64");
   if (!encrypted.subarray(0, 3).equals(SAFE_STORAGE_PREFIX)) {
@@ -57,13 +100,17 @@ export function loadGrokBotGatewaySession({
   if (!existsSync(path)) return null;
 
   const wrapped = JSON.parse(readFileSync(path, "utf8"));
+  const encrypted = encryptedPayload(wrapped);
   const clear = decryptSafeStorageString(
-    wrapped.encrypted,
+    encrypted,
     getKeychainPassword(),
   );
   const descriptor = JSON.parse(clear);
   if (!descriptor.baseUrl || !descriptor.token) {
-    throw new Error("Grok Bot gateway descriptor is incomplete.");
+    throw new GrokBotGatewaySessionError(
+      "INCOMPLETE_DESCRIPTOR",
+      "Decrypted Grok Bot gateway descriptor is incomplete.",
+    );
   }
 
   return {
@@ -71,4 +118,21 @@ export function loadGrokBotGatewaySession({
     gatewayToken: String(descriptor.token),
     headers: descriptor.headers ?? {},
   };
+}
+
+export function inspectGrokBotGatewaySession(options = {}) {
+  if (!hasGrokBotGatewaySession(options)) {
+    return { present: false, usable: false };
+  }
+  try {
+    loadGrokBotGatewaySession(options);
+    return { present: true, usable: true };
+  } catch (error) {
+    return {
+      present: true,
+      usable: false,
+      code: error instanceof GrokBotGatewaySessionError ? error.code : "UNUSABLE_SESSION",
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
