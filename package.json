@@ -1,6 +1,6 @@
 {
   "name": "grok-bot-cli",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "CLI for Grok Bot agents and groups: create, update, message, inspect threads, and automate cleanup",
   "type": "module",
   "bin": {

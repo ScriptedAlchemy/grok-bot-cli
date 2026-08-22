@@ -1,5 +1,11 @@
 # grok-bot-cli
 
+## 0.2.2
+
+### Patch Changes
+
+- ce452cd: Support version 2 Grok Bot gateway descriptors and report unusable app sessions clearly in `gbot doctor`.
+
 ## 0.2.1
 
 ### Patch Changes
