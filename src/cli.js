@@ -2,6 +2,7 @@
 import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS, StoreError, defaultCandidateRoots, looksLikeAgentsRoot, resolveAgentsRoot } from "./store.js";
 import { hasGatewayAuth } from "./gateway.js";
 import { openBackend } from "./commands.js";
+import { inspectGrokBotGatewaySession } from "./app-session.js";
 
 function print(value) {
   if (typeof value === "string") process.stdout.write(value + "\n");
@@ -247,11 +248,16 @@ async function main(argv) {
       if (!(err instanceof StoreError)) throw err;
     }
     const note = "Live roster is on the box. Prefer CURSOR_ACCESS_TOKEN then EnsureSandBox then POST gateway /api/*.";
-    const payload = { resolved, found, candidates, gatewayAuthPresent: hasGatewayAuth(), note };
+    const gatewayAuthPresent = hasGatewayAuth();
+    const grokBotAppSession = inspectGrokBotGatewaySession();
+    const payload = { resolved, found, candidates, gatewayAuthPresent, grokBotAppSession, note };
     if (json) print(payload);
     else {
       print("resolved: " + (resolved ?? "(none)"));
-      print("gateway auth: " + (hasGatewayAuth() ? "yes (env)" : "no"));
+      print("gateway auth: " + (gatewayAuthPresent ? "present" : "no"));
+      if (grokBotAppSession.usable) print("Grok Bot app session: usable");
+      else if (grokBotAppSession.present) print("Grok Bot app session: present but unusable: " + grokBotAppSession.error);
+      else print("Grok Bot app session: not found");
       print("found:");
       print(found.length ? found.map((p) => "  " + p).join("\n") : "  (none)");
       print("candidates:");
