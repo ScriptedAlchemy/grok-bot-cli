@@ -37,6 +37,15 @@ gbot bots delete Writer
 
 Run `gbot --help` for every command.
 
+## Gateway URL policy
+
+By default `gbot` only sends credentials to `https` URLs on `*.cursor.sh` / `*.cursor.com`.
+
+- `GROK_BOT_ALLOW_LOCAL_GATEWAY=1` — permit `http(s)://127.0.0.1`, `localhost`, and `::1` (local/dev gateways).
+- `GROK_BOT_ALLOW_ANY_GATEWAY=1` — disable host checks (unsafe; for break-glass only).
+
+All gateway / `EnsureSandBox` fetches use `redirect: "error"` so credentials are not followed across redirects.
+
 ## License
 
 MIT

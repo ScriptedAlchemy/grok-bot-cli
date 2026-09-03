@@ -3,6 +3,7 @@ import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS, StoreError, defaultCan
 import { hasGatewayAuth } from "./gateway.js";
 import { openBackend } from "./commands.js";
 import { inspectGrokBotGatewaySession } from "./app-session.js";
+import { redactSecrets } from "./url-policy.js";
 
 function print(value) {
   if (typeof value === "string") process.stdout.write(value + "\n");
@@ -11,7 +12,7 @@ function print(value) {
 
 function fail(err) {
   let message = err instanceof Error ? err.message : String(err);
-  message = message.replace(/Bearer\s+[A-Za-z0-9._\-]+/g, "Bearer <redacted>");
+  message = redactSecrets(message);
   process.stderr.write(message + "\n");
   process.exit(1);
 }

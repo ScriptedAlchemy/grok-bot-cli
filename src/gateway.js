@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { ensureSandboxHeaders, headersFromEnsureSandbox, headersFromEnv, mergeGatewayHeaders, normalizeHeaderMap, requestHeaders } from "./headers.js";
 import { hasGrokBotGatewaySession, loadGrokBotGatewaySession } from "./app-session.js";
 import { AVATAR_COLORS, AVATAR_SHAPES } from "./store.js";
+import { assertAllowedCredentialUrl, redactSecrets } from "./url-policy.js";
 
 export class GatewayError extends Error {
   constructor(message, { status, method } = {}) {
@@ -45,7 +46,13 @@ function gatewayOverride() {
     ? "http://127.0.0.1:" + (process.env.SAND_HOST_PORT || "1340")
     : "";
   const url = explicitUrl || localUrl;
-  if (url && token) return { gatewayUrl: url.replace(/\/$/, ""), gatewayToken: token, gatewayHeaders: headersFromEnv() };
+  if (url && token) {
+    return {
+      gatewayUrl: assertAllowedCredentialUrl(url.replace(/\/$/, ""), { kind: "gateway" }),
+      gatewayToken: token,
+      gatewayHeaders: headersFromEnv(),
+    };
+  }
   return null;
 }
 
@@ -53,7 +60,7 @@ function sessionFromApp() {
   const loaded = loadGrokBotGatewaySession();
   if (!loaded) return null;
   return {
-    gatewayUrl: loaded.gatewayUrl,
+    gatewayUrl: assertAllowedCredentialUrl(loaded.gatewayUrl, { kind: "gateway" }),
     gatewayToken: loaded.gatewayToken,
     gatewayHeaders: mergeGatewayHeaders(normalizeHeaderMap(loaded.headers), headersFromEnv()),
   };
@@ -82,23 +89,24 @@ function pick(obj, ...keys) {
 }
 
 export async function ensureSandbox(accessToken) {
-  const url = backendBase() + "/aiserver.v1.GrokBotService/EnsureSandBox";
+  const url = assertAllowedCredentialUrl(backendBase(), { kind: "backend" }) + "/aiserver.v1.GrokBotService/EnsureSandBox";
   const res = await fetch(url, {
     method: "POST",
+    redirect: "error",
     headers: ensureSandboxHeaders(accessToken),
     body: "{}",
   });
   const body = await readJson(res);
   if (!res.ok) {
     const detail = body.message || body.error || body.raw || res.statusText;
-    throw new GatewayError("EnsureSandBox failed: " + res.status + " " + detail, { status: res.status, method: "EnsureSandBox" });
+    throw new GatewayError("EnsureSandBox failed: " + res.status + " " + redactSecrets(detail), { status: res.status, method: "EnsureSandBox" });
   }
   const gatewayUrl = pick(body, "gatewayUrl", "gateway_url");
   const gatewayToken = pick(body, "gatewayToken", "gateway_token");
   if (!gatewayUrl || !gatewayToken) {
     throw new GatewayError("EnsureSandBox returned no gatewayUrl/gatewayToken. Auth may be a dashboard API key (those do not work).");
   }
-  return { gatewayUrl: String(gatewayUrl).replace(/\/$/, ""), gatewayToken: String(gatewayToken), gatewayHeaders: mergeGatewayHeaders(headersFromEnsureSandbox(body), headersFromEnv()) };
+  return { gatewayUrl: assertAllowedCredentialUrl(String(gatewayUrl).replace(/\/$/, ""), { kind: "gateway" }), gatewayToken: String(gatewayToken), gatewayHeaders: mergeGatewayHeaders(headersFromEnsureSandbox(body), headersFromEnv()) };
 }
 
 export async function connectGateway() {
@@ -114,16 +122,18 @@ export async function connectGateway() {
 }
 
 export async function gatewayCall(session, method, body = {}) {
-  const url = session.gatewayUrl + "/api/" + method;
+  const base = assertAllowedCredentialUrl(session.gatewayUrl, { kind: "gateway" });
+  const url = base + "/api/" + method;
   const res = await fetch(url, {
     method: "POST",
+    redirect: "error",
     headers: requestHeaders(session),
     body: JSON.stringify(body),
   });
   const data = await readJson(res);
   if (!res.ok) {
     const detail = data.message || data.error || data.raw || res.statusText;
-    throw new GatewayError(method + " failed: " + res.status + " " + String(detail).slice(0, 300), { status: res.status, method });
+    throw new GatewayError(method + " failed: " + res.status + " " + redactSecrets(String(detail).slice(0, 300)), { status: res.status, method });
   }
   return data;
 }
