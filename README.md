@@ -27,7 +27,9 @@ gbot groups create --name Launch --member Researcher --member Writer --descripti
 gbot groups update Launch --title "Launch room" --hidden off
 gbot send Researcher "Summarize the launch status."
 gbot send Launch "Share your updates."
+printf %s 'Exact UTF-8 message' | gbot send Researcher --stdin
 gbot thread Researcher
+gbot --json thread Researcher --normalized --limit 50
 gbot groups delete Launch
 gbot bots delete Researcher
 gbot bots delete Writer
@@ -36,6 +38,17 @@ gbot bots delete Writer
 `update` fields: `--name` `--description`/`--instructions` `--title` `--avatar-shape` `--avatar-color` `--notify` `--hidden`. `--description` is the UI Instructions field.
 
 Run `gbot --help` for every command.
+
+Use `send <target> --stdin` when the message must not appear in the process
+argument list. Standard input is preserved exactly and must be valid UTF-8,
+non-empty, free of NUL bytes and surrounding whitespace, and no larger than
+64 KiB. Do not combine `--stdin` with a positional message. In particular, use
+`printf %s` rather than `echo` when an extra trailing newline is not intended.
+
+For integrations that need a stable transcript shape, combine `--normalized`
+with `--json thread` or `--json chat`. It returns only the target identity and
+messages with `id`, explicit `user`/`assistant`/`unknown` role, and text. Without
+`--normalized`, JSON output remains the original gateway response.
 
 ## Gateway failures and readback
 

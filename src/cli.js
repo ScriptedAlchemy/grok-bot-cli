@@ -3,7 +3,12 @@ import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS, StoreError, defaultCan
 import { hasGatewayAuth } from "./gateway.js";
 import { openBackend } from "./commands.js";
 import { inspectGrokBotGatewaySession } from "./app-session.js";
-import { entryText } from "./transcript.js";
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { entryText, normalizeTranscript } from "./transcript.js";
+
+const MAX_STDIN_MESSAGE_BYTES = 64 * 1024;
 
 function print(value) {
   if (typeof value === "string") process.stdout.write(value + "\n");
@@ -46,14 +51,15 @@ function usage() {
     "  groups set <group> --member ID [--member ...]",
     "  groups delete <id-or-name>",
     "  send <bot-or-group> <message...>",
-    "  thread <bot-or-group> [--limit N] [--root MESSAGE_ID]",
+    "  send <bot-or-group> --stdin",
+    "  thread <bot-or-group> [--limit N] [--root MESSAGE_ID] [--json --normalized]",
     "  chat <bot-or-group>     alias for thread",
     "",
     "Max group members: " + MAX_GROUP_MEMBERS,
     "--description / --instructions is the UI Instructions field (same key).",
     "Avatar shapes: " + AVATAR_SHAPES.join(" "),
     "Avatar colors: " + AVATAR_COLORS.join(" "),
-    "Flags: --gateway  --files  --dir DIR  --json",
+    "Flags: --gateway  --files  --dir DIR  --json  --stdin  --normalized",
     "Auth: GROK_BOT_GATEWAY_URL + GROK_BOT_GATEWAY_TOKEN, or the Grok Bot app session, or CURSOR_ACCESS_TOKEN",
     "File fallback: GROK_BOT_AGENTS_DIR",
   ].join("\n");
@@ -160,8 +166,8 @@ function summarize(rec) {
   };
 }
 
-function done(json, rec, text) {
-  print(json ? summarize(rec) : text);
+function done(json, rec, text, printImpl = print) {
+  printImpl(json ? summarize(rec) : text);
 }
 
 function formatRecord(rec, all) {
@@ -203,23 +209,68 @@ function formatTranscript(out) {
   return lines.join("\n");
 }
 
-async function main(argv) {
+async function readStdinMessage(stdin) {
+  const chunks = [];
+  let byteLength = 0;
+  for await (const chunk of stdin) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    byteLength += bytes.length;
+    if (byteLength > MAX_STDIN_MESSAGE_BYTES) {
+      throw new StoreError("stdin message must be at most 64 KiB.");
+    }
+    chunks.push(bytes);
+  }
+  if (byteLength === 0) throw new StoreError("stdin message must not be empty.");
+
+  let message;
+  try {
+    message = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks));
+  } catch {
+    throw new StoreError("stdin message must be valid UTF-8.");
+  }
+  if (message.includes("\0")) throw new StoreError("stdin message must not contain a NUL byte.");
+  if (message.trim() !== message) {
+    throw new StoreError("stdin message must not have surrounding whitespace.");
+  }
+  return message;
+}
+
+export async function main(argv, options = {}) {
+  const openBackendImpl = options.openBackendImpl ?? openBackend;
+  const stdin = options.stdin ?? process.stdin;
+  const printImpl = options.printImpl ?? print;
   const args = argv.slice(2);
   if (args.length === 0 || args[0] === "-h" || args[0] === "--help") {
-    print(usage());
+    printImpl(usage());
     return;
   }
 
   const json = hasFlag(args, "--json");
   const gateway = hasFlag(args, "--gateway");
   const filesMode = hasFlag(args, "--files");
+  const stdinMode = hasFlag(args, "--stdin");
+  const normalized = hasFlag(args, "--normalized");
   const rootFlag = takeFlag(args, "--dir");
   const cmd = args[0];
   const sub = args[1];
   const rest = args.slice(2);
   if (!cmd) {
-    print(usage());
+    printImpl(usage());
     return;
+  }
+  if (stdinMode && cmd !== "send") throw new StoreError("--stdin is only valid with send.");
+  if (normalized && cmd !== "thread" && cmd !== "chat") {
+    throw new StoreError("--normalized is only valid with thread or chat.");
+  }
+  if (normalized && !json) throw new StoreError("--normalized requires --json.");
+  if (stdinMode && rest.length > 0) {
+    throw new StoreError("--stdin cannot be combined with a positional message.");
+  }
+
+  let stdinMessage;
+  if (stdinMode) {
+    if (!sub) throw new StoreError("gbot send <bot-or-group> --stdin");
+    stdinMessage = await readStdinMessage(stdin);
   }
 
   if (cmd === "doctor") {
@@ -235,36 +286,36 @@ async function main(argv) {
     const gatewayAuthPresent = hasGatewayAuth();
     const grokBotAppSession = inspectGrokBotGatewaySession();
     const payload = { resolved, found, candidates, gatewayAuthPresent, grokBotAppSession, note };
-    if (json) print(payload);
+    if (json) printImpl(payload);
     else {
-      print("resolved: " + (resolved ?? "(none)"));
-      print("gateway auth: " + (gatewayAuthPresent ? "present" : "no"));
-      if (grokBotAppSession.usable) print("Grok Bot app session: usable");
-      else if (grokBotAppSession.present) print("Grok Bot app session: present but unusable: " + grokBotAppSession.error);
-      else print("Grok Bot app session: not found");
-      print("found:");
-      print(found.length ? found.map((p) => "  " + p).join("\n") : "  (none)");
-      print("candidates:");
-      for (const c of candidates) print("  " + c);
-      print(note);
+      printImpl("resolved: " + (resolved ?? "(none)"));
+      printImpl("gateway auth: " + (gatewayAuthPresent ? "present" : "no"));
+      if (grokBotAppSession.usable) printImpl("Grok Bot app session: usable");
+      else if (grokBotAppSession.present) printImpl("Grok Bot app session: present but unusable: " + grokBotAppSession.error);
+      else printImpl("Grok Bot app session: not found");
+      printImpl("found:");
+      printImpl(found.length ? found.map((p) => "  " + p).join("\n") : "  (none)");
+      printImpl("candidates:");
+      for (const c of candidates) printImpl("  " + c);
+      printImpl(note);
     }
     return;
   }
 
-  const backend = await openBackend({ root: rootFlag, gateway, files: filesMode });
+  const backend = await openBackendImpl({ root: rootFlag, gateway, files: filesMode });
 
   if (cmd === "bots" && sub === "list") {
     const rows = (await backend.list()).filter((r) => !r.isGroup);
-    if (json) print(rows.map(summarize));
-    else if (rows.length === 0) print("No bots.");
-    else print(rows.map((r) => formatRecord(r, rows)).join("\n\n"));
+    if (json) printImpl(rows.map(summarize));
+    else if (rows.length === 0) printImpl("No bots.");
+    else printImpl(rows.map((r) => formatRecord(r, rows)).join("\n\n"));
     return;
   }
 
   if (cmd === "bots" && sub === "create") {
     const fields = takeCreateFields(rest);
     const rec = await backend.createAgent(fields);
-    done(json, rec, "Created bot " + rec.name + " (" + rec.id + ")");
+    done(json, rec, "Created bot " + rec.name + " (" + rec.id + ")", printImpl);
     return;
   }
 
@@ -272,7 +323,7 @@ async function main(argv) {
     const ref = rest.shift();
     if (!ref || ref.startsWith("-")) throw new StoreError("gbot bots update <id-or-name> [--name NAME] ...");
     const rec = await backend.updateAgent(ref, takeUpdatePatch(rest));
-    done(json, rec, "Updated " + (rec.isGroup ? "group" : "bot") + " " + rec.name + " (" + rec.id + ")");
+    done(json, rec, "Updated " + (rec.isGroup ? "group" : "bot") + " " + rec.name + " (" + rec.id + ")", printImpl);
     return;
   }
 
@@ -281,21 +332,21 @@ async function main(argv) {
     if (!ref) throw new StoreError("gbot bots " + sub + " <id-or-name>");
     if (sub === "get") {
       const rec = await backend.resolve(ref);
-      if (json) print(summarize(rec));
-      else print(formatRecord(rec, await backend.list()));
+      if (json) printImpl(summarize(rec));
+      else printImpl(formatRecord(rec, await backend.list()));
       return;
     }
     const rec = await backend.deleteAgent(ref);
-    done(json, rec, "Deleted " + (rec.isGroup ? "group" : "bot") + " " + rec.name + " (" + rec.id + ")");
+    done(json, rec, "Deleted " + (rec.isGroup ? "group" : "bot") + " " + rec.name + " (" + rec.id + ")", printImpl);
     return;
   }
 
   if (cmd === "groups" && sub === "list") {
     const all = await backend.list();
     const rows = all.filter((r) => r.isGroup);
-    if (json) print(rows.map(summarize));
-    else if (rows.length === 0) print("No groups.");
-    else print(rows.map((r) => formatRecord(r, all)).join("\n\n"));
+    if (json) printImpl(rows.map(summarize));
+    else if (rows.length === 0) printImpl("No groups.");
+    else printImpl(rows.map((r) => formatRecord(r, all)).join("\n\n"));
     return;
   }
 
@@ -305,7 +356,7 @@ async function main(argv) {
     const rec = await backend.resolve(ref);
     if (!rec.isGroup) throw new StoreError('"' + rec.name + '" is a bot, not a group. Use bots delete.');
     const deleted = await backend.deleteAgent(ref);
-    done(json, deleted, "Deleted group " + deleted.name + " (" + deleted.id + ")");
+    done(json, deleted, "Deleted group " + deleted.name + " (" + deleted.id + ")", printImpl);
     return;
   }
 
@@ -313,7 +364,7 @@ async function main(argv) {
     const fields = takeCreateFields(rest);
     const members = takeRepeating(rest, "--member");
     const rec = await backend.createGroup({ ...fields, memberIds: members });
-    done(json, rec, "Created group " + rec.name + " (" + rec.id + ") with " + rec.memberIds.length + " members");
+    done(json, rec, "Created group " + rec.name + " (" + rec.id + ") with " + rec.memberIds.length + " members", printImpl);
     return;
   }
 
@@ -323,7 +374,7 @@ async function main(argv) {
     const current = await backend.resolve(ref);
     if (!current.isGroup) throw new StoreError('"' + current.name + '" is a bot, not a group. Use bots update.');
     const rec = await backend.updateAgent(ref, takeUpdatePatch(rest));
-    done(json, rec, "Updated group " + rec.name + " (" + rec.id + ")");
+    done(json, rec, "Updated group " + rec.name + " (" + rec.id + ")", printImpl);
     return;
   }
 
@@ -332,8 +383,8 @@ async function main(argv) {
     if (!ref) throw new StoreError("gbot groups " + sub + " <id-or-name>");
     const rec = await backend.resolve(ref);
     if (!rec.isGroup) throw new StoreError('"' + rec.name + '" is a bot, not a group.');
-    if (json) print(summarize(rec));
-    else print(formatRecord(rec, await backend.list()));
+    if (json) printImpl(summarize(rec));
+    else printImpl(formatRecord(rec, await backend.list()));
     return;
   }
 
@@ -345,7 +396,7 @@ async function main(argv) {
       ? await backend.addGroupMember(group, bot)
       : await backend.removeGroupMember(group, bot);
     const verb = sub === "add" ? "Added to " : "Removed from ";
-    done(json, rec, verb + rec.name + ". Members: " + rec.memberIds.length);
+    done(json, rec, verb + rec.name + ". Members: " + rec.memberIds.length, printImpl);
     return;
   }
 
@@ -354,17 +405,17 @@ async function main(argv) {
     const members = takeRepeating(rest, "--member");
     if (!group) throw new StoreError("gbot groups set <group> --member ID [--member ...]");
     const rec = await backend.setGroupMembers(group, members);
-    done(json, rec, "Updated " + rec.name + ". Members: " + rec.memberIds.length);
+    done(json, rec, "Updated " + rec.name + ". Members: " + rec.memberIds.length, printImpl);
     return;
   }
 
   if (cmd === "send") {
     const ref = sub;
-    const message = rest.join(" ").trim();
+    const message = stdinMode ? stdinMessage : rest.join(" ").trim();
     if (!ref || !message) throw new StoreError("gbot send <bot-or-group> <message...>");
     const out = await backend.send(ref, message);
-    if (json) print({ id: out.target.id, name: out.target.name, kind: out.target.isGroup ? "group" : "bot", result: out.result });
-    else print("Sent to " + (out.target.isGroup ? "group" : "bot") + " " + out.target.name + " (" + out.target.id + ")");
+    if (json) printImpl({ id: out.target.id, name: out.target.name, kind: out.target.isGroup ? "group" : "bot", result: out.result });
+    else printImpl("Sent to " + (out.target.isGroup ? "group" : "bot") + " " + out.target.name + " (" + out.target.id + ")");
     return;
   }
 
@@ -375,12 +426,22 @@ async function main(argv) {
     const rootId = takeFlag(rest, "--root");
     const limit = limitRaw ? Number(limitRaw) : 40;
     const out = rootId ? await backend.thread(ref, rootId) : await backend.transcript(ref, limit);
-    if (json) print(out);
-    else print(formatTranscript(out));
+    if (normalized) printImpl(normalizeTranscript(out));
+    else if (json) printImpl(out);
+    else printImpl(formatTranscript(out));
     return;
   }
 
   throw new StoreError(usage());
 }
 
-main(process.argv).catch(fail);
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) main(process.argv).catch(fail);
