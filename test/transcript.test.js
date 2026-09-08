@@ -101,6 +101,55 @@ test("normalizer marks conflicting explicit roles unknown", () => {
   assert.equal(normalized.messages[0].role, "unknown");
 });
 
+test("normalizer rejects conflicting text evidence without changing display formatting", () => {
+  const target = { id: "bot-1", name: "Bot", isGroup: false };
+  const conflicting = { id: "1", text: "first", preview: "second" };
+
+  assert.equal(entryText(conflicting), "first");
+  assert.throws(
+    () => normalizeTranscript({ target, transcript: { entries: [conflicting] } }),
+    /conflicting transcript text/i,
+  );
+});
+
+test("normalizer rejects conflicting nested message text and content", () => {
+  const target = { id: "bot-1", name: "Bot", isGroup: false };
+  assert.throws(
+    () => normalizeTranscript({
+      target,
+      transcript: {
+        entries: [{ id: "1", message: { type: "text", text: "first", content: "second" } }],
+      },
+    }),
+    /conflicting transcript text/i,
+  );
+});
+
+test("matching text carriers normalize once and content arrays remain intact", () => {
+  const target = { id: "bot-1", name: "Bot", isGroup: false };
+  const normalized = normalizeTranscript({
+    target,
+    transcript: {
+      entries: [
+        { id: "1", text: "same", preview: "same" },
+        { id: "2", message: { content: ["first", { text: "second" }] } },
+      ],
+    },
+  });
+  assert.equal(normalized.messages[0].text, "same");
+  assert.equal(normalized.messages[1].text, "first\nsecond");
+});
+
+test("send-message with nested type text stays unknown", () => {
+  const normalized = normalizeTranscript({
+    target: { id: "bot-1", name: "Bot", isGroup: false },
+    transcript: {
+      entries: [{ id: "1", kind: "send-message", message: { type: "text", content: "hello" } }],
+    },
+  });
+  assert.equal(normalized.messages[0].role, "unknown");
+});
+
 test("normalizer supports items and direct array containers", () => {
   const target = { id: "bot-1", name: "Bot", isGroup: false };
   assert.equal(normalizeTranscript({ target, transcript: { items: [] } }).messages.length, 0);
@@ -142,4 +191,30 @@ test("normalizer fails closed on malformed target and message identities", () =>
     normalizeTranscript({ target, transcript: { entries: [{ text: "no id" }] } }).messages[0],
     { id: null, role: "unknown", text: "no id" },
   );
+});
+
+test("normalizer rejects conflicting or malformed ID carriers", () => {
+  const target = { id: "bot-1", name: "Bot", isGroup: false };
+  for (const entry of [
+    { id: "first", messageId: "second", text: "message" },
+    { id: "first", messageId: {}, text: "message" },
+    { id: {}, messageId: "second", text: "message" },
+  ]) {
+    assert.throws(
+      () => normalizeTranscript({ target, transcript: { entries: [entry] } }),
+      /invalid transcript message id/i,
+    );
+  }
+
+  const messages = normalizeTranscript({
+    target,
+    transcript: {
+      entries: [
+        { id: "same", messageId: "same", text: "one" },
+        { id: null, messageId: "fallback", text: "two" },
+      ],
+    },
+  }).messages;
+  assert.equal(messages[0].id, "same");
+  assert.equal(messages[1].id, "fallback");
 });

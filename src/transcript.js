@@ -50,6 +50,46 @@ function isNonblankString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+const TEXT_CARRIERS = ["text", "prompt", "message", "preview", "content"];
+
+function evidenceText(value) {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    return value.map((part) => evidenceText(part)).filter(Boolean).join("\n");
+  }
+  if (!value || typeof value !== "object") return "";
+
+  const candidates = TEXT_CARRIERS
+    .filter((key) => Object.prototype.hasOwnProperty.call(value, key))
+    .map((key) => evidenceText(value[key]))
+    .filter(Boolean);
+  if (new Set(candidates).size > 1) {
+    throw new Error("Conflicting transcript text evidence.");
+  }
+  return candidates[0] ?? "";
+}
+
+function normalizedEntryText(entry) {
+  evidenceText(entry);
+  return entryText(entry);
+}
+
+function normalizedMessageId(entry) {
+  const candidates = [];
+  for (const key of ["id", "messageId"]) {
+    if (!Object.prototype.hasOwnProperty.call(entry, key)) continue;
+    const value = entry[key];
+    if (value !== null && !isNonblankString(value)) {
+      throw new Error("Invalid transcript message id.");
+    }
+    if (value !== null) candidates.push(value);
+  }
+  if (new Set(candidates).size > 1) {
+    throw new Error("Invalid transcript message id.");
+  }
+  return candidates[0] ?? null;
+}
+
 export function normalizeTranscript(out) {
   if (!out || typeof out !== "object" || Array.isArray(out)) {
     throw new Error("Invalid transcript response.");
@@ -74,14 +114,10 @@ export function normalizeTranscript(out) {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
       throw new Error("Invalid transcript entry.");
     }
-    const rawId = entry.id ?? entry.messageId ?? null;
-    if (rawId !== null && !isNonblankString(rawId)) {
-      throw new Error("Invalid transcript message id.");
-    }
     return {
-      id: rawId,
+      id: normalizedMessageId(entry),
       role: explicitRole(entry),
-      text: entryText(entry),
+      text: normalizedEntryText(entry),
     };
   });
 
