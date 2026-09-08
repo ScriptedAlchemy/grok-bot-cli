@@ -37,6 +37,25 @@ gbot bots delete Writer
 
 Run `gbot --help` for every command.
 
+## Gateway failures and readback
+
+Gateway requests have a 15-second deadline that includes reading the response body.
+Requests are not retried automatically, and redirects are rejected. Errors report
+the method and status without including server response bodies or credentials.
+
+A send timeout, network failure, HTTP 408 or 5xx, or an invalid/empty success
+response can leave delivery unknown. Do not resend automatically: read the target
+thread and verify the original message in the Grok Bot app first. A new CLI send
+uses a new client nonce, so invoking it again is not a deduplicated retry.
+
+The gateway module accepts an optional positive `timeoutMs` in the final options
+argument of `ensureSandbox` and `gatewayCall`. The CLI uses the 15-second default.
+
+Plain-text transcript output handles both direct content and nested
+`message.content` / `message.text`. Use `--json` when the full structured result is
+needed. These integrations depend on the signed-in app and its internal gateway;
+revalidate reads and one controlled send after app or service changes.
+
 ## License
 
 MIT

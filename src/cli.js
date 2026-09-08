@@ -3,6 +3,7 @@ import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS, StoreError, defaultCan
 import { hasGatewayAuth } from "./gateway.js";
 import { openBackend } from "./commands.js";
 import { inspectGrokBotGatewaySession } from "./app-session.js";
+import { entryText } from "./transcript.js";
 
 function print(value) {
   if (typeof value === "string") process.stdout.write(value + "\n");
@@ -182,23 +183,6 @@ function formatRecord(rec, all) {
   const settingsLine = settings.length ? "\n    " + settings.join(", ") : "";
   const extra = rec.isGroup ? "\n    members (" + rec.memberIds.length + "): " + (members || "(none)") : "";
   return kind + "  " + rec.name + title + "\n    " + rec.id + desc + avatar + settingsLine + extra;
-}
-
-function entryText(e) {
-  if (!e || typeof e !== "object") return "";
-  const direct = e.text || e.prompt || e.message || e.preview;
-  if (typeof direct === "string" && direct) return direct;
-  const content = e.content;
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content.map((part) => {
-      if (typeof part === "string") return part;
-      if (part && typeof part === "object") return part.text || part.content || "";
-      return "";
-    }).filter(Boolean).join("\n");
-  }
-  if (content && typeof content === "object") return content.text || JSON.stringify(content);
-  return "";
 }
 
 function formatTranscript(out) {
