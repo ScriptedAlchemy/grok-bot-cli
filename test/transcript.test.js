@@ -150,6 +150,15 @@ test("send-message with nested type text stays unknown", () => {
   assert.equal(normalized.messages[0].role, "unknown");
 });
 
+test("normalized evidence never synthesizes JSON from non-text content", () => {
+  const normalized = normalizeTranscript({
+    target: { id: "bot-1", name: "Bot", isGroup: false },
+    transcript: { entries: [{ id: "new", role: "user", content: { type: "image" } }] },
+  });
+  assert.equal(normalized.messages[0].text, "");
+  assert.equal(entryText({ content: { type: "image" } }), '{"type":"image"}');
+});
+
 test("normalizer supports items and direct array containers", () => {
   const target = { id: "bot-1", name: "Bot", isGroup: false };
   assert.equal(normalizeTranscript({ target, transcript: { items: [] } }).messages.length, 0);

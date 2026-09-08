@@ -70,8 +70,7 @@ function evidenceText(value) {
 }
 
 function normalizedEntryText(entry) {
-  evidenceText(entry);
-  return entryText(entry);
+  return evidenceText(entry);
 }
 
 function normalizedMessageId(entry) {
