@@ -418,3 +418,27 @@ test("HTTP error aborts controller to release the socket", async () => {
   );
   assert.equal(signal.aborted, true);
 });
+
+test("non-object send responses (0, empty string) report unknown effect", async () => {
+  for (const body of ["0", '""']) {
+    await assert.rejects(
+      gatewayCall(session, "sendPrompt", { prompt: "hello" }, {
+        fetchImpl: async () => response({ body }),
+      }),
+      (error) => {
+        assert.equal(error.code, "GATEWAY_INVALID_RESPONSE");
+        assert.equal(error.effect, "unknown");
+        return true;
+      },
+    );
+  }
+});
+
+test("non-object values for non-send methods pass through as-is", async () => {
+  for (const [body, expected] of [["0", 0], ['""', ""]]) {
+    const result = await gatewayCall(session, "deleteAgent", {}, {
+      fetchImpl: async () => response({ body }),
+    });
+    assert.equal(result, expected);
+  }
+});

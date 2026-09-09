@@ -228,7 +228,7 @@ export async function gatewayCall(session, method, body = {}, options = {}) {
   if (!res.ok) {
     throw httpError(method, res.status);
   }
-  if (invalidJson || (method === "sendPrompt" && (emptyBody || data === null || data === false))) throw invalidResponseError(method);
+  if (invalidJson || (method === "sendPrompt" && (emptyBody || !data || typeof data !== "object"))) throw invalidResponseError(method);
   return data;
 }
 

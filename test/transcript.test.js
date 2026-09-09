@@ -145,6 +145,19 @@ test("loose carrier kind does not veto nested role inference", () => {
   assert.equal(normalized.messages[0].role, "assistant");
 });
 
+test("malformed non-string strict role carrier vetoes inference", () => {
+  for (const role of [42, true, {}]) {
+    const normalized = normalizeTranscript({
+      target: { id: "bot-1", name: "Bot", isGroup: false },
+      transcript: {
+        entries: [{ id: "1", role, message: { type: "assistant", content: "hello" } }],
+      },
+    });
+    assert.equal(normalized.messages[0].role, "unknown",
+      `role: ${JSON.stringify(role)} should veto assistant inference`);
+  }
+});
+
 test("normalizer rejects conflicting text evidence without changing display formatting", () => {
   const target = { id: "bot-1", name: "Bot", isGroup: false };
   const conflicting = { id: "1", text: "first", preview: "second" };

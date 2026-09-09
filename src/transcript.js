@@ -47,7 +47,7 @@ function explicitRole(entry) {
   for (const candidate of strictCandidates) {
     if (candidate === "user" || candidate === "assistant") {
       roles.add(candidate);
-    } else if (typeof candidate === "string" && candidate.length > 0) {
+    } else if (candidate != null && candidate !== "") {
       hasUnsupportedRole = true;
     }
   }
