@@ -321,3 +321,46 @@ test("gateway fetch rejects redirects while preserving a normal HTTPS request", 
     method: "POST",
   });
 });
+
+test("HTTP error with stalled body reports HTTP status, not timeout", async () => {
+  await assert.rejects(
+    gatewayCall(session, "sendPrompt", { prompt: "hello" }, {
+      timeoutMs: 50,
+      fetchImpl: async () => ({
+        ok: false,
+        status: 400,
+        statusText: "",
+        text: async () => new Promise(() => {}),
+      }),
+    }),
+    (error) => {
+      assert.equal(error.message, "sendPrompt failed with HTTP 400.");
+      assert.equal(error.status, 400);
+      assert.equal(error.effect, undefined);
+      assert.notEqual(error.code, "GATEWAY_TIMEOUT");
+      return true;
+    },
+  );
+});
+
+test("5xx error with stalled body reports HTTP status with unknown effect, not timeout", async () => {
+  await assert.rejects(
+    gatewayCall(session, "sendPrompt", { prompt: "hello" }, {
+      timeoutMs: 50,
+      fetchImpl: async () => ({
+        ok: false,
+        status: 503,
+        statusText: "",
+        text: async () => new Promise(() => {}),
+      }),
+    }),
+    (error) => {
+      assert.equal(error.message, "sendPrompt failed with HTTP 503; delivery is unknown. Do not resend automatically.");
+      assert.equal(error.status, 503);
+      assert.equal(error.effect, "unknown");
+      assert.notEqual(error.code, "GATEWAY_TIMEOUT");
+      return true;
+    },
+  );
+});
+

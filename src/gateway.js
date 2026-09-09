@@ -165,6 +165,7 @@ async function requestJson(method, url, init, options = {}) {
       fetchImpl(url, { ...init, redirect: "error", signal: controller.signal }),
       deadline,
     ]);
+    if (!res.ok) return { res, data: undefined, invalidJson: false, emptyBody: true };
     const parsed = await Promise.race([readJson(res), deadline]);
     return { res, ...parsed };
   } catch (error) {
