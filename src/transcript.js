@@ -67,6 +67,11 @@ const TEXT_CARRIERS = ["text", "prompt", "message", "preview", "content"];
 function evidenceText(value) {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) {
+    for (const part of value) {
+      if (part != null && typeof part !== "string" && typeof part !== "object") {
+        throw new Error("Malformed transcript text evidence.");
+      }
+    }
     return value.map((part) => evidenceText(part)).filter(Boolean).join("\n");
   }
   if (!value || typeof value !== "object") return "";

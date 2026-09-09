@@ -196,6 +196,17 @@ test("normalizer rejects malformed non-string text carriers", () => {
   }
 });
 
+test("normalizer rejects malformed primitives inside text arrays", () => {
+  const target = { id: "bot-1", name: "Bot", isGroup: false };
+  assert.throws(
+    () => normalizeTranscript({
+      target,
+      transcript: { entries: [{ id: "1", content: ["hello", 42] }] },
+    }),
+    /malformed transcript text/i,
+  );
+});
+
 test("matching text carriers normalize once and content arrays remain intact", () => {
   const target = { id: "bot-1", name: "Bot", isGroup: false };
   const normalized = normalizeTranscript({
