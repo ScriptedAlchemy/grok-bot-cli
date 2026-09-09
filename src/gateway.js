@@ -165,7 +165,10 @@ async function requestJson(method, url, init, options = {}) {
       fetchImpl(url, { ...init, redirect: "error", signal: controller.signal }),
       deadline,
     ]);
-    if (!res.ok) return { res, data: undefined, invalidJson: false, emptyBody: true };
+    if (!res.ok) {
+      controller.abort();
+      return { res, data: undefined, invalidJson: false, emptyBody: true };
+    }
     const parsed = await Promise.race([readJson(res), deadline]);
     return { res, ...parsed };
   } catch (error) {
@@ -225,7 +228,7 @@ export async function gatewayCall(session, method, body = {}, options = {}) {
   if (!res.ok) {
     throw httpError(method, res.status);
   }
-  if (invalidJson || (method === "sendPrompt" && (emptyBody || data === null))) throw invalidResponseError(method);
+  if (invalidJson || (method === "sendPrompt" && (emptyBody || data === null || data === false))) throw invalidResponseError(method);
   return data;
 }
 

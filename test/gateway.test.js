@@ -384,3 +384,37 @@ test("null JSON for non-send methods returns null data as-is", async () => {
   });
   assert.equal(result, null);
 });
+
+test("false JSON send response reports unknown effect", async () => {
+  await assert.rejects(
+    gatewayCall(session, "sendPrompt", { prompt: "hello" }, {
+      fetchImpl: async () => response({ body: "false" }),
+    }),
+    (error) => {
+      assert.equal(error.code, "GATEWAY_INVALID_RESPONSE");
+      assert.equal(error.effect, "unknown");
+      return true;
+    },
+  );
+});
+
+test("false JSON for non-send methods returns false data as-is", async () => {
+  const result = await gatewayCall(session, "deleteAgent", {}, {
+    fetchImpl: async () => response({ body: "false" }),
+  });
+  assert.equal(result, false);
+});
+
+test("HTTP error aborts controller to release the socket", async () => {
+  let signal;
+  await assert.rejects(
+    gatewayCall(session, "listAgents", {}, {
+      fetchImpl: async (url, init) => {
+        signal = init.signal;
+        return response({ ok: false, status: 500 });
+      },
+    }),
+    (error) => error.status === 500,
+  );
+  assert.equal(signal.aborted, true);
+});
