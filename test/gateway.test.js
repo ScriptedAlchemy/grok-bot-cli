@@ -468,3 +468,25 @@ test("empty-object send response reports unknown effect", async () => {
     },
   );
 });
+
+test("negative send acknowledgements (ok:false, error field) report unknown effect", async () => {
+  for (const body of ['{"ok":false}', '{"success":false}', '{"error":"rejected"}']) {
+    await assert.rejects(
+      gatewayCall(session, "sendPrompt", { prompt: "hello" }, {
+        fetchImpl: async () => response({ body }),
+      }),
+      (error) => {
+        assert.equal(error.code, "GATEWAY_INVALID_RESPONSE");
+        assert.equal(error.effect, "unknown");
+        return true;
+      },
+    );
+  }
+});
+
+test("affirmative send acknowledgement with ok:true is accepted", async () => {
+  const result = await gatewayCall(session, "sendPrompt", { prompt: "hello" }, {
+    fetchImpl: async () => response({ body: '{"ok":true,"id":"msg-1"}' }),
+  });
+  assert.deepEqual(result, { ok: true, id: "msg-1" });
+});

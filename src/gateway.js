@@ -228,8 +228,17 @@ export async function gatewayCall(session, method, body = {}, options = {}) {
   if (!res.ok) {
     throw httpError(method, res.status);
   }
-  if (invalidJson || (method === "sendPrompt" && (emptyBody || !data || typeof data !== "object" || Array.isArray(data) || Object.keys(data).length === 0))) throw invalidResponseError(method);
+  if (invalidJson || (method === "sendPrompt" && !isAffirmativeSendAck(data, emptyBody))) throw invalidResponseError(method);
   return data;
+}
+
+function isAffirmativeSendAck(data, emptyBody) {
+  if (emptyBody || !data || typeof data !== "object" || Array.isArray(data)) return false;
+  if (Object.keys(data).length === 0) return false;
+  if ("ok" in data && !data.ok) return false;
+  if ("success" in data && !data.success) return false;
+  if ("error" in data) return false;
+  return true;
 }
 
 function asRecord(agent) {
