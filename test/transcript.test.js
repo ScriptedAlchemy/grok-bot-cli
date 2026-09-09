@@ -182,6 +182,20 @@ test("normalizer rejects conflicting nested message text and content", () => {
   );
 });
 
+test("normalizer rejects malformed non-string text carriers", () => {
+  const target = { id: "bot-1", name: "Bot", isGroup: false };
+  for (const text of [42, true]) {
+    assert.throws(
+      () => normalizeTranscript({
+        target,
+        transcript: { entries: [{ id: "1", text, content: "fallback" }] },
+      }),
+      /malformed transcript text/i,
+      `text: ${JSON.stringify(text)} should be rejected`,
+    );
+  }
+});
+
 test("matching text carriers normalize once and content arrays remain intact", () => {
   const target = { id: "bot-1", name: "Bot", isGroup: false };
   const normalized = normalizeTranscript({

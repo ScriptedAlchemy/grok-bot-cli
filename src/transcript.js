@@ -71,8 +71,15 @@ function evidenceText(value) {
   }
   if (!value || typeof value !== "object") return "";
 
-  const candidates = TEXT_CARRIERS
-    .filter((key) => Object.prototype.hasOwnProperty.call(value, key))
+  const presentKeys = TEXT_CARRIERS
+    .filter((key) => Object.prototype.hasOwnProperty.call(value, key));
+  for (const key of presentKeys) {
+    const v = value[key];
+    if (v != null && typeof v !== "string" && typeof v !== "object") {
+      throw new Error("Malformed transcript text evidence.");
+    }
+  }
+  const candidates = presentKeys
     .map((key) => evidenceText(value[key]))
     .filter(Boolean);
   if (new Set(candidates).size > 1) {

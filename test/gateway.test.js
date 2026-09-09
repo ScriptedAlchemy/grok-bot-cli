@@ -442,3 +442,16 @@ test("non-object values for non-send methods pass through as-is", async () => {
     assert.equal(result, expected);
   }
 });
+
+test("array send response reports unknown effect", async () => {
+  await assert.rejects(
+    gatewayCall(session, "sendPrompt", { prompt: "hello" }, {
+      fetchImpl: async () => response({ body: "[]" }),
+    }),
+    (error) => {
+      assert.equal(error.code, "GATEWAY_INVALID_RESPONSE");
+      assert.equal(error.effect, "unknown");
+      return true;
+    },
+  );
+});
