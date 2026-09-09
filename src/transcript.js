@@ -38,11 +38,23 @@ function explicitRole(entry) {
   const nested = entry.message && typeof entry.message === "object" && !Array.isArray(entry.message)
     ? entry.message
     : null;
-  const candidates = [nested?.type, nested?.role, entry.role, entry.sender, entry.kind, entry.type];
+  // Strict role carriers: unsupported values veto role inference.
+  const strictCandidates = [nested?.type, nested?.role, entry.role, entry.sender];
+  // Loose carriers: only contribute user/assistant, never veto.
+  const looseCandidates = [entry.kind, entry.type];
   const roles = new Set();
-  for (const candidate of candidates) {
+  let hasUnsupportedRole = false;
+  for (const candidate of strictCandidates) {
+    if (candidate === "user" || candidate === "assistant") {
+      roles.add(candidate);
+    } else if (typeof candidate === "string" && candidate.length > 0) {
+      hasUnsupportedRole = true;
+    }
+  }
+  for (const candidate of looseCandidates) {
     if (candidate === "user" || candidate === "assistant") roles.add(candidate);
   }
+  if (hasUnsupportedRole && roles.size > 0) return "unknown";
   return roles.size === 1 ? roles.values().next().value : "unknown";
 }
 

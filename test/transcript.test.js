@@ -125,6 +125,26 @@ test("normalizer marks conflicting sender and role as unknown", () => {
   assert.equal(normalized.messages[0].role, "unknown");
 });
 
+test("unsupported explicit role vetoes inference from nested carrier", () => {
+  const normalized = normalizeTranscript({
+    target: { id: "bot-1", name: "Bot", isGroup: false },
+    transcript: {
+      entries: [{ id: "1", role: "system", message: { type: "assistant", content: "system says hi" } }],
+    },
+  });
+  assert.equal(normalized.messages[0].role, "unknown");
+});
+
+test("loose carrier kind does not veto nested role inference", () => {
+  const normalized = normalizeTranscript({
+    target: { id: "bot-1", name: "Bot", isGroup: false },
+    transcript: {
+      entries: [{ id: "1", kind: "send-message", message: { type: "assistant", content: "reply" } }],
+    },
+  });
+  assert.equal(normalized.messages[0].role, "assistant");
+});
+
 test("normalizer rejects conflicting text evidence without changing display formatting", () => {
   const target = { id: "bot-1", name: "Bot", isGroup: false };
   const conflicting = { id: "1", text: "first", preview: "second" };
