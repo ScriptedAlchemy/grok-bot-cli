@@ -77,6 +77,7 @@ for (const [name, chunks, pattern] of [
   ["empty input", [], /stdin message must not be empty/i],
   ["invalid UTF-8", [Buffer.from([0xc3, 0x28])], /valid UTF-8/i],
   ["NUL byte", [Buffer.from("hello\0world")], /NUL/i],
+  ["leading UTF-8 BOM", [Buffer.from([0xef, 0xbb, 0xbf, ...Buffer.from("hello")])], /surrounding whitespace/i],
   ["leading whitespace", [Buffer.from(" message")], /surrounding whitespace/i],
   ["trailing whitespace", [Buffer.from("message\n")], /surrounding whitespace/i],
   ["oversized input", [Buffer.alloc(64 * 1024 + 1, 0x61)], /64 KiB/i],

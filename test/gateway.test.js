@@ -364,3 +364,23 @@ test("5xx error with stalled body reports HTTP status with unknown effect, not t
   );
 });
 
+test("null JSON send response reports unknown effect", async () => {
+  await assert.rejects(
+    gatewayCall(session, "sendPrompt", { prompt: "hello" }, {
+      fetchImpl: async () => response({ body: "null" }),
+    }),
+    (error) => {
+      assert.equal(error.code, "GATEWAY_INVALID_RESPONSE");
+      assert.equal(error.effect, "unknown");
+      assert.equal(error.message, "sendPrompt returned an invalid response; delivery is unknown. Do not resend automatically.");
+      return true;
+    },
+  );
+});
+
+test("null JSON for non-send methods returns null data as-is", async () => {
+  const result = await gatewayCall(session, "deleteAgent", {}, {
+    fetchImpl: async () => response({ body: "null" }),
+  });
+  assert.equal(result, null);
+});

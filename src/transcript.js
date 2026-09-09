@@ -38,7 +38,7 @@ function explicitRole(entry) {
   const nested = entry.message && typeof entry.message === "object" && !Array.isArray(entry.message)
     ? entry.message
     : null;
-  const candidates = [nested?.type, nested?.role, entry.role, entry.kind, entry.type];
+  const candidates = [nested?.type, nested?.role, entry.role, entry.sender, entry.kind, entry.type];
   const roles = new Set();
   for (const candidate of candidates) {
     if (candidate === "user" || candidate === "assistant") roles.add(candidate);

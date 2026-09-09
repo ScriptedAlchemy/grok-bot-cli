@@ -101,6 +101,30 @@ test("normalizer marks conflicting explicit roles unknown", () => {
   assert.equal(normalized.messages[0].role, "unknown");
 });
 
+test("normalizer recognizes explicit sender role", () => {
+  const normalized = normalizeTranscript({
+    target: { id: "bot-1", name: "Bot", isGroup: false },
+    transcript: {
+      entries: [
+        { id: "1", sender: "user", text: "hello from sender" },
+        { id: "2", sender: "assistant", text: "reply from sender" },
+      ],
+    },
+  });
+  assert.equal(normalized.messages[0].role, "user");
+  assert.equal(normalized.messages[1].role, "assistant");
+});
+
+test("normalizer marks conflicting sender and role as unknown", () => {
+  const normalized = normalizeTranscript({
+    target: { id: "bot-1", name: "Bot", isGroup: false },
+    transcript: {
+      entries: [{ id: "1", role: "assistant", sender: "user", text: "conflict" }],
+    },
+  });
+  assert.equal(normalized.messages[0].role, "unknown");
+});
+
 test("normalizer rejects conflicting text evidence without changing display formatting", () => {
   const target = { id: "bot-1", name: "Bot", isGroup: false };
   const conflicting = { id: "1", text: "first", preview: "second" };
