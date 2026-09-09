@@ -455,3 +455,16 @@ test("array send response reports unknown effect", async () => {
     },
   );
 });
+
+test("empty-object send response reports unknown effect", async () => {
+  await assert.rejects(
+    gatewayCall(session, "sendPrompt", { prompt: "hello" }, {
+      fetchImpl: async () => response({ body: "{}" }),
+    }),
+    (error) => {
+      assert.equal(error.code, "GATEWAY_INVALID_RESPONSE");
+      assert.equal(error.effect, "unknown");
+      return true;
+    },
+  );
+});

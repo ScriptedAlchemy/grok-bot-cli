@@ -78,10 +78,15 @@ function evidenceText(value) {
 
   const presentKeys = TEXT_CARRIERS
     .filter((key) => Object.prototype.hasOwnProperty.call(value, key));
+  const STRICT_TEXT_KEYS = ["text", "prompt", "preview"];
   for (const key of presentKeys) {
     const v = value[key];
     if (v != null && typeof v !== "string" && typeof v !== "object") {
       throw new Error("Malformed transcript text evidence.");
+    }
+    if (v != null && typeof v === "object" && !Array.isArray(v) && STRICT_TEXT_KEYS.includes(key)) {
+      const hasTextKeys = TEXT_CARRIERS.some((k) => Object.prototype.hasOwnProperty.call(v, k));
+      if (!hasTextKeys) throw new Error("Malformed transcript text evidence.");
     }
   }
   const candidates = presentKeys
