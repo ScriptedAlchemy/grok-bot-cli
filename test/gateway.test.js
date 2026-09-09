@@ -469,8 +469,11 @@ test("empty-object send response reports unknown effect", async () => {
   );
 });
 
-test("negative send acknowledgements (ok:false, error field) report unknown effect", async () => {
-  for (const body of ['{"ok":false}', '{"success":false}', '{"error":"rejected"}']) {
+test("negative send acknowledgements (ok:false, error field, wrong types) report unknown effect", async () => {
+  for (const body of [
+    '{"ok":false}', '{"success":false}', '{"error":"rejected"}',
+    '{"ok":"false"}', '{"success":[]}', '{"ok":0}',
+  ]) {
     await assert.rejects(
       gatewayCall(session, "sendPrompt", { prompt: "hello" }, {
         fetchImpl: async () => response({ body }),

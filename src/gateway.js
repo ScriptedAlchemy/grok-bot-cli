@@ -235,8 +235,8 @@ export async function gatewayCall(session, method, body = {}, options = {}) {
 function isAffirmativeSendAck(data, emptyBody) {
   if (emptyBody || !data || typeof data !== "object" || Array.isArray(data)) return false;
   if (Object.keys(data).length === 0) return false;
-  if ("ok" in data && !data.ok) return false;
-  if ("success" in data && !data.success) return false;
+  if ("ok" in data && data.ok !== true) return false;
+  if ("success" in data && data.success !== true) return false;
   if ("error" in data) return false;
   return true;
 }
