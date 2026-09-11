@@ -6,20 +6,20 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import { grokBotGatewayDescriptorPath } from "../src/app-session.js";
+
 const CLI = fileURLToPath(new URL("../src/cli.js", import.meta.url));
 
 test("doctor reports a present but unusable Grok Bot app session", {
-  skip: process.platform !== "darwin" && "Grok Bot app sessions are macOS-only",
+  skip: !["darwin", "linux"].includes(process.platform) && "Grok Bot app sessions are macOS/Linux-only",
 }, () => {
   const home = mkdtempSync(join(tmpdir(), "gbot-doctor-home-"));
-  const descriptorPath = join(
-    home,
-    "Library/Application Support/Grok Bot/gateway-descriptor.json",
-  );
+  const descriptorPath = grokBotGatewayDescriptorPath(home, process.platform, {});
   mkdirSync(dirname(descriptorPath), { recursive: true });
   writeFileSync(descriptorPath, JSON.stringify({ version: 2, entries: {} }));
   const env = { ...process.env, HOME: home };
   for (const name of [
+    "XDG_CONFIG_HOME",
     "CURSOR_ACCESS_TOKEN",
     "GROK_BOT_ACCESS_TOKEN",
     "GROK_BOT_GATEWAY_URL",
