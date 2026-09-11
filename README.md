@@ -27,7 +27,9 @@ gbot groups create --name Launch --member Researcher --member Writer --descripti
 gbot groups update Launch --title "Launch room" --hidden off
 gbot send Researcher "Summarize the launch status."
 gbot send Launch "Share your updates."
+printf %s 'Exact UTF-8 message' | gbot send Researcher --stdin
 gbot thread Researcher
+gbot --json thread Researcher --normalized --limit 50
 gbot groups delete Launch
 gbot bots delete Researcher
 gbot bots delete Writer
@@ -36,6 +38,36 @@ gbot bots delete Writer
 `update` fields: `--name` `--description`/`--instructions` `--title` `--avatar-shape` `--avatar-color` `--notify` `--hidden`. `--description` is the UI Instructions field.
 
 Run `gbot --help` for every command.
+
+Use `send <target> --stdin` when the message must not appear in the process
+argument list. Standard input is preserved exactly and must be valid UTF-8,
+non-empty, free of NUL bytes and surrounding whitespace, and no larger than
+64 KiB. Do not combine `--stdin` with a positional message. In particular, use
+`printf %s` rather than `echo` when an extra trailing newline is not intended.
+
+For integrations that need a stable transcript shape, combine `--normalized`
+with `--json thread` or `--json chat`. It returns only the target identity and
+messages with `id`, explicit `user`/`assistant`/`unknown` role, and text. Without
+`--normalized`, JSON output remains the original gateway response.
+
+## Gateway failures and readback
+
+Gateway requests have a 15-second deadline that includes reading the response body.
+Requests are not retried automatically, and redirects are rejected. Errors report
+the method and status without including server response bodies or credentials.
+
+A send timeout, network failure, HTTP 408 or 5xx, or an invalid/empty success
+response can leave delivery unknown. Do not resend automatically: read the target
+thread and verify the original message in the Grok Bot app first. A new CLI send
+uses a new client nonce, so invoking it again is not a deduplicated retry.
+
+The gateway module accepts an optional positive `timeoutMs` in the final options
+argument of `ensureSandbox` and `gatewayCall`. The CLI uses the 15-second default.
+
+Plain-text transcript output handles both direct content and nested
+`message.content` / `message.text`. Use `--json` when the full structured result is
+needed. These integrations depend on the signed-in app and its internal gateway;
+revalidate reads and one controlled send after app or service changes.
 
 ## License
 

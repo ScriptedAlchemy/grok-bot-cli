@@ -4,13 +4,17 @@ import { hasGrokBotGatewaySession, loadGrokBotGatewaySession } from "./app-sessi
 import { AVATAR_COLORS, AVATAR_SHAPES } from "./store.js";
 
 export class GatewayError extends Error {
-  constructor(message, { status, method } = {}) {
+  constructor(message, { status, method, code, effect } = {}) {
     super(message);
     this.name = "GatewayError";
     this.status = status;
     this.method = method;
+    this.code = code;
+    this.effect = effect;
   }
 }
+
+export const DEFAULT_GATEWAY_TIMEOUT_MS = 15_000;
 
 function backendBase() {
   return (
@@ -65,11 +69,113 @@ export function hasGatewayAuth() {
 
 async function readJson(res) {
   const text = await res.text();
-  if (!text) return {};
+  if (!text) return { data: {}, invalidJson: false, emptyBody: true };
   try {
-    return JSON.parse(text);
+    return { data: JSON.parse(text), invalidJson: false, emptyBody: false };
   } catch {
-    return { raw: text };
+    return { data: undefined, invalidJson: true, emptyBody: false };
+  }
+}
+
+function checkedTimeoutMs(value) {
+  const timeoutMs = value ?? DEFAULT_GATEWAY_TIMEOUT_MS;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647) {
+    throw new GatewayError("Gateway timeout must be a positive finite number of milliseconds.", {
+      code: "INVALID_GATEWAY_TIMEOUT",
+    });
+  }
+  return timeoutMs;
+}
+
+function timeoutError(method, timeoutMs) {
+  const sendTimedOut = method === "sendPrompt";
+  return new GatewayError(
+    sendTimedOut
+      ? method + " timed out after " + timeoutMs + "ms; delivery is unknown. Do not resend automatically."
+      : method + " timed out after " + timeoutMs + "ms.",
+    {
+      method,
+      code: "GATEWAY_TIMEOUT",
+      ...(sendTimedOut ? { effect: "unknown" } : {}),
+    },
+  );
+}
+
+function unknownEffectDetails(method) {
+  return method === "sendPrompt" ? { effect: "unknown" } : {};
+}
+
+function requestFailureError(method) {
+  const sendFailed = method === "sendPrompt";
+  return new GatewayError(
+    sendFailed
+      ? method + " request failed; delivery is unknown. Do not resend automatically."
+      : method + " request failed.",
+    {
+      method,
+      code: "GATEWAY_REQUEST_FAILED",
+      ...unknownEffectDetails(method),
+    },
+  );
+}
+
+function invalidResponseError(method) {
+  const sendFailed = method === "sendPrompt";
+  return new GatewayError(
+    sendFailed
+      ? method + " returned an invalid response; delivery is unknown. Do not resend automatically."
+      : method + " returned an invalid response.",
+    {
+      method,
+      code: "GATEWAY_INVALID_RESPONSE",
+      ...unknownEffectDetails(method),
+    },
+  );
+}
+
+function httpError(method, status) {
+  const ambiguousSend = method === "sendPrompt" && (status === 408 || status >= 500);
+  return new GatewayError(
+    ambiguousSend
+      ? method + " failed with HTTP " + status + "; delivery is unknown. Do not resend automatically."
+      : method + " failed with HTTP " + status + ".",
+    {
+      status,
+      method,
+      ...(ambiguousSend ? { effect: "unknown" } : {}),
+    },
+  );
+}
+
+async function requestJson(method, url, init, options = {}) {
+  const timeoutMs = checkedTimeoutMs(options.timeoutMs);
+  const fetchImpl = options.fetchImpl || globalThis.fetch;
+  const controller = new AbortController();
+  const deadlineError = timeoutError(method, timeoutMs);
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(deadlineError);
+    }, timeoutMs);
+  });
+
+  try {
+    const res = await Promise.race([
+      fetchImpl(url, { ...init, redirect: "error", signal: controller.signal }),
+      deadline,
+    ]);
+    if (!res.ok) {
+      controller.abort();
+      return { res, data: undefined, invalidJson: false, emptyBody: true };
+    }
+    const parsed = await Promise.race([readJson(res), deadline]);
+    return { res, ...parsed };
+  } catch (error) {
+    if (error === deadlineError || controller.signal.aborted) throw deadlineError;
+    throw requestFailureError(method);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -81,18 +187,17 @@ function pick(obj, ...keys) {
   return undefined;
 }
 
-export async function ensureSandbox(accessToken) {
+export async function ensureSandbox(accessToken, options = {}) {
   const url = backendBase() + "/aiserver.v1.GrokBotService/EnsureSandBox";
-  const res = await fetch(url, {
+  const { res, data: body, invalidJson } = await requestJson("EnsureSandBox", url, {
     method: "POST",
     headers: ensureSandboxHeaders(accessToken),
     body: "{}",
-  });
-  const body = await readJson(res);
+  }, options);
   if (!res.ok) {
-    const detail = body.message || body.error || body.raw || res.statusText;
-    throw new GatewayError("EnsureSandBox failed: " + res.status + " " + detail, { status: res.status, method: "EnsureSandBox" });
+    throw httpError("EnsureSandBox", res.status);
   }
+  if (invalidJson) throw invalidResponseError("EnsureSandBox");
   const gatewayUrl = pick(body, "gatewayUrl", "gateway_url");
   const gatewayToken = pick(body, "gatewayToken", "gateway_token");
   if (!gatewayUrl || !gatewayToken) {
@@ -113,19 +218,27 @@ export async function connectGateway() {
   return ensureSandbox(token);
 }
 
-export async function gatewayCall(session, method, body = {}) {
+export async function gatewayCall(session, method, body = {}, options = {}) {
   const url = session.gatewayUrl + "/api/" + method;
-  const res = await fetch(url, {
+  const { res, data, invalidJson, emptyBody } = await requestJson(method, url, {
     method: "POST",
     headers: requestHeaders(session),
     body: JSON.stringify(body),
-  });
-  const data = await readJson(res);
+  }, options);
   if (!res.ok) {
-    const detail = data.message || data.error || data.raw || res.statusText;
-    throw new GatewayError(method + " failed: " + res.status + " " + String(detail).slice(0, 300), { status: res.status, method });
+    throw httpError(method, res.status);
   }
+  if (invalidJson || (method === "sendPrompt" && !isAffirmativeSendAck(data, emptyBody))) throw invalidResponseError(method);
   return data;
+}
+
+function isAffirmativeSendAck(data, emptyBody) {
+  if (emptyBody || !data || typeof data !== "object" || Array.isArray(data)) return false;
+  if (Object.keys(data).length === 0) return false;
+  if ("ok" in data && data.ok !== true) return false;
+  if ("success" in data && data.success !== true) return false;
+  if ("error" in data) return false;
+  return true;
 }
 
 function asRecord(agent) {
