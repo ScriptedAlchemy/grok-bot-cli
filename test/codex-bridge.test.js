@@ -1247,10 +1247,12 @@ test("codex send stays silent on foreign approvals inside the turn window", asyn
       setTimeout(() => ok({ turn: { id: "turn-9", status: "inProgress", items: [] } }), 20);
     },
   });
+  const env = { ...process.env, CODEX_HOME: fake.home };
   try {
-    const { code, out } = await gbot(fake.home, "codex", "send", "t-1", "go", "--json");
-    assert.equal(code, 0, out);
-    assert.equal(JSON.parse(out).delivery, "accepted");
+    const outcome = await sendToCodexThread("t-1", "go", { env });
+    assert.equal(outcome.delivery, "accepted");
+    assert.equal(outcome.turnId, "turn-9");
+    assert.equal(outcome.exitCode, 0);
     assert.equal(fake.received.find((m) => m.id === "srv-foreign-thread"), undefined);
     assert.equal(fake.received.find((m) => m.id === "srv-foreign-turn"), undefined);
   } finally {
@@ -1268,10 +1270,12 @@ test("codex send still refuses our own approval that arrives before the turn ack
       setTimeout(() => ok({ turn: { id: "turn-12", status: "inProgress", items: [] } }), 20);
     },
   });
+  const env = { ...process.env, CODEX_HOME: fake.home };
   try {
-    const { code, out } = await gbot(fake.home, "codex", "send", "t-1", "go");
-    assert.equal(code, 1);
-    assert.match(out, /Turn turn-12 started on thread t-1 but Codex asked for item\/commandExecution\/requestApproval/);
+    const outcome = await sendToCodexThread("t-1", "go", { env });
+    assert.equal(outcome.delivery, "accepted");
+    assert.equal(outcome.reason, "approval-refused");
+    assert.equal(outcome.turnId, "turn-12");
     const refusal = fake.received.find((m) => m.id === "srv-early-own");
     assert.equal(refusal.error.code, -32601);
     assert.equal(refusal.result, undefined);
