@@ -3,12 +3,18 @@ import { defineTool } from 'agent-bundle/routes';
 import { z } from 'zod';
 
 import {
+  assertReceiptBudget,
   connectGateway,
   entrySchema,
   getTranscriptTail,
+  RECEIPT_CURSOR_MAX,
+  RECEIPT_PATH_MAX,
+  RECEIPT_SUMMARY_MAX,
+  saveThreadArtifact,
   summarizeTarget,
   targetSchema,
-  threadCursor,
+  threadSummary,
+  transcriptDelta,
   transcriptEntries,
   withRedactedErrors,
 } from '../../../gbot.js';
@@ -17,10 +23,14 @@ export default defineTool(
   {
     annotations: { readOnlyHint: true },
     description:
-      'Read the most recent messages in a Grok Bot bot or group thread, like `gbot thread`. By default returns a short summary plus a cursor and withholds entry text; pass full:true to read the text. Use it to collect the reply to a gbot_send.',
+      'Read a bounded Grok Bot thread tail. Returns a small receipt by default; pass the last cursor as after for an exclusive client-side delta, or full:true to include bounded entry text.',
     inputJsonSchema: {
       additionalProperties: false,
       properties: {
+        after: {
+          description: 'Opaque cursor from the previous call. Returns entries strictly after it; an unknown cursor resets with a bounded snapshot.',
+          type: 'string',
+        },
         limit: {
           default: 40,
           description: 'How many trailing entries to inspect (1-200). Entries are returned only with full:true.',
@@ -40,36 +50,54 @@ export default defineTool(
     inputSchema: z.object({
       // ponytail: the route inputJsonSchema type cannot express minimum/maximum, so the
       // 1-200 bound lives here in zod (and in the CLI/gateway); widen the route type to align them.
+      after: z.string().min(1).max(RECEIPT_CURSOR_MAX).optional(),
       limit: z.number().int().min(1).max(200).default(40),
       full: z.boolean().default(false),
       target: z.string().min(1),
     }),
-    resultSchema: z.object({ cursor: z.string(), entries: z.array(entrySchema).optional(), target: targetSchema }),
+    resultSchema: z.object({
+      cursor: z.string().max(RECEIPT_CURSOR_MAX),
+      entries: z.array(entrySchema).optional(),
+      entryCount: z.number().int().min(0).max(200),
+      gapReset: z.boolean(),
+      path: z.string().max(RECEIPT_PATH_MAX).optional(),
+      summary: z.string().max(RECEIPT_SUMMARY_MAX),
+      target: targetSchema,
+    }),
     title: 'Read a Grok Bot thread',
   },
-  async ({ limit, target, full }) => {
+  async ({ after, limit, target, full }) => {
     const tail = await withRedactedErrors(async () => getTranscriptTail(await connectGateway(), target, limit));
-    const entries = transcriptEntries(tail.transcript, { full, limit });
-    const cursor = threadCursor(tail.transcript, entries.length);
+    const delta = transcriptDelta(tail.transcript, { after, limit });
+    const entries = transcriptEntries(delta.entries, { full: true });
     const summarized = summarizeTarget(tail.target);
-    const summary = `${summarized.kind} ${summarized.name}: ${entries.length} entries.`;
-    // Keep both model-facing channels small by omitting entries from the default
-    // structured value as well as withholding per-entry Agent.Text.
+    const path = saveThreadArtifact(
+      summarized,
+      entries,
+      delta.cursor,
+      after === undefined || delta.entryCount > 0 || delta.gapReset,
+    );
+    const summary = threadSummary(delta.entryCount, after, delta.gapReset, path);
+    const receipt = {
+      cursor: delta.cursor,
+      entryCount: delta.entryCount,
+      gapReset: delta.gapReset,
+      ...(path === undefined ? {} : { path }),
+      summary,
+      target: summarized,
+    };
+    assertReceiptBudget(receipt);
     if (!full) {
-      const value = { cursor, target: summarized };
       return (
-        <Agent.Result value={value}>
-          <Agent.Text>{`${summary} Cursor returned separately; entry text withheld; pass full:true to read it.`}</Agent.Text>
+        <Agent.Result value={receipt}>
+          <Agent.Text>{summary}</Agent.Text>
         </Agent.Result>
       );
     }
-    const value = { cursor, entries, target: summarized };
+    const value = { ...receipt, entries };
     return (
       <Agent.Result value={value}>
         <Agent.Text>{summary}</Agent.Text>
-        {entries.map((entry, index) => (
-          <Agent.Text key={entry.id || index}>{`[${entry.role ?? entry.kind}] ${entry.text}`}</Agent.Text>
-        ))}
       </Agent.Result>
     );
   },

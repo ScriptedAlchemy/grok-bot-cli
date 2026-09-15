@@ -63,7 +63,7 @@ function lastSourceId(entries, fallback = "") {
   return fallback;
 }
 
-export function transcriptDelta(payload, { after, limit = 40 } = {}) {
+export function transcriptDelta(payload, { after, limit = 40 } = /** @type {{ after?: string, limit?: number }} */ ({})) {
   const bounded = Math.min(Math.max(Math.trunc(limit) || 40, 1), 200);
   const page = transcriptEntries(payload).slice(-bounded);
   if (after === undefined) {
