@@ -18,8 +18,8 @@
   "dependencies": {
     "@agent-bundle/runtime": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/@agent-bundle/runtime@62ffe403c5af73499fe7f5767c6d60be26e250db",
     "grok-bot-cli": "file:..",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
