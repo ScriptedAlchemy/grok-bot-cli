@@ -7,6 +7,7 @@ import test from "node:test";
 
 import {
   decryptSafeStorageString,
+  decryptWindowsSafeStorageString,
   grokBotGatewayDescriptorPath,
   hasGrokBotGatewaySession,
   inspectGrokBotGatewaySession,
@@ -17,6 +18,12 @@ const ENCRYPTED_DESCRIPTOR =
   "djEwddBm+U69UF2IJtIUtedNqMB3bQt7HsRw7MLWRkw/IfnMK+c4czCXq82JKPNsdsP3Bp2fX8HoGPZFsa7k+JOmbIkBanQwl4yiy9v7iOA+mE4rtGqYbYD9jJc+/9YnhcGjvSxCxD8fKbJLbHifTwroGQ==";
 const ENCRYPTED_INCOMPLETE_DESCRIPTOR =
   "djEwddBm+U69UF2IJtIUtedNqMB3bQt7HsRw7MLWRkw/IfnWb2TrPAofoKysOC2KnKLJ";
+const WINDOWS_KEY = Buffer.from("demo-safe-storage-key-32-bytes!!");
+const WINDOWS_ENCRYPTED_DESCRIPTOR =
+  "djEwZGVtby1ub25jZTEyUN+Gpc6/+RfJzyx52epPxU9Qlzo9TQNAJD6QHtsCaTCTBxssiBtRPJzcylXxQTjOJdPlxMjVIjlxWhW7WfcfxPjJiVIr8J3dZZA7J1dF9uSYG6iDLXHAotC+0gDB7k81WdJmrbloEC+sslxz+AeU6VW3B5E5yYepIfkEdw==";
+const WINDOWS_LOCAL_STATE = {
+  os_crypt: { encrypted_key: Buffer.from("DPAPIdemo-dpapi-blob").toString("base64") },
+};
 
 function writeWrappedDescriptor(wrapped) {
   const home = mkdtempSync(join(tmpdir(), "gbot-home-"));
@@ -27,6 +34,25 @@ function writeWrappedDescriptor(wrapped) {
   mkdirSync(dirname(descriptorPath), { recursive: true });
   writeFileSync(descriptorPath, JSON.stringify(wrapped));
   return home;
+}
+
+function writeWindowsAppData(
+  localState,
+  appData = mkdtempSync(join(tmpdir(), "gbot-appdata-")),
+) {
+  const dir = join(appData, "Grok Bot");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "gateway-descriptor.json"),
+    JSON.stringify({ version: 2, entries: { primary: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR } } }),
+  );
+  writeFileSync(join(dir, "Local State"), JSON.stringify(localState));
+  return appData;
+}
+
+function unprotectDemoKey(blob) {
+  assert.equal(blob.toString("utf8"), "demo-dpapi-blob");
+  return WINDOWS_KEY;
 }
 
 test("decrypts an Electron Safe Storage v10 string", () => {
@@ -315,7 +341,7 @@ test("does not probe app credentials on unsupported platforms", () => {
   let keychainRead = false;
 
   const session = loadGrokBotGatewaySession({
-    platform: "win32",
+    platform: "freebsd",
     home: "/tmp/unused",
     getKeychainPassword: () => {
       keychainRead = true;
@@ -325,4 +351,66 @@ test("does not probe app credentials on unsupported platforms", () => {
 
   assert.equal(session, null);
   assert.equal(keychainRead, false);
+});
+
+test("decrypts a Windows Electron Safe Storage v10 string", () => {
+  const clear = decryptWindowsSafeStorageString(
+    WINDOWS_ENCRYPTED_DESCRIPTOR,
+    WINDOWS_KEY,
+  );
+
+  assert.deepEqual(JSON.parse(clear), {
+    baseUrl: "https://box.example",
+    token: "gateway-token",
+    headers: { "x-anyrun-network-token": "route-token" },
+  });
+});
+
+test("loads the signed-in Grok Bot gateway on Windows", () => {
+  const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE);
+
+  const session = loadGrokBotGatewaySession({
+    platform: "win32",
+    home: "/tmp/unused",
+    appData,
+    unprotectData: unprotectDemoKey,
+  });
+
+  assert.deepEqual(session, {
+    gatewayUrl: "https://box.example",
+    gatewayToken: "gateway-token",
+    headers: { "x-anyrun-network-token": "route-token" },
+  });
+});
+
+test("falls back to AppData/Roaming under home when APPDATA is unset", () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-home-"));
+  writeWindowsAppData(WINDOWS_LOCAL_STATE, join(home, "AppData/Roaming"));
+
+  const session = loadGrokBotGatewaySession({
+    platform: "win32",
+    home,
+    appData: "",
+    unprotectData: unprotectDemoKey,
+  });
+
+  assert.equal(session.gatewayUrl, "https://box.example");
+});
+
+test("reports a Windows app session without a Safe Storage key", () => {
+  const appData = writeWindowsAppData({ os_crypt: {} });
+
+  const status = inspectGrokBotGatewaySession({
+    platform: "win32",
+    home: "/tmp/unused",
+    appData,
+    unprotectData: unprotectDemoKey,
+  });
+
+  assert.deepEqual(status, {
+    present: true,
+    usable: false,
+    code: "MISSING_SAFE_STORAGE_KEY",
+    error: "Grok Bot Local State has no Safe Storage key.",
+  });
 });

@@ -57,7 +57,15 @@ function gatewayOverride() {
 }
 
 function sessionFromApp() {
-  const loaded = loadGrokBotGatewaySession();
+  let loaded;
+  try {
+    loaded = loadGrokBotGatewaySession();
+  } catch (error) {
+    // Descriptor present but unusable (e.g. Windows Local State missing). Fall
+    // through to CURSOR_ACCESS_TOKEN → EnsureSandBox when that token is set.
+    if (accessTokenFromEnv()) return null;
+    throw error instanceof Error ? new GatewayError(error.message) : error;
+  }
   if (!loaded) return null;
   return {
     gatewayUrl: assertAllowedCredentialUrl(loaded.gatewayUrl, { kind: "gateway" }),
