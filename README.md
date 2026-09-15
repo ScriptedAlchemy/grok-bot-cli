@@ -49,6 +49,30 @@ By default `gbot` only sends credentials to expected hosts:
 
 All gateway / `EnsureSandBox` fetches use `redirect: "error"` so credentials are not followed across redirects.
 
+## Messaging Codex threads from Grok Bot
+
+`gbot codex` attaches to a local [Codex app-server](https://learn.chatgpt.com/docs/app-server) daemon and injects messages into its threads with the documented JSON-RPC methods (`initialize`, `thread/list`, `thread/resume`, `turn/start`).
+
+```sh
+codex app-server daemon start          # once per machine session
+gbot codex status                      # socket, daemon version, reachability
+gbot codex list-threads --limit 10     # id, status, cwd, preview
+gbot codex send <threadId> "Grok here: the build is green, please continue."
+```
+
+`send` resumes the thread, starts a turn with your text, prints the turn id, and returns; Codex keeps working after `gbot` disconnects. Every command accepts `--json`.
+
+**Which Codex you reach.** `gbot` connects to `$CODEX_HOME/app-server-control/app-server-control.sock` (default `~/.codex/...`) with a built-in WebSocket client. The daemon must be started by `codex app-server daemon start`. `list-threads` shows the threads recorded under `CODEX_HOME` (CLI, TUI, VS Code); `send` works on any of them that no other client currently holds open. Method and parameter names are pinned to the Codex release recorded in `src/codex-bridge.js` (`codex app-server generate-json-schema`); `status` prints the daemon and CLI versions so a stale daemon is visible, and `codex app-server daemon restart` picks up the installed CLI.
+
+**ChatGPT Desktop limitation.** Desktop runs its own private stdio app-server and does not publish the shared control socket, so external clients cannot reach live Desktop tasks. When the socket is absent, `gbot codex status` exits 1 and says so, naming the upstream issues: [openai/codex#41014](https://github.com/openai/codex/issues/41014) and [openai/codex#41112](https://github.com/openai/codex/issues/41112). `gbot` never reads Desktop's temporary `CODEX_APP_TOOLS_PIPE_PATH` sockets under `/tmp/codex-browser-use/`; that channel is private to Desktop.
+
+**Failure modes.**
+
+- Socket absent: no daemon, or Desktop-private mode. Start the daemon or wait for the upstream fixes.
+- Unknown thread: `send` fails with "Unknown Codex thread"; use `list-threads`.
+- Thread open elsewhere: a thread with an active writer (VS Code, TUI) fails with "open in another client"; close it there first.
+- Approvals: `gbot` never approves commands or file changes on your behalf. If Codex asks while `gbot` is connected, `send` refuses the request, exits 1, and tells you the turn id. For unattended sends set `approval_policy = "never"` in the daemon's `config.toml`.
+
 ## License
 
 MIT
