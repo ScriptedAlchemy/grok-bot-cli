@@ -48,3 +48,31 @@ export function transcriptEntries(payload) {
   const entries = payload.entries || payload.messages || payload.items;
   return Array.isArray(entries) ? entries : [];
 }
+
+export function sourceEntryId(entry) {
+  if (!entry || typeof entry !== "object") return "";
+  if (typeof entry.id === "string" && entry.id) return entry.id;
+  return typeof entry.messageId === "string" ? entry.messageId : "";
+}
+
+function lastSourceId(entries, fallback = "") {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const id = sourceEntryId(entries[index]);
+    if (id) return id;
+  }
+  return fallback;
+}
+
+export function transcriptDelta(payload, { after, limit = 40 } = {}) {
+  const bounded = Math.min(Math.max(Math.trunc(limit) || 40, 1), 200);
+  const page = transcriptEntries(payload).slice(-bounded);
+  if (after === undefined) {
+    return { cursor: lastSourceId(page), entries: page, entryCount: page.length, gapReset: false };
+  }
+  const afterIndex = page.findIndex((entry) => sourceEntryId(entry) === after);
+  if (afterIndex === -1) {
+    return { cursor: lastSourceId(page), entries: page, entryCount: page.length, gapReset: true };
+  }
+  const entries = page.slice(afterIndex + 1);
+  return { cursor: lastSourceId(entries, after), entries, entryCount: entries.length, gapReset: false };
+}

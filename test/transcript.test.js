@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { entryText, transcriptEntries } from "../src/transcript.js";
+import { entryText, sourceEntryId, transcriptDelta, transcriptEntries } from "../src/transcript.js";
 
 test("user messages read content, bot replies read message.content", () => {
   assert.equal(entryText({ kind: "message", role: "user", content: "hello" }), "hello");
@@ -33,4 +33,45 @@ test("entryText never throws and normalizes malformed content to safe strings", 
   assert.equal(entryText({ content: { v: 1n } }), "[unserializable]");
   assert.equal(entryText({ text: "a\ud800b" }), "a\ufffdb");
   assert.equal(entryText(null), "");
+});
+
+test("transcript delta uses opaque source ids and the true bounded tail", () => {
+  const longId = "i".repeat(300);
+  const entries = [
+    { id: "old", text: "old" },
+    { id: longId, kind: 7, text: "middle" },
+    { id: "latest", text: "latest" },
+  ];
+  assert.equal(sourceEntryId(entries[1]), longId);
+  assert.deepEqual(transcriptDelta({ entries }, { limit: 2 }), {
+    cursor: "latest",
+    entries: entries.slice(1),
+    entryCount: 2,
+    gapReset: false,
+  });
+});
+
+test("transcript delta filters exclusively after a known cursor and keeps no-op cursor", () => {
+  const entries = Array.from({ length: 45 }, (_, index) => ({ id: `m${index + 1}`, text: `message ${index + 1}` }));
+  assert.deepEqual(transcriptDelta({ entries }, { after: "m43", limit: 45 }), {
+    cursor: "m45",
+    entries: entries.slice(43),
+    entryCount: 2,
+    gapReset: false,
+  });
+  assert.deepEqual(transcriptDelta({ entries }, { after: "m45", limit: 45 }), {
+    cursor: "m45",
+    entries: [],
+    entryCount: 0,
+    gapReset: false,
+  });
+});
+
+test("transcript delta resets an unknown cursor with one bounded snapshot", () => {
+  const entries = Array.from({ length: 45 }, (_, index) => ({ id: `m${index + 1}`, text: `message ${index + 1}` }));
+  const delta = transcriptDelta({ entries }, { after: "bogus", limit: 40 });
+  assert.equal(delta.gapReset, true);
+  assert.equal(delta.entryCount, 40);
+  assert.deepEqual(delta.entries, entries.slice(-40));
+  assert.equal(delta.cursor, "m45");
 });
