@@ -26,6 +26,7 @@ export const SHIM_LABEL = "com.zackjackson.codex-desktop-shared-daemon";
 export const WRAPPER_FILENAME = "codex-desktop-to-daemon";
 export const BRIDGE_FILENAME = "codex-stdio-to-daemon-ws.py";
 export const ENV_SCRIPT_FILENAME = "codex-desktop-shared-daemon-env.sh";
+export const BRIDGE_LOG_FILENAME = "codex-stdio-to-daemon-ws.log";
 export const WRAPPER_LOG_FILENAME = "codex-desktop-to-daemon.log";
 export const ENV_LOG_FILENAME = "codex-desktop-shared-daemon-env.log";
 export const STANDALONE_REAL_SUFFIX = join("packages", "standalone", "current", "bin", "codex");
@@ -43,6 +44,7 @@ export function defaultPaths({ env = process.env, home = userHomeDir(env) } = {}
   const binDir = join(codexHome, "bin");
   return {
     binDir,
+    bridgeLogPath: join(binDir, BRIDGE_LOG_FILENAME),
     bridgePath: join(binDir, BRIDGE_FILENAME),
     codexHome,
     envLogPath: join(binDir, ENV_LOG_FILENAME),
@@ -76,17 +78,25 @@ export function shouldBridge(argv) {
   return appServer && !daemon && !proxy && !generate;
 }
 
-export function renderWrapperScript({ realPath, bridgePath, logPath }) {
+export function renderWrapperScript({ realPath, bridgePath, wrapperLogPath, socketPath, bridgeLogPath }) {
   return `#!/bin/bash
 # Installed by \`gbot codex desktop-shim install\`. Rewrites ChatGPT Desktop's
 # \`codex ... app-server\` spawn into a stdio<->WebSocket bridge onto the managed
 # daemon's control socket. Reversible: \`gbot codex desktop-shim uninstall\`.
-# Fail-open: anything but a runnable bridge execs the real standalone codex.
-# Never touches Desktop binaries or its private tool pipe.
+# Fail-open: the bridge runs as a child, never exec'd. An absent socket fails
+# the preflight, a wedged listener fails the bridge handshake timeout, and any
+# nonzero bridge exit falls through to the real standalone codex on pristine
+# stdio (the bridge only reads stdin after a successful connect). Bridge exit 0
+# means it served the session. Never touches Desktop binaries or its private
+# tool pipe.
 set -u
 REAL="\${CODEX_DESKTOP_WRAPPER_REAL:-${realPath}}"
 BRIDGE="\${CODEX_DESKTOP_BRIDGE:-${bridgePath}}"
-LOG="\${CODEX_DESKTOP_WRAPPER_LOG:-${logPath}}"
+SOCK="\${CODEX_APP_SERVER_SOCK:-${socketPath}}"
+BRIDGE_LOG="\${CODEX_STDIO_BRIDGE_LOG:-${bridgeLogPath}}"
+LOG="\${CODEX_DESKTOP_WRAPPER_LOG:-${wrapperLogPath}}"
+export CODEX_APP_SERVER_SOCK="$SOCK"
+export CODEX_STDIO_BRIDGE_LOG="$BRIDGE_LOG"
 ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 echo "$(ts) argv: $*" >>"$LOG" 2>/dev/null || true
 
@@ -107,12 +117,27 @@ for a in "$@"; do
   esac
 done
 
+# Preflight the daemon socket with a short deadline: a refused/absent socket
+# means exec'ing the bridge could never succeed, so skip straight to real codex.
+preflight() {
+  python3 -c 'import os,socket,sys; s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); s.settimeout(float(os.environ.get("CODEX_DESKTOP_PREFLIGHT_TIMEOUT","3"))); s.connect(sys.argv[1]); s.close()' "$SOCK" 2>/dev/null
+}
+
 if [[ "$has_app_server" -eq 1 && "$has_daemon" -eq 0 && "$has_proxy" -eq 0 && "$has_generate" -eq 0 ]]; then
   if [[ -x "$REAL" && -f "$BRIDGE" ]] && command -v python3 >/dev/null 2>&1; then
-    echo "$(ts) rewrite -> stdio-ws bridge" >>"$LOG" 2>/dev/null || true
     "$REAL" app-server daemon start >/dev/null 2>&1 || true
-    exec python3 "$BRIDGE" || true
-    echo "$(ts) bridge failed, falling through to real codex" >>"$LOG" 2>/dev/null || true
+    if preflight; then
+      echo "$(ts) rewrite -> stdio-ws bridge" >>"$LOG" 2>/dev/null || true
+      python3 "$BRIDGE"
+      rc=$?
+      if [[ "$rc" -eq 0 ]]; then
+        echo "$(ts) bridge served session" >>"$LOG" 2>/dev/null || true
+        exit 0
+      fi
+      echo "$(ts) bridge exited $rc, falling through to real codex" >>"$LOG" 2>/dev/null || true
+    else
+      echo "$(ts) daemon socket unreachable, passthrough to real codex" >>"$LOG" 2>/dev/null || true
+    fi
   else
     echo "$(ts) bridge unavailable, passthrough to real codex" >>"$LOG" 2>/dev/null || true
   fi
@@ -125,7 +150,7 @@ exit 1
 `;
 }
 
-export function renderEnvScript({ wrapperPath, realPath, logPath }) {
+export function renderEnvScript({ wrapperPath, realPath, envLogPath }) {
   return `#!/bin/bash
 # Installed by \`gbot codex desktop-shim install\`. Re-applies the GUI-domain env
 # so ChatGPT.app inherits CODEX_CLI_PATH after login, then best-effort starts the
@@ -134,7 +159,7 @@ export function renderEnvScript({ wrapperPath, realPath, logPath }) {
 set -u
 WRAPPER="${wrapperPath}"
 REAL="${realPath}"
-LOG="${logPath}"
+LOG="${envLogPath}"
 ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 {
   echo "$(ts) start"
@@ -345,14 +370,43 @@ function socketStateOf(path) {
   }
 }
 
-/** Inspect the shim without touching Desktop, pipes, or sockets beyond a stat. */
-export function desktopShimStatus({ env = process.env, home = userHomeDir(env), platform = process.platform } = {}) {
+/**
+ * Inspect the shim without touching Desktop, pipes, or sockets beyond a stat.
+ * On macOS the Desktop-facing CODEX_CLI_PATH lives in launchd's GUI domain,
+ * which a shell-spawned `gbot` does not inherit — so status queries
+ * `launchctl getenv` there (via the injectable runner) and reports the caller
+ * environment separately. Elsewhere the process env is the whole story.
+ */
+export function desktopShimStatus({
+  env = process.env,
+  home = userHomeDir(env),
+  platform = process.platform,
+  runner = defaultRunner,
+} = {}) {
   const paths = defaultPaths({ env, home });
+  const warnings = [];
   const wrapperPresent = fileExists(paths.wrapperPath);
   const bridgePresent = fileExists(paths.bridgePath);
   const envScriptPresent = fileExists(paths.envScriptPath);
   const plistPresent = platform === "darwin" ? fileExists(paths.plistPath) : false;
   const cliPath = env.CODEX_CLI_PATH || null;
+  let guiCliPath = null;
+  if (platform === "darwin") {
+    try {
+      const out = runner("launchctl", ["getenv", "CODEX_CLI_PATH"]);
+      const value = out && typeof out.stdout === "string" ? out.stdout.trim() : "";
+      guiCliPath = value || null;
+      if (out && (out.error || (typeof out.status === "number" && out.status !== 0))) {
+        warnings.push("launchctl getenv CODEX_CLI_PATH failed; GUI-domain state unknown");
+        guiCliPath = null;
+      }
+    } catch (error) {
+      warnings.push(`launchctl getenv CODEX_CLI_PATH failed (${error instanceof Error ? error.message : String(error)})`);
+      guiCliPath = null;
+    }
+  }
+  // Desktop-facing value: the GUI domain on macOS, the caller env elsewhere.
+  const desktopCliPath = platform === "darwin" ? guiCliPath : cliPath;
   const installed = wrapperPresent && isExecutable(paths.wrapperPath) && bridgePresent;
   return {
     action: "status",
@@ -360,9 +414,11 @@ export function desktopShimStatus({ env = process.env, home = userHomeDir(env), 
     bridgePresent,
     cliPath,
     codexHome: paths.codexHome,
+    desktopCliPath,
     envScriptPath: paths.envScriptPath,
     envScriptPresent,
     exitCode: installed ? 0 : 1,
+    guiCliPath,
     installed,
     persisted: platform === "darwin" ? plistPresent : null,
     platform,
@@ -371,9 +427,10 @@ export function desktopShimStatus({ env = process.env, home = userHomeDir(env), 
     realPath: paths.realPath,
     socketPath: paths.socketPath,
     socketState: socketStateOf(paths.socketPath),
+    warnings,
     wrapperExecutable: wrapperPresent && isExecutable(paths.wrapperPath),
     wrapperPath: paths.wrapperPath,
-    wrapperPointsAtShim: cliPath === paths.wrapperPath,
+    wrapperPointsAtShim: desktopCliPath === paths.wrapperPath,
     wrapperPresent,
   };
 }

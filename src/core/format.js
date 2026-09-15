@@ -108,6 +108,10 @@ export function formatCodexThread(t) {
 
 export function formatDesktopShimStatus(s) {
   const mark = (ok) => (ok ? "yes" : "no");
+  const cliLine = s.platform === "darwin"
+    ? "CODEX_CLI_PATH: GUI domain " + (s.guiCliPath ?? "(unset)") + " / this shell " + (s.cliPath ?? "(unset)")
+      + (s.wrapperPointsAtShim ? " (Desktop-facing value points at shim)" : "")
+    : "CODEX_CLI_PATH: " + (s.cliPath ?? "(unset)") + (s.wrapperPointsAtShim ? " (points at shim)" : "");
   const lines = [
     "wrapper: " + s.wrapperPath + " (" + (s.wrapperExecutable ? "executable" : s.wrapperPresent ? "present, not executable" : "absent") + ")",
     "bridge: " + s.bridgePath + " (" + mark(s.bridgePresent) + ")",
@@ -115,7 +119,7 @@ export function formatDesktopShimStatus(s) {
     s.platform === "darwin"
       ? "LaunchAgent: " + s.plistPath + " (" + mark(s.plistPresent) + ")"
       : "LaunchAgent: n/a (macOS-only)",
-    "CODEX_CLI_PATH: " + (s.cliPath ?? "(unset)") + (s.wrapperPointsAtShim ? " (points at shim)" : ""),
+    cliLine,
     "daemon socket: " + s.socketPath + " (" + s.socketState + ")",
   ];
   if (!s.installed) {
@@ -125,5 +129,6 @@ export function formatDesktopShimStatus(s) {
   } else {
     lines.push("shim: active — Desktop app-server spawns bridge onto the managed daemon");
   }
+  for (const warning of s.warnings ?? []) lines.push("warning: " + String(warning));
   return lines.join("\n");
 }
