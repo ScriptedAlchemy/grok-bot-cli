@@ -21,18 +21,20 @@ export default defineTool(
     resultSchema: z.object({
       result: z.record(z.string(), z.json()),
       target: targetSchema,
-      delivery: z.enum(['accepted']),
+      delivery: z.enum(['accepted', 'unknown']),
       messageId: z.string().optional(),
     }),
     title: 'Send a message to Grok Bot',
   },
   async ({ message, target }) => {
     const sent = await withRedactedErrors(async () => sendPrompt(await connectGateway(), target, message));
-    const messageId = typeof sent.messageId === 'string' ? (sent.messageId as string) : undefined;
+    // Never claim acceptance the gateway didn't confirm; no-receipt sends stay unknown.
+    const delivery = sent.delivery === 'accepted' ? ('accepted' as const) : ('unknown' as const);
+    const messageId = delivery === 'accepted' && typeof sent.messageId === 'string' ? (sent.messageId as string) : undefined;
     const value = {
       result: sent.result,
       target: summarizeTarget(sent.target),
-      delivery: 'accepted' as const,
+      delivery,
       ...(messageId === undefined ? {} : { messageId }),
     };
     return (

@@ -351,8 +351,7 @@ test("codex send reassembles a fragmented turn/start reply split across TCP chun
   }
 });
 
-test("codex status fails on a wrong handshake and closes the socket instead of leaking it", async () => {
-  const home = mkdtempSync(join(tmpdir(), "gbot-codex-badhs-"));
+test("codex status fails on a wrong handshake and closes the socket instead of leaking it", async () => {  const home = mkdtempSync(join(tmpdir(), "gbot-codex-badhs-"));
   mkdirSync(join(home, "app-server-control"));
   const socketPath = join(home, "app-server-control", "app-server-control.sock");
   let serverSocket = null;
@@ -459,5 +458,118 @@ test("codex send preserves turn and thread ids with accepted delivery on refusal
     });
   } finally {
     await fake.close();
+  }
+});
+
+test("a JSON null message fails as malformed instead of crashing on msg.id", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    initialize: (params, ok, err, send) => {
+      void params; void ok; void err;
+      send(null);
+    },
+  });
+  try {
+    const started = Date.now();
+    const { code, err } = await gbot(fake.home, "codex", "status");
+    assert.equal(code, 1);
+    assert.match(err, /malformed message/);
+    assert.ok(Date.now() - started < 5000, "did not hang on the bad message");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("handshake timeout is absolute; trickled bytes do not extend it", async () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-codex-trickle-"));
+  mkdirSync(join(home, "app-server-control"));
+  const socketPath = join(home, "app-server-control", "app-server-control.sock");
+  const server = createTcpServer((sock) => {
+    sock.on("data", () => {
+      const t = setInterval(() => sock.write("X"), 50);
+      sock.on("close", () => clearInterval(t));
+    });
+    sock.on("error", () => {});
+  });
+  await new Promise((resolve) => server.listen(socketPath, resolve));
+  try {
+    const started = Date.now();
+    await assert.rejects(connectCodexAppServer(socketPath, { timeoutMs: 300 }), /Timed out connecting/);
+    assert.ok(Date.now() - started < 5000, "absolute deadline fired instead of waiting on the trickle");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("codex status rejects terminated oversized handshake headers", async () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-codex-bighdr-"));
+  mkdirSync(join(home, "app-server-control"));
+  const socketPath = join(home, "app-server-control", "app-server-control.sock");
+  const server = createTcpServer((sock) => {
+    sock.on("data", () => sock.write("HTTP/1.1 101 Switching Protocols\r\nX-Pad: " + "y".repeat(20000) + "\r\n\r\n"));
+    sock.on("error", () => {});
+  });
+  await new Promise((resolve) => server.listen(socketPath, resolve));
+  try {
+    const started = Date.now();
+    const { code, err } = await gbot(home, "codex", "status");
+    assert.equal(code, 1);
+    assert.match(err, /exceed/);
+    assert.ok(Date.now() - started < 5000, "failed fast instead of decoding the headers");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("codex status rejects a complete oversized frame without buffering it", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    initialize: (params, ok, err, send, socket) => {
+      void params; void ok; void err; void send;
+      socket.write(encodeFrame(0x1, Buffer.alloc(5 * 1024 * 1024)));
+    },
+  });
+  try {
+    const started = Date.now();
+    const { code, err } = await gbot(fake.home, "codex", "status");
+    assert.equal(code, 1);
+    assert.match(err, /exceed/);
+    assert.ok(Date.now() - started < 5000, "failed fast instead of buffering the frame");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send emits structured JSON errors with delivery and ids", async () => {
+  const fake = await fakeAppServer(baseHandlers);
+  try {
+    const unknown = await gbot(fake.home, "--json", "codex", "send", "nope", "hi");
+    assert.equal(unknown.code, 1);
+    assert.deepEqual(JSON.parse(unknown.err), {
+      error: "Unknown Codex thread nope. Run `gbot codex list-threads` to see reachable threads.",
+      delivery: "rejected",
+      threadId: "nope",
+    });
+    assert.equal(unknown.out, "");
+  } finally {
+    await fake.close();
+  }
+  const refusing = await fakeAppServer({
+    ...baseHandlers,
+    "turn/start": (params, ok, err, send) => {
+      send({ jsonrpc: "2.0", id: "srv-1", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId } });
+      setTimeout(() => ok({ turn: { id: "turn-10", status: "inProgress", items: [] } }), 20);
+    },
+  });
+  try {
+    const { code, err } = await gbot(refusing.home, "--json", "codex", "send", "t-1", "do it");
+    assert.equal(code, 1);
+    const parsed = JSON.parse(err);
+    assert.equal(parsed.delivery, "accepted");
+    assert.equal(parsed.threadId, "t-1");
+    assert.equal(parsed.turnId, "turn-10");
+    assert.match(parsed.error, /^Turn turn-10 started on thread t-1/);
+  } finally {
+    await refusing.close();
   }
 });

@@ -23,6 +23,8 @@ const roster = {
     { id: 'bot-2', isGroup: false, name: 'Legacy' },
     { id: 'bot-3', isGroup: false, name: 'Proxy' },
     { id: 'bot-4', isGroup: false, name: 'Odd' },
+    { id: 'bot-5', isGroup: false, name: 'Noreceipt' },
+    { id: 'bot-6', isGroup: false, name: 'Big' },
   ],
 };
 const transcripts: Record<string, unknown> = {
@@ -50,6 +52,9 @@ const transcripts: Record<string, unknown> = {
       { id: 'o3', kind: 'note', text: `a${String.fromCharCode(0xd800)}b` },
     ],
   },
+  'bot-6': {
+    entries: Array.from({ length: 11 }, (_, index) => ({ id: `b${index}`, kind: 'note', text: 'q'.repeat(20000) })),
+  },
 };
 const responses: Record<string, (body: Record<string, unknown>) => [number, unknown]> = {
   getAgentTranscriptTail: (body) => [200, transcripts[String(body.id)]],
@@ -57,7 +62,9 @@ const responses: Record<string, (body: Record<string, unknown>) => [number, unkn
   sendPrompt: (body) =>
     body.agentId === 'bot-3'
       ? [401, { message: 'upstream rejected authorization: Bearer test-token' }]
-      : [200, { messageId: 'm-1' }],
+      : body.agentId === 'bot-5'
+        ? [200, { ok: true }]
+        : [200, { messageId: 'm-1' }],
 };
 
 const calls: GatewayCall[] = [];
@@ -189,6 +196,33 @@ describe('grok-bot MCP server', () => {
       ],
       target: { id: 'bot-4', kind: 'bot', name: 'Odd' },
     });
+  });
+
+  it('gbot_send stays unknown when the gateway confirms no receipt', async () => {
+    const result = await invokeMcpTool('gbot_send', {
+      input: { message: 'ping', target: 'Noreceipt' },
+      server: 'grok-bot',
+    });
+    expect(result.isError).toBe(false);
+    expect(result.structuredContent).toEqual({
+      delivery: 'unknown',
+      result: { ok: true },
+      target: { id: 'bot-5', kind: 'bot', name: 'Noreceipt' },
+    });
+    expect(contentText(result.content)).toContain('no receipt');
+    expect(contentText(result.content)).not.toContain(' as ');
+  });
+
+  it('gbot_thread caps aggregate output and keeps the remainder visible in metadata', async () => {
+    const full = await invokeMcpTool('gbot_thread', {
+      input: { full: true, target: 'Big' },
+      server: 'grok-bot',
+    });
+    expect(full.isError).toBe(false);
+    const entries = (full.structuredContent as { entries: { id: string; text: string; truncated: boolean; fullLength: number }[] }).entries;
+    expect(entries).toHaveLength(11);
+    expect(entries[9]).toEqual({ id: 'b9', kind: 'note', text: 'q'.repeat(20000), truncated: false, fullLength: 20000 });
+    expect(entries[10]).toEqual({ id: 'b10', kind: 'note', text: '', truncated: true, fullLength: 20000 });
   });
 
   it('redacts a bearer token echoed by the gateway before the error reaches the host', async () => {

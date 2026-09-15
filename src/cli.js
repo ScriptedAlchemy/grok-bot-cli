@@ -15,7 +15,16 @@ function print(value) {
 function fail(err) {
   let message = err instanceof Error ? err.message : String(err);
   message = redactSecrets(message);
-  process.stderr.write(message + "\n");
+  if (jsonErrors && err instanceof Error) {
+    const out = { error: message };
+    if (err.delivery !== undefined) out.delivery = err.delivery;
+    if (err.threadId !== undefined) out.threadId = err.threadId;
+    if (err.turnId !== undefined) out.turnId = err.turnId;
+    if (err.targetId !== undefined) out.targetId = err.targetId;
+    process.stderr.write(JSON.stringify(out) + "\n");
+  } else {
+    process.stderr.write(message + "\n");
+  }
   process.exit(1);
 }
 
@@ -106,6 +115,7 @@ function takeRepeating(args, name) {
 }
 
 /** Peel global CLI options only from the leading argv (before the command). */
+let jsonErrors = false;
 function takeLeadingGlobals(args) {
   let json = false;
   let gateway = false;
@@ -119,6 +129,7 @@ function takeLeadingGlobals(args) {
     }
     if (a === "--json") {
       json = true;
+      jsonErrors = true;
       args.shift();
       continue;
     }

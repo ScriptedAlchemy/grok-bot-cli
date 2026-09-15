@@ -28,7 +28,7 @@ export default defineTool(
         full: {
           default: false,
           description:
-            'Return complete entry text up to a bounded full-read budget instead of the 400-character preview. Every entry still reports truncation metadata.',
+            'Return complete entry text up to bounded budgets (20k chars per entry, 200k total) instead of the 400-character preview. Every entry still reports truncated/fullLength; read the remainder with `gbot thread --full` / `--json` on the machine.',
           type: 'boolean',
         },
         target: { description: 'Bot or group name or id, for example "General".', type: 'string' },
@@ -37,6 +37,8 @@ export default defineTool(
       type: 'object',
     },
     inputSchema: z.object({
+      // ponytail: the route inputJsonSchema type cannot express minimum/maximum, so the
+      // 1-200 bound lives here in zod (and in the CLI/gateway); widen the route type to align them.
       limit: z.number().int().min(1).max(200).default(40),
       full: z.boolean().default(false),
       target: z.string().min(1),

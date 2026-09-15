@@ -50,7 +50,10 @@ type Entry = z.infer<typeof entrySchema>;
 /** Match `gbot thread` CLI preview width so MCP hosts are not flooded. */
 export const ENTRY_TEXT_MAX = 400;
 // ponytail: fixed preview/full budgets; upgrade path is a paged thread resource instead of wider caps.
+// When an entry is cut by these budgets it still reports truncated/fullLength, and the
+// remainder is retrievable with `gbot thread --full` / `--json` on the machine.
 export const ENTRY_FULL_MAX = 20000;
+export const TRANSCRIPT_TOTAL_MAX = 200000;
 
 export const truncateEntryText = (text: string, max = ENTRY_TEXT_MAX): string => {
   if (text.length <= max) return text;
@@ -64,12 +67,11 @@ const entryFields = z.object({
   timestampMs: z.number().optional(),
 });
 
-const threadEntry = (raw: unknown, opts: { full?: boolean } = {}): Entry => {
+const threadEntry = (raw: unknown, max: number, ellipsis: boolean): Entry => {
   const fields = entryFields.safeParse(raw);
   const full = entryText(raw);
-  const max = opts.full ? ENTRY_FULL_MAX : ENTRY_TEXT_MAX;
   const truncated = full.length > max;
-  const text = !truncated ? full : opts.full ? full.slice(0, max) : truncateEntryText(full);
+  const text = !truncated ? full : ellipsis ? truncateEntryText(full, max) : full.slice(0, max);
   if (!fields.success) {
     return { id: '', kind: 'unknown', text, truncated, fullLength: full.length };
   }
@@ -85,5 +87,12 @@ const threadEntry = (raw: unknown, opts: { full?: boolean } = {}): Entry => {
   };
 };
 
-export const transcriptEntries = (transcript: unknown, opts: { full?: boolean } = {}): Entry[] =>
-  unwrapEntries(transcript).map((raw) => threadEntry(raw, opts));
+export const transcriptEntries = (transcript: unknown, opts: { full?: boolean } = {}): Entry[] => {
+  const perEntry = opts.full ? ENTRY_FULL_MAX : ENTRY_TEXT_MAX;
+  let remaining = TRANSCRIPT_TOTAL_MAX;
+  return unwrapEntries(transcript).map((raw) => {
+    const entry = threadEntry(raw, Math.min(perEntry, remaining), !opts.full);
+    remaining = Math.max(0, remaining - entry.text.length);
+    return entry;
+  });
+};

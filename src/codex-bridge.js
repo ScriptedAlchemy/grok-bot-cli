@@ -173,10 +173,15 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
     let fragOpcode = null;
     let fragParts = [];
     let fragBytes = 0;
+    // Absolute handshake deadline: socket timeouts reset on any bytes, so trickled
+    // headers must not extend this. Per-request timers stay absolute after upgrade.
+    const handshakeTimer = setTimeout(() => failAll(new Error("Timed out connecting to Codex app-server at " + path)), timeoutMs);
+    if (typeof handshakeTimer.unref === "function") handshakeTimer.unref();
 
     const failAll = (err) => {
       if (closed) return;
       closed = true;
+      clearTimeout(handshakeTimer);
       if (err && err.delivery == null) err.delivery = pending.size ? "unknown" : "rejected";
       for (const { reject: rej } of pending.values()) rej(err);
       pending.clear();
@@ -212,15 +217,20 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
       close() {
         if (closed) return;
         closed = true;
+        clearTimeout(handshakeTimer);
         const err = new Error("Codex client closed");
         err.delivery = pending.size ? "unknown" : "rejected";
         for (const { reject: rej } of pending.values()) rej(err);
         pending.clear();
-        if (!socket.destroyed) {
-          if (upgraded) write(0x8, Buffer.from([0x03, 0xe8]));
-          socket.end();
-          socket.unref();
-        }
+        // Best-effort close frame, then guaranteed destruction so no path leaks the socket.
+        if (!socket.destroyed && upgraded) write(0x8, Buffer.from([0x03, 0xe8]));
+        if (socket.destroyed) return;
+        const forceDestroy = setTimeout(() => { try { socket.destroy(); } catch { /* already gone */ } }, 1000);
+        if (typeof forceDestroy.unref === "function") forceDestroy.unref();
+        socket.end(() => {
+          clearTimeout(forceDestroy);
+          try { socket.destroy(); } catch { /* already gone */ }
+        });
       },
     };
 
@@ -256,10 +266,13 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
         failAll(new Error("Codex app-server sent an unreadable message: " + err.message));
         return;
       }
+      if (!msg || typeof msg !== "object" || Array.isArray(msg)) {
+        failAll(new Error("Codex app-server sent a malformed message"));
+        return;
+      }
       onMessage(msg);
     };
 
-    socket.setTimeout(timeoutMs, () => failAll(new Error("Timed out connecting to Codex app-server at " + path)));
     socket.once("error", (err) => failAll(new Error("Could not connect to Codex app-server at " + path + ": " + err.message)));
     socket.once("close", () => failAll(new Error("Codex app-server closed the connection")));
     socket.once("connect", () => socket.write(upgradeRequest(key)));
@@ -271,11 +284,13 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
           if (buf.length > WS_MAX_HEADER_BYTES) failAll(new Error("Codex app-server handshake headers exceed " + WS_MAX_HEADER_BYTES + " bytes"));
           return;
         }
+        // Terminated headers hit the cap too; size is checked before any decoding.
+        if (end > WS_MAX_HEADER_BYTES) return failAll(new Error("Codex app-server handshake headers exceed " + WS_MAX_HEADER_BYTES + " bytes"));
         const head = buf.subarray(0, end).toString();
         buf = buf.subarray(end + 4);
         if (!validateUpgradeHead(head, key)) return failAll(new Error("Codex app-server refused the WebSocket upgrade: " + head.split("\r\n")[0]));
         upgraded = true;
-        socket.setTimeout(0);
+        clearTimeout(handshakeTimer);
         resolve(client);
       }
       for (;;) {
@@ -290,6 +305,7 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
           return;
         }
         buf = frame.rest;
+        if (frame.payload.length > WS_MAX_MESSAGE_BYTES) return failAll(new Error("Codex app-server frame exceeds " + WS_MAX_MESSAGE_BYTES + " bytes"));
         if (frame.masked) return failProtocol("server frames must not be masked");
         if (frame.opcode >= 0x8) {
           if (!frame.fin || frame.payload.length > 125) return failProtocol("bad control frame");
