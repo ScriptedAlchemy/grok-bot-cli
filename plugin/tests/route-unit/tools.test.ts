@@ -28,8 +28,8 @@ const transcripts: Record<string, unknown> = {
   'bot-1': { entries: [], nextBeforeSeq: 0 },
   'bot-2': {
     messages: [
-      { content: [{ text: 'part one' }, 'part two'], id: 'l1', text: 'ignored when content is set' },
-      { id: 'l2', kind: 'note', preview: 'preview text' },
+      { content: 'ignored when text is set', id: 'l1', text: 'direct text' },
+      { content: [{ text: 'part one' }, 'part two', { content: 'part three' }], id: 'l2', kind: 'note' },
       { id: 'l3', message: 'plain message' },
     ],
   },
@@ -148,8 +148,8 @@ describe('grok-bot MCP server', () => {
     const legacy = await invokeMcpTool('gbot_thread', { input: { target: 'Legacy' }, server: 'grok-bot' });
     expect(legacy.structuredContent).toMatchObject({
       entries: [
-        { id: 'l1', kind: 'message', text: 'part one\npart two' },
-        { id: 'l2', kind: 'note', text: 'preview text' },
+        { id: 'l1', kind: 'message', text: 'direct text' },
+        { id: 'l2', kind: 'note', text: 'part one\npart two\npart three' },
         { id: 'l3', kind: 'message', text: 'plain message' },
       ],
     });
