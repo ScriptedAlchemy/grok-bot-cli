@@ -24,3 +24,11 @@ test("transcript containers unwrap to an entry list", () => {
   assert.deepEqual(transcriptEntries({ nextBeforeSeq: 2 }), []);
   assert.deepEqual(transcriptEntries(null), []);
 });
+
+test("entryText never throws and normalizes malformed content to safe strings", () => {
+  assert.equal(entryText({ content: { text: 5 } }), "5");
+  assert.equal(entryText({ content: { flag: true } }), '{"flag":true}');
+  assert.equal(entryText({ content: { v: 1n } }), "[unserializable]");
+  assert.equal(entryText({ text: "a\ud800b" }), "a\ufffdb");
+  assert.equal(entryText(null), "");
+});

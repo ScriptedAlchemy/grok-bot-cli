@@ -18,16 +18,27 @@ export default defineTool(
       type: 'object',
     },
     inputSchema: z.object({ message: z.string().min(1), target: z.string().min(1) }),
-    resultSchema: z.object({ result: z.record(z.string(), z.json()), target: targetSchema }),
+    resultSchema: z.object({
+      result: z.record(z.string(), z.json()),
+      target: targetSchema,
+      delivery: z.enum(['accepted']),
+      messageId: z.string().optional(),
+    }),
     title: 'Send a message to Grok Bot',
   },
   async ({ message, target }) => {
     const sent = await withRedactedErrors(async () => sendPrompt(await connectGateway(), target, message));
-    const value = { result: sent.result, target: summarizeTarget(sent.target) };
+    const messageId = typeof sent.messageId === 'string' ? (sent.messageId as string) : undefined;
+    const value = {
+      result: sent.result,
+      target: summarizeTarget(sent.target),
+      delivery: 'accepted' as const,
+      ...(messageId === undefined ? {} : { messageId }),
+    };
     return (
       <Agent.Result value={value}>
         <Agent.Text>
-          {`Sent to ${value.target.kind} ${value.target.name} (${value.target.id}). Read the reply with gbot_thread.`}
+          {`Sent to ${value.target.kind} ${value.target.name} (${value.target.id})${messageId === undefined ? ' (no receipt; check the thread before resending)' : ` as ${messageId}`}. Read the reply with gbot_thread.`}
         </Agent.Text>
       </Agent.Result>
     );

@@ -16,6 +16,12 @@ export const UPSTREAM_DESKTOP_ISSUES = [
 ];
 
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+// Transport budgets: fail fast instead of buffering unbounded attacker-controlled bytes.
+// ponytail: raise these only with streaming/pagination support; the app-server sends small JSON-RPC frames.
+export const WS_MAX_HEADER_BYTES = 16 * 1024;
+export const WS_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
+export const WS_MAX_BUFFER_BYTES = 8 * 1024 * 1024;
+const textDecoder = new TextDecoder("utf-8", { fatal: true });
 const pkg = createRequire(import.meta.url)("../package.json");
 
 export function codexSocketPath(env = process.env) {
@@ -89,7 +95,35 @@ export function decodeFrame(buf) {
   if (buf.length < offset + len) return null;
   const payload = Buffer.from(buf.subarray(offset, offset + len));
   if (mask) for (let i = 0; i < payload.length; i++) payload[i] ^= mask[i & 3];
-  return { fin, opcode, payload, rest: buf.subarray(offset + len) };
+  return { fin, opcode, masked, payload, rest: buf.subarray(offset + len) };
+}
+
+/** Claimed frame length without consuming; null when the length prefix is incomplete. */
+function peekFrameLength(buf) {
+  if (buf.length < 2) return null;
+  const marker = buf[1] & 0x7f;
+  if (marker < 126) return marker;
+  if (marker === 126) {
+    if (buf.length < 4) return null;
+    return buf.readUInt16BE(2);
+  }
+  if (buf.length < 10) return null;
+  const big = buf.readBigUInt64BE(2);
+  return big > BigInt(Number.MAX_SAFE_INTEGER) ? Infinity : Number(big);
+}
+
+function validateUpgradeHead(head, key) {
+  const lines = head.split("\r\n");
+  if (!/^HTTP\/1\.1 101/.test(lines[0])) return false;
+  const headers = new Map();
+  for (const line of lines.slice(1)) {
+    const i = line.indexOf(":");
+    if (i === -1) return false;
+    headers.set(line.slice(0, i).trim().toLowerCase(), line.slice(i + 1).trim());
+  }
+  return headers.get("sec-websocket-accept") === websocketAccept(key)
+    && (headers.get("upgrade") || "").toLowerCase() === "websocket"
+    && (headers.get("connection") || "").toLowerCase().includes("upgrade");
 }
 
 function upgradeRequest(key) {
@@ -110,6 +144,17 @@ export class CodexRpcError extends Error {
   }
 }
 
+export class CodexSendError extends Error {
+  constructor(message, { delivery, threadId, turnId, refused } = {}) {
+    super(message);
+    this.name = "CodexSendError";
+    this.delivery = delivery;
+    if (threadId !== undefined) this.threadId = threadId;
+    if (turnId !== undefined) this.turnId = turnId;
+    if (refused !== undefined) this.refused = refused;
+  }
+}
+
 /**
  * Open a JSON-RPC session to the app-server over its Unix socket (WebSocket framing).
  * Server-initiated requests (approvals, user input) are refused with a JSON-RPC error
@@ -125,14 +170,20 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
     let buf = Buffer.alloc(0);
     let upgraded = false;
     let closed = false;
+    let fragOpcode = null;
+    let fragParts = [];
+    let fragBytes = 0;
 
     const failAll = (err) => {
       if (closed) return;
       closed = true;
+      if (err && err.delivery == null) err.delivery = pending.size ? "unknown" : "rejected";
       for (const { reject: rej } of pending.values()) rej(err);
       pending.clear();
+      try { socket.destroy(); } catch { /* already gone */ }
       reject(err);
     };
+    const failProtocol = (detail) => failAll(new Error("Codex app-server violated the WebSocket protocol: " + detail));
     const write = (opcode, payload) => {
       if (!socket.destroyed) socket.write(encodeFrame(opcode, payload, randomBytes(4)));
     };
@@ -159,10 +210,17 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
         sendJson({ jsonrpc: "2.0", method, params });
       },
       close() {
+        if (closed) return;
         closed = true;
-        write(0x8, Buffer.from([0x03, 0xe8]));
-        socket.end();
-        socket.unref();
+        const err = new Error("Codex client closed");
+        err.delivery = pending.size ? "unknown" : "rejected";
+        for (const { reject: rej } of pending.values()) rej(err);
+        pending.clear();
+        if (!socket.destroyed) {
+          if (upgraded) write(0x8, Buffer.from([0x03, 0xe8]));
+          socket.end();
+          socket.unref();
+        }
       },
     };
 
@@ -183,6 +241,24 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
       else entry.resolve(msg.result);
     };
 
+    const onText = (payload) => {
+      let text;
+      try {
+        text = textDecoder.decode(payload);
+      } catch {
+        failAll(new Error("Codex app-server sent a non-UTF-8 text message"));
+        return;
+      }
+      let msg;
+      try {
+        msg = JSON.parse(text);
+      } catch (err) {
+        failAll(new Error("Codex app-server sent an unreadable message: " + err.message));
+        return;
+      }
+      onMessage(msg);
+    };
+
     socket.setTimeout(timeoutMs, () => failAll(new Error("Timed out connecting to Codex app-server at " + path)));
     socket.once("error", (err) => failAll(new Error("Could not connect to Codex app-server at " + path + ": " + err.message)));
     socket.once("close", () => failAll(new Error("Codex app-server closed the connection")));
@@ -191,33 +267,68 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
       buf = Buffer.concat([buf, chunk]);
       if (!upgraded) {
         const end = buf.indexOf("\r\n\r\n");
-        if (end === -1) return;
+        if (end === -1) {
+          if (buf.length > WS_MAX_HEADER_BYTES) failAll(new Error("Codex app-server handshake headers exceed " + WS_MAX_HEADER_BYTES + " bytes"));
+          return;
+        }
         const head = buf.subarray(0, end).toString();
         buf = buf.subarray(end + 4);
-        const ok = /^HTTP\/1\.1 101/.test(head)
-          && head.toLowerCase().includes("sec-websocket-accept: " + websocketAccept(key).toLowerCase());
-        if (!ok) return failAll(new Error("Codex app-server refused the WebSocket upgrade: " + head.split("\r\n")[0]));
+        if (!validateUpgradeHead(head, key)) return failAll(new Error("Codex app-server refused the WebSocket upgrade: " + head.split("\r\n")[0]));
         upgraded = true;
         socket.setTimeout(0);
         resolve(client);
       }
-      // ponytail: unfragmented frames only; the app-server sends each JSON-RPC message as one text frame.
       for (;;) {
         const frame = decodeFrame(buf);
-        if (!frame) return;
-        buf = frame.rest;
-        if (frame.opcode === 0x1) {
-          try {
-            onMessage(JSON.parse(frame.payload.toString()));
-          } catch (err) {
-            failAll(new Error("Codex app-server sent an unreadable message: " + err.message));
+        if (!frame) {
+          const claimed = peekFrameLength(buf);
+          if (claimed != null && claimed > WS_MAX_MESSAGE_BYTES) {
+            failAll(new Error("Codex app-server frame exceeds " + WS_MAX_MESSAGE_BYTES + " bytes"));
+          } else if (buf.length > WS_MAX_BUFFER_BYTES) {
+            failAll(new Error("Codex app-server buffer exceeds " + WS_MAX_BUFFER_BYTES + " bytes"));
           }
-        } else if (frame.opcode === 0x9) write(0xa, frame.payload);
-        else if (frame.opcode === 0x8) {
-          write(0x8, frame.payload);
-          socket.end();
-          failAll(new Error("Codex app-server closed the connection"));
+          return;
         }
+        buf = frame.rest;
+        if (frame.masked) return failProtocol("server frames must not be masked");
+        if (frame.opcode >= 0x8) {
+          if (!frame.fin || frame.payload.length > 125) return failProtocol("bad control frame");
+          if (frame.opcode === 0x9) write(0xa, frame.payload);
+          else if (frame.opcode === 0x8) {
+            write(0x8, frame.payload);
+            socket.end();
+            failAll(new Error("Codex app-server closed the connection"));
+          }
+          continue; // pong and other control frames carry nothing for us
+        }
+        if (frame.opcode === 0x0) {
+          if (fragOpcode == null) return failProtocol("continuation with nothing to continue");
+          fragParts.push(frame.payload);
+          fragBytes += frame.payload.length;
+          if (fragBytes > WS_MAX_MESSAGE_BYTES) return failAll(new Error("Codex app-server message exceeds " + WS_MAX_MESSAGE_BYTES + " bytes"));
+          if (!frame.fin) continue;
+          const whole = Buffer.concat(fragParts, fragBytes);
+          const opcode = fragOpcode;
+          fragOpcode = null;
+          fragParts = [];
+          fragBytes = 0;
+          // ponytail: binary frames are unused by the app-server; only text is delivered.
+          if (opcode === 0x1) onText(whole);
+          continue;
+        }
+        if (frame.opcode === 0x1 || frame.opcode === 0x2) {
+          if (fragOpcode != null) return failProtocol("new message before finishing fragments");
+          if (!frame.fin) {
+            fragOpcode = frame.opcode;
+            fragParts = [frame.payload];
+            fragBytes = frame.payload.length;
+            continue;
+          }
+          // ponytail: binary frames are unused by the app-server; only text is delivered.
+          if (frame.opcode === 0x1) onText(frame.payload);
+          continue;
+        }
+        return failProtocol("unknown opcode " + frame.opcode);
       }
     });
   });
@@ -234,7 +345,13 @@ async function openSession(env = process.env) {
   const path = codexSocketPath(env);
   if (!socketPresent(path)) throw new Error(unreachableMessage(path));
   const client = await connectCodexAppServer(path);
-  const init = await client.request("initialize", { clientInfo: { name: "gbot", version: pkg.version } });
+  let init;
+  try {
+    init = await client.request("initialize", { clientInfo: { name: "gbot", version: pkg.version } });
+  } catch (err) {
+    client.close();
+    throw err;
+  }
   client.notify("initialized");
   return { client, path, init };
 }
@@ -310,19 +427,48 @@ export async function sendToCodexThread(threadId, text, env = process.env) {
     try {
       resumed = await client.request("thread/resume", { threadId, excludeTurns: true });
     } catch (err) {
-      throw explainSendError(err, threadId);
+      if (err instanceof CodexSendError) throw err;
+      throw new CodexSendError(explainSendError(err, threadId).message, {
+        delivery: err instanceof CodexRpcError ? "rejected" : (err && err.delivery) || "unknown",
+        threadId,
+      });
     }
-    const turn = await client.request("turn/start", { threadId, input: [{ type: "text", text }] });
-    if (client.refused.length) {
-      const methods = client.refused.map((r) => r.method).join(", ");
-      throw new Error(
-        "Turn " + turn.turn.id + " started on thread " + threadId + " but Codex asked for " + methods + ", which gbot refused. "
+    // Scope refusals to this turn: server requests from earlier calls belong to another context.
+    const seenRefused = client.refused.length;
+    let turn;
+    try {
+      turn = await client.request("turn/start", { threadId, input: [{ type: "text", text }] });
+    } catch (err) {
+      if (err instanceof CodexSendError) throw err;
+      const delivery = err instanceof CodexRpcError ? "rejected" : (err && err.delivery) || "unknown";
+      const detail = err instanceof CodexRpcError
+        ? err.message
+        : "Lost the Codex turn/start response for thread " + threadId + ": " + ((err && err.message) || err)
+          + ". Delivery is unknown; check the thread before resending.";
+      // ponytail: no blind retry here; a stable receipt/correlation envelope is issue #37.
+      throw new CodexSendError(detail, { delivery, threadId });
+    }
+    const turnId = turn && turn.turn && typeof turn.turn.id === "string" && turn.turn.id ? turn.turn.id : null;
+    if (!turnId) {
+      throw new CodexSendError(
+        "Codex app-server sent a malformed turn/start acknowledgment for thread " + threadId + ". Delivery is unknown; check the thread before resending.",
+        { delivery: "unknown", threadId },
+      );
+    }
+    const freshRefused = client.refused.slice(seenRefused)
+      .filter((r) => !r.params || r.params.threadId == null || r.params.threadId === threadId);
+    if (freshRefused.length) {
+      const methods = freshRefused.map((r) => r.method).join(", ");
+      throw new CodexSendError(
+        "Turn " + turnId + " started on thread " + threadId + " but Codex asked for " + methods + ", which gbot refused. "
         + "Answer it in a Codex client, or set `approval_policy = \"never\"` in the daemon's config.toml for unattended sends.",
+        { delivery: "accepted", threadId, turnId, refused: freshRefused.map((r) => r.method) },
       );
     }
     return {
+      delivery: "accepted",
       threadId: resumed.thread.id,
-      turnId: turn.turn.id,
+      turnId,
       turnStatus: turn.turn.status,
       model: resumed.model,
       cwd: resumed.cwd,

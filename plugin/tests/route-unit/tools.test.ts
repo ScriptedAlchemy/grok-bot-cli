@@ -22,6 +22,7 @@ const roster = {
     { id: 'grp-1', memberAgentIds: ['bot-1'], name: 'Launch' },
     { id: 'bot-2', isGroup: false, name: 'Legacy' },
     { id: 'bot-3', isGroup: false, name: 'Proxy' },
+    { id: 'bot-4', isGroup: false, name: 'Odd' },
   ],
 };
 const transcripts: Record<string, unknown> = {
@@ -41,6 +42,13 @@ const transcripts: Record<string, unknown> = {
       { id: 't3', kind: 'tool-call' },
     ],
     nextBeforeSeq: 9,
+  },
+  'bot-4': {
+    entries: [
+      { content: { text: 5 }, id: 'o1', kind: 'note' },
+      { id: 'o2', kind: 'mystery' },
+      { id: 'o3', kind: 'note', text: `a${String.fromCharCode(0xd800)}b` },
+    ],
   },
 };
 const responses: Record<string, (body: Record<string, unknown>) => [number, unknown]> = {
@@ -111,6 +119,8 @@ describe('grok-bot MCP server', () => {
     });
     expect(result.isError).toBe(false);
     expect(result.structuredContent).toEqual({
+      delivery: 'accepted',
+      messageId: 'm-1',
       result: { messageId: 'm-1' },
       target: { id: 'bot-1', kind: 'bot', name: 'General' },
     });
@@ -130,9 +140,9 @@ describe('grok-bot MCP server', () => {
     expect(result.isError).toBe(false);
     expect(result.structuredContent).toEqual({
       entries: [
-        { id: 't1', kind: 'message', role: 'user', text: 'hello from the test', timestampMs: 1 },
-        { id: 't2', kind: 'send-message', text: 'reply' },
-        { id: 't3', kind: 'tool-call', text: '' },
+        { id: 't1', kind: 'message', role: 'user', text: 'hello from the test', truncated: false, fullLength: 19, timestampMs: 1 },
+        { id: 't2', kind: 'send-message', text: 'reply', truncated: false, fullLength: 5 },
+        { id: 't3', kind: 'tool-call', text: '', truncated: false, fullLength: 0 },
       ],
       target: { id: 'grp-1', kind: 'group', name: 'Launch' },
     });
@@ -149,14 +159,36 @@ describe('grok-bot MCP server', () => {
     const legacy = await invokeMcpTool('gbot_thread', { input: { target: 'Legacy' }, server: 'grok-bot' });
     expect(legacy.structuredContent).toMatchObject({
       entries: [
-        { id: 'l1', kind: 'message', text: 'direct text' },
-        { id: 'l2', kind: 'note', text: 'part one\npart two\npart three' },
-        { id: 'l3', kind: 'message', text: 'plain message' },
-        { id: 'l4', kind: 'message', text: `${'x'.repeat(399)}…` },
+        { id: 'l1', kind: 'message', text: 'direct text', truncated: false, fullLength: 11 },
+        { id: 'l2', kind: 'note', text: 'part one\npart two\npart three', truncated: false, fullLength: 28 },
+        { id: 'l3', kind: 'message', text: 'plain message', truncated: false, fullLength: 13 },
+        { id: 'l4', kind: 'message', text: `${'x'.repeat(399)}…`, truncated: true, fullLength: 450 },
       ],
     });
     expect(contentText(legacy.content)).toContain('…');
     expect(contentText(legacy.content)).not.toContain('x'.repeat(450));
+  });
+
+  it('gbot_thread recovers a complete long reply with full:true and normalizes malformed entries', async () => {
+    const full = await invokeMcpTool('gbot_thread', {
+      input: { full: true, target: 'Legacy' },
+      server: 'grok-bot',
+    });
+    expect(full.isError).toBe(false);
+    const fullContent = full.structuredContent as { entries: { id: string; text: string; truncated: boolean; fullLength: number }[] };
+    expect(fullContent.entries[3]).toEqual({ id: 'l4', kind: 'message', text: 'x'.repeat(450), truncated: false, fullLength: 450 });
+    expect(contentText(full.content)).toContain('x'.repeat(450));
+
+    const odd = await invokeMcpTool('gbot_thread', { input: { target: 'Odd' }, server: 'grok-bot' });
+    expect(odd.isError).toBe(false);
+    expect(odd.structuredContent).toEqual({
+      entries: [
+        { id: 'o1', kind: 'note', text: '5', truncated: false, fullLength: 1 },
+        { id: 'o2', kind: 'mystery', text: '', truncated: false, fullLength: 0 },
+        { id: 'o3', kind: 'note', text: 'a�b', truncated: false, fullLength: 3 },
+      ],
+      target: { id: 'bot-4', kind: 'bot', name: 'Odd' },
+    });
   });
 
   it('redacts a bearer token echoed by the gateway before the error reaches the host', async () => {

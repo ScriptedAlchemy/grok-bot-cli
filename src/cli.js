@@ -48,7 +48,7 @@ function usage() {
     "  groups set <group> --member ID [--member ...]",
     "  groups delete <id-or-name>",
     "  send <bot-or-group> <message...>",
-    "  thread <bot-or-group> [--limit N] [--root MESSAGE_ID]",
+    "  thread <bot-or-group> [--limit N] [--root MESSAGE_ID] [--full]",
     "  chat <bot-or-group>     alias for thread",
     "  codex status",
     "  codex list-threads [--limit N]",
@@ -232,7 +232,7 @@ function formatRecord(rec, all) {
   return kind + "  " + rec.name + title + "\n    " + rec.id + desc + avatar + settingsLine + extra;
 }
 
-function formatTranscript(out) {
+function formatTranscript(out, { full = false } = {}) {
   const rec = out.target;
   const payload = out.transcript || out.thread || {};
   const entries = transcriptEntries(payload);
@@ -245,9 +245,15 @@ function formatTranscript(out) {
     const role = e.role || e.kind || e.sender || e.type || "msg";
     const text = entryText(e);
     const id = e.id || e.messageId || "";
-    lines.push("[" + role + (id ? " " + id : "") + "] " + String(text).slice(0, 400));
+    lines.push("[" + role + (id ? " " + id : "") + "] " + (full ? text : truncateCliText(text)));
   }
   return lines.join("\n");
+}
+
+/** Bounded preview; --json/--full still retrieve the complete text. */
+function truncateCliText(text, max = 400) {
+  if (text.length <= max) return text;
+  return text.slice(0, max) + "… [+" + (text.length - max) + " chars; --full or --json for complete text]";
 }
 
 function formatCodexStatus(s) {
@@ -459,20 +465,24 @@ async function main(argv) {
     const message = rest.join(" ").trim();
     if (!ref || !message) throw new StoreError("gbot send <bot-or-group> <message...>");
     const out = await backend.send(ref, message);
-    if (json) print({ id: out.target.id, name: out.target.name, kind: out.target.isGroup ? "group" : "bot", result: out.result });
-    else print("Sent to " + (out.target.isGroup ? "group" : "bot") + " " + out.target.name + " (" + out.target.id + ")");
+    const receipt = out.messageId ? " message " + out.messageId : "";
+    if (json) print({ id: out.target.id, name: out.target.name, kind: out.target.isGroup ? "group" : "bot", result: out.result, delivery: out.delivery || "accepted", ...(out.messageId ? { messageId: out.messageId } : {}) });
+    else print("Sent to " + (out.target.isGroup ? "group" : "bot") + " " + out.target.name + " (" + out.target.id + ")" + receipt);
     return;
   }
 
   if (cmd === "thread" || cmd === "chat") {
     const ref = sub;
-    if (!ref) throw new StoreError("gbot thread <bot-or-group> [--limit N] [--root MESSAGE_ID]");
+    if (!ref) throw new StoreError("gbot thread <bot-or-group> [--limit N] [--root MESSAGE_ID] [--full]");
+    const full = rest.includes("--full");
+    if (full) rest.splice(rest.indexOf("--full"), 1);
     const limitRaw = takeFlag(rest, "--limit");
     const rootId = takeFlag(rest, "--root");
     const limit = limitRaw ? Number(limitRaw) : 40;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new StoreError("--limit must be an integer 1-200");
     const out = rootId ? await backend.thread(ref, rootId) : await backend.transcript(ref, limit);
     if (json) print(out);
-    else print(formatTranscript(out));
+    else print(formatTranscript(out, { full }));
     return;
   }
 
