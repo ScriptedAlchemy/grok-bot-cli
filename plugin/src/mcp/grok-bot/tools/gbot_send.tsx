@@ -11,8 +11,8 @@ export default defineTool(
     inputJsonSchema: {
       additionalProperties: false,
       properties: {
-        message: { description: 'Message text. Say who you are and what you need in the first line.', minLength: 1, type: 'string' },
-        target: { description: 'Bot or group name or id, for example "General".', minLength: 1, type: 'string' },
+        message: { description: 'Message text. Say who you are and what you need in the first line.', type: 'string' },
+        target: { description: 'Bot or group name or id, for example "General".', type: 'string' },
       },
       required: ['target', 'message'],
       type: 'object',
