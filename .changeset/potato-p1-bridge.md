@@ -1,3 +1,4 @@
+---
 "grok-bot-cli": patch
 ---
 
