@@ -6,7 +6,7 @@ import { inspectGrokBotGatewaySession } from "./app-session.js";
 import { entryText, transcriptDelta, transcriptEntries } from "./transcript.js";
 import { historyPath, readHistory, saveHistory } from "./history.js";
 import { redactSecrets } from "./url-policy.js";
-import { buildEnvelope, codexStatus, listCodexThreads, sendToCodexThread, stripTerminalControls, withEnvelopeHeader } from "./codex-bridge.js";
+import { buildEnvelope, codexStatus, listCodexQueue, listCodexThreads, sendToCodexThread, singleLine, stripTerminalControls, withEnvelopeHeader } from "./codex-bridge.js";
 
 function print(value) {
   if (typeof value === "string") process.stdout.write(value + "\n");
@@ -22,6 +22,7 @@ function fail(err) {
     for (const key of ["delivery", "reason", "mode", "threadId", "turnId", "targetId", "messageId", "correlationId"]) {
       if (err[key] !== undefined) out[key] = err[key];
     }
+    if (out.reason === undefined && err instanceof StoreError) out.reason = "usage";
     if (err.envelope && typeof err.envelope === "object") {
       out.messageId = err.envelope.messageId;
       out.correlationId = err.envelope.correlationId;
@@ -69,7 +70,8 @@ function usage() {
     "  history --path         print the local JSONL file path",
     "  codex status",
     "  codex list-threads [--limit N] [--cursor CURSOR]",
-    "  codex send [envelope flags] <threadId> <message...>",
+    "  codex send [envelope flags] [--when-busy reject|queue] <threadId> <message...>",
+    "  codex queue <threadId>  (experimental: GROK_BOT_CODEX_EXPERIMENTAL=1)",
     "",
     "Envelope flags (before the target): --correlation-id ID  --reply-to MESSAGE_ID  --hop N  --envelope",
     "  Receipts carry messageId/correlationId/hop; a reply passes the original correlation id and hop+1.",
@@ -95,6 +97,16 @@ function takeFlag(args, name) {
   if (i === -1) return undefined;
   const value = args[i + 1];
   if (value == null || value.startsWith("-")) throw new StoreError(name + " needs a value");
+  args.splice(i, 2);
+  return value;
+}
+
+/** Like takeFlag, but the value may start with `-` (opaque cursors). */
+function takeOpaqueFlag(args, name) {
+  const i = args.indexOf(name);
+  if (i === -1) return undefined;
+  const value = args[i + 1];
+  if (value == null || value === "") throw new StoreError(name + " needs a value");
   args.splice(i, 2);
   return value;
 }
@@ -309,6 +321,7 @@ function truncateCliText(text, max = 400) {
 function formatCodexStatus(s) {
   const lines = ["socket: " + s.socketPath + " (" + s.socketState + ")"];
   if (!s.reachable) return lines.concat("reachable: no (" + s.mode + ")", s.message).join("\n");
+  if (s.mode !== "daemon") return lines.concat("reachable: yes, but unusable (" + s.mode + ")", s.message).join("\n");
   lines.push("reachable: yes (daemon)");
   const cli = s.cliVersion ?? (s.cliVersionProbe === "ok" ? "unknown" : "unknown, probe " + s.cliVersionProbe);
   lines.push("daemon version: " + (s.daemonVersion ?? "unknown") + "  cli version: " + cli + "  pinned schema: " + s.pinnedVersion + " (" + s.schema.compatibility + ")");
@@ -334,13 +347,20 @@ function rejectUnknownArgs(rest, usageLine) {
  * Envelope flags live before the free-text target so message bodies keep their own `--` tokens.
  * Returns a built envelope (or a hop-limit refusal) plus whether any flag was given.
  */
-function takeEnvelopeFlags(rest) {
+function takeEnvelopeFlags(rest, { busyPolicy = false } = {}) {
   let correlationId;
   let replyTo;
   let hop;
   let envelope = false;
+  let whenBusy = "reject";
   for (;;) {
     const a = rest[0];
+    if (busyPolicy && a === "--when-busy") {
+      rest.shift();
+      whenBusy = rest.shift();
+      if (whenBusy !== "reject" && whenBusy !== "queue") throw new StoreError("--when-busy must be reject or queue");
+      continue;
+    }
     if (a === "--correlation-id") { rest.shift(); correlationId = rest.shift(); if (correlationId == null) throw new StoreError("--correlation-id needs a value"); continue; }
     if (a === "--reply-to") { rest.shift(); replyTo = rest.shift(); if (replyTo == null) throw new StoreError("--reply-to needs a value"); continue; }
     if (a === "--hop") {
@@ -354,7 +374,7 @@ function takeEnvelopeFlags(rest) {
     break;
   }
   try {
-    return buildEnvelope({ correlationId, replyTo, hop, envelope });
+    return { envelope: buildEnvelope({ correlationId, replyTo, hop, envelope }), whenBusy };
   } catch (err) {
     if (err instanceof RangeError) throw new StoreError(err.message);
     throw err;
@@ -364,19 +384,20 @@ function takeEnvelopeFlags(rest) {
 async function runCodex(sub, rest, json) {
   // Structured subcommands take no free text, so --json peels anywhere. Send
   // peels a trailing --json only; mid-message tokens stay message content.
-  if (sub === "status" || sub === "list-threads") {
+  if (sub === "status" || sub === "list-threads" || sub === "queue") {
     if (hasFlag(rest, "--json")) { json = true; jsonErrors = true; }
   }
   if (sub === "status") {
     rejectUnknownArgs(rest, "gbot codex status [--json]");
     const status = await codexStatus();
     print(json ? status : formatCodexStatus(status));
-    if (!status.reachable) process.exitCode = 1;
+    // Exit 0 only for a usable daemon; `mode` says why otherwise (reachable but off-schema included).
+    if (!status.reachable || status.mode !== "daemon") process.exitCode = 1;
     return;
   }
   if (sub === "list-threads") {
     const limitRaw = takeFlag(rest, "--limit");
-    const cursor = takeFlag(rest, "--cursor");
+    const cursor = takeOpaqueFlag(rest, "--cursor");
     rejectUnknownArgs(rest, "gbot codex list-threads [--limit N] [--cursor CURSOR] [--json]");
     const limit = limitRaw ? Number(limitRaw) : 20;
     let out;
@@ -388,22 +409,33 @@ async function runCodex(sub, rest, json) {
     }
     if (json) print(out);
     else if (out.threads.length === 0) print("No Codex threads.");
-    else print(out.threads.map(formatCodexThread).join("\n\n") + (out.nextCursor ? "\n\nmore: --cursor " + stripTerminalControls(out.nextCursor) : ""));
+    else print(out.threads.map(formatCodexThread).join("\n\n") + (out.nextCursor ? "\n\nmore: --cursor " + JSON.stringify(singleLine(out.nextCursor)) : ""));
+    return;
+  }
+  if (sub === "queue") {
+    const threadId = rest.shift();
+    rejectUnknownArgs(rest, "gbot codex queue <threadId> [--json]");
+    if (!threadId || threadId.startsWith("-")) throw new StoreError("gbot codex queue <threadId> [--json]");
+    const out = await listCodexQueue(threadId);
+    if (json) print(out);
+    else if (out.queued.length === 0) print("No queued submissions on Codex thread " + threadId + ".");
+    else print(out.queued.map((q) => q.id + "  " + (q.clientUserMessageId ?? "") + "\n    " + singleLine(q.text).slice(0, 200)).join("\n\n"));
     return;
   }
   if (sub === "send") {
     if (takeTrailingFlag(rest, "--json")) { json = true; jsonErrors = true; }
-    const envelope = takeEnvelopeFlags(rest);
+    const { envelope, whenBusy } = takeEnvelopeFlags(rest, { busyPolicy: true });
     const threadId = rest.shift();
     if (rest[0] === "--") rest.shift();
     const message = rest.join(" ").trim();
-    if (!threadId || threadId.startsWith("-") || !message) throw new StoreError("gbot codex send [envelope flags] <threadId> <message...>");
-    const out = await sendToCodexThread(threadId, message, { envelope });
+    if (!threadId || threadId.startsWith("-") || !message) throw new StoreError("gbot codex send [envelope flags] [--when-busy reject|queue] <threadId> <message...>");
+    const out = await sendToCodexThread(threadId, message, { envelope, whenBusy });
     if (json) print(out);
+    else if (out.delivery === "queued") print("Queued " + out.queuedSubmissionId + " on busy Codex thread " + out.threadId + "; message " + out.messageId);
     else print("Started turn " + out.turnId + " (" + out.turnStatus + ") on Codex thread " + out.threadId + "; message " + out.messageId);
     return;
   }
-  throw new StoreError("gbot codex status | list-threads [--limit N] [--cursor CURSOR] | send [envelope flags] <threadId> <message...>");
+  throw new StoreError("gbot codex status | list-threads [--limit N] [--cursor CURSOR] | queue <threadId> | send [envelope flags] [--when-busy reject|queue] <threadId> <message...>");
 }
 
 async function main(argv) {
@@ -597,9 +629,11 @@ async function main(argv) {
   if (cmd === "send") {
     // Envelope flags precede the target: `gbot send --reply-to M --hop 1 <bot> <message>`.
     const sendArgs = [sub, ...rest].filter((a) => a !== undefined);
-    if (hasFlag(sendArgs, "--json")) { json = true; jsonErrors = true; }
-    const envelope = takeEnvelopeFlags(sendArgs);
+    // Trailing --json is a flag; `--` protects a message that ends with one.
+    if (takeTrailingFlag(sendArgs, "--json")) { json = true; jsonErrors = true; }
+    const { envelope } = takeEnvelopeFlags(sendArgs);
     const ref = sendArgs.shift();
+    if (sendArgs[0] === "--") sendArgs.shift();
     const message = sendArgs.join(" ").trim();
     if (!ref || ref.startsWith("-") || !message) throw new StoreError("gbot send [envelope flags] <bot-or-group> <message...>");
     const out = await backend.send(ref, withEnvelopeHeader(message, envelope));

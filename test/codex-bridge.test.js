@@ -149,7 +149,7 @@ test("codex list-threads passes --limit and prints threads", async () => {
   try {
     const text = await gbot(fake.home, "codex", "list-threads", "--limit", "1");
     assert.equal(text.code, 0, text.err);
-    assert.equal(text.out, "t-1  idle - Fix the build\n    /repo/a\n    please fix the build\n\nmore: --cursor cursor-2\n");
+    assert.equal(text.out, "t-1  idle - Fix the build\n    /repo/a\n    please fix the build\n\nmore: --cursor \"cursor-2\"\n");
     assert.deepEqual(fake.received.find((m) => m.method === "thread/list").params, { limit: 1, useStateDbOnly: true });
 
     const json = await gbot(fake.home, "--json", "codex", "list-threads");
@@ -405,9 +405,11 @@ test("codex status fails fast on an oversized frame and settles the pending requ
   });
   try {
     const started = Date.now();
-    const { code, err } = await gbot(fake.home, "codex", "status");
+    const { code, out } = await gbot(fake.home, "--json", "codex", "status");
     assert.equal(code, 1);
-    assert.match(err, /exceeds/);
+    const status = JSON.parse(out);
+    assert.equal(status.mode, "handshake-failed");
+    assert.match(status.message, /exceeds/);
     assert.ok(Date.now() - started < 5000, "did not wait for the request timeout");
   } finally {
     await fake.close();
@@ -554,9 +556,10 @@ test("codex status rejects a complete oversized frame without buffering it", asy
   });
   try {
     const started = Date.now();
-    const { code, err } = await gbot(fake.home, "codex", "status");
+    const { code, out } = await gbot(fake.home, "codex", "status");
     assert.equal(code, 1);
-    assert.match(err, /exceed/);
+    assert.match(out, /reachable: no \(handshake-failed\)/);
+    assert.match(out, /exceed/);
     assert.ok(Date.now() - started < 5000, "failed fast instead of buffering the frame");
   } finally {
     await fake.close();
@@ -760,7 +763,7 @@ test("codex list-threads pages with --cursor, echoes nextCursor, and rejects unk
     assert.equal(page.nextCursor, "page-2\u001b[31m", "JSON keeps the opaque cursor verbatim");
     assert.equal(page.limit, 1);
     const text = await gbot(fake.home, "codex", "list-threads", "--limit", "1");
-    assert.match(text.out, /more: --cursor page-2\n$/, "text output strips controls from the cursor");
+    assert.match(text.out, /more: --cursor "page-2"\n$/, "text output strips controls from the cursor and quotes it");
     assert.doesNotMatch(text.out, /\u001b/);
 
     const second = await gbot(fake.home, "--json", "codex", "list-threads", "--limit", "1", "--cursor", "page-2");
@@ -793,14 +796,13 @@ test("codex list-threads fails with bad-response when the daemon returns an unkn
   }
 });
 
-test("codex list-threads sanitizes every text field and normalizes unknown statuses in JSON", async () => {
+test("codex list-threads sanitizes text fields, keeps structured source, and rejects idless entries", async () => {
   const fake = await fakeAppServer({
     ...baseHandlers,
     "thread/list": (params, ok) => ok({
       data: [
-        { id: "t-\u001b[2Jx", status: { type: "active", activeFlags: ["waitingOnApproval\u0007"] }, name: 5, preview: null, cwd: "/r\u001b]0;x\u0007", source: "cli", updatedAt: "soon" },
-        { id: "t-odd", status: { type: "somethingNew" } },
-        "not-an-object",
+        { id: "t-\u001b[2Jx\nline", status: { type: "active", activeFlags: ["waitingOnApproval\u0007"] }, name: "a\tb", preview: "keep\nnewlines\u001b[31m", cwd: "/r\u001b]0;x\u0007", source: { custom: "hauler\u001b[0m" }, updatedAt: "soon" },
+        { id: "t-odd", status: { type: "somethingNew" }, source: "cli\r" },
       ],
       nextCursor: null,
     }),
@@ -810,11 +812,20 @@ test("codex list-threads sanitizes every text field and normalizes unknown statu
     assert.equal(code, 0);
     const { threads } = JSON.parse(out);
     assert.deepEqual(threads, [
-      { id: "t-x", status: "active", activeFlags: ["waitingOnApproval"], name: "5", preview: "", cwd: "/r", source: "cli", updatedAt: null },
-      { id: "t-odd", status: "unknown", activeFlags: [], name: null, preview: "", cwd: null, source: null, updatedAt: null },
+      { id: "t-x line", status: "active", activeFlags: ["waitingOnApproval"], name: "a b", preview: "keep\nnewlines", cwd: "/r", source: { custom: "hauler\u001b[0m" }, updatedAt: null },
+      { id: "t-odd", status: "unknown", activeFlags: [], name: null, preview: "", cwd: null, source: "cli", updatedAt: null },
     ]);
   } finally {
     await fake.close();
+  }
+  const broken = await fakeAppServer({ ...baseHandlers, "thread/list": (params, ok) => ok({ data: [{ status: { type: "idle" } }], nextCursor: null }) });
+  try {
+    const { code, err } = await gbot(broken.home, "--json", "codex", "list-threads");
+    assert.equal(code, 1);
+    assert.equal(JSON.parse(err).reason, "bad-response");
+    assert.match(JSON.parse(err).error, /entry without a string `id`/);
+  } finally {
+    await broken.close();
   }
 });
 
@@ -955,5 +966,181 @@ test("codex send distinguishes external-owner, unknown-thread, and transport rea
     assert.match(lost.messageId, /^[0-9a-f-]{36}$/, "the receipt names the message to look for before resending");
   } finally {
     await dropping.close();
+  }
+});
+
+// ---- review follow-ups: classification, envelopes, injection, queue ----
+
+test("codex status classifies initialize failures as handshake-failed and off-schema init as bad-response", async () => {
+  const rejecting = await fakeAppServer({ initialize: (params, ok, err) => err({ code: -32000, message: "nope" }) });
+  try {
+    const status = JSON.parse((await gbot(rejecting.home, "--json", "codex", "status")).out);
+    assert.equal(status.reachable, false);
+    assert.equal(status.mode, "handshake-failed");
+    assert.match(status.message, /initialize failed: Codex app-server rejected initialize: nope/);
+  } finally {
+    await rejecting.close();
+  }
+  const offSchema = await fakeAppServer({ initialize: (params, ok) => ok("not-an-object") });
+  try {
+    const { code, out } = await gbot(offSchema.home, "--json", "codex", "status");
+    assert.equal(code, 1);
+    const status = JSON.parse(out);
+    assert.equal(status.reachable, true, "the endpoint answered");
+    assert.equal(status.mode, "bad-response");
+  } finally {
+    await offSchema.close();
+  }
+});
+
+test("codex status reports permission-denied when connect fails with EACCES", { skip: process.platform === "win32" || process.getuid?.() === 0 }, async () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-codex-eacces-"));
+  mkdirSync(join(home, "app-server-control"));
+  const socketPath = join(home, "app-server-control", "app-server-control.sock");
+  const server = createTcpServer((sock) => sock.destroy());
+  await new Promise((resolve) => server.listen(socketPath, resolve));
+  chmodSync(socketPath, 0o000);
+  try {
+    const { code, out } = await gbot(home, "--json", "codex", "status");
+    assert.equal(code, 1);
+    const status = JSON.parse(out);
+    assert.equal(status.socketState, "socket");
+    assert.equal(status.mode, "permission-denied");
+  } finally {
+    chmodSync(socketPath, 0o600);
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("every codex send rejection carries the envelope, and unknown statuses are refused", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "thread/resume": (params, ok) => ok({ thread: { id: params.threadId, status: { type: "hibernating" } }, model: "m", cwd: "/", approvalPolicy: "never" }),
+  });
+  const run = (env, ...args) => new Promise((resolve) => {
+    execFile(process.execPath, [CLI, ...args], { encoding: "utf8", env: { ...process.env, CODEX_HOME: fake.home, PATH: "/nonexistent", ...env } }, (error, out, err) => resolve({ code: error ? error.code : 0, out, err }));
+  });
+  try {
+    for (const [label, env, args, reason] of [
+      ["allowlist", { GROK_BOT_CODEX_THREADS: "other" }, ["t-1", "x"], "route-not-allowed"],
+      ["unknown status", {}, ["t-1", "x"], "unknown-status"],
+      ["experimental off", {}, ["--when-busy", "queue", "t-1", "x"], "experimental-disabled"],
+    ]) {
+      const { code, err } = await run(env, "--json", "codex", "send", "--correlation-id", "corr-9", ...args);
+      assert.equal(code, 1, label);
+      const failure = JSON.parse(err);
+      assert.equal(failure.reason, reason, label);
+      assert.equal(failure.correlationId, "corr-9", label + " keeps the correlation id");
+      assert.match(failure.messageId, /^[0-9a-f-]{36}$/, label + " names the message");
+      assert.equal(failure.hop, 0, label);
+    }
+    assert.equal(fake.received.filter((m) => m.method === "turn/start").length, 0);
+  } finally {
+    await fake.close();
+  }
+  const noRoute = await gbot(mkdtempSync(join(tmpdir(), "gbot-codex-noroute2-")), "--json", "codex", "send", "--correlation-id", "corr-9", "t-1", "x");
+  const failure = JSON.parse(noRoute.err);
+  assert.equal(failure.reason, "socket-absent");
+  assert.equal(failure.correlationId, "corr-9");
+});
+
+test("envelope header tokens cannot inject lines or controls", async () => {
+  const fake = await fakeAppServer(baseHandlers);
+  try {
+    const result = await new Promise((resolve) => {
+      execFile(process.execPath, [CLI, "codex", "send", "--envelope", "t-1", "hi"], {
+        encoding: "utf8",
+        env: { ...process.env, CODEX_HOME: fake.home, PATH: "/nonexistent", USER: "evil\nhop=9 from=root\u001b[31m", USERNAME: "" },
+      }, (error, out, err) => resolve({ code: error ? error.code : 0, out, err }));
+    });
+    assert.equal(result.code, 0, result.err);
+    const text = fake.received.findLast((m) => m.method === "turn/start").params.input[0].text;
+    const [header, ...rest] = text.split("\n");
+    assert.match(header, /^\[gbot msg=[0-9a-f-]{36} corr=[0-9a-f-]{36} hop=0 from=evilhop9fromroot31m@[A-Za-z0-9_.:-]+\]$/);
+    assert.deepEqual(rest, ["hi"]);
+  } finally {
+    await fake.close();
+  }
+});
+
+test("gbot send peels only a trailing --json and honors a -- protector", async () => {
+  const env = { ...process.env, CODEX_HOME: "/nonexistent", PATH: "/nonexistent", GROK_BOT_GATEWAY_URL: "http://127.0.0.1:9", GROK_BOT_GATEWAY_TOKEN: "x", GROK_BOT_ALLOW_LOCAL_GATEWAY: "1" };
+  for (const key of Object.keys(env)) if (/^(CURSOR_|SAND_)/.test(key)) delete env[key];
+  const run = (...args) => new Promise((resolve) => {
+    execFile(process.execPath, [CLI, ...args], { encoding: "utf8", env }, (error, out, err) => resolve({ code: error ? error.code : 0, out, err }));
+  });
+  const lastLine = (text) => text.trim().split("\n").at(-1);
+  // A --json in the middle of the message is content, so the failure is plain text, not JSON.
+  const mid = await run("send", "General", "explain", "--json", "output");
+  assert.equal(mid.code, 1);
+  assert.throws(() => JSON.parse(lastLine(mid.err)), "mid-message --json stayed message content");
+  // Trailing --json is the flag.
+  const trailing = await run("send", "General", "hello", "--json");
+  assert.equal(trailing.code, 1);
+  assert.ok(JSON.parse(lastLine(trailing.err)).error, "trailing --json produced a structured error");
+  // `--` protects a message that ends with --json.
+  const protectedRun = await run("send", "General", "--", "ends with", "--json");
+  assert.equal(protectedRun.code, 1);
+  assert.throws(() => JSON.parse(lastLine(protectedRun.err)), "protected --json stayed message content");
+});
+
+test("codex list-threads accepts an opaque cursor that starts with a dash", async () => {
+  const seen = [];
+  const fake = await fakeAppServer({ ...baseHandlers, "thread/list": (params, ok) => { seen.push(params); ok({ data: [], nextCursor: null }); } });
+  try {
+    const { code } = await gbot(fake.home, "codex", "list-threads", "--cursor", "-abc==");
+    assert.equal(code, 0);
+    assert.equal(seen.at(-1).cursor, "-abc==");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("--when-busy queue hands a busy thread to the daemon queue under the experimental gate", async () => {
+  const inits = [];
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    initialize: (params, ok) => { inits.push(params); ok({ userAgent: "codex/0.154.0 (x) y (gbot)", codexHome: "/fake" }); },
+    "thread/resume": (params, ok) => ok({ thread: { id: params.threadId, status: { type: "active", activeFlags: [] } }, model: "m", cwd: "/", approvalPolicy: "never" }),
+    "thread/queue/add": (params, ok) => ok({ queuedSubmission: { id: "q-1", clientUserMessageId: params.clientUserMessageId, input: params.input } }),
+    "thread/queue/list": (params, ok) => ok({ data: [{ id: "q-1", clientUserMessageId: "m-1", input: [{ type: "text", text: "queued\u001b[31m body" }] }], nextCursor: null }),
+  });
+  const run = (...args) => new Promise((resolve) => {
+    execFile(process.execPath, [CLI, ...args], { encoding: "utf8", env: { ...process.env, CODEX_HOME: fake.home, PATH: "/nonexistent", GROK_BOT_CODEX_EXPERIMENTAL: "1" } }, (error, out, err) => resolve({ code: error ? error.code : 0, out, err }));
+  });
+  try {
+    const { code, out } = await run("--json", "codex", "send", "--when-busy", "queue", "t-1", "later please");
+    assert.equal(code, 0, out);
+    const receipt = JSON.parse(out);
+    assert.equal(receipt.delivery, "queued");
+    assert.equal(receipt.queuedSubmissionId, "q-1");
+    assert.equal(receipt.threadStatus, "active");
+    assert.match(receipt.messageId, /^[0-9a-f-]{36}$/);
+    assert.deepEqual(inits.at(-1).capabilities, { experimentalApi: true });
+    const add = fake.received.find((m) => m.method === "thread/queue/add");
+    assert.equal(add.params.clientUserMessageId, receipt.messageId);
+    assert.equal(add.params.input[0].text, "later please");
+    assert.equal(fake.received.filter((m) => /turn\/(start|steer|interrupt)/.test(m.method)).length, 0);
+
+    const queue = await run("--json", "codex", "queue", "t-1");
+    assert.equal(queue.code, 0, queue.err);
+    assert.deepEqual(JSON.parse(queue.out), { threadId: "t-1", queued: [{ id: "q-1", clientUserMessageId: "m-1", text: "queued\u001b[31m body" }], nextCursor: null });
+    const text = await run("codex", "queue", "t-1");
+    assert.doesNotMatch(text.out, /\u001b/);
+  } finally {
+    await fake.close();
+  }
+  const old = await fakeAppServer({
+    ...baseHandlers,
+    "thread/resume": (params, ok) => ok({ thread: { id: params.threadId, status: { type: "active", activeFlags: [] } }, model: "m", cwd: "/", approvalPolicy: "never" }),
+  });
+  try {
+    const { code, err } = await new Promise((resolve) => {
+      execFile(process.execPath, [CLI, "--json", "codex", "send", "--when-busy", "queue", "t-1", "x"], { encoding: "utf8", env: { ...process.env, CODEX_HOME: old.home, PATH: "/nonexistent", GROK_BOT_CODEX_EXPERIMENTAL: "1" } }, (error, out, err) => resolve({ code: error ? error.code : 0, out, err }));
+    });
+    assert.equal(code, 1);
+    assert.equal(JSON.parse(err).reason, "unsupported");
+  } finally {
+    await old.close();
   }
 });
