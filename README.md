@@ -118,6 +118,24 @@ you need), then read the reply with `gbot_thread`. Do not block a turn waiting
 for it.
 ```
 
+## Local history
+
+Recording is **opt-in**. Set `GROK_BOT_HISTORY=on` (or `true`/`1`) to append successful
+`send`/`thread`/`chat` observations as plaintext JSONL at
+`~/.grok-bot-cli/history.jsonl`. Without that env, nothing is written.
+
+```bash
+export GROK_BOT_HISTORY=on
+gbot send Researcher "Investigate the startup timeout"
+gbot thread Researcher
+gbot history Researcher --search timeout
+gbot history --path
+```
+
+`history` works offline. Use `--history-dir` / `GROK_BOT_HISTORY_DIR` to relocate,
+`--no-history` to skip one command. New dirs are `0700`, files `0600`. Conversation
+text is recorded as you typed it; gateway credentials and raw response metadata are not.
+
 ## License
 
 MIT

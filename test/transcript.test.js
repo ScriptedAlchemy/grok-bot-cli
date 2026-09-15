@@ -14,6 +14,8 @@ test("direct string keys win over content, then content parts join", () => {
   assert.equal(entryText({ content: ["a", { text: "b" }, { content: "c" }, 4] }), "a\nb\nc");
   assert.equal(entryText({ content: { text: "obj" } }), "obj");
   assert.equal(entryText({ content: { other: 1 } }), '{"other":1}');
+  assert.equal(entryText({ preview: "short…", content: [{ type: "text", text: "full body" }] }), "full body");
+  assert.equal(entryText({ preview: "preview only" }), "preview only");
 });
 
 test("transcript containers unwrap to an entry list", () => {

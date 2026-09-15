@@ -4,6 +4,7 @@ import { hasGatewayAuth } from "./gateway.js";
 import { openBackend } from "./commands.js";
 import { inspectGrokBotGatewaySession } from "./app-session.js";
 import { entryText, transcriptEntries } from "./transcript.js";
+import { historyPath, readHistory, saveHistory } from "./history.js";
 import { redactSecrets } from "./url-policy.js";
 import { codexStatus, listCodexThreads, sendToCodexThread } from "./codex-bridge.js";
 
@@ -59,6 +60,8 @@ function usage() {
     "  send <bot-or-group> <message...>",
     "  thread <bot-or-group> [--limit N] [--root MESSAGE_ID] [--full]",
     "  chat <bot-or-group>     alias for thread",
+    "  history [bot-or-group] [--search TEXT] [--limit N]  (offline)",
+    "  history --path         print the local JSONL file path",
     "  codex status",
     "  codex list-threads [--limit N]",
     "  codex send <threadId> <message...>",
@@ -71,6 +74,9 @@ function usage() {
     "Auth: GROK_BOT_GATEWAY_URL + GROK_BOT_GATEWAY_TOKEN, or the Grok Bot app session, or CURSOR_ACCESS_TOKEN",
     "File fallback: GROK_BOT_AGENTS_DIR",
     "Codex: talks to the local app-server daemon socket under CODEX_HOME (default ~/.codex)",
+    "History: opt-in plaintext JSONL at ~/.grok-bot-cli/history.jsonl",
+    "         GROK_BOT_HISTORY=on to record; --history-dir / GROK_BOT_HISTORY_DIR to relocate",
+    "         --no-history to skip one command",
   ].join("\n");
 }
 
@@ -114,12 +120,21 @@ function takeRepeating(args, name) {
   return out;
 }
 
+function hasFlag(args, name) {
+  const i = args.indexOf(name);
+  if (i === -1) return false;
+  args.splice(i, 1);
+  return true;
+}
+
 /** Peel global CLI options only from the leading argv (before the command). */
 let jsonErrors = false;
 function takeLeadingGlobals(args) {
   let json = false;
   let gateway = false;
   let files = false;
+  let noHistory = false;
+  let historyDir;
   let dir;
   while (args.length) {
     const a = args[0];
@@ -143,6 +158,18 @@ function takeLeadingGlobals(args) {
       args.shift();
       continue;
     }
+    if (a === "--no-history") {
+      noHistory = true;
+      args.shift();
+      continue;
+    }
+    if (a === "--history-dir") {
+      args.shift();
+      const value = args.shift();
+      if (value == null || value.startsWith("-")) throw new StoreError("--history-dir needs a value");
+      historyDir = value;
+      continue;
+    }
     if (a === "--dir") {
       args.shift();
       const value = args.shift();
@@ -152,7 +179,7 @@ function takeLeadingGlobals(args) {
     }
     break;
   }
-  return { json, gateway, files, dir };
+  return { json, gateway, files, dir, noHistory, historyDir };
 }
 
 /** Strip CSI/OSC and other C0/C1 controls so thread fields cannot drive the terminal. */
@@ -321,7 +348,8 @@ async function main(argv) {
     return;
   }
 
-  const { json, gateway, files: filesMode, dir: rootFlag } = takeLeadingGlobals(args);
+  // `json` may also be peeled later from command-local argv (trailing `--json`).
+  let { json, gateway, files: filesMode, dir: rootFlag, noHistory, historyDir } = takeLeadingGlobals(args);
   const cmd = args[0];
   const sub = args[1];
   const rest = args.slice(2);
@@ -355,6 +383,30 @@ async function main(argv) {
       print("candidates:");
       for (const c of candidates) print("  " + c);
       print(note);
+    }
+    return;
+  }
+
+  if (cmd === "history") {
+    const options = args.slice(1);
+    // Command-local flags (globals only peel from argv before the command).
+    if (hasFlag(options, "--json")) { json = true; jsonErrors = true; }
+    const showPath = hasFlag(options, "--path");
+    const search = takeFlag(options, "--search");
+    const limitRaw = takeFlag(options, "--limit");
+    const limit = limitRaw === undefined ? 40 : Number(limitRaw);
+    if (!Number.isSafeInteger(limit) || limit < 1) throw new StoreError("--limit must be a positive integer");
+    if (options.length > 1 || options[0]?.startsWith("-") || (showPath && (options.length || search !== undefined || limitRaw !== undefined))) {
+      throw new StoreError("gbot history [bot-or-group] [--search TEXT] [--limit N], or history --path");
+    }
+    const path = historyPath(historyDir);
+    if (showPath) print(json ? { path } : path);
+    else {
+      const rows = await readHistory(path, { ref: options[0], search, limit });
+      if (json) print(rows);
+      else print(rows.length ? rows.map((row) =>
+        "[" + row.recordedAt + "] " + row.target.name + " (" + row.target.id + ") [" + row.role + "] " + row.text
+      ).join("\n") : "No local history.");
     }
     return;
   }
@@ -473,9 +525,11 @@ async function main(argv) {
 
   if (cmd === "send") {
     const ref = sub;
+    if (hasFlag(rest, "--json")) { json = true; jsonErrors = true; }
     const message = rest.join(" ").trim();
     if (!ref || !message) throw new StoreError("gbot send <bot-or-group> <message...>");
     const out = await backend.send(ref, message);
+    saveHistory(out, { dir: historyDir, disabled: noHistory, event: "send", prompt: message });
     const receipt = out.messageId ? " message " + out.messageId : "";
     if (json) print({ id: out.target.id, name: out.target.name, kind: out.target.isGroup ? "group" : "bot", result: out.result, delivery: out.delivery || "accepted", ...(out.messageId ? { messageId: out.messageId } : {}) });
     else print("Sent to " + (out.target.isGroup ? "group" : "bot") + " " + out.target.name + " (" + out.target.id + ")" + receipt);
@@ -485,13 +539,14 @@ async function main(argv) {
   if (cmd === "thread" || cmd === "chat") {
     const ref = sub;
     if (!ref) throw new StoreError("gbot thread <bot-or-group> [--limit N] [--root MESSAGE_ID] [--full]");
-    const full = rest.includes("--full");
-    if (full) rest.splice(rest.indexOf("--full"), 1);
+    if (hasFlag(rest, "--json")) { json = true; jsonErrors = true; }
+    const full = hasFlag(rest, "--full");
     const limitRaw = takeFlag(rest, "--limit");
     const rootId = takeFlag(rest, "--root");
     const limit = limitRaw ? Number(limitRaw) : 40;
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new StoreError("--limit must be an integer 1-200");
     const out = rootId ? await backend.thread(ref, rootId) : await backend.transcript(ref, limit);
+    saveHistory(out, { dir: historyDir, disabled: noHistory, event: cmd, rootId });
     if (json) print(out);
     else print(formatTranscript(out, { full }));
     return;
