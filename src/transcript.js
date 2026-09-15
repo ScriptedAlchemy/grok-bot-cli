@@ -67,12 +67,16 @@ export function transcriptDelta(payload, { after, limit = 40 } = /** @type {{ af
   const bounded = Math.min(Math.max(Math.trunc(limit) || 40, 1), 200);
   const page = transcriptEntries(payload).slice(-bounded);
   if (after === undefined) {
-    return { cursor: lastSourceId(page), entries: page, entryCount: page.length, gapReset: false };
+    const gapReset = page.length > 0 && !sourceEntryId(page[page.length - 1]);
+    return { cursor: lastSourceId(page), entries: page, entryCount: page.length, gapReset };
   }
   const afterIndex = page.findIndex((entry) => sourceEntryId(entry) === after);
   if (afterIndex === -1) {
     return { cursor: lastSourceId(page), entries: page, entryCount: page.length, gapReset: true };
   }
   const entries = page.slice(afterIndex + 1);
+  if (entries.length > 0 && !sourceEntryId(entries[entries.length - 1])) {
+    return { cursor: lastSourceId(page), entries: page, entryCount: page.length, gapReset: true };
+  }
   return { cursor: lastSourceId(entries, after), entries, entryCount: entries.length, gapReset: false };
 }

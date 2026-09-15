@@ -106,10 +106,11 @@ runs the plugin gates: source validation, build, artifact validation, typecheck,
 the route-unit tests, which drive both tools against a loopback fake gateway.
 
 `gbot_thread` returns a small receipt by default: deterministic `summary`, opaque
-`cursor`, `entryCount`, `gapReset`, target metadata, and an optional Markdown `path`.
+`cursor`, `entryCount`, and `gapReset`.
 Pass the cursor back as `after` for an exclusive client-side delta. Pass `full:true`
 only when bounded entry bodies are needed in structured content; `Agent.Text` remains
-the short summary. Unknown cursors produce a bounded snapshot with `gapReset: true`.
+the short summary. Unknown cursors set `gapReset: true`; repeat that call with
+`full:true` to inspect the bounded reset snapshot.
 
 Auth resolves exactly as for `gbot`: `GROK_BOT_GATEWAY_URL` + `GROK_BOT_GATEWAY_TOKEN`,
 then the Grok Bot app session, then `CURSOR_ACCESS_TOKEN`. The MCP server therefore
@@ -147,9 +148,6 @@ gbot history --path
 `history` works offline. Use `--history-dir` / `GROK_BOT_HISTORY_DIR` to relocate,
 `--no-history` to skip one command. New dirs are `0700`, files `0600`. Conversation
 text is recorded as you typed it; gateway credentials and raw response metadata are not.
-When this same opt-in is visible to the plugin, `gbot_thread` also maintains one bounded
-Markdown view under `thread-artifacts/` and returns its path. With recording disabled,
-the receipt omits `path`; the Markdown file is an output view, not a watermark ledger.
 
 ## License
 

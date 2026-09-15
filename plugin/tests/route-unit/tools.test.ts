@@ -1,8 +1,5 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from '@rstest/core';
 import { invokeMcpTool, listMcpSurface } from 'agent-bundle/test';
@@ -88,13 +85,7 @@ const responses: Record<string, (body: Record<string, unknown>) => [number, unkn
 const calls: GatewayCall[] = [];
 let server: Server;
 const savedEnv: Record<string, string | undefined> = {};
-const envKeys = [
-  'GROK_BOT_GATEWAY_URL',
-  'GROK_BOT_GATEWAY_TOKEN',
-  'GROK_BOT_ALLOW_LOCAL_GATEWAY',
-  'GROK_BOT_HISTORY',
-  'GROK_BOT_HISTORY_DIR',
-];
+const envKeys = ['GROK_BOT_GATEWAY_URL', 'GROK_BOT_GATEWAY_TOKEN', 'GROK_BOT_ALLOW_LOCAL_GATEWAY'];
 
 const contentText = (content: readonly { readonly text?: string }[]): string =>
   content.map((block) => block.text ?? '').join('\n');
@@ -123,8 +114,6 @@ beforeAll(async () => {
   process.env.GROK_BOT_GATEWAY_URL = `http://127.0.0.1:${port}`;
   process.env.GROK_BOT_GATEWAY_TOKEN = 'test-token';
   process.env.GROK_BOT_ALLOW_LOCAL_GATEWAY = '1';
-  process.env.GROK_BOT_HISTORY = 'off';
-  delete process.env.GROK_BOT_HISTORY_DIR;
 });
 
 afterAll(async () => {
@@ -175,12 +164,11 @@ describe('grok-bot MCP server', () => {
       cursor: 't3',
       entryCount: 3,
       gapReset: false,
-      summary: '3 entries; artifact unavailable',
-      target: { id: 'grp-1', kind: 'group', name: 'Launch' },
+      summary: '3 entries',
     });
     expect(calls[1]).toMatchObject({ body: { id: 'grp-1', limit: 3 }, method: 'getAgentTranscriptTail' });
     const summary = contentText(result.content);
-    expect(summary).toBe('3 entries; artifact unavailable');
+    expect(summary).toBe('3 entries');
     expect(summary).not.toContain('hello from the test');
     expect(summary).not.toContain('reply');
 
@@ -198,10 +186,9 @@ describe('grok-bot MCP server', () => {
         { id: 't3', kind: 'tool-call', text: '', truncated: false, fullLength: 0 },
       ],
       gapReset: false,
-      summary: '3 entries; artifact unavailable',
-      target: { id: 'grp-1', kind: 'group', name: 'Launch' },
+      summary: '3 entries',
     });
-    expect(contentText(full.content)).toBe('3 entries; artifact unavailable');
+    expect(contentText(full.content)).toBe('3 entries');
   });
 
   it('gbot_thread defaults the limit to 40 like the CLI and reads the other transcript shapes', async () => {
@@ -211,21 +198,19 @@ describe('grok-bot MCP server', () => {
       cursor: '',
       entryCount: 0,
       gapReset: false,
-      summary: '0 entries; artifact unavailable',
-      target: { id: 'bot-1', kind: 'bot', name: 'General' },
+      summary: '0 entries',
     });
-    expect(contentText(empty.content)).toBe('0 entries; artifact unavailable');
+    expect(contentText(empty.content)).toBe('0 entries');
 
     const legacy = await invokeMcpTool('gbot_thread', { input: { target: 'Legacy' }, server: 'grok-bot' });
     expect(legacy.structuredContent).toEqual({
       cursor: 'l4',
       entryCount: 4,
       gapReset: false,
-      summary: '4 entries; artifact unavailable',
-      target: { id: 'bot-2', kind: 'bot', name: 'Legacy' },
+      summary: '4 entries',
     });
     const legacySummary = contentText(legacy.content);
-    expect(legacySummary).toBe('4 entries; artifact unavailable');
+    expect(legacySummary).toBe('4 entries');
     expect(legacySummary).not.toContain('direct text');
     expect(legacySummary).not.toContain('…');
     expect(legacySummary).not.toContain('x'.repeat(450));
@@ -252,10 +237,9 @@ describe('grok-bot MCP server', () => {
         { id: 'o3', kind: 'note', text: 'a�b', truncated: false, fullLength: 3 },
       ],
       gapReset: false,
-      summary: '3 entries; artifact unavailable',
-      target: { id: 'bot-4', kind: 'bot', name: 'Odd' },
+      summary: '3 entries',
     });
-    expect(contentText(odd.content)).toBe('3 entries; artifact unavailable');
+    expect(contentText(odd.content)).toBe('3 entries');
   });
 
   it('gbot_thread returns tiny no-op receipts and exclusive deltas without sending after upstream', async () => {
@@ -268,7 +252,7 @@ describe('grok-bot MCP server', () => {
     expect(JSON.stringify(structured)).not.toContain('update 1');
     expect(Buffer.byteLength(JSON.stringify(structured))).toBeLessThan(4096);
     const summaryText = contentText(summary.content);
-    expect(summaryText).toBe('60 entries; artifact unavailable');
+    expect(summaryText).toBe('60 entries');
     expect(summaryText).not.toContain('update 1');
 
     const newer = await invokeMcpTool('gbot_thread', {
@@ -280,7 +264,7 @@ describe('grok-bot MCP server', () => {
       cursor: 'n60',
       entryCount: 2,
       gapReset: false,
-      summary: '2 new; artifact unavailable',
+      summary: '2 new',
     });
     expect((newer.structuredContent as { entries: { id: string }[] }).entries.map((entry) => entry.id)).toEqual(['n59', 'n60']);
 
@@ -319,42 +303,12 @@ describe('grok-bot MCP server', () => {
       cursor: 'n60',
       entryCount: 40,
       gapReset: true,
-      summary: '40 entries; gap reset; artifact unavailable',
+      summary: '40 entries; gap reset',
     });
     const entries = (reset.structuredContent as { entries: { id: string }[] }).entries;
     expect(entries).toHaveLength(40);
     expect(entries[0]?.id).toBe('n21');
     expect(entries[39]?.id).toBe('n60');
-  });
-
-  it('gbot_thread writes a bounded artifact only under the opt-in history root', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'gbot-thread-artifact-'));
-    process.env.GROK_BOT_HISTORY = 'on';
-    process.env.GROK_BOT_HISTORY_DIR = dir;
-    try {
-      const result = await invokeMcpTool('gbot_thread', { input: { target: 'Legacy' }, server: 'grok-bot' });
-      expect(result.isError).toBe(false);
-      const receipt = result.structuredContent as { path?: string; summary: string };
-      expect(receipt.path?.startsWith(join(dir, 'thread-artifacts'))).toBe(true);
-      expect(receipt.path?.length).toBeLessThanOrEqual(1024);
-      expect(receipt.summary).toBe('4 entries; document updated');
-      expect(existsSync(receipt.path ?? '')).toBe(true);
-      const markdown = readFileSync(receipt.path ?? '', 'utf8');
-      expect(markdown).toContain('direct text');
-      expect(markdown).toContain('x'.repeat(450));
-      expect(statSync(receipt.path ?? '').size).toBeLessThanOrEqual(256 * 1024);
-
-      const unchanged = await invokeMcpTool('gbot_thread', {
-        input: { after: 'l4', target: 'Legacy' },
-        server: 'grok-bot',
-      });
-      expect(unchanged.structuredContent).toMatchObject({ entryCount: 0, path: receipt.path, summary: '0 new' });
-      expect(readFileSync(receipt.path ?? '', 'utf8')).toBe(markdown);
-    } finally {
-      process.env.GROK_BOT_HISTORY = 'off';
-      delete process.env.GROK_BOT_HISTORY_DIR;
-      rmSync(dir, { force: true, recursive: true });
-    }
   });
 
   it('gbot_send stays unknown when the gateway confirms no receipt', async () => {
@@ -403,8 +357,7 @@ describe('grok-bot MCP server', () => {
       cursor: 'last-valid-id',
       entryCount: 2,
       gapReset: false,
-      summary: '2 entries; artifact unavailable',
-      target: { id: 'bot-7', kind: 'bot', name: 'Meta' },
+      summary: '2 entries',
     });
     const summaryText = contentText(summary.content);
     expect(summaryText).not.toContain('i'.repeat(300));
@@ -427,8 +380,7 @@ describe('grok-bot MCP server', () => {
         { id: '', kind: 'unknown', text: '', truncated: false, fullLength: 0 },
       ],
       gapReset: false,
-      summary: '2 entries; artifact unavailable',
-      target: { id: 'bot-7', kind: 'bot', name: 'Meta' },
+      summary: '2 entries',
     });
   });
 

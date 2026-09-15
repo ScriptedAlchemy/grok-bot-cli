@@ -67,6 +67,16 @@ test("transcript delta filters exclusively after a known cursor and keeps no-op 
   });
 });
 
+test("transcript delta resets when trailing idless entries cannot advance the cursor", () => {
+  const entries = [{ id: "seen", text: "seen" }, { text: "new but idless" }];
+  assert.deepEqual(transcriptDelta({ entries }, { after: "seen", limit: 40 }), {
+    cursor: "seen",
+    entries,
+    entryCount: 2,
+    gapReset: true,
+  });
+});
+
 test("transcript delta resets an unknown cursor with one bounded snapshot", () => {
   const entries = Array.from({ length: 45 }, (_, index) => ({ id: `m${index + 1}`, text: `message ${index + 1}` }));
   const delta = transcriptDelta({ entries }, { after: "bogus", limit: 40 });

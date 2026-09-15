@@ -3,17 +3,10 @@ import { defineTool } from 'agent-bundle/routes';
 import { z } from 'zod';
 
 import {
-  assertReceiptBudget,
   connectGateway,
   entrySchema,
   getTranscriptTail,
   RECEIPT_CURSOR_MAX,
-  RECEIPT_PATH_MAX,
-  RECEIPT_SUMMARY_MAX,
-  saveThreadArtifact,
-  summarizeTarget,
-  targetSchema,
-  threadSummary,
   transcriptDelta,
   transcriptEntries,
   withRedactedErrors,
@@ -60,33 +53,25 @@ export default defineTool(
       entries: z.array(entrySchema).optional(),
       entryCount: z.number().int().min(0).max(200),
       gapReset: z.boolean(),
-      path: z.string().max(RECEIPT_PATH_MAX).optional(),
-      summary: z.string().max(RECEIPT_SUMMARY_MAX),
-      target: targetSchema,
+      summary: z.string().max(256),
     }),
     title: 'Read a Grok Bot thread',
   },
   async ({ after, limit, target, full }) => {
     const tail = await withRedactedErrors(async () => getTranscriptTail(await connectGateway(), target, limit));
     const delta = transcriptDelta(tail.transcript, { after, limit });
-    const entries = transcriptEntries(delta.entries, { full: true });
-    const summarized = summarizeTarget(tail.target);
-    const path = saveThreadArtifact(
-      summarized,
-      entries,
-      delta.cursor,
-      after === undefined || delta.entryCount > 0 || delta.gapReset,
-    );
-    const summary = threadSummary(delta.entryCount, after, delta.gapReset, path);
+    const entries = transcriptEntries(delta.entries);
+    const summary = delta.gapReset
+      ? `${delta.entryCount} entries; gap reset`
+      : after === undefined
+        ? `${delta.entryCount} entries`
+        : `${delta.entryCount} new`;
     const receipt = {
       cursor: delta.cursor,
       entryCount: delta.entryCount,
       gapReset: delta.gapReset,
-      ...(path === undefined ? {} : { path }),
       summary,
-      target: summarized,
     };
-    assertReceiptBudget(receipt);
     if (!full) {
       return (
         <Agent.Result value={receipt}>
