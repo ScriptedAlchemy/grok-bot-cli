@@ -105,3 +105,25 @@ export function formatCodexThread(t) {
   return stripTerminalControls(t.id) + "  " + stripTerminalControls(t.status) + title
     + "\n    " + stripTerminalControls(t.cwd ?? "") + preview;
 }
+
+export function formatDesktopShimStatus(s) {
+  const mark = (ok) => (ok ? "yes" : "no");
+  const lines = [
+    "wrapper: " + s.wrapperPath + " (" + (s.wrapperExecutable ? "executable" : s.wrapperPresent ? "present, not executable" : "absent") + ")",
+    "bridge: " + s.bridgePath + " (" + mark(s.bridgePresent) + ")",
+    "login env: " + s.envScriptPath + " (" + mark(s.envScriptPresent) + ")",
+    s.platform === "darwin"
+      ? "LaunchAgent: " + s.plistPath + " (" + mark(s.plistPresent) + ")"
+      : "LaunchAgent: n/a (macOS-only)",
+    "CODEX_CLI_PATH: " + (s.cliPath ?? "(unset)") + (s.wrapperPointsAtShim ? " (points at shim)" : ""),
+    "daemon socket: " + s.socketPath + " (" + s.socketState + ")",
+  ];
+  if (!s.installed) {
+    lines.push("shim: not installed — run `gbot codex desktop-shim install` (Desktop keeps stock behavior until then)");
+  } else if (!s.wrapperPointsAtShim) {
+    lines.push("shim: installed but CODEX_CLI_PATH does not point at it — reinstall or relaunch ChatGPT.app after login");
+  } else {
+    lines.push("shim: active — Desktop app-server spawns bridge onto the managed daemon");
+  }
+  return lines.join("\n");
+}
