@@ -9,7 +9,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { BRIDGE_SOURCE } from "../src/core/desktop-shim-bridge.js";
-import { decodeFrame } from "../src/core/codex-bridge.js";
+import { decodeFrame, encodeFrame } from "../src/core/codex-bridge.js";
 import {
   defaultPaths,
   desktopShimStatus,
@@ -420,12 +420,15 @@ const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 /** Unmasked server-to-client WS frame. */
 function wsServerFrame(opcode, payload, fin = true) {
-  const head = Buffer.alloc(payload.length < 126 ? 2 : 4);
+  const head = Buffer.alloc(payload.length < 126 ? 2 : payload.length < 65536 ? 4 : 10);
   head[0] = (fin ? 0x80 : 0) | opcode;
   if (payload.length < 126) head[1] = payload.length;
-  else {
+  else if (payload.length < 65536) {
     head[1] = 126;
     head.writeUInt16BE(payload.length, 2);
+  } else {
+    head[1] = 127;
+    head.writeBigUInt64BE(BigInt(payload.length), 2);
   }
   return Buffer.concat([head, payload]);
 }
@@ -506,6 +509,10 @@ const runBridge = (bridgePath, dir, env, input, { leaveStdinOpen = false } = {})
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk) => {
       stderr += chunk;
+    });
+    child.stdin.on("error", (err) => {
+      // The bridge can time out while the parent still has queued input.
+      if (err.code !== "EPIPE") reject(err);
     });
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
@@ -688,13 +695,13 @@ test("vendored bridge pins the must-fix set: commit-before-write, strict 101, EO
   assert.match(BRIDGE_SOURCE, /rc = EXIT_MID_SESSION if \(stdin_bytes or output_forwarded\.is_set\(\)\)/);
   // Healthy idle: reads block with no timeout after the handshake; only sends
   // re-arm a bounded timeout.
-  assert.match(BRIDGE_SOURCE, /s\.settimeout\(None\)/);
+  assert.match(BRIDGE_SOURCE, /s\.setblocking\(False\)/);
   assert.match(BRIDGE_SOURCE, /CODEX_BRIDGE_IO_TIMEOUT/);
   // Init immunity: only the matching response/error clears the first-RPC timer.
   assert.match(BRIDGE_SOURCE, /_is_daemon_response/);
   assert.match(BRIDGE_SOURCE, /notifications never do|never satisfy it|never a notification/i);
   // Strict upgrade: HTTP/1.1 101 required, so a 200 fails even with a valid hash.
-  assert.match(BRIDGE_SOURCE, /startswith\(b"HTTP\/1\.1 101"\)/);
+  assert.match(BRIDGE_SOURCE, /\[b"HTTP\/1\.1", b"101"\]/);
   // EOF-tail flushes before the WS Close.
   const tailAt = BRIDGE_SOURCE.indexOf("tail = pending_in.strip()");
   const closeAt = BRIDGE_SOURCE.indexOf('opcode=0x8, timeout=_cleanup_timeout()');
@@ -976,9 +983,9 @@ test("bridge send to a non-reading peer times out instead of hanging", {
   try {
     rmSync(socketPath, { force: true });
   } catch {}
-  let serverSocket = null;
+  let peer;
   const server = createServer((socket) => {
-    serverSocket = socket;
+    peer = socket;
     socket.on("error", () => {});
     let request = Buffer.alloc(0);
     let upgraded = false;
@@ -1007,83 +1014,15 @@ test("bridge send to a non-reading peer times out instead of hanging", {
   try {
     const line = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{},"pad":"${"x".repeat(30000)}"}\n`;
     const started = Date.now();
-    // Flood past the socket buffer so a send blocks; the harness tolerates
-    // EPIPE because the bridge exits 2 mid-flood — that fast exit is the point.
-    const out = await new Promise((resolve, reject) => {
-      const child = spawn("python3", [writeBridge(dir)], {
-        env: {
-          ...process.env,
-          CODEX_STDIO_BRIDGE_LOG: join(dir, "bridge.log"),
-          CODEX_APP_SERVER_SOCK: socketPath,
-          CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "5",
-        },
-      });
-      let stdout = "";
-      let stderr = "";
-      child.stdout.setEncoding("utf8");
-      child.stdout.on("data", (chunk) => {
-        stdout += chunk;
-      });
-      child.stderr.setEncoding("utf8");
-      child.stderr.on("data", (chunk) => {
-        stderr += chunk;
-      });
-      child.stdin.on("error", () => {});
-      const timer = setTimeout(() => {
-        child.kill("SIGKILL");
-        reject(new Error(`bridge hung: stdout=${stdout} stderr=${stderr}`));
-      }, 25000);
-      child.on("error", (err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-      child.on("close", (code, signal) => {
-        clearTimeout(timer);
-        resolve({ status: code, signal, stdout, stderr });
-      });
-      // Flood past the socket buffer so a send blocks, in small chunks so a
-      // mid-flood bridge exit surfaces as a plain writable-side EPIPE/close
-      // instead of one giant pending write. Stop at the first sign of exit.
-      const flood = line.repeat(300);
-      const CHUNK = 65536;
-      let offset = 0;
-      let done = false;
-      const finishWrites = () => {
-        if (done) return;
-        done = true;
-        try {
-          child.stdin.end();
-        } catch {}
-      };
-      child.on("close", finishWrites);
-      const pump = () => {
-        if (done) return;
-        if (offset >= flood.length) {
-          finishWrites();
-          return;
-        }
-        let ok = true;
-        try {
-          ok = child.stdin.write(flood.slice(offset, offset + CHUNK));
-        } catch {
-          finishWrites();
-          return;
-        }
-        offset += CHUNK;
-        if (!ok) child.stdin.once("drain", pump);
-        else setImmediate(pump);
-      };
-      pump();
-    });
+    const out = await runBridge(writeBridge(dir), dir, {
+      CODEX_APP_SERVER_SOCK: socketPath,
+      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "5",
+    }, line.repeat(300));
     const elapsed = Date.now() - started;
     assert.equal(out.status, 2, `wedged send must exit mid-session, got ${out.status} ${out.stderr}`);
     assert.ok(elapsed < 20000, `send must time out instead of hanging, took ${elapsed}ms`);
   } finally {
-    // The blackhole socket is paused and never reads, so a remote FIN sits
-    // unread and server.close() would wait forever: destroy it first.
-    try {
-      serverSocket?.destroy();
-    } catch {}
+    peer?.destroy();
     await new Promise((resolve) => server.close(resolve));
   }
 });
@@ -1129,4 +1068,133 @@ test("linux status quotes the export path for spaces", () => {
   const text = formatDesktopShimStatus({ ...status, wrapperPath: "/home/First Last/.codex/bin/codex-desktop-to-daemon" });
   assert.match(text, /export CODEX_CLI_PATH='\/home\/First Last\/.codex\/bin\/codex-desktop-to-daemon'/);
   assert.equal(installed.exitCode, 0);
+});
+
+// Execute the installed Python helpers against real socket pairs and pipes.
+for (const [name, script] of [
+  ["a reader still alive at shutdown cannot authorize fallback", `
+a, b = socket.socketpair()
+r, w = os.pipe()
+sys.stdin = os.fdopen(r, "r")
+g = bridge["main"].__globals__
+g["CONNECT_TIMEOUT_S"] = 0.01
+g["FIRST_MESSAGE_TIMEOUT_S"] = 0.01
+g["ws_connect"] = lambda path: (a, b"")
+def delayed_writer(*args):
+    time.sleep(2)
+g["stdout_writer"] = delayed_writer
+try:
+    assert bridge["main"]() == bridge["EXIT_MID_SESSION"]
+finally:
+    b.close()
+    os.close(w)
+`],
+  ["stdout backpressure expires after a partial write", `
+r, w = os.pipe()
+old_stdout = sys.stdout
+sys.stdout = os.fdopen(w, "w")
+started = time.monotonic()
+try:
+    try:
+        bridge["_bounded_stdout_write"](b"x" * (4 * 1024 * 1024), 0.2)
+        raise AssertionError("full pipe did not time out")
+    except TimeoutError:
+        assert time.monotonic() - started < 1
+    assert os.read(r, 1) == b"x", "must exercise a partial write"
+finally:
+    sys.stdout.close()
+    sys.stdout = old_stdout
+    os.close(r)
+`],
+  ["socket send budget does not time out a concurrent idle reader", `
+a, b = socket.socketpair()
+a.setblocking(False)
+a.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4096)
+lock = threading.Lock()
+errors = []
+def send():
+    try:
+        bridge["locked_send"](a, lock, b"x" * 1000000, timeout=0.2)
+    except TimeoutError:
+        pass
+    except Exception as e:
+        errors.append(e)
+t = threading.Thread(target=send)
+t.start()
+while not lock.locked():
+    time.sleep(0.001)
+time.sleep(0.05)
+late = threading.Timer(0.5, lambda: b.sendall(b"z"))
+late.start()
+try:
+    assert bridge["_buffered_reader"](a)(1) == b"z"
+    t.join(1)
+    assert not t.is_alive()
+    assert not errors, errors
+finally:
+    late.join()
+    a.close()
+    b.close()
+`],
+]) {
+  test(`bridge ${name}`, { skip: !canRunShellBridge && "needs python3" }, () => {
+    const dir = mkdtempSync(join(tmpdir(), "gbot-shim-python-"));
+    const out = spawnSync("python3", ["-c", `
+import os, runpy, socket, sys, threading, time
+bridge = runpy.run_path(sys.argv[1])
+${script}
+`, writeBridge(dir)], { encoding: "utf8", timeout: 3000 });
+    assert.equal(out.error, undefined, out.error?.message);
+    assert.equal(out.status, 0, out.stderr);
+  });
+}
+
+test("wrapper exits without fallback while Desktop leaves stdout unread", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-backpressure-"));
+  const payload = Buffer.from(JSON.stringify({ method: "notice", params: { text: "x".repeat(2_000_000) } }));
+  const daemon = await fakeWsDaemon(dir, "output.sock", { prelude: encodeFrame(1, payload), quiet: true });
+  const { wrapperPath } = stageWrapper(dir, { bridgePath: writeBridge(dir) });
+  const child = spawn("bash", [wrapperPath, "app-server"], {
+    env: {
+      ...process.env,
+      CODEX_APP_SERVER_SOCK: daemon.socketPath,
+      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "5",
+      CODEX_BRIDGE_IO_TIMEOUT: "0.2",
+    },
+  });
+  let stderr = "";
+  child.stderr.on("data", (chunk) => { stderr += chunk; });
+  const timer = setTimeout(() => child.kill("SIGKILL"), 3000);
+  try {
+    // Observe process exit before draining stdout: a blocked write must not
+    // keep the process alive until Desktop resumes reading.
+    const [code, signal] = await once(child, "exit");
+    assert.equal(signal, null, stderr);
+    assert.equal(code, 2, stderr);
+    let output = "";
+    for await (const chunk of child.stdout) output += chunk;
+    assert.ok(output.length > 0 && output.length < payload.length);
+    assert.doesNotMatch(output, /FAKE-REAL/);
+  } finally {
+    clearTimeout(timer);
+    child.kill("SIGKILL");
+    child.stdin.destroy();
+    child.stdout.destroy();
+    await closeDaemon(daemon);
+  }
+});
+
+test("bridge rejects a status token beginning with 101", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-1010-"));
+  const daemon = await statusLineDaemon(dir, "invalid.sock", "HTTP/1.1 1010 Invalid");
+  try {
+    const out = await runBridge(writeBridge(dir), dir, { CODEX_APP_SERVER_SOCK: daemon.socketPath }, "");
+    assert.equal(out.status, 1, out.stderr);
+  } finally {
+    await new Promise((resolve) => daemon.server.close(resolve));
+  }
 });

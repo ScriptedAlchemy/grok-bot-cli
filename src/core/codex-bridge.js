@@ -309,7 +309,7 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
           const namedTurnId = params
             ? (params.turnId ?? params.turn_id ?? (params.turn && params.turn.id))
             : null;
-          if ((threadId == null || threadId === client.expectedThreadId) && namedTurnId === turnId) {
+          if (threadId === client.expectedThreadId && namedTurnId === turnId) {
             entry.answered = true;
             sendJson({
               jsonrpc: "2.0",
@@ -371,10 +371,10 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
           if (params) {
             const threadId = params.threadId ?? params.thread_id;
             const turnId = params.turnId ?? params.turn_id ?? (params.turn && params.turn.id);
-            if (threadId != null && threadId !== client.expectedThreadId) answered = false;
-            else if (turnId != null && client.expectedTurnId == null) { answered = false; defer = true; }
-            else if (turnId != null && turnId !== client.expectedTurnId) answered = false;
-          }
+            if (threadId !== client.expectedThreadId || turnId == null) answered = false;
+            else if (client.expectedTurnId == null) { answered = false; defer = true; }
+            else if (turnId !== client.expectedTurnId) answered = false;
+          } else answered = false;
         }
         const entry = { id: msg.id, method: msg.method, params: msg.params, answered };
         refused.push(entry);
@@ -951,9 +951,8 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
     // queue) — or naming another thread or Desktop turn — stays unanswered so
     // gbot never rejects another client's approval. Requests naming a turn
     // that arrives before the acknowledgment supplies our turn id wait in
-    // client.deferred and are adopted only on a match. Residual race, stated
-    // in the README: a concurrent foreign approval with no thread/turn ids
-    // inside this window is indistinguishable from ours.
+    // client.deferred and are adopted only on a match. Requests missing
+    // thread or turn IDs remain unanswered because ownership is unknown.
     client.expectedThreadId = threadId;
     client.expectedTurnId = null;
     client.answerServerRequests = true;
