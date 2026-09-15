@@ -205,7 +205,11 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
             failAll(new Error("Codex app-server sent an unreadable message: " + err.message));
           }
         } else if (frame.opcode === 0x9) write(0xa, frame.payload);
-        else if (frame.opcode === 0x8) socket.end();
+        else if (frame.opcode === 0x8) {
+          write(0x8, frame.payload);
+          socket.end();
+          failAll(new Error("Codex app-server closed the connection"));
+        }
       }
     });
   });

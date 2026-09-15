@@ -71,7 +71,7 @@ gbot codex send <threadId> "Grok here: the build is green, please continue."
 - Socket absent: no daemon, or Desktop-private mode. Start the daemon or wait for the upstream fixes.
 - Unknown thread: `send` fails with "Unknown Codex thread"; use `list-threads`.
 - Thread open elsewhere: a thread with an active writer (VS Code, TUI) fails with "open in another client"; close it there first.
-- Approvals: `gbot` never approves commands or file changes on your behalf. If Codex asks while `gbot` is connected, `send` refuses the request, exits 1, and tells you the turn id. For unattended sends set `approval_policy = "never"` in the daemon's `config.toml`.
+- Approvals: `gbot` never approves commands or file changes on your behalf. If Codex asks while `gbot` is still connected, `send` refuses the request, exits 1, and tells you the turn id. `send` disconnects as soon as the turn starts, so later approval requests stay with the daemon for a Codex client to answer; for unattended sends set `approval_policy = "never"` in the daemon's `config.toml`.
 
 ## License
 

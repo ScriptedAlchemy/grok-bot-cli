@@ -39,14 +39,14 @@ async function fakeAppServer(handlers) {
         const frame = decodeFrame(buf);
         if (!frame) return;
         buf = frame.rest;
-        if (frame.opcode === 0x8) return socket.end();
+        if (frame.opcode === 0x8) { socket.end(); return; }
         if (frame.opcode !== 0x1) continue;
         const msg = JSON.parse(frame.payload.toString());
         received.push(msg);
         if (msg.method && msg.id != null) {
           const handler = handlers[msg.method];
           if (!handler) send({ jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: "unknown method " + msg.method } });
-          else handler(msg.params, (result) => send({ jsonrpc: "2.0", id: msg.id, result }), (error) => send({ jsonrpc: "2.0", id: msg.id, error }), send);
+          else handler(msg.params, (result) => send({ jsonrpc: "2.0", id: msg.id, result }), (error) => send({ jsonrpc: "2.0", id: msg.id, error }), send, socket);
         }
       }
     });
@@ -84,6 +84,14 @@ test("encodeFrame masks a client text frame per RFC 6455", () => {
   const back = decodeFrame(frame);
   assert.equal(back.payload.toString(), "Hello");
   assert.equal(back.rest.length, 0);
+});
+
+test("websocketAccept and frame headers match the RFC 6455 vectors", () => {
+  assert.equal(websocketAccept("dGhlIHNhbXBsZSBub25jZQ=="), "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=");
+  assert.equal(encodeFrame(0x1, Buffer.alloc(125)).subarray(0, 2).toString("hex"), "817d");
+  assert.equal(encodeFrame(0x1, Buffer.alloc(126)).subarray(0, 4).toString("hex"), "817e007e");
+  assert.equal(encodeFrame(0x1, Buffer.alloc(65536)).subarray(0, 10).toString("hex"), "817f0000000000010000");
+  assert.equal(decodeFrame(encodeFrame(0x1, Buffer.alloc(65536))).payload.length, 65536);
 });
 
 test("decodeFrame waits for a complete frame and returns the remainder", () => {
@@ -210,6 +218,39 @@ test("codex send refuses server approval requests and fails with guidance", asyn
     const refusal = fake.received.find((m) => m.id === "srv-1");
     assert.equal(refusal.error.code, -32601);
     assert.equal(refusal.result, undefined);
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send returns once the turn starts; later approval requests are the daemon's to route", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "turn/start": (params, ok, err, send) => {
+      ok({ turn: { id: "turn-11", status: "inProgress", items: [] } });
+      setTimeout(() => send({ jsonrpc: "2.0", id: "srv-2", method: "item/commandExecution/requestApproval", params: {} }), 20);
+    },
+  });
+  try {
+    const { code, out } = await gbot(fake.home, "codex", "send", "t-1", "go");
+    assert.equal(code, 0);
+    assert.equal(out, "Started turn turn-11 (inProgress) on Codex thread t-1\n");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send fails fast when the server sends a Close frame mid-request", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "turn/start": (params, ok, err, send, socket) => socket.write(encodeFrame(0x8, Buffer.from([0x03, 0xe8]))),
+  });
+  try {
+    const started = Date.now();
+    const { code, err } = await gbot(fake.home, "codex", "send", "t-1", "go");
+    assert.equal(code, 1);
+    assert.equal(err, "Codex app-server closed the connection\n");
+    assert.ok(Date.now() - started < 5000, "did not wait for the request timeout");
   } finally {
     await fake.close();
   }
