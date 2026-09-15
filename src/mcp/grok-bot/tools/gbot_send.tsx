@@ -4,6 +4,8 @@ import { z } from 'zod';
 
 import { connectGateway, sendPrompt, summarizeTarget, targetSchema, withRedactedErrors } from '../../../gbot.js';
 
+export const inputSchema = z.object({ message: z.string().min(1), target: z.string().min(1) });
+
 export default defineTool(
   {
     description:
@@ -17,7 +19,7 @@ export default defineTool(
       required: ['target', 'message'],
       type: 'object',
     },
-    inputSchema: z.object({ message: z.string().min(1), target: z.string().min(1) }),
+    inputSchema,
     resultSchema: z.object({
       result: z.record(z.string(), z.json()),
       target: targetSchema,

@@ -48,6 +48,10 @@ export function saveHistory(out, { dir, disabled, event, prompt, rootId } = {}) 
   }
 }
 
+/**
+ * @param {string} path
+ * @param {{ ref?: string, search?: string, limit?: number }} [options]
+ */
 export async function readHistory(path, { ref, search, limit = 40 } = {}) {
   const rows = [];
   let malformed = 0;

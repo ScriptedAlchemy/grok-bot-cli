@@ -5,7 +5,7 @@ import {
   mergeGatewayHeaders,
   parseGatewayHeaders,
   requestHeaders,
-} from "../src/headers.js";
+} from "../src/core/headers.js";
 
 test("parses env JSON headers", () => {
   const headers = parseGatewayHeaders('{"X-Anyrun-Network-Token":"abc","empty":""}');

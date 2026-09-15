@@ -25,8 +25,11 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Test
-        run: npm test
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate, build, typecheck, and test
+        run: npm run check
 
       - name: Lint the package
         run: npx --yes publint@0.3.24
@@ -34,28 +37,12 @@ jobs:
       - name: Pack and smoke-test the executable
         shell: bash
         run: |
-          package_file=$(npm pack --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s)[0].filename))")
+          package_root=$(mktemp -d)
           install_root=$(mktemp -d)
-          npm install --global --prefix "$install_root" "./$package_file"
+          npm pack --pack-destination "$package_root"
+          package_files=("$package_root"/*.tgz)
+          test -f "${package_files[0]}"
+          test "${#package_files[@]}" -eq 1
+          npm install --global --prefix "$install_root" "${package_files[0]}"
           "$install_root/bin/gbot" --help
-
-  plugin:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: plugin
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: "24"
-
-      - name: Install the plugin toolchain
-        run: npm ci
-
-      - name: Validate, build, typecheck, and test the plugin
-        run: npm run check
+          "$install_root/bin/gbot-install" --help

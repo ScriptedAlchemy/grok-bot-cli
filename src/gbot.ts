@@ -1,13 +1,12 @@
 import { z } from 'zod';
 
-import { connectGateway, getTranscriptTail, sendPrompt } from 'grok-bot-cli/src/gateway.js';
-import { entryText, transcriptDelta, transcriptEntries as unwrapEntries } from 'grok-bot-cli/src/transcript.js';
-import { redactSecrets } from 'grok-bot-cli/src/url-policy.js';
+import { connectGateway, getTranscriptTail, sendPrompt } from './core/gateway.js';
+import { entryText, transcriptDelta, transcriptEntries as unwrapEntries } from './core/transcript.js';
+import { redactSecrets } from './core/url-policy.js';
 
 export { connectGateway, getTranscriptTail, sendPrompt, transcriptDelta };
 
-// The same pass `fail()` in src/cli.js applies before printing: MCP hosts show
-// the error text, and a fetch or proxy failure can echo a credential.
+// MCP hosts show thrown error text, and a fetch or proxy failure can echo a credential.
 export const withRedactedErrors = async <T>(run: () => Promise<T>): Promise<T> => {
   try {
     return await run();

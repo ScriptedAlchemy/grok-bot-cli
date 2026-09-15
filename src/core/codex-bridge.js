@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 
+import { outcomeFromError, outcomeFromReceipt, withStatusExitCode } from "./codex/contract.js";
+
 // Method and param names below come from `codex app-server generate-json-schema`
 // of this Codex release. Newer daemons usually keep them; `gbot codex status`
 // reports the running daemon's version next to this one.
@@ -22,7 +24,7 @@ export const WS_MAX_HEADER_BYTES = 16 * 1024;
 export const WS_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 export const WS_MAX_BUFFER_BYTES = 8 * 1024 * 1024;
 const textDecoder = new TextDecoder("utf-8", { fatal: true });
-const pkg = createRequire(import.meta.url)("../package.json");
+const pkg = createRequire(import.meta.url)("../../package.json");
 
 export function codexSocketPath(env = process.env) {
   const home = env.CODEX_HOME || join(homedir(), ".codex");
@@ -505,14 +507,14 @@ export async function codexStatus(env = process.env) {
   try {
     session = await openSession(env);
   } catch (err) {
-    if (err instanceof CodexRouteError) return { ...base, reachable: false, mode: err.mode, message: err.message };
+    if (err instanceof CodexRouteError) return withStatusExitCode({ ...base, reachable: false, mode: err.mode, message: err.message });
     // The endpoint answered; what it said does not match the pinned schema.
-    if (err instanceof CodexProtocolError) return { ...base, reachable: true, mode: err.mode, message: err.message };
+    if (err instanceof CodexProtocolError) return withStatusExitCode({ ...base, reachable: true, mode: err.mode, message: err.message });
     throw err;
   }
   session.client.close();
   const daemonVersion = appServerVersion(session.init);
-  return {
+  return withStatusExitCode({
     ...base,
     reachable: true,
     mode: "daemon",
@@ -524,7 +526,7 @@ export async function codexStatus(env = process.env) {
       compatibility: daemonVersion == null ? "unknown" : daemonVersion === PINNED_CODEX_VERSION ? "exact" : "unverified",
     },
     versionMismatch: Boolean(base.cliVersion && daemonVersion && base.cliVersion !== daemonVersion),
-  };
+  });
 }
 
 const THREAD_STATUSES = new Set(["notLoaded", "idle", "active", "systemError"]);
@@ -556,6 +558,9 @@ export function summarizeThread(t) {
 
 export const THREAD_LIST_MAX_LIMIT = 200;
 
+/**
+ * @param {{ limit?: number, cursor?: string, env?: NodeJS.ProcessEnv }} [opts]
+ */
 export async function listCodexThreads({ limit = 20, cursor, env = process.env } = {}) {
   if (!Number.isInteger(limit) || limit < 1 || limit > THREAD_LIST_MAX_LIMIT) {
     throw new RangeError("--limit must be an integer 1-" + THREAD_LIST_MAX_LIMIT);
@@ -602,6 +607,7 @@ const ID_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
  * `maxHops` (GROK_BOT_MAX_HOPS) bounds relays: a reply must carry hop = incoming hop + 1, and a
  * send at or past the bound is refused, so two agents cannot ack each other forever.
  * The textual header is caller-authored provenance for the reader, not authentication.
+ * @param {{ correlationId?: string, replyTo?: string, hop?: number, envelope?: boolean, env?: NodeJS.ProcessEnv }} [opts]
  */
 export function buildEnvelope({ correlationId, replyTo, hop, envelope = false, env = process.env } = {}) {
   const maxHops = Number.parseInt(env.GROK_BOT_MAX_HOPS ?? "", 10);
@@ -739,13 +745,19 @@ export async function listCodexQueue(threadId, { env = process.env, limit = 50, 
   }
 }
 
+/**
+ * @param {string} threadId
+ * @param {string} text
+ * @param {{ env?: NodeJS.ProcessEnv, envelope?: object, whenBusy?: "reject"|"queue" }} [opts]
+ */
 export async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({ env }), whenBusy = "reject" } = {}) {
   try {
-    return await sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy });
+    const receipt = await sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy });
+    return outcomeFromReceipt(receipt);
   } catch (err) {
     // Every receipt names the message, including refusals that never reached the daemon.
     if ((err instanceof CodexSendError || err instanceof CodexRouteError || err instanceof CodexProtocolError) && err.envelope === undefined) err.envelope = envelope;
-    throw err;
+    return outcomeFromError(err);
   }
 }
 

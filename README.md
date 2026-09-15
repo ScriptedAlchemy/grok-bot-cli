@@ -14,7 +14,7 @@ Manage [Grok Bot](https://cursor.com/help/grok-bot/plans) agents, groups, and me
 npm install --global grok-bot-cli
 ```
 
-Requires Node.js 18+ and the Grok Bot desktop app on macOS, Linux, or Windows. Open Grok Bot and sign in once; `gbot` automatically uses the app's encrypted session and routing credentials. No token copying is required. On Linux the app keeps its session under `~/.config/Grok Bot` (or `$XDG_CONFIG_HOME`); when it is stored in the system keyring, `gbot` reads the key with `secret-tool` (package `libsecret-tools`). On Windows the session lives under `%APPDATA%\\Grok Bot` and decrypts with the app's DPAPI-wrapped Safe Storage key.
+Requires Node.js 22.19.0+ and the Grok Bot desktop app on macOS, Linux, or Windows. Open Grok Bot and sign in once; `gbot` automatically uses the app's encrypted session and routing credentials. No token copying is required. On Linux the app keeps its session under `~/.config/Grok Bot` (or `$XDG_CONFIG_HOME`); when it is stored in the system keyring, `gbot` reads the key with `secret-tool` (package `libsecret-tools`). On Windows the session lives under `%APPDATA%\\Grok Bot` and decrypts with the app's DPAPI-wrapped Safe Storage key.
 
 ## Use
 
@@ -42,6 +42,8 @@ An unchanged poll has `entryCount: 0`; an unknown or expired ID returns one boun
 snapshot with `gapReset: true`. The gateway request remains limit-only.
 
 Run `gbot --help` for every command.
+Options are command-local (for example, `gbot send --history-dir DIR ...`);
+the former leading-global form is no longer accepted.
 
 ## Gateway URL policy
 
@@ -68,11 +70,11 @@ gbot codex send <threadId> "Grok here: the build is green, please continue."
 
 `send` resumes the thread, starts a turn with your text, prints the turn id, and returns; Codex keeps working after `gbot` disconnects. Every command accepts `--json`.
 
-**Which Codex you reach.** `gbot` connects to `$CODEX_HOME/app-server-control/app-server-control.sock` (default `~/.codex/...`) with a built-in WebSocket client. The daemon must be started by `codex app-server daemon start`. `list-threads` shows the threads recorded under `CODEX_HOME` (CLI, TUI, VS Code); `send` works on any of them that no other client currently holds open. Method and parameter names are pinned to the Codex release recorded in `src/codex-bridge.js` (`codex app-server generate-json-schema`); `status` prints the daemon and CLI versions so a stale daemon is visible, and `codex app-server daemon restart` picks up the installed CLI. Native Windows is not supported yet (AF_UNIX control socket); use WSL, Linux, or macOS.
+**Which Codex you reach.** `gbot` connects to `$CODEX_HOME/app-server-control/app-server-control.sock` (default `~/.codex/...`) with a built-in WebSocket client. The daemon must be started by `codex app-server daemon start`. `list-threads` shows the threads recorded under `CODEX_HOME` (CLI, TUI, VS Code); `send` works on any of them that no other client currently holds open. Method and parameter names are pinned to the Codex release recorded in `src/core/codex-bridge.js` (`codex app-server generate-json-schema`); `status` prints the daemon and CLI versions so a stale daemon is visible, and `codex app-server daemon restart` picks up the installed CLI. Native Windows is not supported yet (AF_UNIX control socket); use WSL, Linux, or macOS.
 
 **ChatGPT Desktop limitation.** Desktop runs its own private stdio app-server and does not publish the shared control socket, so external clients cannot reach live Desktop tasks. When the socket is absent, `gbot codex status` exits 1 and says so, naming the upstream issues: [openai/codex#41014](https://github.com/openai/codex/issues/41014) and [openai/codex#41112](https://github.com/openai/codex/issues/41112). `gbot` never reads Desktop's temporary `CODEX_APP_TOOLS_PIPE_PATH` sockets under `/tmp/codex-browser-use/`; that channel is private to Desktop.
 
-**Status contract (`gbot codex status --json`).** `reachable` is endpoint reachability only. `socketState` is `socket`, `absent`, `permission-denied`, or `not-a-socket`; `mode` is `daemon` for a usable daemon, otherwise the failure: `socket-absent`, `permission-denied` (the file or the connect refused this user), `not-a-socket`, `connect-failed` (socket present, nothing completed the WebSocket upgrade), `handshake-failed` (upgrade or `initialize` failed), `windows-unsupported`, or `bad-response` (reachable, but `initialize` returned something off-schema — `reachable` stays `true`). `schema.compatibility` is `exact` when the daemon reports the pinned version, `unverified` when it differs (methods usually survive upgrades, but the shapes are not re-checked), or `unknown`. `cliVersionProbe` reports whether `codex --version` answered (`ok`, `missing`, `timeout` after 3 s, `error`). Whether ChatGPT Desktop owns a thread is not observable from the socket, so `desktopAttached` is always `"unknown"`. Every failure exits 1; automation reads `mode`/`reason`, not the exit code.
+**Status contract (`gbot codex status --json`).** `reachable` is endpoint reachability only. `socketState` is `socket`, `absent`, `permission-denied`, or `not-a-socket`; `mode` is `daemon` for a usable daemon, otherwise the failure: `socket-absent`, `permission-denied` (the file or the connect refused this user), `not-a-socket`, `connect-failed` (socket present, nothing completed the WebSocket upgrade), `handshake-failed` (upgrade or `initialize` failed), `windows-unsupported`, or `bad-response` (reachable, but `initialize` returned something off-schema — `reachable` stays `true`). `schema.compatibility` is `exact` when the daemon reports the pinned version, `unverified` when it differs (methods usually survive upgrades, but the shapes are not re-checked), or `unknown`. `cliVersionProbe` reports whether `codex --version` answered (`ok`, `missing`, `timeout` after 3 s, `error`). Whether ChatGPT Desktop owns a thread is not observable from the socket, so `desktopAttached` is always `"unknown"`. The document is always written to stdout and includes `exitCode`; it is `0` only for a usable daemon.
 
 **Thread discovery.** `list-threads --limit N` (1–200) pages with the opaque `--cursor` from the previous `nextCursor`; JSON keeps the cursor verbatim, text output prints a sanitized `more: --cursor …` hint. Text fields are stripped of terminal control sequences in both outputs (single-line fields also lose line breaks; `preview` keeps its newlines; a structured `source` such as `{ "custom": … }` passes through unchanged), `status` is one of `notLoaded | idle | active | systemError | unknown`, and non-numeric `updatedAt` becomes `null`. Unknown arguments are rejected before the socket is touched; a response that does not match the pinned schema (including an entry without a string `id`) fails with `reason: "bad-response"`.
 
@@ -83,11 +85,11 @@ gbot codex send <threadId> "Grok here: build is green"                  # receip
 gbot codex send --correlation-id M --reply-to M --hop 1 <threadId> "ack" # the answer, one hop later
 ```
 
-Sends at `hop >= GROK_BOT_MAX_HOPS` (default 4) are refused with `reason: "hop-limit"` before anything reaches the daemon, so two agents cannot acknowledge each other forever; `gbot` never auto-acknowledges. `--envelope` (implied by any envelope flag) prepends a one-line `[gbot msg=… corr=… reply-to=… hop=… from=user@host]` header so the receiving agent can quote the ids back. That header is caller-authored provenance for the reader, not authentication: the daemon authenticates the local user through the socket, nothing else. The same flags work for `gbot send` to Grok bots and groups (the receipt carries `envelopeId`, `correlationId`, `hop`; Grok's own `messageId` remains the delivery receipt). Private ChatGPT Desktop pipes and arbitrary ChatGPT chats stay out of scope; only Codex threads on a reachable app-server daemon are routes.
+Sends at `hop >= GROK_BOT_MAX_HOPS` (default 4) are refused with `reason: "hop-limit"` before anything reaches the daemon, so two agents cannot acknowledge each other forever; `gbot` never auto-acknowledges. `--envelope` (implied by any envelope flag) prepends a one-line `[gbot msg=… corr=… reply-to=… hop=… from=user@host]` header so the receiving agent can quote the ids back. That header is caller-authored provenance for the reader, not authentication: the daemon authenticates the local user through the socket, nothing else. Private ChatGPT Desktop pipes and arbitrary ChatGPT chats stay out of scope; only Codex threads on a reachable app-server daemon are routes.
 
 **Busy threads.** `send` reads the thread status on resume. Only `idle` and `notLoaded` threads start a turn. An `active` thread (a turn in progress, or waiting on approval / user input) is refused with `reason: "busy"`: in app-server 0.154.0 a `turn/start` on an active thread steers that turn rather than queueing behind it, and `gbot` never steers or interrupts work a human may be doing. Either wait for `list-threads` to show `idle` and resend, or pass `--when-busy queue` to hand the message to the daemon's own queue through Codex's experimental `thread/queue/add` — that needs `GROK_BOT_CODEX_EXPERIMENTAL=1`, returns `delivery: "queued"` with `queuedSubmissionId`, and `gbot codex queue <threadId>` shows what is still waiting. `systemError` threads are refused with `reason: "thread-error"`, statuses this version does not know with `reason: "unknown-status"`. Receipts distinguish `delivery: "accepted"` (turn started; `turnId`, `turnStatus`), `"queued"`, `"rejected"` (nothing was sent; see `reason`), and `"unknown"` (the request left but no acknowledgment came back — look for `messageId` in the thread or queue before resending). The decision record, with the schema evidence and a live probe of the queue API, is in [`docs/codex-busy-threads.md`](docs/codex-busy-threads.md).
 
-**Failure modes.** Every `send` / `codex send` failure under `--json` is `{ error, delivery, reason, messageId, correlationId, hop, … }` on stderr with exit 1; argument mistakes are `{ error, reason: "usage" }`; `codex status` never fails this way — it prints the status document on stdout and exits 1 when `mode` is anything but `daemon`. `reason` values are stable:
+**Failure modes.** Every `send` and `codex send` outcome under `--json` is one document on stdout with `exitCode`; failures include `{ error, delivery, reason, messageId, correlationId, hop, exitCode: 1, … }` and the process exits 1. Framework argument/schema errors remain on stderr and exit 2. `--json` is reserved anywhere before `--`; put `--` before flag-like message text. `reason` values are stable:
 
 - `socket-absent` / `permission-denied` / `not-a-socket` / `connect-failed` / `handshake-failed` / `windows-unsupported`: the route is unavailable. Start the daemon, fix the socket, or wait for the upstream Desktop fixes.
 - `unknown-thread`: use `list-threads`.
@@ -100,29 +102,22 @@ Sends at `hop >= GROK_BOT_MAX_HOPS` (default 4) are refused with `reason: "hop-l
 
 ## Talking to Grok Bot from Codex
 
-`plugin/` is an [Agent Bundle](https://scriptedalchemy.github.io/agent-bundle/) plugin
+The npm package is also an [Agent Bundle](https://scriptedalchemy.github.io/agent-bundle/) plugin
 that gives Codex, Claude Code, and Cursor two MCP tools on a `grok-bot` server,
 `gbot_send` and `gbot_thread`, plus a `talk-to-grok-bot` skill that tells the agent
 when to ping a bot and how to word the message. The tools bundle this repository's
 gateway client, so the installed plugin does not need `gbot` on `PATH`.
 
-The plugin is not part of the npm package. From a clone of this repository, build
-the artifact once, then install it into each host you use:
+Install the bundled host projections from the same npm package:
 
 ```sh
-git clone https://github.com/ScriptedAlchemy/grok-bot-cli.git
-cd grok-bot-cli/plugin
-npm install
-npm run build
-npx agent-bundle install codex --from artifact
-npx agent-bundle install claude --from artifact
-npx agent-bundle install cursor --from artifact
-npx agent-bundle doctor --from artifact
+gbot-install install codex
+gbot-install install claude
+gbot-install install cursor
+gbot-install doctor
 ```
 
-Add `--replace` to an install command to overwrite an earlier copy. `npm run check`
-runs the plugin gates: source validation, build, artifact validation, typecheck, and
-the route-unit tests, which drive both tools against a loopback fake gateway.
+Add `--replace` to an install command to overwrite an earlier copy.
 
 `gbot_thread` returns a small receipt by default: deterministic `summary`, opaque
 `cursor`, `entryCount`, and `gapReset`.

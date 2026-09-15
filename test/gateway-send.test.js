@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { GATEWAY_MAX_RESPONSE_BYTES, getTranscriptTail, sendPrompt } from "../src/gateway.js";
+import { GATEWAY_MAX_RESPONSE_BYTES, getTranscriptTail, sendPrompt } from "../src/core/gateway.js";
 
 const session = { gatewayUrl: "https://box.cursor.sh", gatewayToken: "t" };
 const roster = { agents: [{ id: "bot-1", name: "General" }] };

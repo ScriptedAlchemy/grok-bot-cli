@@ -24,6 +24,14 @@ Bot replies are `send-message` entries; yours are `message` with `role: user`.
 
 List targets with `gbot bots list` / `gbot groups list` when the name is ambiguous.
 
+## CLI automation
+
+The bundled `gbot` and `gbot-install` executables require Node.js 22.19.0 or newer.
+For `gbot send`, `gbot codex status`, and `gbot codex send` with `--json`, read the result
+document from stdout and branch on its `exitCode`, `mode`, `reason`, and `delivery`.
+Framework argument/schema errors use stderr and exit 2. `--json` is reserved before
+`--`; put `--` before flag-like message text.
+
 ## Auth
 
 Same order as `gbot`: explicit `GROK_BOT_GATEWAY_*`, else Grok Bot app session, else `CURSOR_ACCESS_TOKEN`. `gbot doctor` shows which source is present.
