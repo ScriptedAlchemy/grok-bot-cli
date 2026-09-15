@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { ensureSandboxHeaders, headersFromEnsureSandbox, headersFromEnv, mergeGatewayHeaders, normalizeHeaderMap, requestHeaders } from "./headers.js";
 import { hasGrokBotGatewaySession, loadGrokBotGatewaySession } from "./app-session.js";
-import { AVATAR_COLORS, AVATAR_SHAPES } from "./store.js";
+import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS } from "./store.js";
+import { assertAllowedCredentialUrl, redactSecrets } from "./url-policy.js";
 
 export class GatewayError extends Error {
   constructor(message, { status, method } = {}) {
@@ -45,15 +46,29 @@ function gatewayOverride() {
     ? "http://127.0.0.1:" + (process.env.SAND_HOST_PORT || "1340")
     : "";
   const url = explicitUrl || localUrl;
-  if (url && token) return { gatewayUrl: url.replace(/\/$/, ""), gatewayToken: token, gatewayHeaders: headersFromEnv() };
+  if (url && token) {
+    return {
+      gatewayUrl: assertAllowedCredentialUrl(url.replace(/\/$/, ""), { kind: "gateway" }),
+      gatewayToken: token,
+      gatewayHeaders: headersFromEnv(),
+    };
+  }
   return null;
 }
 
 function sessionFromApp() {
-  const loaded = loadGrokBotGatewaySession();
+  let loaded;
+  try {
+    loaded = loadGrokBotGatewaySession();
+  } catch (error) {
+    // Descriptor present but unusable (e.g. Windows Local State missing). Fall
+    // through to CURSOR_ACCESS_TOKEN → EnsureSandBox when that token is set.
+    if (accessTokenFromEnv()) return null;
+    throw error instanceof Error ? new GatewayError(error.message) : error;
+  }
   if (!loaded) return null;
   return {
-    gatewayUrl: loaded.gatewayUrl,
+    gatewayUrl: assertAllowedCredentialUrl(loaded.gatewayUrl, { kind: "gateway" }),
     gatewayToken: loaded.gatewayToken,
     gatewayHeaders: mergeGatewayHeaders(normalizeHeaderMap(loaded.headers), headersFromEnv()),
   };
@@ -82,23 +97,24 @@ function pick(obj, ...keys) {
 }
 
 export async function ensureSandbox(accessToken) {
-  const url = backendBase() + "/aiserver.v1.GrokBotService/EnsureSandBox";
+  const url = assertAllowedCredentialUrl(backendBase(), { kind: "backend" }) + "/aiserver.v1.GrokBotService/EnsureSandBox";
   const res = await fetch(url, {
     method: "POST",
+    redirect: "error",
     headers: ensureSandboxHeaders(accessToken),
     body: "{}",
   });
   const body = await readJson(res);
   if (!res.ok) {
     const detail = body.message || body.error || body.raw || res.statusText;
-    throw new GatewayError("EnsureSandBox failed: " + res.status + " " + detail, { status: res.status, method: "EnsureSandBox" });
+    throw new GatewayError("EnsureSandBox failed: " + res.status + " " + redactSecrets(detail), { status: res.status, method: "EnsureSandBox" });
   }
   const gatewayUrl = pick(body, "gatewayUrl", "gateway_url");
   const gatewayToken = pick(body, "gatewayToken", "gateway_token");
   if (!gatewayUrl || !gatewayToken) {
     throw new GatewayError("EnsureSandBox returned no gatewayUrl/gatewayToken. Auth may be a dashboard API key (those do not work).");
   }
-  return { gatewayUrl: String(gatewayUrl).replace(/\/$/, ""), gatewayToken: String(gatewayToken), gatewayHeaders: mergeGatewayHeaders(headersFromEnsureSandbox(body), headersFromEnv()) };
+  return { gatewayUrl: assertAllowedCredentialUrl(String(gatewayUrl).replace(/\/$/, ""), { kind: "gateway" }), gatewayToken: String(gatewayToken), gatewayHeaders: mergeGatewayHeaders(headersFromEnsureSandbox(body), headersFromEnv()) };
 }
 
 export async function connectGateway() {
@@ -114,16 +130,18 @@ export async function connectGateway() {
 }
 
 export async function gatewayCall(session, method, body = {}) {
-  const url = session.gatewayUrl + "/api/" + method;
+  const base = assertAllowedCredentialUrl(session.gatewayUrl, { kind: "gateway" });
+  const url = base + "/api/" + method;
   const res = await fetch(url, {
     method: "POST",
+    redirect: "error",
     headers: requestHeaders(session),
     body: JSON.stringify(body),
   });
   const data = await readJson(res);
   if (!res.ok) {
     const detail = data.message || data.error || data.raw || res.statusText;
-    throw new GatewayError(method + " failed: " + res.status + " " + String(detail).slice(0, 300), { status: res.status, method });
+    throw new GatewayError(method + " failed: " + res.status + " " + redactSecrets(String(detail).slice(0, 300)), { status: res.status, method });
   }
   return data;
 }
@@ -228,9 +246,27 @@ export async function deleteAgent(session, ref) {
   return rec;
 }
 
+function normalizeMemberIds(records, memberRefs) {
+  const memberIds = new Set();
+  for (const ref of memberRefs) {
+    const rec = resolveFromList(records, ref);
+    if (rec.isGroup) {
+      throw new GatewayError(`Cannot add group "${rec.name}" as a member. Nested groups are not allowed.`);
+    }
+    memberIds.add(rec.id);
+  }
+  if (memberIds.size === 0) {
+    throw new GatewayError("A group needs at least one existing member agent.");
+  }
+  if (memberIds.size > MAX_GROUP_MEMBERS) {
+    throw new GatewayError(`A group can have at most ${MAX_GROUP_MEMBERS} members.`);
+  }
+  return [...memberIds];
+}
+
 export async function createGroup(session, input) {
   const records = await listAgents(session);
-  const memberAgentIds = (input.memberIds || []).map((ref) => resolveFromList(records, ref).id);
+  const memberAgentIds = normalizeMemberIds(records, input.memberIds || []);
   const data = await gatewayCall(session, "createGroup", {
     name: input.name,
     description: input.description || "",
@@ -248,7 +284,8 @@ export async function createGroup(session, input) {
 export async function setGroupMembers(session, groupRef, memberRefs) {
   const records = await listAgents(session);
   const group = resolveFromList(records, groupRef);
-  const memberAgentIds = memberRefs.map((ref) => resolveFromList(records, ref).id);
+  if (!group.isGroup) throw new GatewayError(`"${group.name}" is a bot, not a group.`);
+  const memberAgentIds = normalizeMemberIds(records, memberRefs);
   const data = await gatewayCall(session, "setGroupMembers", {
     id: group.id,
     memberAgentIds,
@@ -259,6 +296,7 @@ export async function setGroupMembers(session, groupRef, memberRefs) {
 export async function addGroupMember(session, groupRef, memberRef) {
   const records = await listAgents(session);
   const group = resolveFromList(records, groupRef);
+  if (!group.isGroup) throw new GatewayError(`"${group.name}" is a bot, not a group.`);
   const member = resolveFromList(records, memberRef);
   const next = [...new Set([...group.memberIds, member.id])];
   return setGroupMembers(session, group.id, next);
@@ -267,6 +305,7 @@ export async function addGroupMember(session, groupRef, memberRef) {
 export async function removeGroupMember(session, groupRef, memberRef) {
   const records = await listAgents(session);
   const group = resolveFromList(records, groupRef);
+  if (!group.isGroup) throw new GatewayError(`"${group.name}" is a bot, not a group.`);
   const member = resolveFromList(records, memberRef);
   const next = group.memberIds.filter((id) => id !== member.id);
   return setGroupMembers(session, group.id, next);
