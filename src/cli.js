@@ -144,12 +144,13 @@ function takeLeadingGlobals(args) {
   return { json, gateway, files, dir };
 }
 
-/** Strip CSI/OSC so thread names/previews cannot drive the terminal. */
+/** Strip CSI/OSC and other C0/C1 controls so thread fields cannot drive the terminal. */
 function stripTerminalControls(text) {
   return String(text)
     .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "")
     .replace(/\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g, "")
-    .replace(/\u001b./g, "");
+    .replace(/\u001b./g, "")
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
 }
 
 function parseOnOff(value, flag) {

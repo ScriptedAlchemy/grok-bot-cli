@@ -289,9 +289,9 @@ test("codex list-threads strips terminal controls from names and previews", asyn
           {
             id: "t-evil",
             status: { type: "idle" },
-            name: "Build\u001b[31mRED\u001b[0m",
-            preview: "hi\u001b]0;owned\u0007 there",
-            cwd: "/repo",
+            name: "Build\u001b[31mRED\u001b[0m\rOVERWRITE",
+            preview: "hi\u001b]0;owned\u0007 there\b\bXX",
+            cwd: "/repo\u0007",
             source: "cli",
             updatedAt: 1,
           },
@@ -303,9 +303,13 @@ test("codex list-threads strips terminal controls from names and previews", asyn
   try {
     const { code, out } = await gbot(fake.home, "codex", "list-threads");
     assert.equal(code, 0);
-    assert.match(out, /BuildRED/);
+    assert.match(out, /BuildREDOVERWRITE/);
     assert.doesNotMatch(out, /\u001b/);
     assert.doesNotMatch(out, /\]0;owned/);
+    assert.doesNotMatch(out, /\r/);
+    assert.doesNotMatch(out, /\u0008/);
+    assert.doesNotMatch(out, /\u0007/);
+    assert.match(out, /hi thereXX/);
   } finally {
     await fake.close();
   }
