@@ -27,6 +27,9 @@ const textDecoder = new TextDecoder("utf-8", { fatal: true });
 const pkg = createRequire(import.meta.url)("../../package.json");
 
 export function codexSocketPath(env = process.env) {
+  // Explicit socket wins so status/send/queue agree with a shim-installed or
+  // operator-exported CODEX_APP_SERVER_SOCK; otherwise derive from CODEX_HOME.
+  if (env.CODEX_APP_SERVER_SOCK) return env.CODEX_APP_SERVER_SOCK;
   const home = env.CODEX_HOME || join(homedir(), ".codex");
   return join(home, "app-server-control", "app-server-control.sock");
 }
@@ -278,6 +281,12 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
 
     const client = {
       refused,
+      // Server-initiated requests are only *answered* once our own turn/start
+      // is in flight: anything earlier belongs to another client's turn
+      // (notably Desktop's) and must never be rejected on their behalf. Early
+      // requests are still recorded; the connection closes right after, so a
+      // pending request simply dies with it instead of denying someone's approval.
+      answerServerRequests: false,
       request(method, params) {
         const id = nextId++;
         return new Promise((res, rej) => {
@@ -318,7 +327,9 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
 
     const onMessage = (msg) => {
       if (msg.id != null && msg.method) {
-        refused.push({ id: msg.id, method: msg.method, params: msg.params });
+        const answered = client.answerServerRequests;
+        refused.push({ id: msg.id, method: msg.method, params: msg.params, answered });
+        if (!answered) return;
         sendJson({
           jsonrpc: "2.0",
           id: msg.id,
@@ -882,6 +893,12 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
     // the daemon exposes no compare-and-start request. Upgrade path: thread/queue/add + thread/queue/start once stable.
     // Scope refusals to this turn: server requests from earlier calls belong to another context.
     const seenRefused = client.refused.length;
+    // Arm refusal replies only now that our own turn/start is in flight: an
+    // approval arriving in this window plausibly belongs to our turn. Anything
+    // recorded earlier (resume, busy reject, queue) stays unanswered so gbot
+    // never rejects another client's approval. Residual race: a concurrent
+    // foreign approval inside this window is indistinguishable from ours.
+    client.answerServerRequests = true;
     let turn;
     try {
       turn = await client.request("turn/start", {
@@ -908,7 +925,7 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
       );
     }
     const freshRefused = client.refused.slice(seenRefused)
-      .filter((r) => !r.params || r.params.threadId == null || r.params.threadId === threadId);
+      .filter((r) => r.answered && (!r.params || r.params.threadId == null || r.params.threadId === threadId));
     if (freshRefused.length) {
       const methods = freshRefused.map((r) => r.method).join(", ");
       throw new CodexSendError(

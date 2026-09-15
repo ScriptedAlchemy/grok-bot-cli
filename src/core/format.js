@@ -120,7 +120,7 @@ export function formatDesktopShimStatus(s) {
       ? "LaunchAgent: " + s.plistPath + " (" + mark(s.plistPresent) + ")"
       : "LaunchAgent: n/a (macOS-only)",
     cliLine,
-    "daemon socket: " + s.socketPath + " (" + s.socketState + ")",
+    "daemon socket: " + s.socketPath + " (" + s.socketState + ", from " + (s.socketSource ?? "CODEX_HOME") + ")",
   ];
   if (!s.installed) {
     lines.push("shim: not installed — run `gbot codex desktop-shim install` (Desktop keeps stock behavior until then)");

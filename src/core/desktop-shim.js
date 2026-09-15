@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { BRIDGE_SOURCE } from "./desktop-shim-bridge.js";
+import { codexSocketPath } from "./codex-bridge.js";
 
 /**
  * ChatGPT Desktop -> managed Codex daemon shim (CODEX_CLI_PATH bridge).
@@ -78,21 +79,24 @@ export function shouldBridge(argv) {
   return appServer && !daemon && !proxy && !generate;
 }
 
-export function renderWrapperScript({ realPath, bridgePath, wrapperLogPath, socketPath, bridgeLogPath }) {
+export function renderWrapperScript({ realPath, bridgePath, wrapperLogPath, codexHome, bridgeLogPath }) {
   return `#!/bin/bash
 # Installed by \`gbot codex desktop-shim install\`. Rewrites ChatGPT Desktop's
 # \`codex ... app-server\` spawn into a stdio<->WebSocket bridge onto the managed
 # daemon's control socket. Reversible: \`gbot codex desktop-shim uninstall\`.
-# Fail-open: the bridge runs as a child, never exec'd. An absent socket fails
-# the preflight, a wedged listener fails the bridge handshake timeout, and any
-# nonzero bridge exit falls through to the real standalone codex on pristine
-# stdio (the bridge only reads stdin after a successful connect). Bridge exit 0
-# means it served the session. Never touches Desktop binaries or its private
-# tool pipe.
+# The daemon is kept up by the LaunchAgent login script, not here: this hot path
+# never starts the daemon itself, so a wedged daemon lock cannot hang
+# Desktop. Fail-open runs ONLY before any stdin is consumed: an absent socket
+# fails the preflight and a pre-session bridge failure (exit 1) falls through
+# to the real standalone codex on pristine stdio. A mid-session bridge failure
+# (exit 2+) exits promptly so Desktop reconnects; the fallback never runs on
+# half-consumed stdin. Bridge exit 0 means it served the session. Never touches
+# Desktop binaries or its private tool pipe.
 set -u
 REAL="\${CODEX_DESKTOP_WRAPPER_REAL:-${realPath}}"
 BRIDGE="\${CODEX_DESKTOP_BRIDGE:-${bridgePath}}"
-SOCK="\${CODEX_APP_SERVER_SOCK:-${socketPath}}"
+export CODEX_HOME="\${CODEX_HOME:-${codexHome}}"
+SOCK="\${CODEX_APP_SERVER_SOCK:-$CODEX_HOME/app-server-control/app-server-control.sock}"
 BRIDGE_LOG="\${CODEX_STDIO_BRIDGE_LOG:-${bridgeLogPath}}"
 LOG="\${CODEX_DESKTOP_WRAPPER_LOG:-${wrapperLogPath}}"
 export CODEX_APP_SERVER_SOCK="$SOCK"
@@ -118,23 +122,30 @@ for a in "$@"; do
 done
 
 # Preflight the daemon socket with a short deadline: a refused/absent socket
-# means exec'ing the bridge could never succeed, so skip straight to real codex.
+# means starting the bridge could never succeed, so skip straight to real codex.
 preflight() {
   python3 -c 'import os,socket,sys; s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); s.settimeout(float(os.environ.get("CODEX_DESKTOP_PREFLIGHT_TIMEOUT","3"))); s.connect(sys.argv[1]); s.close()' "$SOCK" 2>/dev/null
 }
 
 if [[ "$has_app_server" -eq 1 && "$has_daemon" -eq 0 && "$has_proxy" -eq 0 && "$has_generate" -eq 0 ]]; then
   if [[ -x "$REAL" && -f "$BRIDGE" ]] && command -v python3 >/dev/null 2>&1; then
-    "$REAL" app-server daemon start >/dev/null 2>&1 || true
     if preflight; then
       echo "$(ts) rewrite -> stdio-ws bridge" >>"$LOG" 2>/dev/null || true
       python3 "$BRIDGE"
       rc=$?
-      if [[ "$rc" -eq 0 ]]; then
-        echo "$(ts) bridge served session" >>"$LOG" 2>/dev/null || true
-        exit 0
-      fi
-      echo "$(ts) bridge exited $rc, falling through to real codex" >>"$LOG" 2>/dev/null || true
+      case "$rc" in
+        0)
+          echo "$(ts) bridge served session" >>"$LOG" 2>/dev/null || true
+          exit 0
+          ;;
+        1)
+          echo "$(ts) bridge failed before session start, falling through to real codex" >>"$LOG" 2>/dev/null || true
+          ;;
+        *)
+          echo "$(ts) bridge failed mid-session (rc=$rc); exiting so Desktop reconnects" >>"$LOG" 2>/dev/null || true
+          exit "$rc"
+          ;;
+      esac
     else
       echo "$(ts) daemon socket unreachable, passthrough to real codex" >>"$LOG" 2>/dev/null || true
     fi
@@ -150,16 +161,18 @@ exit 1
 `;
 }
 
-export function renderEnvScript({ wrapperPath, realPath, envLogPath }) {
+export function renderEnvScript({ wrapperPath, realPath, envLogPath, codexHome }) {
   return `#!/bin/bash
 # Installed by \`gbot codex desktop-shim install\`. Re-applies the GUI-domain env
 # so ChatGPT.app inherits CODEX_CLI_PATH after login, then best-effort starts the
-# managed daemon. No -e: every step is best-effort so login never breaks.
+# managed daemon (this login script — never Desktop's spawn hot path — owns
+# daemon upkeep). No -e: every step is best-effort so login never breaks.
 # Revert: \`gbot codex desktop-shim uninstall\`.
 set -u
 WRAPPER="${wrapperPath}"
 REAL="${realPath}"
 LOG="${envLogPath}"
+CODEX_HOME_DIR="${codexHome}"
 ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 {
   echo "$(ts) start"
@@ -169,6 +182,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
   fi
   # GUI domain setenv so ChatGPT.app inherits CODEX_CLI_PATH after login
   launchctl setenv CODEX_CLI_PATH "$WRAPPER"
+  launchctl setenv CODEX_HOME "$CODEX_HOME_DIR"
   launchctl setenv CODEX_APP_SERVER_USE_LOCAL_DAEMON 1
   launchctl unsetenv CODEX_APP_SERVER_WS_URL 2>/dev/null || true
   echo "$(ts) CODEX_CLI_PATH=$(launchctl getenv CODEX_CLI_PATH)"
@@ -342,6 +356,7 @@ export function uninstallDesktopShim({
       warnings.push(`could not remove ${paths.plistPath} (${error instanceof Error ? error.message : String(error)})`);
     }
     runBestEffort(runner, warnings, "launchctl unsetenv CODEX_CLI_PATH", "launchctl", ["unsetenv", "CODEX_CLI_PATH"]);
+    runBestEffort(runner, warnings, "launchctl unsetenv CODEX_HOME", "launchctl", ["unsetenv", "CODEX_HOME"]);
     runBestEffort(runner, warnings, "launchctl unsetenv CODEX_APP_SERVER_USE_LOCAL_DAEMON", "launchctl", [
       "unsetenv",
       "CODEX_APP_SERVER_USE_LOCAL_DAEMON",
@@ -408,6 +423,9 @@ export function desktopShimStatus({
   // Desktop-facing value: the GUI domain on macOS, the caller env elsewhere.
   const desktopCliPath = platform === "darwin" ? guiCliPath : cliPath;
   const installed = wrapperPresent && isExecutable(paths.wrapperPath) && bridgePresent;
+  // Effective socket, resolved exactly like gbot's own client so status and
+  // send/queue/status never disagree: CODEX_APP_SERVER_SOCK wins, else CODEX_HOME.
+  const socketPath = codexSocketPath({ ...env, CODEX_HOME: paths.codexHome });
   return {
     action: "status",
     bridgePath: paths.bridgePath,
@@ -425,8 +443,9 @@ export function desktopShimStatus({
     plistPath: platform === "darwin" ? paths.plistPath : null,
     plistPresent,
     realPath: paths.realPath,
-    socketPath: paths.socketPath,
-    socketState: socketStateOf(paths.socketPath),
+    socketPath,
+    socketSource: env.CODEX_APP_SERVER_SOCK ? "CODEX_APP_SERVER_SOCK" : "CODEX_HOME",
+    socketState: socketStateOf(socketPath),
     warnings,
     wrapperExecutable: wrapperPresent && isExecutable(paths.wrapperPath),
     wrapperPath: paths.wrapperPath,
