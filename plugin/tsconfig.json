@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "lib": ["ES2024"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2024",
+    "types": ["node", "react"],
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    ".agent-bundle/routes.d.ts",
+    "agent-bundle.config.ts",
+    "rstest.route-unit.config.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tests/**/*.ts"
+  ]
+}
