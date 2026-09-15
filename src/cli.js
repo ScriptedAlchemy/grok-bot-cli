@@ -92,21 +92,12 @@ function usage() {
   ].join("\n");
 }
 
-function takeFlag(args, name) {
+/** `opaque` values may start with `-` (pagination cursors); ordinary values may not. */
+function takeFlag(args, name, { opaque = false } = {}) {
   const i = args.indexOf(name);
   if (i === -1) return undefined;
   const value = args[i + 1];
-  if (value == null || value.startsWith("-")) throw new StoreError(name + " needs a value");
-  args.splice(i, 2);
-  return value;
-}
-
-/** Like takeFlag, but the value may start with `-` (opaque cursors). */
-function takeOpaqueFlag(args, name) {
-  const i = args.indexOf(name);
-  if (i === -1) return undefined;
-  const value = args[i + 1];
-  if (value == null || value === "") throw new StoreError(name + " needs a value");
+  if (value == null || value === "" || (!opaque && value.startsWith("-"))) throw new StoreError(name + " needs a value");
   args.splice(i, 2);
   return value;
 }
@@ -381,60 +372,62 @@ function takeEnvelopeFlags(rest, { busyPolicy = false } = {}) {
   }
 }
 
+async function codexStatusCommand(rest, json) {
+  rejectUnknownArgs(rest, "gbot codex status [--json]");
+  const status = await codexStatus();
+  print(json ? status : formatCodexStatus(status));
+  // Exit 0 only for a usable daemon; `mode` says why otherwise (reachable but off-schema included).
+  if (!status.reachable || status.mode !== "daemon") process.exitCode = 1;
+}
+
+async function codexListCommand(rest, json) {
+  const limitRaw = takeFlag(rest, "--limit");
+  const cursor = takeFlag(rest, "--cursor", { opaque: true });
+  rejectUnknownArgs(rest, "gbot codex list-threads [--limit N] [--cursor CURSOR] [--json]");
+  const limit = limitRaw ? Number(limitRaw) : 20;
+  let out;
+  try {
+    out = await listCodexThreads({ limit, cursor });
+  } catch (err) {
+    if (err instanceof RangeError) throw new StoreError(err.message);
+    throw err;
+  }
+  if (json) print(out);
+  else if (out.threads.length === 0) print("No Codex threads.");
+  else print(out.threads.map(formatCodexThread).join("\n\n") + (out.nextCursor ? "\n\nmore: --cursor " + JSON.stringify(singleLine(out.nextCursor)) : ""));
+}
+
+async function codexQueueCommand(rest, json) {
+  const threadId = rest.shift();
+  rejectUnknownArgs(rest, "gbot codex queue <threadId> [--json]");
+  if (!threadId || threadId.startsWith("-")) throw new StoreError("gbot codex queue <threadId> [--json]");
+  const out = await listCodexQueue(threadId);
+  if (json) print(out);
+  else if (out.queued.length === 0) print("No queued submissions on Codex thread " + threadId + ".");
+  else print(out.queued.map((q) => q.id + "  " + (q.clientUserMessageId ?? "") + "\n    " + singleLine(q.text).slice(0, 200)).join("\n\n"));
+}
+
+async function codexSendCommand(rest, json) {
+  const { envelope, whenBusy } = takeEnvelopeFlags(rest, { busyPolicy: true });
+  const threadId = rest.shift();
+  if (rest[0] === "--") rest.shift();
+  const message = rest.join(" ").trim();
+  if (!threadId || threadId.startsWith("-") || !message) throw new StoreError("gbot codex send [envelope flags] [--when-busy reject|queue] <threadId> <message...>");
+  const out = await sendToCodexThread(threadId, message, { envelope, whenBusy });
+  if (json) print(out);
+  else if (out.delivery === "queued") print("Queued " + out.queuedSubmissionId + " on busy Codex thread " + out.threadId + "; message " + out.messageId);
+  else print("Started turn " + out.turnId + " (" + out.turnStatus + ") on Codex thread " + out.threadId + "; message " + out.messageId);
+}
+
 async function runCodex(sub, rest, json) {
   // Structured subcommands take no free text, so --json peels anywhere. Send
   // peels a trailing --json only; mid-message tokens stay message content.
-  if (sub === "status" || sub === "list-threads" || sub === "queue") {
-    if (hasFlag(rest, "--json")) { json = true; jsonErrors = true; }
-  }
-  if (sub === "status") {
-    rejectUnknownArgs(rest, "gbot codex status [--json]");
-    const status = await codexStatus();
-    print(json ? status : formatCodexStatus(status));
-    // Exit 0 only for a usable daemon; `mode` says why otherwise (reachable but off-schema included).
-    if (!status.reachable || status.mode !== "daemon") process.exitCode = 1;
-    return;
-  }
-  if (sub === "list-threads") {
-    const limitRaw = takeFlag(rest, "--limit");
-    const cursor = takeOpaqueFlag(rest, "--cursor");
-    rejectUnknownArgs(rest, "gbot codex list-threads [--limit N] [--cursor CURSOR] [--json]");
-    const limit = limitRaw ? Number(limitRaw) : 20;
-    let out;
-    try {
-      out = await listCodexThreads({ limit, cursor });
-    } catch (err) {
-      if (err instanceof RangeError) throw new StoreError(err.message);
-      throw err;
-    }
-    if (json) print(out);
-    else if (out.threads.length === 0) print("No Codex threads.");
-    else print(out.threads.map(formatCodexThread).join("\n\n") + (out.nextCursor ? "\n\nmore: --cursor " + JSON.stringify(singleLine(out.nextCursor)) : ""));
-    return;
-  }
-  if (sub === "queue") {
-    const threadId = rest.shift();
-    rejectUnknownArgs(rest, "gbot codex queue <threadId> [--json]");
-    if (!threadId || threadId.startsWith("-")) throw new StoreError("gbot codex queue <threadId> [--json]");
-    const out = await listCodexQueue(threadId);
-    if (json) print(out);
-    else if (out.queued.length === 0) print("No queued submissions on Codex thread " + threadId + ".");
-    else print(out.queued.map((q) => q.id + "  " + (q.clientUserMessageId ?? "") + "\n    " + singleLine(q.text).slice(0, 200)).join("\n\n"));
-    return;
-  }
-  if (sub === "send") {
-    if (takeTrailingFlag(rest, "--json")) { json = true; jsonErrors = true; }
-    const { envelope, whenBusy } = takeEnvelopeFlags(rest, { busyPolicy: true });
-    const threadId = rest.shift();
-    if (rest[0] === "--") rest.shift();
-    const message = rest.join(" ").trim();
-    if (!threadId || threadId.startsWith("-") || !message) throw new StoreError("gbot codex send [envelope flags] [--when-busy reject|queue] <threadId> <message...>");
-    const out = await sendToCodexThread(threadId, message, { envelope, whenBusy });
-    if (json) print(out);
-    else if (out.delivery === "queued") print("Queued " + out.queuedSubmissionId + " on busy Codex thread " + out.threadId + "; message " + out.messageId);
-    else print("Started turn " + out.turnId + " (" + out.turnStatus + ") on Codex thread " + out.threadId + "; message " + out.messageId);
-    return;
-  }
+  const structured = sub === "status" || sub === "list-threads" || sub === "queue";
+  if (structured ? hasFlag(rest, "--json") : sub === "send" && takeTrailingFlag(rest, "--json")) { json = true; jsonErrors = true; }
+  if (sub === "status") return codexStatusCommand(rest, json);
+  if (sub === "list-threads") return codexListCommand(rest, json);
+  if (sub === "queue") return codexQueueCommand(rest, json);
+  if (sub === "send") return codexSendCommand(rest, json);
   throw new StoreError("gbot codex status | list-threads [--limit N] [--cursor CURSOR] | queue <threadId> | send [envelope flags] [--when-busy reject|queue] <threadId> <message...>");
 }
 

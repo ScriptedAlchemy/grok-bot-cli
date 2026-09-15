@@ -38,10 +38,6 @@ export function socketState(path) {
   }
 }
 
-export function socketPresent(path) {
-  return socketState(path) === "socket";
-}
-
 /** Strip ANSI/OSC sequences and C0/C1 controls (tab and newline stay) from server-supplied text. */
 export function stripTerminalControls(text) {
   return String(text)
@@ -486,10 +482,6 @@ export function probeLocalCodexVersion(timeoutMs = CODEX_VERSION_PROBE_TIMEOUT_M
   }
   const m = out.status === 0 ? /(\d+\.\d+\.\d+\S*)/.exec(out.stdout) : null;
   return m ? { version: m[1], probe: "ok" } : { version: null, probe: "error" };
-}
-
-export function localCodexVersion() {
-  return probeLocalCodexVersion().version;
 }
 
 /**
