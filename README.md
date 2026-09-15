@@ -14,6 +14,25 @@ Manage [Grok Bot](https://cursor.com/help/grok-bot/plans) agents, groups, and me
 npm install --global grok-bot-cli
 ```
 
+The package ships two things: the `gbot` CLI and the `grok-bot` agent plugin (the `gbot_send` /
+`gbot_thread` MCP server plus the `talk-to-grok-bot` Skill) as an [Agent Bundle](https://scriptedalchemy.github.io/agent-bundle/)
+artifact under `plugin/dist`. Install the plugin into whichever hosts you use with the bundled installer:
+
+```sh
+gbot-install install cursor            # ~/.cursor/plugins/local/grok-bot (reload Cursor afterwards)
+gbot-install install claude            # claude plugin marketplace add + install, scope user
+gbot-install install codex             # codex plugin marketplace add + plugin add
+gbot-install doctor                    # what each host has, and whether it matches this package
+gbot-install install cursor --replace  # upgrade a copy installed from an older version
+gbot-install uninstall cursor          # removes only what the receipt says this package installed
+```
+
+`gbot-install` needs Node.js 22.19+ (the plugin runtime); `gbot` itself runs on Node.js 18+. The same
+artifact is documented host by host in `plugin/dist/INSTALL.md` inside the installed package, and
+developers with the `agent-bundle` CLI can run `agent-bundle install <host> --from plugin/dist`
+instead. Building from a checkout: `npm run build:plugin` produces `plugin/dist` (it is also what
+`npm pack` / `npm publish` run first).
+
 Requires Node.js 18+ and the Grok Bot desktop app on macOS, Linux, or Windows. Open Grok Bot and sign in once; `gbot` automatically uses the app's encrypted session and routing credentials. No token copying is required. On Linux the app keeps its session under `~/.config/Grok Bot` (or `$XDG_CONFIG_HOME`); when it is stored in the system keyring, `gbot` reads the key with `secret-tool` (package `libsecret-tools`). On Windows the session lives under `%APPDATA%\\Grok Bot` and decrypts with the app's DPAPI-wrapped Safe Storage key.
 
 ## Use
@@ -87,8 +106,9 @@ that gives Codex, Claude Code, and Cursor two MCP tools on a `grok-bot` server,
 when to ping a bot and how to word the message. The tools bundle this repository's
 gateway client, so the installed plugin does not need `gbot` on `PATH`.
 
-The plugin is not part of the npm package. From a clone of this repository, build
-the artifact once, then install it into each host you use:
+The built plugin ships inside the npm package; `gbot-install install <host>` (see
+[Install](#install)) is the normal path. From a clone of this repository you can also build
+and install the development artifact directly:
 
 ```sh
 git clone https://github.com/ScriptedAlchemy/grok-bot-cli.git
@@ -103,7 +123,8 @@ npx agent-bundle doctor --from artifact
 
 Add `--replace` to an install command to overwrite an earlier copy. `npm run check`
 runs the plugin gates: source validation, build, artifact validation, typecheck, and
-the route-unit tests, which drive both tools against a loopback fake gateway.
+the route-unit tests, which drive both tools against a loopback fake gateway;
+`npm run prepack` emits the npm-root form under `plugin/dist` that the package ships.
 
 `gbot_thread` returns a small receipt by default: deterministic `summary`, opaque
 `cursor`, `entryCount`, and `gapReset`.

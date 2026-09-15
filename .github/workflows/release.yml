@@ -39,6 +39,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Build the plugin distribution (gbot-install bin + host projections)
+        run: npm run build:plugin
+
       - name: Lint the package
         run: npx --yes publint@0.3.24
 
@@ -53,6 +56,11 @@ jobs:
           test "${#package_files[@]}" -eq 1
           npm install --global --prefix "$install_root" "${package_files[0]}"
           "$install_root/bin/gbot" --help
+          "$install_root/bin/gbot-install" --help
+          fake_home=$(mktemp -d)
+          mkdir -p "$fake_home/.cursor"
+          HOME="$fake_home" "$install_root/bin/gbot-install" install cursor --json
+          test -f "$fake_home/.cursor/plugins/local/grok-bot/.agent-bundle-install.json"
 
       - name: Create release pull request or publish
         id: changesets

@@ -24,5 +24,9 @@ test("npm executable paths are already normalized for publishing", () => {
   assert.deepEqual(packageJson.bin, {
     gbot: "src/cli.js",
     "grok-bot": "src/cli.js",
+    "gbot-install": "plugin/dist/bin/gbot-install.js",
   });
+  // The plugin's npm root ships with the CLI and is built before any pack.
+  assert.ok(packageJson.files.includes("plugin/dist"));
+  assert.equal(packageJson.scripts.prepack, "npm run --silent build:plugin 1>&2");
 });

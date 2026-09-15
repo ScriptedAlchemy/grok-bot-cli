@@ -1,6 +1,9 @@
 import { defineConfig } from 'agent-bundle/config';
 
 export default defineConfig({
+  // Package-bound installer shipped inside the `grok-bot-cli` tarball as the
+  // `gbot-install` bin (`plugin/dist/bin/gbot-install.js`); see README "Install".
+  bin: { 'gbot-install': './src/gbot-install.ts' },
   lib: false,
   marketplace: true,
   output: { distPath: 'artifact' },
