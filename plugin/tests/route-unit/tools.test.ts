@@ -159,11 +159,6 @@ describe('grok-bot MCP server', () => {
     expect(result.isError).toBe(false);
     expect(result.structuredContent).toEqual({
       cursor: 't3',
-      entries: [
-        { id: 't1', kind: 'message', role: 'user', text: 'hello from the test', truncated: false, fullLength: 19, timestampMs: 1 },
-        { id: 't2', kind: 'send-message', text: 'reply', truncated: false, fullLength: 5 },
-        { id: 't3', kind: 'tool-call', text: '', truncated: false, fullLength: 0 },
-      ],
       target: { id: 'grp-1', kind: 'group', name: 'Launch' },
     });
     expect(calls[1]).toMatchObject({ body: { id: 'grp-1', limit: 3 }, method: 'getAgentTranscriptTail' });
@@ -178,6 +173,15 @@ describe('grok-bot MCP server', () => {
       server: 'grok-bot',
     });
     expect(full.isError).toBe(false);
+    expect(full.structuredContent).toEqual({
+      cursor: 't3',
+      entries: [
+        { id: 't1', kind: 'message', role: 'user', text: 'hello from the test', truncated: false, fullLength: 19, timestampMs: 1 },
+        { id: 't2', kind: 'send-message', text: 'reply', truncated: false, fullLength: 5 },
+        { id: 't3', kind: 'tool-call', text: '', truncated: false, fullLength: 0 },
+      ],
+      target: { id: 'grp-1', kind: 'group', name: 'Launch' },
+    });
     expect(contentText(full.content)).toContain('[user] hello from the test');
     expect(contentText(full.content)).toContain('[send-message] reply');
   });
@@ -185,18 +189,13 @@ describe('grok-bot MCP server', () => {
   it('gbot_thread defaults the limit to 40 like the CLI and reads the other transcript shapes', async () => {
     const empty = await invokeMcpTool('gbot_thread', { input: { target: 'General' }, server: 'grok-bot' });
     expect(calls[1]?.body).toEqual({ id: 'bot-1', limit: 40 });
-    expect(empty.structuredContent).toEqual({ cursor: '', entries: [], target: { id: 'bot-1', kind: 'bot', name: 'General' } });
+    expect(empty.structuredContent).toEqual({ cursor: '', target: { id: 'bot-1', kind: 'bot', name: 'General' } });
     expect(contentText(empty.content)).toContain('bot General: 0 entries. cursor (none).');
 
     const legacy = await invokeMcpTool('gbot_thread', { input: { target: 'Legacy' }, server: 'grok-bot' });
-    expect(legacy.structuredContent).toMatchObject({
+    expect(legacy.structuredContent).toEqual({
       cursor: 'l4',
-      entries: [
-        { id: 'l1', kind: 'message', text: 'direct text', truncated: false, fullLength: 11 },
-        { id: 'l2', kind: 'note', text: 'part one\npart two\npart three', truncated: false, fullLength: 28 },
-        { id: 'l3', kind: 'message', text: 'plain message', truncated: false, fullLength: 13 },
-        { id: 'l4', kind: 'message', text: `${'x'.repeat(399)}…`, truncated: true, fullLength: 450 },
-      ],
+      target: { id: 'bot-2', kind: 'bot', name: 'Legacy' },
     });
     const legacySummary = contentText(legacy.content);
     expect(legacySummary).toContain('bot Legacy: 4 entries. cursor l4.');
@@ -215,7 +214,7 @@ describe('grok-bot MCP server', () => {
     expect(fullContent.entries[3]).toEqual({ id: 'l4', kind: 'message', text: 'x'.repeat(450), truncated: false, fullLength: 450 });
     expect(contentText(full.content)).toContain('x'.repeat(450));
 
-    const odd = await invokeMcpTool('gbot_thread', { input: { target: 'Odd' }, server: 'grok-bot' });
+    const odd = await invokeMcpTool('gbot_thread', { input: { full: true, target: 'Odd' }, server: 'grok-bot' });
     expect(odd.isError).toBe(false);
     expect(odd.structuredContent).toEqual({
       cursor: 'o3',
@@ -232,9 +231,11 @@ describe('grok-bot MCP server', () => {
   it('gbot_thread default summary stays small on a 60-entry tail while full:true reads the text', async () => {
     const summary = await invokeMcpTool('gbot_thread', { input: { limit: 60, target: 'Noisy' }, server: 'grok-bot' });
     expect(summary.isError).toBe(false);
-    const structured = summary.structuredContent as { cursor: string; entries: unknown[] };
-    expect(structured.entries).toHaveLength(60);
+    const structured = summary.structuredContent as { cursor: string; entries?: unknown[] };
+    expect(structured.entries).toBeUndefined();
     expect(structured.cursor).toBe('n60');
+    expect(JSON.stringify(structured)).not.toContain('update 1');
+    expect(JSON.stringify(structured).length).toBeLessThan(300);
     const summaryText = contentText(summary.content);
     expect(summaryText).toContain('60 entries. cursor n60.');
     expect(summaryText).not.toContain('update 1');
@@ -281,7 +282,7 @@ describe('grok-bot MCP server', () => {
 
   it('gbot_thread enforces the requested count even when the gateway ignores the limit', async () => {
     const capped = await invokeMcpTool('gbot_thread', {
-      input: { limit: 3, target: 'Big' },
+      input: { full: true, limit: 3, target: 'Big' },
       server: 'grok-bot',
     });
     expect(capped.isError).toBe(false);
@@ -290,7 +291,7 @@ describe('grok-bot MCP server', () => {
   });
 
   it('gbot_thread bounds id/kind/role metadata that would bypass the text budget', async () => {
-    const odd = await invokeMcpTool('gbot_thread', { input: { target: 'Meta' }, server: 'grok-bot' });
+    const odd = await invokeMcpTool('gbot_thread', { input: { full: true, target: 'Meta' }, server: 'grok-bot' });
     expect(odd.isError).toBe(false);
     expect(odd.structuredContent).toEqual({
       cursor: `${'i'.repeat(200)}…`,

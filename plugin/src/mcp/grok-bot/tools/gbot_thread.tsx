@@ -23,7 +23,7 @@ export default defineTool(
       properties: {
         limit: {
           default: 40,
-          description: 'How many trailing entries to return (1-200). Each entry text is capped at 400 characters.',
+          description: 'How many trailing entries to inspect (1-200). Entries are returned only with full:true.',
           type: 'number',
         },
         full: {
@@ -44,7 +44,7 @@ export default defineTool(
       full: z.boolean().default(false),
       target: z.string().min(1),
     }),
-    resultSchema: z.object({ cursor: z.string(), entries: z.array(entrySchema), target: targetSchema }),
+    resultSchema: z.object({ cursor: z.string(), entries: z.array(entrySchema).optional(), target: targetSchema }),
     title: 'Read a Grok Bot thread',
   },
   async ({ limit, target, full }) => {
@@ -52,10 +52,10 @@ export default defineTool(
     const entries = transcriptEntries(tail.transcript, { full, limit });
     const cursor = threadCursor(entries);
     const summarized = summarizeTarget(tail.target);
-    const value = { cursor, entries, target: summarized };
+    const value = full ? { cursor, entries, target: summarized } : { cursor, target: summarized };
     const summary = `${summarized.kind} ${summarized.name}: ${entries.length} entries. cursor ${cursor === '' ? '(none)' : cursor}.`;
-    // Default Agent.Text stays a short summary: dumping every entry here doubles
-    // the token cost of the structured value. full:true keeps the per-entry text.
+    // Keep both model-facing channels small by omitting entries from the default
+    // structured value as well as withholding per-entry Agent.Text.
     if (!full) {
       return (
         <Agent.Result value={value}>
@@ -66,7 +66,7 @@ export default defineTool(
     return (
       <Agent.Result value={value}>
         <Agent.Text>{summary}</Agent.Text>
-        {value.entries.map((entry, index) => (
+        {entries.map((entry, index) => (
           <Agent.Text key={entry.id || index}>{`[${entry.role ?? entry.kind}] ${entry.text}`}</Agent.Text>
         ))}
       </Agent.Result>
