@@ -1,6 +1,8 @@
 node_modules/
 .worktrees/
 dist/
+artifact/
+.agent-bundle/
 .env
 .env.*
 tmp-agents/
