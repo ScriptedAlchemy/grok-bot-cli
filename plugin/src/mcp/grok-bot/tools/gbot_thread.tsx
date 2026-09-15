@@ -20,8 +20,14 @@ export default defineTool(
     inputJsonSchema: {
       additionalProperties: false,
       properties: {
-        limit: { default: 40, description: 'How many trailing entries to return (1-200).', type: 'number' },
-        target: { description: 'Bot or group name or id, for example "General".', type: 'string' },
+        limit: {
+          default: 40,
+          description: 'How many trailing entries to return (1-200). Each entry text is capped at 400 characters.',
+          maximum: 200,
+          minimum: 1,
+          type: 'integer',
+        },
+        target: { description: 'Bot or group name or id, for example "General".', minLength: 1, type: 'string' },
       },
       required: ['target'],
       type: 'object',
