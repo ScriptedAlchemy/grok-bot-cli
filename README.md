@@ -39,7 +39,7 @@ Run `gbot --help` for every command.
 
 ## Gateway URL policy
 
-By default `gbot` only sends credentials to `https` URLs on `*.cursor.sh` / `*.cursor.com`.
+By default `gbot` only sends credentials to `https` URLs on `*.cursor.sh` / `*.cursor.com` / `*.cursorvm.com` (the box gateway family EnsureSandBox returns).
 
 - `GROK_BOT_ALLOW_LOCAL_GATEWAY=1` — permit `http(s)://127.0.0.1`, `localhost`, and `::1` (local/dev gateways).
 - `GROK_BOT_ALLOW_ANY_GATEWAY=1` — disable host checks (unsafe; for break-glass only).

@@ -37,6 +37,12 @@ test("allows https cursor.sh gateway hosts", () => {
       assertAllowedCredentialUrl("https://agent.cursor.com"),
       "https://agent.cursor.com",
     );
+    // The box gateway EnsureSandBox hands out lives on this family.
+    assert.equal(
+      assertAllowedCredentialUrl("https://145d7c6d03c7434e75f0-pod-abc-1340.us12.cursorvm.com/"),
+      "https://145d7c6d03c7434e75f0-pod-abc-1340.us12.cursorvm.com",
+    );
+    assert.throws(() => assertAllowedCredentialUrl("https://cursorvm.com.evil.example"), /Rejected gateway URL host/i);
   });
 });
 

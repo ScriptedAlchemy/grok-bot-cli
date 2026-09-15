@@ -1,7 +1,9 @@
 /**
  * Gateway / backend URL policy: only send credentials to expected hosts.
  *
- * Default: https + *.cursor.sh / *.cursor.com (and apex).
+ * Default: https + *.cursor.sh / *.cursor.com (and apex) / *.cursorvm.com, the
+ * host family EnsureSandBox hands out for the box gateway (e.g.
+ * <id>-pod-<id>.us12.cursorvm.com).
  * Local/dev: http(s)://127.0.0.1|localhost|::1 when GROK_BOT_ALLOW_LOCAL_GATEWAY=1.
  * Escape hatch: GROK_BOT_ALLOW_ANY_GATEWAY=1 (unsafe; disables host checks).
  */
@@ -28,7 +30,7 @@ function isCursorHostname(hostname) {
   const h = String(hostname || "").toLowerCase();
   if (!h) return false;
   if (h === "cursor.sh" || h === "cursor.com") return true;
-  return h.endsWith(".cursor.sh") || h.endsWith(".cursor.com");
+  return h.endsWith(".cursor.sh") || h.endsWith(".cursor.com") || h.endsWith(".cursorvm.com");
 }
 
 /**
@@ -85,7 +87,7 @@ export function assertAllowedCredentialUrl(rawUrl, opts = {}) {
         label +
         " host \"" +
         host +
-        "\". Expected *.cursor.sh / *.cursor.com, or set GROK_BOT_ALLOW_LOCAL_GATEWAY=1 / GROK_BOT_ALLOW_ANY_GATEWAY=1.",
+        "\". Expected *.cursor.sh / *.cursor.com / *.cursorvm.com, or set GROK_BOT_ALLOW_LOCAL_GATEWAY=1 / GROK_BOT_ALLOW_ANY_GATEWAY=1.",
     );
   }
 
