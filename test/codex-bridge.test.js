@@ -1235,3 +1235,47 @@ test("formatCodexStatus names the private-stdio case and keeps the unknown line"
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "private-stdio" }), /codex app-server daemon start/);
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "unknown" }), /desktop attached: unknown \(not observable from the socket\)/);
 });
+
+test("codex send stays silent on foreign approvals inside the turn window", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "turn/start": (params, ok, err, send) => {
+      // Another thread's approval and a Desktop turn's approval arrive inside
+      // gbot's own turn/start window: both must stay silent, never -32601.
+      send({ jsonrpc: "2.0", id: "srv-foreign-thread", method: "item/commandExecution/requestApproval", params: { threadId: "other", command: "rm -rf /" } });
+      send({ jsonrpc: "2.0", id: "srv-foreign-turn", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId, turnId: "turn-desktop" } });
+      setTimeout(() => ok({ turn: { id: "turn-9", status: "inProgress", items: [] } }), 20);
+    },
+  });
+  try {
+    const { code, out } = await gbot(fake.home, "codex", "send", "t-1", "go", "--json");
+    assert.equal(code, 0, out);
+    assert.equal(JSON.parse(out).delivery, "accepted");
+    assert.equal(fake.received.find((m) => m.id === "srv-foreign-thread"), undefined);
+    assert.equal(fake.received.find((m) => m.id === "srv-foreign-turn"), undefined);
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send still refuses our own approval that arrives before the turn ack", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "turn/start": (params, ok, err, send) => {
+      // Our own turn's approval arrives before — or in the same batch as —
+      // the turn/start acknowledgment: it waits for the ack, then refuses.
+      send({ jsonrpc: "2.0", id: "srv-early-own", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId, turnId: "turn-12" } });
+      setTimeout(() => ok({ turn: { id: "turn-12", status: "inProgress", items: [] } }), 20);
+    },
+  });
+  try {
+    const { code, out } = await gbot(fake.home, "codex", "send", "t-1", "go");
+    assert.equal(code, 1);
+    assert.match(out, /Turn turn-12 started on thread t-1 but Codex asked for item\/commandExecution\/requestApproval/);
+    const refusal = fake.received.find((m) => m.id === "srv-early-own");
+    assert.equal(refusal.error.code, -32601);
+    assert.equal(refusal.result, undefined);
+  } finally {
+    await fake.close();
+  }
+});

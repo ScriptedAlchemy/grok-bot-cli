@@ -9,6 +9,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { BRIDGE_SOURCE } from "../src/core/desktop-shim-bridge.js";
+import { decodeFrame } from "../src/core/codex-bridge.js";
 import {
   defaultPaths,
   desktopShimStatus,
@@ -20,6 +21,7 @@ import {
   shouldBridge,
   uninstallDesktopShim,
 } from "../src/core/desktop-shim.js";
+import { formatDesktopShimStatus } from "../src/core/format.js";
 
 test("shouldBridge only rewrites bare app-server spawns", () => {
   assert.equal(shouldBridge(["app-server"]), true);
@@ -677,9 +679,383 @@ test("vendored bridge pins the first-RPC deadline and byte-precise commit", () =
   assert.match(BRIDGE_SOURCE, /first_msg/);
 });
 
+test("vendored bridge pins the must-fix set: commit-before-write, strict 101, EOF ordering", () => {
+  // Commit-before-write: stdout is marked used BEFORE the bounded write, so a
+  // crash between commit and flush can never exit 1 on dirty stdout.
+  const commitAt = BRIDGE_SOURCE.indexOf("output_forwarded.set()");
+  const writeAt = BRIDGE_SOURCE.indexOf("_bounded_stdout_write(payload)");
+  assert.ok(commitAt !== -1 && writeAt !== -1 && commitAt < writeAt, "commit precedes the stdout write");
+  assert.match(BRIDGE_SOURCE, /rc = EXIT_MID_SESSION if \(stdin_bytes or output_forwarded\.is_set\(\)\)/);
+  // Healthy idle: reads block with no timeout after the handshake; only sends
+  // re-arm a bounded timeout.
+  assert.match(BRIDGE_SOURCE, /s\.settimeout\(None\)/);
+  assert.match(BRIDGE_SOURCE, /CODEX_BRIDGE_IO_TIMEOUT/);
+  // Init immunity: only the matching response/error clears the first-RPC timer.
+  assert.match(BRIDGE_SOURCE, /_is_daemon_response/);
+  assert.match(BRIDGE_SOURCE, /notifications never do|never satisfy it|never a notification/i);
+  // Strict upgrade: HTTP/1.1 101 required, so a 200 fails even with a valid hash.
+  assert.match(BRIDGE_SOURCE, /startswith\(b"HTTP\/1\.1 101"\)/);
+  // EOF-tail flushes before the WS Close.
+  const tailAt = BRIDGE_SOURCE.indexOf("tail = pending_in.strip()");
+  const closeAt = BRIDGE_SOURCE.indexOf('opcode=0x8, timeout=_cleanup_timeout()');
+  assert.ok(tailAt !== -1 && closeAt !== -1 && tailAt < closeAt, "EOF tail flushes before Close");
+});
+
 test("login script keeps one CODEX_HOME for GUI env and daemon upkeep", () => {
   const renderedEnv = renderEnvScript({ codexHome: "/c", envLogPath: "/l", realPath: "/r", wrapperPath: "/w" });
   assert.match(renderedEnv, /export CODEX_HOME="\$CODEX_HOME_DIR"/);
   assert.match(renderedEnv, /CODEX_HOME_DIR="\/c"/);
   assert.match(renderedEnv, /launchctl setenv CODEX_HOME "\$CODEX_HOME_DIR"/);
+});
+
+// ---- must-fix stack: failing-then-passing behavioral guards ----
+
+test("bridge dirty stdout never falls back: greet-then-hold exits 2, not 1", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-dirty-"));
+  // The daemon greets with a bare notification (not the matching init
+  // response) then holds silently: stdout is dirty, yet the first-RPC
+  // deadline must still fire — and must exit mid-session, never pre-stdio.
+  const daemon = await fakeWsDaemon(dir, "greet.sock", {
+    prelude: wsServerFrame(0x1, Buffer.from('{"greet":true}')),
+    quiet: true,
+  });
+  try {
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, {
+      CODEX_APP_SERVER_SOCK: daemon.socketPath,
+      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "2",
+    }, "", { leaveStdinOpen: true });
+    const elapsed = Date.now() - started;
+    assert.equal(out.status, 2, `dirty stdout must exit mid-session, got ${out.status} ${out.stderr}`);
+    assert.match(out.stdout, /"greet"/);
+    assert.ok(elapsed < 15000, `first-RPC deadline must fire on dirty stdout, took ${elapsed}ms`);
+  } finally {
+    await closeDaemon(daemon);
+  }
+});
+
+test("bridge healthy idle survives silence past the write budget after init", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-idle-"));
+  const socketPath = join(dir, "idle.sock");
+  try {
+    rmSync(socketPath, { force: true });
+  } catch {}
+  // Answers initialize with the matching id, then stays silent for 3 s
+  // (past the 1 s mid-session write budget) before a late frame: reads must
+  // block with no timeout once init succeeded.
+  const server = createServer((socket) => {
+    socket.on("error", () => {});
+    let request = Buffer.alloc(0);
+    let upgraded = false;
+    let rest = Buffer.alloc(0);
+    let replied = false;
+    socket.on("data", (chunk) => {
+      if (!upgraded) {
+        request = Buffer.concat([request, chunk]);
+        if (!request.includes("\r\n\r\n")) return;
+        const keyLine = request.toString("latin1").split("\r\n")
+          .find((line) => line.toLowerCase().startsWith("sec-websocket-key:"));
+        const key = keyLine.split(":")[1].trim();
+        const accept = createHash("sha1").update(key + WS_GUID).digest().toString("base64");
+        socket.write(Buffer.from(
+          `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
+          "latin1",
+        ));
+        upgraded = true;
+        return;
+      }
+      rest = Buffer.concat([rest, chunk]);
+      for (;;) {
+        const frame = decodeFrame(rest);
+        if (!frame) return;
+        rest = frame.rest;
+        if (frame.opcode === 0x8) return;
+        if (frame.opcode !== 0x1 || replied) continue;
+        let msg;
+        try {
+          msg = JSON.parse(frame.payload.toString());
+        } catch {
+          continue;
+        }
+        if (msg.method === "initialize" && msg.id != null) {
+          replied = true;
+          socket.write(wsServerFrame(0x1, Buffer.from(JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: { ok: true } }))));
+          setTimeout(() => {
+            try {
+              socket.write(wsServerFrame(0x1, Buffer.from('{"late":true}')));
+            } catch {}
+          }, 3000).unref();
+          setTimeout(() => {
+            try {
+              socket.destroy();
+            } catch {}
+          }, 3500).unref();
+        }
+      }
+    });
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(socketPath, resolve);
+  });
+  try {
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, {
+      CODEX_APP_SERVER_SOCK: socketPath,
+      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "10",
+      CODEX_BRIDGE_IO_TIMEOUT: "1",
+    }, '{"jsonrpc":"2.0","id":7,"method":"initialize","params":{}}\n', { leaveStdinOpen: true });
+    const elapsed = Date.now() - started;
+    assert.ok(out.stdout.includes('"late":true'), `late frame after 3 s idle must survive, got: ${out.stdout}`);
+    assert.ok(elapsed >= 3000, `bridge must have waited out the idle gap, took ${elapsed}ms`);
+    assert.equal(out.status, 2, `expected mid-session exit after the daemon went away, got ${out.status}`);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("bridge notification storm never satisfies the first-RPC deadline", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-storm-"));
+  const storm = [];
+  for (let i = 0; i < 20; i++) {
+    storm.push(wsServerFrame(0x1, Buffer.from(JSON.stringify({ jsonrpc: "2.0", method: "ping", params: { n: i } }))));
+  }
+  storm.push(wsServerFrame(0x1, Buffer.from(JSON.stringify({ jsonrpc: "2.0", id: 999, result: { foreign: true } }))));
+  const daemon = await fakeWsDaemon(dir, "storm.sock", { prelude: Buffer.concat(storm), quiet: true });
+  try {
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, {
+      CODEX_APP_SERVER_SOCK: daemon.socketPath,
+      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "2",
+    }, "", { leaveStdinOpen: true });
+    const elapsed = Date.now() - started;
+    assert.equal(out.status, 2, `notification-dirtied stdout must exit mid-session, got ${out.status} ${out.stderr}`);
+    assert.match(out.stdout, /"method":"ping"/);
+    assert.ok(elapsed < 15000, `first-RPC deadline must fire through the storm, took ${elapsed}ms`);
+  } finally {
+    await closeDaemon(daemon);
+  }
+});
+
+/** Raw listener answering the upgrade with a caller-chosen status line (valid accept). */
+async function statusLineDaemon(dir, name, statusLine) {
+  const socketPath = join(dir, name);
+  try {
+    rmSync(socketPath, { force: true });
+  } catch {}
+  const server = createServer((socket) => {
+    socket.on("error", () => {});
+    let request = Buffer.alloc(0);
+    socket.on("data", (chunk) => {
+      request = Buffer.concat([request, chunk]);
+      if (!request.includes("\r\n\r\n")) return;
+      const keyLine = request.toString("latin1").split("\r\n")
+        .find((line) => line.toLowerCase().startsWith("sec-websocket-key:"));
+      const key = keyLine.split(":")[1].trim();
+      const accept = createHash("sha1").update(key + WS_GUID).digest().toString("base64");
+      socket.write(Buffer.from(
+        `${statusLine}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
+        "latin1",
+      ));
+    });
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(socketPath, resolve);
+  });
+  return { server, socketPath };
+}
+
+test("bridge rejects HTTP 200 even with a valid accept hash", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-200-"));
+  const daemon = await statusLineDaemon(dir, "ok200.sock", "HTTP/1.1 200 OK");
+  try {
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, { CODEX_APP_SERVER_SOCK: daemon.socketPath }, "");
+    assert.equal(out.status, 1);
+    assert.ok(Date.now() - started < 15000, "200 fails fast instead of hanging");
+  } finally {
+    await new Promise((resolve) => daemon.server.close(resolve));
+  }
+});
+
+test("bridge rejects a non-HTTP/1.1 101 upgrade", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-101-"));
+  const daemon = await statusLineDaemon(dir, "old101.sock", "HTTP/1.0 101 Switching Protocols");
+  try {
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, { CODEX_APP_SERVER_SOCK: daemon.socketPath }, "");
+    assert.equal(out.status, 1);
+    assert.ok(Date.now() - started < 15000, "non-1.1 101 fails fast instead of serving");
+  } finally {
+    await new Promise((resolve) => daemon.server.close(resolve));
+  }
+});
+
+test("bridge flushes EOF-tail data before the WS Close", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-order-"));
+  const socketPath = join(dir, "order.sock");
+  try {
+    rmSync(socketPath, { force: true });
+  } catch {}
+  const frames = [];
+  let resolveClosed;
+  const closed = new Promise((resolve) => {
+    resolveClosed = resolve;
+  });
+  const server = createServer((socket) => {
+    socket.on("error", () => {});
+    let request = Buffer.alloc(0);
+    let upgraded = false;
+    let rest = Buffer.alloc(0);
+    socket.on("data", (chunk) => {
+      if (!upgraded) {
+        request = Buffer.concat([request, chunk]);
+        if (!request.includes("\r\n\r\n")) return;
+        const keyLine = request.toString("latin1").split("\r\n")
+          .find((line) => line.toLowerCase().startsWith("sec-websocket-key:"));
+        const key = keyLine.split(":")[1].trim();
+        const accept = createHash("sha1").update(key + WS_GUID).digest().toString("base64");
+        socket.write(Buffer.from(
+          `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
+          "latin1",
+        ));
+        socket.write(wsServerFrame(0x1, Buffer.from('{"jsonrpc":"2.0","id":1,"result":{}}')));
+        upgraded = true;
+        return;
+      }
+      rest = Buffer.concat([rest, chunk]);
+      for (;;) {
+        const frame = decodeFrame(rest);
+        if (!frame) return;
+        rest = frame.rest;
+        frames.push({ opcode: frame.opcode, payload: frame.payload.toString() });
+      }
+    });
+    socket.on("close", () => resolveClosed());
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(socketPath, resolve);
+  });
+  try {
+    const out = await runBridge(writeBridge(dir), dir, { CODEX_APP_SERVER_SOCK: socketPath },
+      '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}\nTAIL-NO-NEWLINE');
+    assert.equal(out.status, 0, out.stderr);
+    await Promise.race([
+      closed,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("daemon never saw the session end")), 5000)),
+    ]);
+    const tailIdx = frames.findIndex((f) => f.opcode === 0x1 && f.payload === "TAIL-NO-NEWLINE");
+    const closeIdx = frames.findIndex((f) => f.opcode === 0x8);
+    assert.ok(tailIdx !== -1, `tail flushed, got ${JSON.stringify(frames)}`);
+    assert.ok(closeIdx !== -1, "close sent");
+    assert.ok(tailIdx < closeIdx, "EOF tail flushes before Close");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("bridge send to a non-reading peer times out instead of hanging", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-blackhole-"));
+  const socketPath = join(dir, "blackhole.sock");
+  try {
+    rmSync(socketPath, { force: true });
+  } catch {}
+  const server = createServer((socket) => {
+    socket.on("error", () => {});
+    let request = Buffer.alloc(0);
+    let upgraded = false;
+    socket.on("data", (chunk) => {
+      if (upgraded) return;
+      request = Buffer.concat([request, chunk]);
+      if (!request.includes("\r\n\r\n")) return;
+      const keyLine = request.toString("latin1").split("\r\n")
+        .find((line) => line.toLowerCase().startsWith("sec-websocket-key:"));
+      const key = keyLine.split(":")[1].trim();
+      const accept = createHash("sha1").update(key + WS_GUID).digest().toString("base64");
+      socket.write(Buffer.from(
+        `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
+        "latin1",
+      ));
+      upgraded = true;
+      // Blackhole: never read again, so the client's send buffer fills.
+      socket.removeAllListeners("data");
+      socket.pause();
+    });
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(socketPath, resolve);
+  });
+  try {
+    const line = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{},"pad":"${"x".repeat(30000)}"}\n`;
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, {
+      CODEX_APP_SERVER_SOCK: socketPath,
+      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "5",
+    }, line.repeat(300));
+    const elapsed = Date.now() - started;
+    assert.equal(out.status, 2, `wedged send must exit mid-session, got ${out.status} ${out.stderr}`);
+    assert.ok(elapsed < 20000, `send must time out instead of hanging, took ${elapsed}ms`);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("wrapper refuses self fallback and gates the bridge without REAL", () => {
+  const script = renderWrapperScript({
+    bridgeLogPath: "/b/bridge.log",
+    bridgePath: "/b/bridge.py",
+    codexHome: "/b",
+    realPath: "/r/codex",
+    wrapperLogPath: "/b/w.log",
+  });
+  // A `command -v codex` hit that resolves to the wrapper itself (via $0 or
+  // CODEX_CLI_PATH) must not exec-loop; it fails with no runnable codex.
+  assert.match(script, /-ef "\$0"/);
+  assert.match(script, /refusing self fallback/);
+  // Bridge attempt needs only the bridge file + python3 + preflight: REAL
+  // only gates passthrough/fallthrough, never the bridge attempt.
+  assert.match(script, /if \[\[ -f "\$BRIDGE" \]\] && command -v python3/);
+  assert.doesNotMatch(script, /-x "\$REAL" && -f "\$BRIDGE"/);
+});
+
+test("uninstall reports only paths that existed before delete", () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-shim-uninstall-home-"));
+  const codexHome = mkdtempSync(join(tmpdir(), "gbot-shim-uninstall-codex-"));
+  const env = { CODEX_HOME: codexHome, HOME: home };
+  const runner = () => ({ status: 0 });
+  const empty = uninstallDesktopShim({ env, home, platform: "linux", runner });
+  assert.deepEqual(empty.removed, [], "nothing installed, nothing reported removed");
+});
+
+test("linux status quotes the export path for spaces", () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-shim-quote-home-"));
+  const codexHome = mkdtempSync(join(tmpdir(), "gbot-shim-quote-codex-"));
+  const installed = installDesktopShim({
+    env: { CODEX_HOME: codexHome, HOME: home },
+    home,
+    platform: "linux",
+    runner: () => ({ status: 0 }),
+  });
+  const status = desktopShimStatus({ env: { CODEX_HOME: codexHome, HOME: home }, home, platform: "linux" });
+  assert.equal(status.wrapperPointsAtShim, false);
+  const text = formatDesktopShimStatus({ ...status, wrapperPath: "/home/First Last/.codex/bin/codex-desktop-to-daemon" });
+  assert.match(text, /export CODEX_CLI_PATH='\/home\/First Last\/.codex\/bin\/codex-desktop-to-daemon'/);
+  assert.equal(installed.exitCode, 0);
 });
