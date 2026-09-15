@@ -683,3 +683,242 @@ test("login script keeps one CODEX_HOME for GUI env and daemon upkeep", () => {
   assert.match(renderedEnv, /CODEX_HOME_DIR="\/c"/);
   assert.match(renderedEnv, /launchctl setenv CODEX_HOME "\$CODEX_HOME_DIR"/);
 });
+
+test("vendored bridge bounds every send/lock with the session budget", () => {
+  assert.match(BRIDGE_SOURCE, /lock\.acquire\(timeout/);
+  assert.match(BRIDGE_SOURCE, /send budget expired|send lock timed out/);
+  assert.match(BRIDGE_SOURCE, /sock\.settimeout\(timeout\)/);
+  assert.match(BRIDGE_SOURCE, /_send_timeout/);
+});
+
+test("bridge first-message timer tracks the first response, not any notification", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-notif-"));
+  // An unrelated notification must not disable the first-RPC timer while
+  // initialize never gets a response. The notification is forwarded (stdout
+  // becomes used), so the timeout exit is mid-session, never a stock fallback.
+  const daemon = await fakeWsDaemon(dir, "notif.sock", {
+    prelude: wsServerFrame(0x1, Buffer.from('{"jsonrpc":"2.0","method":"daemon/event","params":{}}')),
+    quiet: true,
+  });
+  try {
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, {
+      CODEX_APP_SERVER_SOCK: daemon.socketPath,
+      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "2",
+    }, "", { leaveStdinOpen: true });
+    const elapsed = Date.now() - started;
+    assert.equal(out.status, 2, `notification must not satisfy first-RPC; got ${out.status} ${out.stderr}`);
+    assert.match(out.stdout, /daemon\/event/);
+    assert.ok(elapsed < 15000, `first-response deadline must fire, took ${elapsed}ms`);
+  } finally {
+    await closeDaemon(daemon);
+  }
+});
+
+test("bridge never falls back to stock after forwarding daemon output", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-used-stdout-"));
+  // Astra repro: forwarded notification then close with pristine stdin must
+  // exit mid-session (Desktop reconnects), never pre-stdio stock fallback.
+  const daemon = await fakeWsDaemon(dir, "used.sock", {
+    prelude: wsServerFrame(0x1, Buffer.from('{"jsonrpc":"2.0","method":"daemon/event","params":{}}')),
+    closeAfterMs: 500,
+  });
+  try {
+    const out = await runBridge(writeBridge(dir), dir,
+      { CODEX_APP_SERVER_SOCK: daemon.socketPath }, "", { leaveStdinOpen: true });
+    assert.match(out.stdout, /daemon\/event/);
+    assert.equal(out.status, 2, `used stdout must force mid-session, got ${out.status}`);
+  } finally {
+    await closeDaemon(daemon);
+  }
+});
+
+test("bridge large stdin to a non-reading peer times out instead of hanging", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-nonreading-"));
+  const socketPath = join(dir, "nonreading.sock");
+  try {
+    rmSync(socketPath, { force: true });
+  } catch {}
+  // Upgrade succeeds, then the peer never reads again: small pong/close
+  // frames would fit the kernel buffer, so fill it with a multi-MB stdin line.
+  // Unbounded sendall + lock would hang here past the test timeout.
+  const sockets = new Set();
+  const server = createServer((socket) => {
+    sockets.add(socket);
+    socket.on("error", () => {});
+    socket.on("close", () => sockets.delete(socket));
+    let request = Buffer.alloc(0);
+    let upgraded = false;
+    socket.on("data", (chunk) => {
+      if (upgraded) return; // non-reading: drop everything after the upgrade
+      request = Buffer.concat([request, chunk]);
+      if (!request.includes("\r\n\r\n")) return;
+      const keyLine = request.toString("latin1").split("\r\n")
+        .find((line) => line.toLowerCase().startsWith("sec-websocket-key:"));
+      const key = keyLine.split(":")[1].trim();
+      const accept = createHash("sha1").update(key + WS_GUID).digest().toString("base64");
+      upgraded = true;
+      socket.write(Buffer.from(
+        `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
+        "latin1",
+      ));
+      socket.pause(); // never consume stat frame reads; bridge sends must time out
+    });
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(socketPath, resolve);
+  });
+  try {
+    const bigLine = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"pad":"${"x".repeat(4 * 1024 * 1024)}"}}\n`;
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, {
+      CODEX_APP_SERVER_SOCK: socketPath,
+      CODEX_BRIDGE_CONNECT_TIMEOUT: "2",
+      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "2",
+    }, bigLine, { leaveStdinOpen: true });
+    const elapsed = Date.now() - started;
+    assert.equal(out.status, 2, `bounded send must exit mid-session, got ${out.status}`);
+    assert.ok(elapsed < 15000, `bounded send must not hang, took ${elapsed}ms`);
+  } finally {
+    for (const s of sockets) try { s.destroy(); } catch {}
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("bridge rejects HTTP 200 even with a valid accept hash", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-200-"));
+  const socketPath = join(dir, "http200.sock");
+  try {
+    rmSync(socketPath, { force: true });
+  } catch {}
+  const sockets200 = new Set();
+  const server = createServer((socket) => {
+    sockets200.add(socket);
+    socket.on("error", () => {});
+    socket.on("close", () => sockets200.delete(socket));
+    let request = Buffer.alloc(0);
+    socket.on("data", (chunk) => {
+      request = Buffer.concat([request, chunk]);
+      if (!request.includes("\r\n\r\n")) return;
+      const keyLine = request.toString("latin1").split("\r\n")
+        .find((line) => line.toLowerCase().startsWith("sec-websocket-key:"));
+      const key = keyLine.split(":")[1].trim();
+      const accept = createHash("sha1").update(key + WS_GUID).digest().toString("base64");
+      // Valid accept, wrong status: must still fail (require 101 + accept).
+      socket.write(Buffer.from(
+        `HTTP/1.1 200 OK\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
+        "latin1",
+      ));
+    });
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(socketPath, resolve);
+  });
+  try {
+    const out = await runBridge(writeBridge(dir), dir,
+      { CODEX_APP_SERVER_SOCK: socketPath }, "", { leaveStdinOpen: false });
+    assert.equal(out.status, 1, `HTTP 200 must fail pre-stdio, got ${out.status}`);
+  } finally {
+    for (const s of sockets200) try { s.destroy(); } catch {}
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("bridge flushes buffered EOF-tail data before the WS Close", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-eoftail-"));
+  const socketPath = join(dir, "eoftail.sock");
+  try {
+    rmSync(socketPath, { force: true });
+  } catch {}
+  // Closes the transport as soon as a WS Close frame arrives: a tail sent
+  // after Close would be lost, so order proves the flush happens first.
+  const state = { frames: [] };
+  const server = createServer((socket) => {
+    state.socket = socket;
+    socket.on("error", () => {});
+    let request = Buffer.alloc(0);
+    let upgraded = false;
+    let buf = Buffer.alloc(0);
+    socket.on("data", (chunk) => {
+      if (!upgraded) {
+        request = Buffer.concat([request, chunk]);
+        if (!request.includes("\r\n\r\n")) return;
+        const keyLine = request.toString("latin1").split("\r\n")
+          .find((line) => line.toLowerCase().startsWith("sec-websocket-key:"));
+        const key = keyLine.split(":")[1].trim();
+        const accept = createHash("sha1").update(key + WS_GUID).digest().toString("base64");
+        upgraded = true;
+        socket.write(Buffer.from(
+          `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
+          "latin1",
+        ));
+        const rest = request.subarray(request.indexOf("\r\n\r\n") + 4);
+        if (rest.length) buf = Buffer.concat([buf, rest]);
+        return;
+      }
+      buf = Buffer.concat([buf, chunk]);
+      for (;;) {
+        if (buf.length < 2) return;
+        const opcode = buf[0] & 0x0f;
+        const masked = (buf[1] & 0x80) !== 0;
+        let len = buf[1] & 0x7f;
+        let off = 2;
+        if (len === 126) {
+          if (buf.length < 4) return;
+          len = buf.readUInt16BE(2);
+          off = 4;
+        }
+        const maskLen = masked ? 4 : 0;
+        if (buf.length < off + maskLen + len) return;
+        let payload = buf.subarray(off + maskLen, off + maskLen + len);
+        if (masked) {
+          const mask = buf.subarray(off, off + 4);
+          payload = Buffer.from(payload.map((b, i) => b ^ mask[i % 4]));
+        }
+        state.frames.push({ opcode, payload: Buffer.from(payload) });
+        buf = buf.subarray(off + maskLen + len);
+        if (opcode === 0x8) {
+          try { socket.destroy(); } catch {}
+          return;
+        }
+      }
+    });
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(socketPath, resolve);
+  });
+  try {
+    // Partial line with no newline at EOF: only the tail flush can deliver it.
+    const out = await runBridge(writeBridge(dir), dir,
+      { CODEX_APP_SERVER_SOCK: socketPath }, '{"id":1}', { leaveStdinOpen: false });
+    assert.equal(out.status, 0, `clean EOF serves, got ${out.status} ${out.stderr}`);
+    const dataIdx = state.frames.findIndex((f) => f.opcode === 0x1 && f.payload.toString().includes('"id":1'));
+    const closeIdx = state.frames.findIndex((f) => f.opcode === 0x8);
+    assert.ok(dataIdx !== -1, `EOF tail must reach the daemon, saw ${JSON.stringify(state.frames.map((f) => f.opcode))}`);
+    assert.ok(closeIdx !== -1, "WS Close must still be sent");
+    assert.ok(dataIdx < closeIdx, "tail data must precede the WS Close");
+  } finally {
+    try { state.socket?.destroy(); } catch {}
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("vendored bridge pins response-tracked first-RPC, output commit, and strict 101", () => {
+  assert.match(BRIDGE_SOURCE, /_is_daemon_response/);
+  assert.match(BRIDGE_SOURCE, /output_forwarded/);
+  assert.match(BRIDGE_SOURCE, /startswith\(b"HTTP\/1\.1 101"\)/);
+  assert.match(BRIDGE_SOURCE, /tail.*before.*WS Close|before the WS Close/s);
+});
