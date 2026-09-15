@@ -12,7 +12,15 @@ export const withRedactedErrors = async <T>(run: () => Promise<T>): Promise<T> =
   try {
     return await run();
   } catch (error) {
-    throw new Error(redactSecrets(error instanceof Error ? error.message : String(error)));
+    const wrapped: Error & { delivery?: string; targetId?: string } = new Error(
+      redactSecrets(error instanceof Error ? error.message : String(error)),
+    );
+    if (error instanceof Error) {
+      const src = error as Error & { delivery?: unknown; targetId?: unknown };
+      if (typeof src.delivery === 'string') wrapped.delivery = src.delivery;
+      if (typeof src.targetId === 'string') wrapped.targetId = src.targetId;
+    }
+    throw wrapped;
   }
 };
 
@@ -33,12 +41,16 @@ export const entrySchema = z.object({
   kind: z.string(),
   role: z.string().optional(),
   text: z.string(),
+  truncated: z.boolean(),
+  fullLength: z.number().int().min(0),
   timestampMs: z.number().optional(),
 });
 type Entry = z.infer<typeof entrySchema>;
 
 /** Match `gbot thread` CLI preview width so MCP hosts are not flooded. */
 export const ENTRY_TEXT_MAX = 400;
+// ponytail: fixed preview/full budgets; upgrade path is a paged thread resource instead of wider caps.
+export const ENTRY_FULL_MAX = 20000;
 
 export const truncateEntryText = (text: string, max = ENTRY_TEXT_MAX): string => {
   if (text.length <= max) return text;
@@ -52,19 +64,26 @@ const entryFields = z.object({
   timestampMs: z.number().optional(),
 });
 
-const threadEntry = (raw: unknown): Entry => {
+const threadEntry = (raw: unknown, opts: { full?: boolean } = {}): Entry => {
   const fields = entryFields.safeParse(raw);
+  const full = entryText(raw);
+  const max = opts.full ? ENTRY_FULL_MAX : ENTRY_TEXT_MAX;
+  const truncated = full.length > max;
+  const text = !truncated ? full : opts.full ? full.slice(0, max) : truncateEntryText(full);
   if (!fields.success) {
-    return { id: '', kind: 'unknown', text: truncateEntryText(JSON.stringify(raw)) };
+    return { id: '', kind: 'unknown', text, truncated, fullLength: full.length };
   }
   const { id, kind, role, timestampMs } = fields.data;
   return {
     id,
     kind,
     ...(role === undefined ? {} : { role }),
-    text: truncateEntryText(entryText(raw)),
+    text,
+    truncated,
+    fullLength: full.length,
     ...(timestampMs === undefined ? {} : { timestampMs }),
   };
 };
 
-export const transcriptEntries = (transcript: unknown): Entry[] => unwrapEntries(transcript).map(threadEntry);
+export const transcriptEntries = (transcript: unknown, opts: { full?: boolean } = {}): Entry[] =>
+  unwrapEntries(transcript).map((raw) => threadEntry(raw, opts));

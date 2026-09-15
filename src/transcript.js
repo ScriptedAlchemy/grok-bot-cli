@@ -1,6 +1,28 @@
 // Shared by `gbot thread` and the grok-bot plugin's gbot_thread tool.
 
+/** Coerce anything to a string without throwing (numbers, BigInt, unserializable objects). */
+export function toSafeText(value) {
+  if (typeof value === "string") return value;
+  if (value == null) return "";
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
+  try {
+    const out = JSON.stringify(value);
+    return typeof out === "string" ? out : "";
+  } catch {
+    return "[unserializable]";
+  }
+}
+
+/** Coerce to string and replace lone surrogates so downstream slicing/JSON never breaks. */
+export function normalizeText(value) {
+  return toSafeText(value).replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "\uFFFD");
+}
+
 export function entryText(e) {
+  return normalizeText(entryTextRaw(e));
+}
+
+function entryTextRaw(e) {
   if (!e || typeof e !== "object") return "";
   const direct = e.text || e.prompt || e.message || e.preview;
   if (typeof direct === "string" && direct) return direct;
@@ -13,7 +35,7 @@ export function entryText(e) {
       return "";
     }).filter(Boolean).join("\n");
   }
-  if (content && typeof content === "object") return content.text || JSON.stringify(content);
+  if (content && typeof content === "object") return content.text || toSafeText(content);
   // Bot replies arrive as `{ kind: "send-message", message: { type, content } }`.
   if (e.message && typeof e.message === "object" && typeof e.message.content === "string") return e.message.content;
   return "";

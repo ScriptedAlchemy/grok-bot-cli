@@ -7,7 +7,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { decodeFrame, encodeFrame, websocketAccept } from "../src/codex-bridge.js";
+import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, CodexSendError } from "../src/codex-bridge.js";
+import { createServer as createTcpServer } from "node:net";
 
 const CLI = fileURLToPath(new URL("../src/cli.js", import.meta.url));
 
@@ -25,8 +26,11 @@ async function fakeAppServer(handlers) {
   mkdirSync(join(home, "app-server-control"));
   const socketPath = join(home, "app-server-control", "app-server-control.sock");
   const received = [];
+  const sockets = new Set();
   const server = createServer();
   server.on("upgrade", (req, socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
     socket.write(
       "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
       + "Sec-WebSocket-Accept: " + websocketAccept(req.headers["sec-websocket-key"]) + "\r\n\r\n",
@@ -53,7 +57,14 @@ async function fakeAppServer(handlers) {
     socket.on("error", () => {});
   });
   await new Promise((resolve) => server.listen(socketPath, resolve));
-  return { home, received, close: () => new Promise((resolve) => server.close(resolve)) };
+  return {
+    home,
+    received,
+    close: () => new Promise((resolve) => {
+      for (const sock of sockets) sock.destroy();
+      server.close(resolve);
+    }),
+  };
 }
 
 const baseHandlers = {
@@ -168,6 +179,7 @@ test("codex send resumes the thread, starts a turn, and prints the ids", async (
     const { code, out } = await gbot(fake.home, "--json", "codex", "send", "t-1", "hello", "from", "gbot");
     assert.equal(code, 0, out);
     assert.deepEqual(JSON.parse(out), {
+      delivery: "accepted",
       threadId: "t-1",
       turnId: "turn-9",
       turnStatus: "inProgress",
@@ -249,15 +261,15 @@ test("codex send fails fast when the server sends a Close frame mid-request", as
     const started = Date.now();
     const { code, err } = await gbot(fake.home, "codex", "send", "t-1", "go");
     assert.equal(code, 1);
-    assert.equal(err, "Codex app-server closed the connection\n");
+    assert.match(err, /^Lost the Codex turn\/start response for thread t-1: Codex app-server closed the connection\./);
+    assert.match(err, /Delivery is unknown; check the thread before resending\./);
     assert.ok(Date.now() - started < 5000, "did not wait for the request timeout");
   } finally {
     await fake.close();
   }
 });
 
-test("codex send keeps --json / --dir tokens that appear after the thread id", async () => {
-  const fake = await fakeAppServer(baseHandlers);
+test("codex send keeps --json / --dir tokens that appear after the thread id", async () => {  const fake = await fakeAppServer(baseHandlers);
   try {
     const { code, out } = await gbot(
       fake.home,
@@ -310,6 +322,141 @@ test("codex list-threads strips terminal controls from names and previews", asyn
     assert.doesNotMatch(out, /\u0008/);
     assert.doesNotMatch(out, /\u0007/);
     assert.match(out, /hi thereXX/);
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send reassembles a fragmented turn/start reply split across TCP chunks", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "turn/start": (params, ok, err, send, socket) => {
+      void ok;
+      void err;
+      const id = fake.received.at(-1).id;
+      const payload = Buffer.from(JSON.stringify({ jsonrpc: "2.0", id, result: { turn: { id: "turn-9", status: "inProgress", items: [] } } }));
+      const half = Math.floor(payload.length / 2);
+      const first = Buffer.concat([Buffer.from([0x01, half]), payload.subarray(0, half)]);
+      const second = Buffer.concat([Buffer.from([0x80, payload.length - half]), payload.subarray(half)]);
+      socket.write(first.subarray(0, 3));
+      setTimeout(() => socket.write(Buffer.concat([first.subarray(3), second])), 20);
+    },
+  });
+  try {
+    const { code, out } = await gbot(fake.home, "--json", "codex", "send", "t-1", "go");
+    assert.equal(code, 0, out);
+    assert.deepEqual(JSON.parse(out).turnId, "turn-9");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex status fails on a wrong handshake and closes the socket instead of leaking it", async () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-codex-badhs-"));
+  mkdirSync(join(home, "app-server-control"));
+  const socketPath = join(home, "app-server-control", "app-server-control.sock");
+  let serverSocket = null;
+  const server = createTcpServer((sock) => {
+    serverSocket = sock;
+    sock.on("data", () => sock.write("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"));
+    sock.on("error", () => {});
+  });
+  await new Promise((resolve) => server.listen(socketPath, resolve));
+  const closed = new Promise((resolve) => server.on("connection", (sock) => sock.on("close", resolve)));
+  try {
+    const started = Date.now();
+    const { code, err } = await gbot(home, "codex", "status");
+    assert.equal(code, 1);
+    assert.match(err, /refused the WebSocket upgrade/);
+    assert.ok(Date.now() - started < 5000, "failed fast instead of hanging");
+    await Promise.race([closed, new Promise((_, rej) => setTimeout(() => rej(new Error("client socket leaked")), 3000))]);
+    assert.ok(serverSocket.destroyed || serverSocket.closed, "server side sees the client go away");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("codex status fails fast on an oversized frame and settles the pending request", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    initialize: (params, ok, err, send, socket) => {
+      void params; void ok; void err; void send;
+      socket.write(Buffer.from([0x81, 0x7f, 0, 0, 0, 0, 0x10, 0, 0, 0]));
+    },
+  });
+  try {
+    const started = Date.now();
+    const { code, err } = await gbot(fake.home, "codex", "status");
+    assert.equal(code, 1);
+    assert.match(err, /exceeds/);
+    assert.ok(Date.now() - started < 5000, "did not wait for the request timeout");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("client close is idempotent and settles pending requests", async () => {
+  const fake = await fakeAppServer({ ...baseHandlers, "turn/start": () => {} });
+  const socketPath = join(fake.home, "app-server-control", "app-server-control.sock");
+  try {
+    const client = await connectCodexAppServer(socketPath);
+    const pending = client.request("turn/start", { threadId: "t-1", input: [] });
+    const settled = assert.rejects(pending, /closed/);
+    client.close();
+    client.close();
+    await settled;
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send keeps the thread id and reports unknown delivery on a malformed ack", async () => {
+  const fake = await fakeAppServer({ ...baseHandlers, "turn/start": (params, ok) => ok({ turn: { status: "inProgress" } }) });
+  try {
+    const { code, err } = await gbot(fake.home, "codex", "send", "t-1", "go");
+    assert.equal(code, 1);
+    assert.match(err, /malformed turn\/start acknowledgment for thread t-1/);
+    assert.match(err, /unknown/);
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send ignores server requests scoped to other threads", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "thread/resume": (params, ok, err, send) => {
+      send({ jsonrpc: "2.0", id: "srv-other", method: "item/commandExecution/requestApproval", params: { threadId: "other" } });
+      baseHandlers["thread/resume"](params, ok, err);
+    },
+  });
+  try {
+    const { code, out } = await gbot(fake.home, "--json", "codex", "send", "t-1", "go");
+    assert.equal(code, 0, out);
+    assert.equal(JSON.parse(out).delivery, "accepted");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send preserves turn and thread ids with accepted delivery on refusal", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "turn/start": (params, ok, err, send) => {
+      send({ jsonrpc: "2.0", id: "srv-1", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId } });
+      setTimeout(() => ok({ turn: { id: "turn-10", status: "inProgress", items: [] } }), 20);
+    },
+  });
+  const home = fake.home;
+  const env = { ...process.env, CODEX_HOME: home };
+  try {
+    await assert.rejects(sendToCodexThread("t-1", "do it", env), (e) => {
+      assert.ok(e instanceof CodexSendError);
+      assert.equal(e.delivery, "accepted");
+      assert.equal(e.threadId, "t-1");
+      assert.equal(e.turnId, "turn-10");
+      return true;
+    });
   } finally {
     await fake.close();
   }

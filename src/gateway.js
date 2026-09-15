@@ -13,6 +13,10 @@ export class GatewayError extends Error {
   }
 }
 
+// ponytail: fixed 30 s deadline and buffered byte cap; upgrade path is per-method budgets plus streaming reads.
+export const GATEWAY_TIMEOUT_MS = 30000;
+export const GATEWAY_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+
 function backendBase() {
   return (
     process.env.SAND_BACKEND_URL ||
@@ -80,6 +84,9 @@ export function hasGatewayAuth() {
 
 async function readJson(res) {
   const text = await res.text();
+  if (text.length > GATEWAY_MAX_RESPONSE_BYTES) {
+    throw new GatewayError("Gateway response too large (" + text.length + " bytes, limit " + GATEWAY_MAX_RESPONSE_BYTES + ")");
+  }
   if (!text) return {};
   try {
     return JSON.parse(text);
@@ -101,6 +108,7 @@ export async function ensureSandbox(accessToken) {
   const res = await fetch(url, {
     method: "POST",
     redirect: "error",
+    signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS),
     headers: ensureSandboxHeaders(accessToken),
     body: "{}",
   });
@@ -135,6 +143,7 @@ export async function gatewayCall(session, method, body = {}) {
   const res = await fetch(url, {
     method: "POST",
     redirect: "error",
+    signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS),
     headers: requestHeaders(session),
     body: JSON.stringify(body),
   });
@@ -319,13 +328,29 @@ export async function sendPrompt(session, ref, prompt, extra = {}) {
     clientNonce: extra.clientNonce || randomUUID(),
   };
   if (extra.replyToId) body.replyToId = extra.replyToId;
-  const data = await gatewayCall(session, "sendPrompt", body);
-  return { target: rec, result: data };
+  let data;
+  try {
+    data = await gatewayCall(session, "sendPrompt", body);
+  } catch (err) {
+    // Delivery states: the server answered no (rejected) vs the request may have landed (unknown).
+    // Never retry an unknown delivery blindly; read the thread first.
+    if (err && err.delivery == null) {
+      err.delivery = err instanceof GatewayError && err.status != null && err.status < 500 ? "rejected" : "unknown";
+    }
+    if (err && err.targetId == null) err.targetId = rec.id;
+    if (err && err.delivery === "unknown" && err instanceof Error && !/delivery unknown/.test(err.message)) {
+      err.message += " (delivery unknown; check the thread before resending)";
+    }
+    throw err;
+  }
+  const messageId = data && typeof data.messageId === "string" ? data.messageId : null;
+  return { target: rec, result: data, delivery: "accepted", ...(messageId ? { messageId } : {}) };
 }
 
-export async function getTranscriptTail(session, ref, limit = 50) {
+export async function getTranscriptTail(session, ref, limit = 40) {
   const rec = await resolveRef(session, ref);
-  const data = await gatewayCall(session, "getAgentTranscriptTail", { id: rec.id, limit });
+  const bounded = Math.min(Math.max(Math.trunc(limit) || 40, 1), 200);
+  const data = await gatewayCall(session, "getAgentTranscriptTail", { id: rec.id, limit: bounded });
   return { target: rec, transcript: data };
 }
 
