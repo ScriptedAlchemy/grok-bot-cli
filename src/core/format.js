@@ -105,3 +105,30 @@ export function formatCodexThread(t) {
   return stripTerminalControls(t.id) + "  " + stripTerminalControls(t.status) + title
     + "\n    " + stripTerminalControls(t.cwd ?? "") + preview;
 }
+
+export function formatDesktopShimStatus(s) {
+  const mark = (ok) => (ok ? "yes" : "no");
+  const cliLine = s.platform === "darwin"
+    ? "CODEX_CLI_PATH: GUI domain " + (s.guiCliPath ?? "(unset)") + " / this shell " + (s.cliPath ?? "(unset)")
+      + (s.wrapperPointsAtShim ? " (Desktop-facing value points at shim)" : "")
+    : "CODEX_CLI_PATH: " + (s.cliPath ?? "(unset)") + (s.wrapperPointsAtShim ? " (points at shim)" : "");
+  const lines = [
+    "wrapper: " + s.wrapperPath + " (" + (s.wrapperExecutable ? "executable" : s.wrapperPresent ? "present, not executable" : "absent") + ")",
+    "bridge: " + s.bridgePath + " (" + mark(s.bridgePresent) + ")",
+    "login env: " + s.envScriptPath + " (" + mark(s.envScriptPresent) + ")",
+    s.platform === "darwin"
+      ? "LaunchAgent: " + s.plistPath + " (" + mark(s.plistPresent) + ")"
+      : "LaunchAgent: n/a (macOS-only)",
+    cliLine,
+    "daemon socket: " + s.socketPath + " (" + s.socketState + ", from " + (s.socketSource ?? "CODEX_HOME") + ")",
+  ];
+  if (!s.installed) {
+    lines.push("shim: not installed — run `gbot codex desktop-shim install` (Desktop keeps stock behavior until then)");
+  } else if (!s.wrapperPointsAtShim) {
+    lines.push("shim: installed but CODEX_CLI_PATH does not point at it — reinstall or relaunch ChatGPT.app after login");
+  } else {
+    lines.push("shim: active — Desktop app-server spawns bridge onto the managed daemon");
+  }
+  for (const warning of s.warnings ?? []) lines.push("warning: " + String(warning));
+  return lines.join("\n");
+}

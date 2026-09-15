@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, codexStatus, detectDesktopPrivateAppServer, unreachableMessage } from "../src/core/codex-bridge.js";
+import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, codexSocketPath, codexStatus, detectDesktopPrivateAppServer, unreachableMessage } from "../src/core/codex-bridge.js";
 import { formatCodexStatus } from "../src/core/format.js";
 import { createServer as createTcpServer } from "node:net";
 
@@ -234,6 +234,11 @@ test("codex send explains unknown threads and threads owned by another client", 
   }
 });
 
+test("codexSocketPath prefers CODEX_APP_SERVER_SOCK, then CODEX_HOME", () => {
+  assert.equal(codexSocketPath({ CODEX_APP_SERVER_SOCK: "/explicit/sock", CODEX_HOME: "/ignored" }), "/explicit/sock");
+  assert.equal(codexSocketPath({ CODEX_HOME: "/ch" }), join("/ch", "app-server-control", "app-server-control.sock"));
+});
+
 test("codex send refuses server approval requests and fails with guidance", async () => {
   const fake = await fakeAppServer({
     ...baseHandlers,
@@ -250,6 +255,54 @@ test("codex send refuses server approval requests and fails with guidance", asyn
     const refusal = fake.received.find((m) => m.id === "srv-1");
     assert.equal(refusal.error.code, -32601);
     assert.equal(refusal.result, undefined);
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send stays silent on another client's approval when the thread is busy", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "thread/resume": (params, ok, err, send) => {
+      // Another client's approval arrives while gbot only holds a resume:
+      // answering it would reject Desktop's approval on its behalf.
+      send({ jsonrpc: "2.0", id: "srv-busy", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId } });
+      ok({ thread: { id: params.threadId, status: { type: "active", activeFlags: [] } }, model: "gpt-6", cwd: "/", approvalPolicy: "never" });
+    },
+  });
+  try {
+    const { code, out } = await gbot(fake.home, "codex", "send", "t-1", "hi");
+    assert.equal(code, 1);
+    assert.match(out, /active turn/);
+    assert.equal(fake.received.find((m) => m.id === "srv-busy"), undefined);
+    assert.equal(fake.received.filter((m) => m.method === "turn/start").length, 0);
+  } finally {
+    await fake.close();
+  }
+});
+
+test("server requests stay unanswered until our own turn starts", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    initialize: (params, ok, err, send) => {
+      // Another client's approval is already outstanding when we connect.
+      send({ jsonrpc: "2.0", id: "srv-early", method: "approvals/request", params: {} });
+      baseHandlers.initialize(params, ok, err, send);
+    },
+  });
+  try {
+    const socketPath = join(fake.home, "app-server-control", "app-server-control.sock");
+    const client = await connectCodexAppServer(socketPath);
+    try {
+      await client.request("initialize", { clientInfo: { name: "gbot-test" } });
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const entry = client.refused.find((r) => r.id === "srv-early");
+      assert.ok(entry, "early server request is recorded");
+      assert.equal(entry.answered, false);
+      assert.equal(fake.received.find((m) => m.id === "srv-early"), undefined);
+    } finally {
+      client.close();
+    }
   } finally {
     await fake.close();
   }
