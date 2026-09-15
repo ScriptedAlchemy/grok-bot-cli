@@ -25,6 +25,7 @@ const roster = {
     { id: 'bot-4', isGroup: false, name: 'Odd' },
     { id: 'bot-5', isGroup: false, name: 'Noreceipt' },
     { id: 'bot-6', isGroup: false, name: 'Big' },
+    { id: 'bot-7', isGroup: false, name: 'Meta' },
   ],
 };
 const transcripts: Record<string, unknown> = {
@@ -54,6 +55,9 @@ const transcripts: Record<string, unknown> = {
   },
   'bot-6': {
     entries: Array.from({ length: 11 }, (_, index) => ({ id: `b${index}`, kind: 'note', text: 'q'.repeat(20000) })),
+  },
+  'bot-7': {
+    entries: [{ id: 'i'.repeat(300), kind: 'k'.repeat(300), role: 'R'.repeat(5000), text: 'hi' }],
   },
 };
 const responses: Record<string, (body: Record<string, unknown>) => [number, unknown]> = {
@@ -220,9 +224,38 @@ describe('grok-bot MCP server', () => {
     });
     expect(full.isError).toBe(false);
     const entries = (full.structuredContent as { entries: { id: string; text: string; truncated: boolean; fullLength: number }[] }).entries;
-    expect(entries).toHaveLength(11);
-    expect(entries[9]).toEqual({ id: 'b9', kind: 'note', text: 'q'.repeat(20000), truncated: false, fullLength: 20000 });
+    expect(entries.length).toBe(11);
+    expect(entries[9]?.text.length).toBe(19940);
+    expect(entries[9]).toMatchObject({ id: 'b9', truncated: true, fullLength: 20000 });
     expect(entries[10]).toEqual({ id: 'b10', kind: 'note', text: '', truncated: true, fullLength: 20000 });
+  });
+
+  it('gbot_thread enforces the requested count even when the gateway ignores the limit', async () => {
+    const capped = await invokeMcpTool('gbot_thread', {
+      input: { limit: 3, target: 'Big' },
+      server: 'grok-bot',
+    });
+    expect(capped.isError).toBe(false);
+    const entries = (capped.structuredContent as { entries: unknown[] }).entries;
+    expect(entries.length).toBe(3);
+  });
+
+  it('gbot_thread bounds id/kind/role metadata that would bypass the text budget', async () => {
+    const odd = await invokeMcpTool('gbot_thread', { input: { target: 'Meta' }, server: 'grok-bot' });
+    expect(odd.isError).toBe(false);
+    expect(odd.structuredContent).toEqual({
+      entries: [
+        {
+          id: `${'i'.repeat(200)}…`,
+          kind: `${'k'.repeat(200)}…`,
+          role: `${'R'.repeat(200)}…`,
+          text: 'hi',
+          truncated: false,
+          fullLength: 2,
+        },
+      ],
+      target: { id: 'bot-7', kind: 'bot', name: 'Meta' },
+    });
   });
 
   it('redacts a bearer token echoed by the gateway before the error reaches the host', async () => {

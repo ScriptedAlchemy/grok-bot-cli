@@ -540,8 +540,7 @@ test("codex status rejects a complete oversized frame without buffering it", asy
   }
 });
 
-test("codex send emits structured JSON errors with delivery and ids", async () => {
-  const fake = await fakeAppServer(baseHandlers);
+test("codex send emits structured JSON errors with delivery and ids", async () => {  const fake = await fakeAppServer(baseHandlers);
   try {
     const unknown = await gbot(fake.home, "--json", "codex", "send", "nope", "hi");
     assert.equal(unknown.code, 1);
@@ -572,4 +571,62 @@ test("codex send emits structured JSON errors with delivery and ids", async () =
   } finally {
     await refusing.close();
   }
+});
+
+test("codex send parses a trailing --json as a flag in both placements", async () => {
+  const fake = await fakeAppServer(baseHandlers);
+  try {
+    const trailing = await gbot(fake.home, "codex", "send", "t-1", "hi", "--json");
+    assert.equal(trailing.code, 0, trailing.err);
+    assert.equal(JSON.parse(trailing.out).turnId, "turn-9");
+    assert.equal(fake.received.at(-1).params.input[0].text, "hi");
+
+    const leading = await gbot(fake.home, "--json", "codex", "send", "t-1", "hi");
+    assert.equal(leading.code, 0, leading.err);
+    assert.equal(JSON.parse(leading.out).turnId, "turn-9");
+    assert.equal(fake.received.at(-1).params.input[0].text, "hi");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send keeps a --json protected by -- as message content", async () => {
+  const fake = await fakeAppServer(baseHandlers);
+  try {
+    const { code, out } = await gbot(fake.home, "codex", "send", "t-1", "--", "--json");
+    assert.equal(code, 0, out);
+    assert.match(out, /^Started turn turn-9/);
+    assert.equal(fake.received.at(-1).params.input[0].text, "--json");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send failures honor a trailing --json with structured errors", async () => {
+  const fake = await fakeAppServer(baseHandlers);
+  try {
+    const { code, err, out } = await gbot(fake.home, "codex", "send", "nope", "hi", "--json");
+    assert.equal(code, 1);
+    assert.equal(out, "");
+    assert.deepEqual(JSON.parse(err), {
+      error: "Unknown Codex thread nope. Run `gbot codex list-threads` to see reachable threads.",
+      delivery: "rejected",
+      threadId: "nope",
+    });
+  } finally {
+    await fake.close();
+  }
+});
+
+test("send failures honor a trailing --json before backend auth runs", async () => {
+  const env = { ...process.env, CODEX_HOME: "/nonexistent", PATH: "/nonexistent" };
+  const run = (...args) => new Promise((resolve) => {
+    execFile(process.execPath, [CLI, ...args], { encoding: "utf8", env }, (error, out, err) => {
+      resolve({ code: error ? error.code : 0, out, err });
+    });
+  });
+  const { code, err } = await run("--dir", "/nonexistent-gbot-dir", "send", "Nobody", "hi", "--json");
+  assert.equal(code, 1);
+  const parsed = JSON.parse(err);
+  assert.equal(typeof parsed.error, "string");
 });

@@ -48,7 +48,7 @@ export default defineTool(
   },
   async ({ limit, target, full }) => {
     const tail = await withRedactedErrors(async () => getTranscriptTail(await connectGateway(), target, limit));
-    const value = { entries: transcriptEntries(tail.transcript, { full }), target: summarizeTarget(tail.target) };
+    const value = { entries: transcriptEntries(tail.transcript, { full, limit }), target: summarizeTarget(tail.target) };
     return (
       <Agent.Result value={value}>
         <Agent.Text>{`${value.target.kind} ${value.target.name}: ${value.entries.length} entries.`}</Agent.Text>
