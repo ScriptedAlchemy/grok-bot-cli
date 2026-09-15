@@ -173,6 +173,9 @@ WRAPPER="${wrapperPath}"
 REAL="${realPath}"
 LOG="${envLogPath}"
 CODEX_HOME_DIR="${codexHome}"
+# One CODEX_HOME for the GUI domain and this script's own daemon start, so the
+# daemon that is kept up is the one the wrapper bridges to.
+export CODEX_HOME="$CODEX_HOME_DIR"
 ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 {
   echo "$(ts) start"

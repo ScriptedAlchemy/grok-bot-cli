@@ -431,9 +431,11 @@ function wsServerFrame(opcode, payload, fin = true) {
 /**
  * Fake managed daemon: answers the HTTP upgrade (valid accept unless told
  * otherwise), then emits `prelude` bytes coalesced right after the headers.
- * Returns the socket path plusMutable connection state for assertions.
+ * With `quiet`, it holds the connection silently (first-RPC scenarios); with
+ * `closeAfterMs`, it destroys the connection after that delay. Returns the
+ * socket path plus mutable connection state for assertions.
  */
-async function fakeWsDaemon(dir, name, { validAccept = true, prelude = Buffer.alloc(0) } = {}) {
+async function fakeWsDaemon(dir, name, { validAccept = true, prelude = Buffer.alloc(0), quiet = false, closeAfterMs = null } = {}) {
   const socketPath = join(dir, name);
   try {
     rmSync(socketPath, { force: true });
@@ -466,6 +468,14 @@ async function fakeWsDaemon(dir, name, { validAccept = true, prelude = Buffer.al
           prelude,
         ]),
       );
+      if (quiet) return;
+      if (closeAfterMs !== null) {
+        setTimeout(() => {
+          try {
+            socket.destroy();
+          } catch {}
+        }, closeAfterMs).unref();
+      }
     });
   });
   await new Promise((resolve, reject) => {
@@ -476,7 +486,7 @@ async function fakeWsDaemon(dir, name, { validAccept = true, prelude = Buffer.al
   return state;
 }
 
-const runBridge = (bridgePath, dir, env, input) =>
+const runBridge = (bridgePath, dir, env, input, { leaveStdinOpen = false } = {}) =>
   new Promise((resolve, reject) => {
     const child = spawn("python3", [bridgePath], {
       env: {
@@ -507,7 +517,8 @@ const runBridge = (bridgePath, dir, env, input) =>
       clearTimeout(timer);
       resolve({ status: code, signal, stdout, stderr });
     });
-    child.stdin.end(input);
+    if (input) child.stdin.write(input);
+    if (!leaveStdinOpen) child.stdin.end();
   });
 
 const closeDaemon = async (daemon) => {
@@ -603,4 +614,72 @@ test("bridge absolute deadline fires against a trickling handshake", {
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+test("bridge first-RPC deadline fails pre-stdio when stdin stays silent", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-firstrpc-"));
+  const daemon = await fakeWsDaemon(dir, "quiet.sock", { quiet: true });
+  try {
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, {
+      CODEX_APP_SERVER_SOCK: daemon.socketPath,
+      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "2",
+    }, "", { leaveStdinOpen: true });
+    const elapsed = Date.now() - started;
+    assert.equal(out.status, 1);
+    assert.ok(elapsed < 15000, `first-RPC deadline must fire pre-stdio, took ${elapsed}ms`);
+  } finally {
+    await closeDaemon(daemon);
+  }
+});
+
+test("bridge first-RPC deadline exits mid-session after stdin was consumed", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-firstrpc2-"));
+  const daemon = await fakeWsDaemon(dir, "quiet2.sock", { quiet: true });
+  try {
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, {
+      CODEX_APP_SERVER_SOCK: daemon.socketPath,
+      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "2",
+    }, '{"id":1}\n', { leaveStdinOpen: true });
+    const elapsed = Date.now() - started;
+    assert.equal(out.status, 2);
+    assert.ok(elapsed < 15000, `first-RPC deadline must fire mid-session, took ${elapsed}ms`);
+  } finally {
+    await closeDaemon(daemon);
+  }
+});
+
+test("bridge counts an unforwarded blank line as committed stdin", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-bytes-"));
+  const daemon = await fakeWsDaemon(dir, "close.sock", { closeAfterMs: 500 });
+  try {
+    // One blank line is read but never forwarded; when the daemon then dies,
+    // the fallback must not run: a byte left the pipe, so stdio is not pristine.
+    const out = await runBridge(writeBridge(dir), dir,
+      { CODEX_APP_SERVER_SOCK: daemon.socketPath }, "\n", { leaveStdinOpen: true });
+    assert.equal(out.status, 2);
+  } finally {
+    await closeDaemon(daemon);
+  }
+});
+
+test("vendored bridge pins the first-RPC deadline and byte-precise commit", () => {
+  assert.match(BRIDGE_SOURCE, /CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT/);
+  assert.match(BRIDGE_SOURCE, /stdin_bytes/);
+  assert.match(BRIDGE_SOURCE, /os\.read/);
+  assert.match(BRIDGE_SOURCE, /first_msg/);
+});
+
+test("login script keeps one CODEX_HOME for GUI env and daemon upkeep", () => {
+  const renderedEnv = renderEnvScript({ codexHome: "/c", envLogPath: "/l", realPath: "/r", wrapperPath: "/w" });
+  assert.match(renderedEnv, /export CODEX_HOME="\$CODEX_HOME_DIR"/);
+  assert.match(renderedEnv, /CODEX_HOME_DIR="\/c"/);
+  assert.match(renderedEnv, /launchctl setenv CODEX_HOME "\$CODEX_HOME_DIR"/);
 });
