@@ -193,12 +193,18 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
         socket.setTimeout(0);
         resolve(client);
       }
+      // ponytail: unfragmented frames only; the app-server sends each JSON-RPC message as one text frame.
       for (;;) {
         const frame = decodeFrame(buf);
         if (!frame) return;
         buf = frame.rest;
-        if (frame.opcode === 0x1) onMessage(JSON.parse(frame.payload.toString()));
-        else if (frame.opcode === 0x9) write(0xa, frame.payload);
+        if (frame.opcode === 0x1) {
+          try {
+            onMessage(JSON.parse(frame.payload.toString()));
+          } catch (err) {
+            failAll(new Error("Codex app-server sent an unreadable message: " + err.message));
+          }
+        } else if (frame.opcode === 0x9) write(0xa, frame.payload);
         else if (frame.opcode === 0x8) socket.end();
       }
     });
