@@ -28,10 +28,15 @@ async function fakeAppServer(handlers) {
   const socketPath = join(home, "app-server-control", "app-server-control.sock");
   const received = [];
   const sockets = new Set();
+  let resolveDisconnected;
+  const disconnected = new Promise((resolve) => { resolveDisconnected = resolve; });
   const server = createServer();
   server.on("upgrade", (req, socket) => {
     sockets.add(socket);
-    socket.on("close", () => sockets.delete(socket));
+    socket.on("close", () => {
+      sockets.delete(socket);
+      resolveDisconnected();
+    });
     socket.write(
       "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
       + "Sec-WebSocket-Accept: " + websocketAccept(req.headers["sec-websocket-key"]) + "\r\n\r\n",
@@ -61,6 +66,7 @@ async function fakeAppServer(handlers) {
   return {
     home,
     received,
+    disconnected,
     close: () => new Promise((resolve) => {
       for (const sock of sockets) sock.destroy();
       server.close(resolve);
@@ -243,7 +249,7 @@ test("codex send refuses server approval requests and fails with guidance", asyn
   const fake = await fakeAppServer({
     ...baseHandlers,
     "turn/start": (params, ok, err, send) => {
-      send({ jsonrpc: "2.0", id: "srv-1", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId, command: "rm -rf /" } });
+      send({ jsonrpc: "2.0", id: "srv-1", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId, turnId: "turn-10", command: "rm -rf /" } });
       setTimeout(() => ok({ turn: { id: "turn-10", status: "inProgress", items: [] } }), 50);
     },
   });
@@ -513,7 +519,7 @@ test("codex send preserves turn and thread ids with accepted delivery on refusal
   const fake = await fakeAppServer({
     ...baseHandlers,
     "turn/start": (params, ok, err, send) => {
-      send({ jsonrpc: "2.0", id: "srv-1", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId } });
+      send({ jsonrpc: "2.0", id: "srv-1", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId, turnId: "turn-10" } });
       setTimeout(() => ok({ turn: { id: "turn-10", status: "inProgress", items: [] } }), 20);
     },
   });
@@ -637,7 +643,7 @@ test("codex send emits structured JSON errors with delivery and ids", async () =
   const refusing = await fakeAppServer({
     ...baseHandlers,
     "turn/start": (params, ok, err, send) => {
-      send({ jsonrpc: "2.0", id: "srv-1", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId } });
+      send({ jsonrpc: "2.0", id: "srv-1", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId, turnId: "turn-10" } });
       setTimeout(() => ok({ turn: { id: "turn-10", status: "inProgress", items: [] } }), 20);
     },
   });
@@ -1235,3 +1241,87 @@ test("formatCodexStatus names the private-stdio case and keeps the unknown line"
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "private-stdio" }), /codex app-server daemon start/);
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "unknown" }), /desktop attached: unknown \(not observable from the socket\)/);
 });
+
+test("codex send stays silent on foreign approvals inside the turn window", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "turn/start": (params, ok, err, send) => {
+      // Another thread's approval and a Desktop turn's approval arrive inside
+      // gbot's own turn/start window: both must stay silent, never -32601.
+      send({ jsonrpc: "2.0", id: "srv-foreign-thread", method: "item/commandExecution/requestApproval", params: { threadId: "other", command: "rm -rf /" } });
+      send({ jsonrpc: "2.0", id: "srv-foreign-turn", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId, turnId: "turn-desktop" } });
+      send({ id: "srv-unscoped", method: "item/commandExecution/requestApproval", params: {} });
+      send({ id: "srv-thread-only", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId } });
+      send({ id: "srv-turn-only", method: "item/commandExecution/requestApproval", params: { turnId: "turn-9" } });
+      setTimeout(() => ok({ turn: { id: "turn-9", status: "inProgress", items: [] } }), 20);
+    },
+  });
+  const env = { ...process.env, CODEX_HOME: fake.home };
+  try {
+    const outcome = await sendToCodexThread("t-1", "go", { env });
+    assert.equal(outcome.delivery, "accepted");
+    assert.equal(outcome.turnId, "turn-9");
+    assert.equal(outcome.exitCode, 0);
+    await fake.disconnected;
+    assert.equal(fake.received.find((m) => m.id === "srv-foreign-thread"), undefined);
+    assert.equal(fake.received.find((m) => m.id === "srv-foreign-turn"), undefined);
+    for (const id of ["srv-unscoped", "srv-thread-only", "srv-turn-only"]) {
+      assert.equal(fake.received.find((m) => m.id === id), undefined, `${id} must stay unanswered`);
+    }
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send still refuses our own approval that arrives before the turn ack", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "turn/start": (params, ok, err, send) => {
+      // Our own turn's approval arrives before — or in the same batch as —
+      // the turn/start acknowledgment: it waits for the ack, then refuses.
+      send({ jsonrpc: "2.0", id: "srv-early-own", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId, turnId: "turn-12" } });
+      setTimeout(() => ok({ turn: { id: "turn-12", status: "inProgress", items: [] } }), 20);
+    },
+  });
+  const env = { ...process.env, CODEX_HOME: fake.home };
+  try {
+    const outcome = await sendToCodexThread("t-1", "go", { env });
+    assert.equal(outcome.delivery, "accepted");
+    assert.equal(outcome.reason, "approval-refused");
+    assert.equal(outcome.turnId, "turn-12");
+    await fake.disconnected;
+    const refusal = fake.received.find((m) => m.id === "srv-early-own");
+    assert.equal(refusal.error.code, -32601);
+    assert.equal(refusal.result, undefined);
+  } finally {
+    await fake.close();
+  }
+});
+
+for (const whenBusy of ["reject", "queue"]) {
+  test(`source send leaves resume and ${whenBusy} approvals unanswered`, async () => {
+    const fake = await fakeAppServer({
+      ...baseHandlers,
+      "thread/resume": (params, ok, err, send) => {
+        send({ id: "resume-approval", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId, turnId: "desktop-turn" } });
+        ok({ thread: { id: params.threadId, status: { type: "active", activeFlags: [] } } });
+      },
+      "thread/queue/add": (params, ok, err, send) => {
+        send({ id: "queue-approval", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId, turnId: "desktop-turn" } });
+        ok({ queuedSubmission: { id: "q-1" } });
+      },
+    });
+    try {
+      const result = await sendToCodexThread("t-1", "later", {
+        whenBusy,
+        env: { CODEX_HOME: fake.home, GROK_BOT_CODEX_EXPERIMENTAL: "1" },
+      });
+      await fake.disconnected;
+      assert.equal(result.delivery, whenBusy === "queue" ? "queued" : "rejected");
+      assert.ok(!fake.received.some((msg) => msg.id === "resume-approval" || msg.id === "queue-approval"));
+      assert.ok(!fake.received.some((msg) => msg.method === "turn/start"));
+    } finally {
+      await fake.close();
+    }
+  });
+}
