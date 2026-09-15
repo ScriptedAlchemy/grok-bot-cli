@@ -921,4 +921,32 @@ test("vendored bridge pins response-tracked first-RPC, output commit, and strict
   assert.match(BRIDGE_SOURCE, /output_forwarded/);
   assert.match(BRIDGE_SOURCE, /startswith\(b"HTTP\/1\.1 101"\)/);
   assert.match(BRIDGE_SOURCE, /tail.*before.*WS Close|before the WS Close/s);
+  assert.match(BRIDGE_SOURCE, /initialize_id/);
+  assert.match(BRIDGE_SOURCE, /expect_id/);
+});
+
+test("bridge first-RPC timer ignores a foreign response id", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-foreign-resp-"));
+  // Daemon answers id 999 while the client asked initialize id 1: only the
+  // matching response/error/timeout may clear the timer, so it must still fire.
+  // The foreign response is forwarded (stdout used), hence mid-session exit.
+  const daemon = await fakeWsDaemon(dir, "foreign.sock", {
+    prelude: wsServerFrame(0x1, Buffer.from('{"jsonrpc":"2.0","id":999,"result":{}}')),
+    quiet: true,
+  });
+  try {
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, {
+      CODEX_APP_SERVER_SOCK: daemon.socketPath,
+      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "2",
+    }, '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}\n', { leaveStdinOpen: true });
+    const elapsed = Date.now() - started;
+    assert.equal(out.status, 2, `foreign response must not satisfy first-RPC; got ${out.status} ${out.stderr}`);
+    assert.match(out.stdout, /"id":999/);
+    assert.ok(elapsed < 15000, `matching-response deadline must fire, took ${elapsed}ms`);
+  } finally {
+    await closeDaemon(daemon);
+  }
 });
