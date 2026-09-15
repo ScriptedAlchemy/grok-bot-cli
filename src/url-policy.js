@@ -1,11 +1,12 @@
 /**
  * Gateway / backend URL policy: only send credentials to expected hosts.
  *
- * Default: https + *.cursor.sh / *.cursor.com (and apex) / *.cursorvm.com, the
- * host family EnsureSandBox hands out for the box gateway (e.g.
- * <id>-pod-<id>.us12.cursorvm.com).
- * Local/dev: http(s)://127.0.0.1|localhost|::1 when GROK_BOT_ALLOW_LOCAL_GATEWAY=1.
- * Escape hatch: GROK_BOT_ALLOW_ANY_GATEWAY=1 (unsafe; disables host checks).
+ * Gateway (box + API): https on *.cursor.sh / *.cursor.com (and apex) /
+ * *.cursorvm.com (EnsureSandBox box hosts, e.g. <id>-pod-<id>.us12.cursorvm.com).
+ * Backend (EnsureSandBox / Cursor API): https on *.cursor.sh / *.cursor.com only —
+ * never *.cursorvm.com, so a CURSOR_ACCESS_TOKEN cannot be pointed at a box host.
+ * Local/dev gateways: http(s)://127.0.0.1|localhost|::1 when GROK_BOT_ALLOW_LOCAL_GATEWAY=1.
+ * Escape hatch: GROK_BOT_ALLOW_ANY_GATEWAY=1 (unsafe; disables host checks; warns once).
  */
 
 function truthyEnv(name) {
@@ -21,16 +22,34 @@ export function allowLocalGateway() {
   return truthyEnv("GROK_BOT_ALLOW_LOCAL_GATEWAY");
 }
 
-function isLocalHostname(hostname) {
-  const h = String(hostname || "").toLowerCase().replace(/^\[|\]$/g, "");
-  return h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "0.0.0.0";
+const warned = new Set();
+
+function warnOnce(key, message) {
+  if (warned.has(key)) return;
+  warned.add(key);
+  process.stderr.write(message + "\n");
 }
 
-function isCursorHostname(hostname) {
+/** Test hook: clear the one-shot warn set. */
+export function resetPolicyWarnings() {
+  warned.clear();
+}
+
+function isLocalHostname(hostname) {
+  const h = String(hostname || "").toLowerCase().replace(/^\[|\]$/g, "");
+  return h === "localhost" || h === "127.0.0.1" || h === "::1";
+}
+
+function isCursorApiHostname(hostname) {
   const h = String(hostname || "").toLowerCase();
   if (!h) return false;
   if (h === "cursor.sh" || h === "cursor.com") return true;
-  return h.endsWith(".cursor.sh") || h.endsWith(".cursor.com") || h.endsWith(".cursorvm.com");
+  return h.endsWith(".cursor.sh") || h.endsWith(".cursor.com");
+}
+
+function isCursorGatewayHostname(hostname) {
+  const h = String(hostname || "").toLowerCase();
+  return isCursorApiHostname(h) || h.endsWith(".cursorvm.com");
 }
 
 /**
@@ -52,9 +71,11 @@ export function assertAllowedCredentialUrl(rawUrl, opts = {}) {
     throw new Error("Rejected " + label + ": userinfo is not allowed.");
   }
 
-  const normalized = parsed.origin + (parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/$/, "")) + parsed.search;
-
   if (allowAnyGateway()) {
+    warnOnce(
+      "ALLOW_ANY",
+      "warning: GROK_BOT_ALLOW_ANY_GATEWAY is set; credential host checks are disabled.",
+    );
     return String(rawUrl).replace(/\/$/, "");
   }
 
@@ -62,6 +83,13 @@ export function assertAllowedCredentialUrl(rawUrl, opts = {}) {
   const local = isLocalHostname(host);
 
   if (local) {
+    if (kind === "backend") {
+      throw new Error(
+        "Rejected backend URL host \"" +
+          host +
+          "\". EnsureSandBox backends must be https on *.cursor.sh / *.cursor.com.",
+      );
+    }
     if (!allowLocalGateway()) {
       throw new Error(
         "Rejected " +
@@ -74,6 +102,10 @@ export function assertAllowedCredentialUrl(rawUrl, opts = {}) {
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       throw new Error("Rejected " + label + ": local gateways must use http or https.");
     }
+    warnOnce(
+      "ALLOW_LOCAL",
+      "warning: GROK_BOT_ALLOW_LOCAL_GATEWAY is set; credentials may be sent to a loopback gateway.",
+    );
     return String(rawUrl).replace(/\/$/, "");
   }
 
@@ -81,35 +113,49 @@ export function assertAllowedCredentialUrl(rawUrl, opts = {}) {
     throw new Error("Rejected " + label + ": only https is allowed (got " + parsed.protocol + ").");
   }
 
-  if (!isCursorHostname(host)) {
+  const allowed =
+    kind === "backend" ? isCursorApiHostname(host) : isCursorGatewayHostname(host);
+  if (!allowed) {
+    const expected =
+      kind === "backend"
+        ? "*.cursor.sh / *.cursor.com"
+        : "*.cursor.sh / *.cursor.com / *.cursorvm.com";
     throw new Error(
       "Rejected " +
         label +
         " host \"" +
         host +
-        "\". Expected *.cursor.sh / *.cursor.com / *.cursorvm.com, or set GROK_BOT_ALLOW_LOCAL_GATEWAY=1 / GROK_BOT_ALLOW_ANY_GATEWAY=1.",
+        "\". Expected " +
+        expected +
+        ", or set GROK_BOT_ALLOW_LOCAL_GATEWAY=1 / GROK_BOT_ALLOW_ANY_GATEWAY=1.",
     );
   }
 
-  // Prefer origin-only gateways; allow path if present but strip trailing slash consistently.
-  void normalized;
   return String(rawUrl).replace(/\/$/, "");
 }
 
 /**
  * Redact common credential shapes from error / log strings.
- * Broader than a Bearer-only regex; avoids dumping tokens in stderr.
+ * Covers Bearer/Basic/scheme Authorization values, cookie headers, and named token fields.
  */
 export function redactSecrets(text) {
   let s = String(text);
+  // Cookie headers first so a later Authorization pass cannot swallow them.
+  // Stop the value before the next header-shaped token on the same line.
+  s = s.replace(
+    /(^|[\s,{;])((?:set-cookie|cookie)\s*[:=]\s*)([^\n;]+?)(?=\s+(?:set-cookie|cookie|authorization|proxy-authorization)\b|\s*$)/gi,
+    "$1$2<redacted>",
+  );
+  // Scheme + credential only (e.g. "Basic abc", "Bearer xyz") — not the rest of the line.
+  s = s.replace(
+    /(^|[\s,{;])((?:authorization|proxy-authorization)\s*[:=]\s*)(\S+(?:\s+\S+)?)/gi,
+    "$1$2<redacted>",
+  );
   s = s.replace(/Bearer\s+[A-Za-z0-9._+\/=-]+/gi, "Bearer <redacted>");
   s = s.replace(
-    /(["']?(?:authorization|gatewayToken|gateway_token|access_token|accessToken|refresh_token|refreshToken|token|x-anyrun-network-token)["']?\s*[:=]\s*["']?)([^"',\s}]+)/gi,
+    /(["']?(?:authorization|gatewayToken|gateway_token|access_token|accessToken|refresh_token|refreshToken|token|x-anyrun-network-token|cookie|set-cookie)["']?\s*[:=]\s*["']?)([^"',\s}]+)/gi,
     "$1<redacted>",
   );
-  s = s.replace(
-    /(x-anyrun-network-token\s*[=:]\s*)(\S+)/gi,
-    "$1<redacted>",
-  );
+  s = s.replace(/(x-anyrun-network-token\s*[=:]\s*)(\S+)/gi, "$1<redacted>");
   return s;
 }

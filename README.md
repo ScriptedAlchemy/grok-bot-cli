@@ -39,10 +39,13 @@ Run `gbot --help` for every command.
 
 ## Gateway URL policy
 
-By default `gbot` only sends credentials to `https` URLs on `*.cursor.sh` / `*.cursor.com` / `*.cursorvm.com` (the box gateway family EnsureSandBox returns).
+By default `gbot` only sends credentials to expected hosts:
 
-- `GROK_BOT_ALLOW_LOCAL_GATEWAY=1` — permit `http(s)://127.0.0.1`, `localhost`, and `::1` (local/dev gateways).
-- `GROK_BOT_ALLOW_ANY_GATEWAY=1` — disable host checks (unsafe; for break-glass only).
+- **Gateway** URLs (box + API): `https` on `*.cursor.sh` / `*.cursor.com` / `*.cursorvm.com` (the box family EnsureSandBox returns).
+- **Backend** URLs (`EnsureSandBox` / `CURSOR_API_BASE_URL`): `https` on `*.cursor.sh` / `*.cursor.com` only — never `*.cursorvm.com`, so a Cursor access token cannot be pointed at a box host.
+
+- `GROK_BOT_ALLOW_LOCAL_GATEWAY=1` — permit `http(s)://127.0.0.1`, `localhost`, and `::1` for **gateways** only (local/dev). Prints a one-shot stderr warning.
+- `GROK_BOT_ALLOW_ANY_GATEWAY=1` — disable host checks (unsafe; for break-glass only). Prints a one-shot stderr warning.
 
 All gateway / `EnsureSandBox` fetches use `redirect: "error"` so credentials are not followed across redirects.
 
