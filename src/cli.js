@@ -3,6 +3,7 @@ import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS, StoreError, defaultCan
 import { hasGatewayAuth } from "./gateway.js";
 import { openBackend } from "./commands.js";
 import { inspectGrokBotGatewaySession } from "./app-session.js";
+import { entryText, transcriptEntries } from "./transcript.js";
 import { redactSecrets } from "./url-policy.js";
 import { codexStatus, listCodexThreads, sendToCodexThread } from "./codex-bridge.js";
 
@@ -190,27 +191,10 @@ function formatRecord(rec, all) {
   return kind + "  " + rec.name + title + "\n    " + rec.id + desc + avatar + settingsLine + extra;
 }
 
-function entryText(e) {
-  if (!e || typeof e !== "object") return "";
-  const direct = e.text || e.prompt || e.message || e.preview;
-  if (typeof direct === "string" && direct) return direct;
-  const content = e.content;
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content.map((part) => {
-      if (typeof part === "string") return part;
-      if (part && typeof part === "object") return part.text || part.content || "";
-      return "";
-    }).filter(Boolean).join("\n");
-  }
-  if (content && typeof content === "object") return content.text || JSON.stringify(content);
-  return "";
-}
-
 function formatTranscript(out) {
   const rec = out.target;
   const payload = out.transcript || out.thread || {};
-  const entries = payload.entries || payload.messages || payload.items || (Array.isArray(payload) ? payload : []);
+  const entries = transcriptEntries(payload);
   const header = (rec.isGroup ? "group" : "bot") + "  " + rec.name + "\n    " + rec.id;
   if (!Array.isArray(entries) || entries.length === 0) {
     return header + "\n    (no messages)";

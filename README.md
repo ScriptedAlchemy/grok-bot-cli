@@ -73,6 +73,51 @@ gbot codex send <threadId> "Grok here: the build is green, please continue."
 - Thread open elsewhere: a thread with an active writer (VS Code, TUI) fails with "open in another client"; close it there first.
 - Approvals: `gbot` never approves commands or file changes on your behalf. If Codex asks while `gbot` is still connected, `send` refuses the request, exits 1, and tells you the turn id. `send` disconnects as soon as the turn starts, so later approval requests stay with the daemon for a Codex client to answer; for unattended sends set `approval_policy = "never"` in the daemon's `config.toml`.
 
+## Talking to Grok Bot from Codex
+
+`plugin/` is an [Agent Bundle](https://scriptedalchemy.github.io/agent-bundle/) plugin
+that gives Codex, Claude Code, and Cursor two MCP tools on a `grok-bot` server,
+`gbot_send` and `gbot_thread`, plus a `talk-to-grok-bot` skill that tells the agent
+when to ping a bot and how to word the message. The tools bundle this repository's
+gateway client, so the installed plugin does not need `gbot` on `PATH`.
+
+The plugin is not part of the npm package. From a clone of this repository, build
+the artifact once, then install it into each host you use:
+
+```sh
+git clone https://github.com/ScriptedAlchemy/grok-bot-cli.git
+cd grok-bot-cli/plugin
+npm install
+npm run build
+npx agent-bundle install codex --from artifact
+npx agent-bundle install claude --from artifact
+npx agent-bundle install cursor --from artifact
+npx agent-bundle doctor --from artifact
+```
+
+Add `--replace` to an install command to overwrite an earlier copy. `npm run check`
+runs the plugin gates: source validation, build, artifact validation, typecheck, and
+the route-unit tests, which drive both tools against a loopback fake gateway.
+
+Auth resolves exactly as for `gbot`: `GROK_BOT_GATEWAY_URL` + `GROK_BOT_GATEWAY_TOKEN`,
+then the Grok Bot app session, then `CURSOR_ACCESS_TOKEN`. The MCP server therefore
+needs outbound HTTPS to the gateway host and read access to the app-session file
+(`~/.config/Grok Bot` on Linux, `~/Library/Application Support/Grok Bot` on macOS).
+A sandbox that blocks network egress or hides the home directory makes `gbot_send`
+fail with the gateway error; run `gbot doctor` inside the same sandbox to see which
+credential source is visible.
+
+To route a repository's agents to a bot by default, add a note to its `AGENTS.md`:
+
+```md
+## Grok Bot
+
+Use the `grok-bot` MCP tools to coordinate with Grok Bot. Send questions and
+handoffs to the `General` bot with `gbot_send` (first line: who you are and what
+you need), then read the reply with `gbot_thread`. Do not block a turn waiting
+for it.
+```
+
 ## License
 
 MIT

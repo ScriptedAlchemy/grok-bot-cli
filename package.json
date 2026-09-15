@@ -14,7 +14,7 @@
     "changeset": "changeset",
     "gbot": "node src/cli.js",
     "release": "changeset publish",
-    "test": "node --test"
+    "test": "node --test test/*.test.js"
   },
   "repository": {
     "type": "git",
