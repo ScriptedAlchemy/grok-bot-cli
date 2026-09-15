@@ -282,11 +282,43 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
     const client = {
       refused,
       // Server-initiated requests are only *answered* once our own turn/start
-      // is in flight: anything earlier belongs to another client's turn
-      // (notably Desktop's) and must never be rejected on their behalf. Early
-      // requests are still recorded; the connection closes right after, so a
-      // pending request simply dies with it instead of denying someone's approval.
+      // is in flight, and then only when they name our own thread/turn:
+      // anything earlier — or naming another thread or Desktop turn — belongs
+      // to another client and must never be rejected on their behalf. Early
+      // and foreign requests are still recorded; the connection closes right
+      // after, so a pending request simply dies with it instead of denying
+      // someone's approval.
       answerServerRequests: false,
+      expectedThreadId: null,
+      expectedTurnId: null,
+      // Approvals that name a turn while our own turn id is still unknown
+      // (arriving before — or in the same socket batch as — the turn/start
+      // acknowledgment) wait here instead of being classified foreign: once
+      // the acknowledgment supplies the turn id, matching ones are answered
+      // and the rest stay silent.
+      deferred: [],
+      // Adopt the acknowledged turn id, answering deferred requests that
+      // prove to be ours. Runs inside the connection closure so it can send.
+      _adoptTurn(turnId) {
+        client.expectedTurnId = turnId;
+        for (const entry of client.deferred.splice(0)) {
+          const params = entry.params && typeof entry.params === "object" && !Array.isArray(entry.params)
+            ? entry.params
+            : null;
+          const threadId = params ? (params.threadId ?? params.thread_id) : null;
+          const namedTurnId = params
+            ? (params.turnId ?? params.turn_id ?? (params.turn && params.turn.id))
+            : null;
+          if (threadId === client.expectedThreadId && namedTurnId === turnId) {
+            entry.answered = true;
+            sendJson({
+              jsonrpc: "2.0",
+              id: entry.id,
+              error: { code: -32601, message: "gbot codex does not answer " + entry.method + "; configure approval_policy on the daemon" },
+            });
+          }
+        }
+      },
       request(method, params) {
         const id = nextId++;
         return new Promise((res, rej) => {
@@ -327,8 +359,29 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
 
     const onMessage = (msg) => {
       if (msg.id != null && msg.method) {
-        const answered = client.answerServerRequests;
-        refused.push({ id: msg.id, method: msg.method, params: msg.params, answered });
+        let answered = client.answerServerRequests;
+        let defer = false;
+        // Approval ownership: only answer requests for the turn gbot itself
+        // started. A request naming another thread — or naming a turn that is
+        // not ours — is recorded foreign-silent, never rejected. A request
+        // naming a turn while our turn id is still unknown is deferred, not
+        // classified: the turn/start acknowledgment decides it.
+        if (answered) {
+          const params = msg.params && typeof msg.params === "object" && !Array.isArray(msg.params) ? msg.params : null;
+          if (params) {
+            const threadId = params.threadId ?? params.thread_id;
+            const turnId = params.turnId ?? params.turn_id ?? (params.turn && params.turn.id);
+            if (threadId !== client.expectedThreadId || turnId == null) answered = false;
+            else if (client.expectedTurnId == null) { answered = false; defer = true; }
+            else if (turnId !== client.expectedTurnId) answered = false;
+          } else answered = false;
+        }
+        const entry = { id: msg.id, method: msg.method, params: msg.params, answered };
+        refused.push(entry);
+        if (defer) {
+          client.deferred.push(entry);
+          return;
+        }
         if (!answered) return;
         sendJson({
           jsonrpc: "2.0",
@@ -893,11 +946,15 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
     // the daemon exposes no compare-and-start request. Upgrade path: thread/queue/add + thread/queue/start once stable.
     // Scope refusals to this turn: server requests from earlier calls belong to another context.
     const seenRefused = client.refused.length;
-    // Arm refusal replies only now that our own turn/start is in flight: an
-    // approval arriving in this window plausibly belongs to our turn. Anything
-    // recorded earlier (resume, busy reject, queue) stays unanswered so gbot
-    // never rejects another client's approval. Residual race: a concurrent
-    // foreign approval inside this window is indistinguishable from ours.
+    // Arm refusal replies only now that our own turn/start is in flight, scoped
+    // to our own thread/turn: anything recorded earlier (resume, busy reject,
+    // queue) — or naming another thread or Desktop turn — stays unanswered so
+    // gbot never rejects another client's approval. Requests naming a turn
+    // that arrives before the acknowledgment supplies our turn id wait in
+    // client.deferred and are adopted only on a match. Requests missing
+    // thread or turn IDs remain unanswered because ownership is unknown.
+    client.expectedThreadId = threadId;
+    client.expectedTurnId = null;
     client.answerServerRequests = true;
     let turn;
     try {
@@ -924,8 +981,18 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
         { delivery: "unknown", reason: "bad-response", threadId, envelope },
       );
     }
+    client._adoptTurn(turnId);
     const freshRefused = client.refused.slice(seenRefused)
-      .filter((r) => r.answered && (!r.params || r.params.threadId == null || r.params.threadId === threadId));
+      .filter((r) => {
+        if (!r.answered) return false;
+        const params = r.params && typeof r.params === "object" && !Array.isArray(r.params) ? r.params : null;
+        if (!params) return true;
+        const refusedThreadId = params.threadId ?? params.thread_id;
+        const refusedTurnId = params.turnId ?? params.turn_id ?? (params.turn && params.turn.id);
+        if (refusedThreadId != null && refusedThreadId !== threadId) return false;
+        if (refusedTurnId != null && refusedTurnId !== turnId) return false;
+        return true;
+      });
     if (freshRefused.length) {
       const methods = freshRefused.map((r) => r.method).join(", ");
       throw new CodexSendError(

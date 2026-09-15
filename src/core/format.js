@@ -106,6 +106,11 @@ export function formatCodexThread(t) {
     + "\n    " + stripTerminalControls(t.cwd ?? "") + preview;
 }
 
+/** Shell-safe single-quoting for copy-pasteable export lines (spaces, quotes, $). */
+export function shellQuote(value) {
+  return "'" + String(value).replace(/'/g, "'\\''") + "'";
+}
+
 export function formatDesktopShimStatus(s) {
   const mark = (ok) => (ok ? "yes" : "no");
   const cliLine = s.platform === "darwin"
@@ -125,7 +130,11 @@ export function formatDesktopShimStatus(s) {
   if (!s.installed) {
     lines.push("shim: not installed — run `gbot codex desktop-shim install` (Desktop keeps stock behavior until then)");
   } else if (!s.wrapperPointsAtShim) {
-    lines.push("shim: installed but CODEX_CLI_PATH does not point at it — reinstall or relaunch ChatGPT.app after login");
+    lines.push(
+      s.platform === "darwin"
+        ? "shim: installed but CODEX_CLI_PATH does not point at it — reinstall or relaunch ChatGPT.app after login"
+        : "shim: installed but CODEX_CLI_PATH does not point at it — export CODEX_CLI_PATH=" + shellQuote(s.wrapperPath),
+    );
   } else {
     lines.push("shim: active — Desktop app-server spawns bridge onto the managed daemon");
   }
