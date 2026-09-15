@@ -50,7 +50,7 @@ export default defineTool(
   async ({ limit, target, full }) => {
     const tail = await withRedactedErrors(async () => getTranscriptTail(await connectGateway(), target, limit));
     const entries = transcriptEntries(tail.transcript, { full, limit });
-    const cursor = threadCursor(entries);
+    const cursor = threadCursor(tail.transcript, entries.length);
     const summarized = summarizeTarget(tail.target);
     const summary = `${summarized.kind} ${summarized.name}: ${entries.length} entries. cursor ${cursor === '' ? '(none)' : cursor}.`;
     // Keep both model-facing channels small by omitting entries from the default

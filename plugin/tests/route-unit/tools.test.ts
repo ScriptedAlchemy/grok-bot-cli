@@ -291,10 +291,17 @@ describe('grok-bot MCP server', () => {
   });
 
   it('gbot_thread bounds id/kind/role metadata that would bypass the text budget', async () => {
+    const summary = await invokeMcpTool('gbot_thread', { input: { target: 'Meta' }, server: 'grok-bot' });
+    expect(summary.isError).toBe(false);
+    expect(summary.structuredContent).toEqual({
+      cursor: 'i'.repeat(300),
+      target: { id: 'bot-7', kind: 'bot', name: 'Meta' },
+    });
+
     const odd = await invokeMcpTool('gbot_thread', { input: { full: true, target: 'Meta' }, server: 'grok-bot' });
     expect(odd.isError).toBe(false);
     expect(odd.structuredContent).toEqual({
-      cursor: `${'i'.repeat(200)}…`,
+      cursor: 'i'.repeat(300),
       entries: [
         {
           id: `${'i'.repeat(200)}…`,
