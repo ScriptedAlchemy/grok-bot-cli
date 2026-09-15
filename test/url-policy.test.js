@@ -4,7 +4,7 @@ import {
   assertAllowedCredentialUrl,
   redactSecrets,
   resetPolicyWarnings,
-} from "../src/url-policy.js";
+} from "../src/core/url-policy.js";
 
 function withEnv(values, fn) {
   const prev = {};

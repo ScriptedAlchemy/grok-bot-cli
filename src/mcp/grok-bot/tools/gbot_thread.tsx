@@ -12,6 +12,15 @@ import {
   withRedactedErrors,
 } from '../../../gbot.js';
 
+export const inputSchema = z.object({
+  // ponytail: the route inputJsonSchema type cannot express minimum/maximum, so the
+  // 1-200 bound lives here in zod (and in the CLI/gateway); widen the route type to align them.
+  after: z.string().min(1).max(RECEIPT_CURSOR_MAX).optional(),
+  limit: z.number().int().min(1).max(200).default(40),
+  full: z.boolean().default(false),
+  target: z.string().min(1),
+});
+
 export default defineTool(
   {
     annotations: { readOnlyHint: true },
@@ -40,14 +49,7 @@ export default defineTool(
       required: ['target'],
       type: 'object',
     },
-    inputSchema: z.object({
-      // ponytail: the route inputJsonSchema type cannot express minimum/maximum, so the
-      // 1-200 bound lives here in zod (and in the CLI/gateway); widen the route type to align them.
-      after: z.string().min(1).max(RECEIPT_CURSOR_MAX).optional(),
-      limit: z.number().int().min(1).max(200).default(40),
-      full: z.boolean().default(false),
-      target: z.string().min(1),
-    }),
+    inputSchema,
     resultSchema: z.object({
       cursor: z.string().max(RECEIPT_CURSOR_MAX),
       entries: z.array(entrySchema).optional(),

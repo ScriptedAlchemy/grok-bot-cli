@@ -10,7 +10,7 @@ import test from "node:test";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
-const CLI = fileURLToPath(new URL("../src/cli.js", import.meta.url));
+const CLI = fileURLToPath(new URL("../dist/bin/gbot.mjs", import.meta.url));
 const target = { id: "bot-1", name: "Researcher", description: "PRIVATE_INSTRUCTIONS" };
 const group = { id: "group-1", name: "Launch", isGroup: true, memberIds: [target.id] };
 const reply = "A long reply: " + "x".repeat(500) + "\nneedle at the end 🔧";
@@ -142,13 +142,13 @@ test("thread --after returns exclusive deltas, no-op receipts, and bounded gap r
 
 test("recording opt-outs do not create storage or disable access to existing history", async (t) => {
   const f = await fixture(t);
-  await f.run(["--no-history", "send", "Researcher", "private prompt"]);
+  await f.run(["send", "--no-history", "Researcher", "private prompt"]);
   for (const value of ["off", "FALSE", "0"]) {
     await f.run(["thread", "Researcher"], { GROK_BOT_HISTORY: value });
   }
   assert.equal(existsSync(f.path), false);
   await f.run(["send", "Researcher", "saved"]);
-  await f.run(["--no-history", "thread", "Researcher"]);
+  await f.run(["thread", "--no-history", "Researcher"]);
   const found = await f.run(["history", "--json"], { GROK_BOT_HISTORY: "off" }, false);
   assert.equal(JSON.parse(found.stdout).length, 1);
   assert.equal(f.rows().length, 1);
@@ -162,12 +162,12 @@ test("history path is offline and side-effect free; flag directory overrides env
   const dir = join(f.home, "custom history");
   const extra = { GROK_BOT_HISTORY_DIR: join(f.home, "env-history") };
   await f.run(["send", "Researcher", "env"], extra);
-  await f.run(["--history-dir", dir, "send", "Researcher", "flag"], extra);
-  const found = await f.run(["--history-dir", dir, "history", "--json"], extra, false);
+  await f.run(["send", "--history-dir", dir, "Researcher", "flag"], extra);
+  const found = await f.run(["history", "--history-dir", dir, "--json"], extra, false);
   assert.equal(JSON.parse(found.stdout)[0].text, "flag");
   const envHistory = await f.run(["history", "--json"], extra, false);
   assert.equal(JSON.parse(envHistory.stdout)[0].text, "env");
-  const path = await f.run(["--history-dir", dir, "history", "--path", "--json"], extra, false);
+  const path = await f.run(["history", "--history-dir", dir, "--path", "--json"], extra, false);
   assert.deepEqual(JSON.parse(path.stdout), { path: join(dir, "history.jsonl") });
 });
 
@@ -180,7 +180,7 @@ test("offline history handles missing files, filters before limiting, and valida
   assert.equal(JSON.parse(result.stdout)[0].text, "match two");
   assert.deepEqual(JSON.parse((await f.run(["history", "unknown", "--json"], {}, false)).stdout), []);
   for (const args of [["--limit", "0"], ["--limit", "1.5"], ["--limit", "NaN"], ["--path", "Researcher"], ["--unknown"]]) {
-    await assert.rejects(f.run(["history", ...args], {}, false), (err) => err.code === 1);
+    await assert.rejects(f.run(["history", ...args], {}, false), (err) => err.code === 2);
   }
 });
 
@@ -188,6 +188,20 @@ test("failed sends and empty threads leave no history; disk failure does not fai
   const f = await fixture(t);
   f.state.failSend = true;
   await assert.rejects(f.run(["send", "Researcher", "rejected"]));
+  const failed = await f.run(["send", "Researcher", "rejected", "--json"]).catch((err) => err);
+  assert.equal(failed.code, 1);
+  const failure = JSON.parse(failed.stdout);
+  assert.equal(failure.exitCode, 1);
+  assert.equal(failure.delivery, "unknown", "the request left; the gateway never acknowledged it");
+  assert.match(failure.error, /sendPrompt failed: 500/);
+  const sends = f.calls.filter((c) => c.method === "/api/sendPrompt").length;
+  const looped = await f.run(["send", "--hop", "4", "Researcher", "ack", "--json"], {}, false).catch((err) => err);
+  assert.equal(looped.code, 1);
+  assert.equal(JSON.parse(looped.stdout).reason, "hop-limit");
+  assert.equal(f.calls.filter((c) => c.method === "/api/sendPrompt").length, sends, "hop-limit refusals never reach the gateway");
+  const usage = await f.run(["send", "--files", "--dir", f.home, "Researcher", "hi", "--json"], {}, false).catch((err) => err);
+  assert.equal(usage.code, 1);
+  assert.equal(JSON.parse(usage.stdout).reason, "usage", "StoreError keeps its name through redaction");
   assert.equal(existsSync(f.path), false);
   f.state.payload = { entries: [] };
   await f.run(["thread", "Researcher"]);
@@ -195,10 +209,13 @@ test("failed sends and empty threads leave no history; disk failure does not fai
   f.state.failSend = false;
   const blocked = join(f.home, "not-a-directory");
   writeFileSync(blocked, "occupied");
-  const result = await f.run(["--history-dir", blocked, "send", "Researcher", "sent once", "--json"]);
+  const result = await f.run(["send", "--history-dir", blocked, "Researcher", "sent once", "--json"]);
   assert.equal(JSON.parse(result.stdout).result.ok, true);
   assert.match(result.stderr, /Warning: could not save local history/);
   assert.equal(f.calls.filter((c) => c.method === "/api/sendPrompt" && c.body.prompt === "sent once").length, 1);
+  const protectedText = await f.run(["send", "Researcher", "--", "--json"]);
+  assert.match(protectedText.stdout, /^Sent to bot Researcher/);
+  assert.equal(f.calls.at(-1).body.prompt, "--json", "`--` makes flag-like text literal");
 });
 
 test("history skips malformed records and separates interrupted writes on the next append", async (t) => {
@@ -223,7 +240,7 @@ test("refuses to append through a history-file symlink", { skip: process.platfor
   const destination = join(f.home, "unrelated-file");
   writeFileSync(destination, "keep me");
   symlinkSync(destination, join(f.home, "history.jsonl"));
-  const result = await f.run(["--history-dir", f.home, "send", "Researcher", "hello"]);
+  const result = await f.run(["send", "--history-dir", f.home, "Researcher", "hello"]);
   assert.match(result.stderr, /could not save local history/);
   assert.equal(readFileSync(destination, "utf8"), "keep me");
 });

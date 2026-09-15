@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { entryText, sourceEntryId, transcriptDelta, transcriptEntries } from "../src/transcript.js";
+import { formatTranscript } from "../src/core/format.js";
+import { entryText, sourceEntryId, transcriptDelta, transcriptEntries } from "../src/core/transcript.js";
 
 test("user messages read content, bot replies read message.content", () => {
   assert.equal(entryText({ kind: "message", role: "user", content: "hello" }), "hello");
@@ -25,6 +26,16 @@ test("transcript containers unwrap to an entry list", () => {
   assert.deepEqual(transcriptEntries([4]), [4]);
   assert.deepEqual(transcriptEntries({ nextBeforeSeq: 2 }), []);
   assert.deepEqual(transcriptEntries(null), []);
+});
+
+test("human transcript output truncates by default and --full preserves text", () => {
+  const text = "x".repeat(450);
+  const out = {
+    target: { id: "bot-1", isGroup: false, name: "Researcher" },
+    transcript: { entries: [{ id: "m1", role: "assistant", text }] },
+  };
+  assert.match(formatTranscript(out), /… \[\+50 chars; --full or --json for complete text\]$/);
+  assert.match(formatTranscript(out, { full: true }), new RegExp(`${text}$`));
 });
 
 test("entryText never throws and normalizes malformed content to safe strings", () => {

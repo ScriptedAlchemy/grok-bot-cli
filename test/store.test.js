@@ -12,7 +12,7 @@ import {
   removeGroupMember,
   setGroupMembers,
   updateAgent,
-} from "../src/store.js";
+} from "../src/core/store.js";
 
 function withRoot(fn) {
   const root = mkdtempSync(join(tmpdir(), "gbot-"));

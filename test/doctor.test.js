@@ -6,9 +6,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { grokBotGatewayDescriptorPath } from "../src/app-session.js";
+import { grokBotGatewayDescriptorPath } from "../src/core/app-session.js";
 
-const CLI = fileURLToPath(new URL("../src/cli.js", import.meta.url));
+const CLI = fileURLToPath(new URL("../dist/bin/gbot.mjs", import.meta.url));
 
 test("doctor reports a present but unusable Grok Bot app session", {
   skip: !["darwin", "linux"].includes(process.platform) && "Grok Bot app sessions are macOS/Linux-only",
@@ -30,7 +30,7 @@ test("doctor reports a present but unusable Grok Bot app session", {
     "SAND_GATEWAY_TOKEN",
   ]) delete env[name];
 
-  const result = spawnSync(process.execPath, [CLI, "--json", "doctor"], {
+  const result = spawnSync(process.execPath, [CLI, "doctor", "--json"], {
     encoding: "utf8",
     env,
   });

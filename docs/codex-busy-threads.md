@@ -2,7 +2,7 @@
 
 Decision record for [#38](https://github.com/ScriptedAlchemy/grok-bot-cli/issues/38). Evidence is the
 app-server schema emitted by `codex app-server generate-json-schema` for codex-cli 0.154.0 — the release
-`src/codex-bridge.js` is pinned to — generated both without and with `--experimental`, plus a live probe
+`src/core/codex-bridge.js` is pinned to — generated both without and with `--experimental`, plus a live probe
 against a 0.154.0 daemon (below).
 
 ## What the protocol offers

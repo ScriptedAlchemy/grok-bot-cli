@@ -1,20 +1,29 @@
 {
   "name": "grok-bot-cli",
   "version": "0.3.1",
-  "description": "CLI for Grok Bot agents and groups: create, update, message, inspect threads, and automate cleanup",
+  "description": "CLI and Agent Bundle plugin for Grok Bot agents and groups: create, update, message, inspect threads, and automate cleanup",
   "type": "module",
   "bin": {
-    "gbot": "src/cli.js",
-    "grok-bot": "src/cli.js"
+    "gbot": "./dist/bin/gbot.mjs",
+    "gbot-install": "./dist/bin/gbot-install.js",
+    "grok-bot": "./dist/bin/gbot.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.19.0"
   },
   "scripts": {
+    "build": "agent-bundle build",
     "changeset": "changeset",
-    "gbot": "node src/cli.js",
+    "check": "npm run validate && npm run build && npm run validate:artifact && npm run typecheck && npm test",
+    "gbot": "node dist/bin/gbot.mjs",
+    "prepack": "agent-bundle prepack",
     "release": "changeset publish",
-    "test": "node scripts/run-unit-tests.mjs"
+    "test": "npm run test:unit && npm run test:routes",
+    "test:routes": "rstest --config rstest.route-unit.config.ts",
+    "test:unit": "node scripts/run-unit-tests.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "validate": "agent-bundle validate",
+    "validate:artifact": "agent-bundle validate --artifact artifact"
   },
   "repository": {
     "type": "git",
@@ -35,14 +44,25 @@
     "ai-agents",
     "automation",
     "terminal",
-    "cli"
+    "cli",
+    "agent-bundle"
   ],
   "files": [
-    "src",
+    "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "devDependencies": {
-    "@changesets/cli": "3.0.3"
+    "@agent-bundle/runtime": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/@agent-bundle/runtime@8e55ab832d",
+    "@changesets/cli": "3.0.3",
+    "@rstest/core": "0.11.12",
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.2.18",
+    "agent-bundle": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/agent-bundle@8e55ab832d",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "7.0.2",
+    "zod": "4.6.5"
   }
 }

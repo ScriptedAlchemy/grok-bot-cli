@@ -8,3 +8,4 @@ artifact/
 tmp-agents/
 *.log
 .DS_Store
+*.tsbuildinfo

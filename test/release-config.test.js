@@ -20,9 +20,12 @@ test("npm package metadata identifies the public source repository", () => {
   });
 });
 
-test("npm executable paths are already normalized for publishing", () => {
+test("npm executable paths point at the Agent Bundle dist bins", () => {
   assert.deepEqual(packageJson.bin, {
-    gbot: "src/cli.js",
-    "grok-bot": "src/cli.js",
+    gbot: "./dist/bin/gbot.mjs",
+    "gbot-install": "./dist/bin/gbot-install.js",
+    "grok-bot": "./dist/bin/gbot.mjs",
   });
+  assert.deepEqual(packageJson.files, ["dist", "README.md", "CHANGELOG.md", "LICENSE"]);
+  assert.equal(packageJson.scripts.prepack, "agent-bundle prepack");
 });

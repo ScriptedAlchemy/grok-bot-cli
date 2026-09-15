@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
-import { grokBotGatewayDescriptorPath } from "../src/app-session.js";
-import { connectGateway } from "../src/gateway.js";
+import { grokBotGatewayDescriptorPath } from "../src/core/app-session.js";
+import { connectGateway } from "../src/core/gateway.js";
 
 function withEnv(values, fn) {
   const prev = {};

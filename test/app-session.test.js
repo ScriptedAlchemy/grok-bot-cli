@@ -12,7 +12,7 @@ import {
   hasGrokBotGatewaySession,
   inspectGrokBotGatewaySession,
   loadGrokBotGatewaySession,
-} from "../src/app-session.js";
+} from "../src/core/app-session.js";
 
 const ENCRYPTED_DESCRIPTOR =
   "djEwddBm+U69UF2IJtIUtedNqMB3bQt7HsRw7MLWRkw/IfnMK+c4czCXq82JKPNsdsP3Bp2fX8HoGPZFsa7k+JOmbIkBanQwl4yiy9v7iOA+mE4rtGqYbYD9jJc+/9YnhcGjvSxCxD8fKbJLbHifTwroGQ==";

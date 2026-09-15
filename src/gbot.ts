@@ -1,25 +1,20 @@
 import { z } from 'zod';
 
-import { connectGateway, getTranscriptTail, sendPrompt } from 'grok-bot-cli/src/gateway.js';
-import { entryText, transcriptDelta, transcriptEntries as unwrapEntries } from 'grok-bot-cli/src/transcript.js';
-import { redactSecrets } from 'grok-bot-cli/src/url-policy.js';
+import { connectGateway, getTranscriptTail, sendPrompt } from './core/gateway.js';
+import { entryText, transcriptDelta, transcriptEntries as unwrapEntries } from './core/transcript.js';
+import { redactSecrets } from './core/url-policy.js';
 
 export { connectGateway, getTranscriptTail, sendPrompt, transcriptDelta };
 
-// The same pass `fail()` in src/cli.js applies before printing: MCP hosts show
-// the error text, and a fetch or proxy failure can echo a credential.
+// Hosts and the CLI print thrown error text (and stack), and a fetch or proxy failure can echo
+// a credential. Rewrap with a redacted message; keep `name` and own fields such as `reason`,
+// `delivery`, `mode`, and `envelope` so outcome documents still classify the failure.
 export const withRedactedErrors = async <T>(run: () => Promise<T>): Promise<T> => {
   try {
     return await run();
   } catch (error) {
-    const wrapped: Error & { delivery?: string; targetId?: string } = new Error(
-      redactSecrets(error instanceof Error ? error.message : String(error)),
-    );
-    if (error instanceof Error) {
-      const src = error as Error & { delivery?: unknown; targetId?: unknown };
-      if (typeof src.delivery === 'string') wrapped.delivery = src.delivery;
-      if (typeof src.targetId === 'string') wrapped.targetId = src.targetId;
-    }
+    const wrapped = new Error(redactSecrets(error instanceof Error ? error.message : String(error)));
+    if (error instanceof Error) Object.assign(wrapped, error, { name: error.name });
     throw wrapped;
   }
 };
