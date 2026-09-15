@@ -1,5 +1,16 @@
 # grok-bot-cli
 
+## 0.4.0
+
+### Minor Changes
+
+- 1dc6d34: Ship `gbot` as one generated Agent Bundle CLI at the package root and add `gbot-install install|uninstall <cursor|codex|claude>` / `gbot-install doctor` for the bundled `grok-bot` MCP tools and `talk-to-grok-bot` skill; delete the nested `plugin/` project and the hand-written dispatcher. Breaking (pre-1.0): Node.js 22.19.0 or newer is required; options are command-local (`gbot send --history-dir DIR …`, no leading globals); `--json` is reserved anywhere before `--`, so put `--` before flag-like message text; `send` and every `codex` command write one JSON document to stdout with `exitCode` (failures keep `error`, `delivery`, `reason`, `mode` and exit 1), other commands print failures on stderr and exit 1; argument and schema errors exit 2; `--instructions` is gone (use `--description`) and `--notify`/`--hidden` take `on|off` only; `chat` records history rows as `event: "thread"`; the installed bundle is named `gbot` (uninstall an earlier source-built `grok-bot` plugin first). (#50)
+
+### Patch Changes
+
+- 4b3cd78: Make `gbot codex` dependable for automation and safe for agent relays: `codex status --json` reports `socketState`, a stable failure `mode` (`socket-absent`, `permission-denied`, `not-a-socket`, `connect-failed`, `handshake-failed`, `bad-response`, `windows-unsupported`), `schema.compatibility` separate from reachability, a bounded `codex --version` probe (`cliVersionProbe`), and `desktopAttached: "unknown"`; `codex list-threads` adds `--cursor`, bounds `--limit` to 1–200, rejects unknown arguments, validates the response shape, and strips terminal controls from every text field in JSON too. `codex send` and `send` accept `--correlation-id`, `--reply-to`, `--hop`, and `--envelope`, return receipts with `messageId` (sent as Codex's `clientUserMessageId`), `correlationId`, `replyTo`, `hop`, and `maxHops`, refuse relays at `GROK_BOT_MAX_HOPS` (default 4) with `reason: "hop-limit"`, honor the operator allowlist `GROK_BOT_CODEX_THREADS`, refuse `active` threads with `reason: "busy"` instead of steering a running turn (or, with `--when-busy queue` and `GROK_BOT_CODEX_EXPERIMENTAL=1`, hand them to Codex's experimental `thread/queue/add` and report `delivery: "queued"`; `codex queue <threadId>` lists that queue), and emit `reason`/`mode` in every `--json` send failure. Fixes #37, #38, #39.
+- bf64783: Add `gbot thread --after ID` for exclusive client-side filtering of the bounded gateway tail, including no-op cursors and explicit gap-reset snapshots.
+
 ## 0.3.1
 
 ### Patch Changes
