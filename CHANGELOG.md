@@ -1,5 +1,11 @@
 # grok-bot-cli
 
+## 0.4.1
+
+### Patch Changes
+
+- 409e5c8: Update the development Node.js type definitions to v24. (#51)
+
 ## 0.4.0
 
 ### Minor Changes
