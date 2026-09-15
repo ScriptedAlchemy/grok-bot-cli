@@ -20,20 +20,35 @@ const roster = {
   agents: [
     { id: 'bot-1', isGroup: false, name: 'General' },
     { id: 'grp-1', memberAgentIds: ['bot-1'], name: 'Launch' },
+    { id: 'bot-2', isGroup: false, name: 'Legacy' },
+    { id: 'bot-3', isGroup: false, name: 'Proxy' },
   ],
 };
-const transcript = {
-  entries: [
-    { content: 'hello from the test', id: 't1', kind: 'message', role: 'user', timestampMs: 1 },
-    { id: 't2', kind: 'send-message', message: { content: 'reply', type: 'text' } },
-    { id: 't3', kind: 'tool-call' },
-  ],
-  nextBeforeSeq: 9,
+const transcripts: Record<string, unknown> = {
+  'bot-1': { entries: [], nextBeforeSeq: 0 },
+  'bot-2': {
+    messages: [
+      { content: [{ text: 'part one' }, 'part two'], id: 'l1', text: 'ignored when content is set' },
+      { id: 'l2', kind: 'note', preview: 'preview text' },
+      { id: 'l3', message: 'plain message' },
+    ],
+  },
+  'grp-1': {
+    entries: [
+      { content: 'hello from the test', id: 't1', kind: 'message', role: 'user', timestampMs: 1 },
+      { id: 't2', kind: 'send-message', message: { content: 'reply', type: 'text' } },
+      { id: 't3', kind: 'tool-call' },
+    ],
+    nextBeforeSeq: 9,
+  },
 };
-const responses: Record<string, unknown> = {
-  getAgentTranscriptTail: transcript,
-  listAgents: roster,
-  sendPrompt: { messageId: 'm-1' },
+const responses: Record<string, (body: Record<string, unknown>) => [number, unknown]> = {
+  getAgentTranscriptTail: (body) => [200, transcripts[String(body.id)]],
+  listAgents: () => [200, roster],
+  sendPrompt: (body) =>
+    body.agentId === 'bot-3'
+      ? [401, { message: 'upstream rejected authorization: Bearer test-token' }]
+      : [200, { messageId: 'm-1' }],
 };
 
 const calls: GatewayCall[] = [];
@@ -56,10 +71,11 @@ const readBody = (req: IncomingMessage): Promise<string> =>
 beforeAll(async () => {
   server = createServer(async (req, res) => {
     const method = (req.url ?? '').replace(/^\/api\//u, '');
-    calls.push({ authorization: req.headers.authorization, body: JSON.parse(await readBody(req)), method });
-    const payload = responses[method];
-    res.writeHead(payload === undefined ? 404 : 200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify(payload ?? { error: 'unknown method ' + method }));
+    const body = JSON.parse(await readBody(req)) as Record<string, unknown>;
+    calls.push({ authorization: req.headers.authorization, body, method });
+    const [status, payload] = responses[method]?.(body) ?? [404, { error: 'unknown method ' + method }];
+    res.writeHead(status, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(payload));
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
@@ -124,9 +140,31 @@ describe('grok-bot MCP server', () => {
     expect(contentText(result.content)).toContain('[send-message] reply');
   });
 
-  it('gbot_thread defaults the limit to 20', async () => {
-    await invokeMcpTool('gbot_thread', { input: { target: 'General' }, server: 'grok-bot' });
-    expect(calls[1]?.body).toEqual({ id: 'bot-1', limit: 20 });
+  it('gbot_thread defaults the limit to 40 like the CLI and reads the other transcript shapes', async () => {
+    const empty = await invokeMcpTool('gbot_thread', { input: { target: 'General' }, server: 'grok-bot' });
+    expect(calls[1]?.body).toEqual({ id: 'bot-1', limit: 40 });
+    expect(empty.structuredContent).toEqual({ entries: [], target: { id: 'bot-1', kind: 'bot', name: 'General' } });
+
+    const legacy = await invokeMcpTool('gbot_thread', { input: { target: 'Legacy' }, server: 'grok-bot' });
+    expect(legacy.structuredContent).toMatchObject({
+      entries: [
+        { id: 'l1', kind: 'message', text: 'part one\npart two' },
+        { id: 'l2', kind: 'note', text: 'preview text' },
+        { id: 'l3', kind: 'message', text: 'plain message' },
+      ],
+    });
+  });
+
+  it('redacts a bearer token echoed by the gateway before the error reaches the host', async () => {
+    const result = await invokeMcpTool('gbot_send', {
+      input: { message: 'x', target: 'Proxy' },
+      server: 'grok-bot',
+    });
+    expect(result.isError).toBe(true);
+    const text = contentText(result.content);
+    expect(text).toContain('sendPrompt failed: 401');
+    expect(text).toContain('<redacted>');
+    expect(text).not.toContain('test-token');
   });
 
   it('surfaces an unknown target as a tool error without sending anything', async () => {

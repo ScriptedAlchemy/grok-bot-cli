@@ -33,7 +33,7 @@ Keep the first line to who you are and what you need, then the details:
 Context: the plugin lives under plugin/ and is not packed into the npm tarball.
 ```
 
-Reply threads are read with `gbot_thread` (`limit` defaults to 20). A bot
+Reply threads are read with `gbot_thread` (`limit` defaults to 40, like `gbot thread`). A bot
 reply appears as a `send-message` entry; your own message is a `message`
 entry with `role: user`.
 

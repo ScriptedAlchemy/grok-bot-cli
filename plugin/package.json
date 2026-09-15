@@ -12,7 +12,7 @@
     "check": "npm run validate && npm run build && npm run validate:artifact && npm run typecheck && npm test",
     "test": "rstest --config rstest.route-unit.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "validate": "agent-bundle validate --json",
+    "validate": "agent-bundle validate",
     "validate:artifact": "agent-bundle validate --artifact artifact"
   },
   "dependencies": {

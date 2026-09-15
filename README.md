@@ -81,10 +81,12 @@ that gives Codex, Claude Code, and Cursor two MCP tools on a `grok-bot` server,
 when to ping a bot and how to word the message. The tools bundle this repository's
 gateway client, so the installed plugin does not need `gbot` on `PATH`.
 
-Build the artifact once, then install it into each host you use:
+The plugin is not part of the npm package. From a clone of this repository, build
+the artifact once, then install it into each host you use:
 
 ```sh
-cd plugin
+git clone https://github.com/ScriptedAlchemy/grok-bot-cli.git
+cd grok-bot-cli/plugin
 npm install
 npm run build
 npx agent-bundle install codex --from artifact

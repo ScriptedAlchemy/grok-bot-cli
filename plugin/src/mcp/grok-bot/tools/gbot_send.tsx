@@ -2,12 +2,12 @@ import { Agent } from '@agent-bundle/runtime';
 import { defineTool } from 'agent-bundle/routes';
 import { z } from 'zod';
 
-import { connectGateway, sendPrompt, summarizeTarget, targetSchema } from '../../../gbot.js';
+import { connectGateway, sendPrompt, summarizeTarget, targetSchema, withRedactedErrors } from '../../../gbot.js';
 
 export default defineTool(
   {
     description:
-      'Send a message to a Grok Bot bot or group by name or id (the same as `gbot send`). The bot answers asynchronously; read its reply later with gbot_thread.',
+      'Send a message to a Grok Bot bot or group by name or id, like `gbot send`. The bot answers asynchronously; read its reply later with gbot_thread.',
     inputJsonSchema: {
       additionalProperties: false,
       properties: {
@@ -22,7 +22,7 @@ export default defineTool(
     title: 'Send a message to Grok Bot',
   },
   async ({ message, target }) => {
-    const sent = await sendPrompt(await connectGateway(), target, message);
+    const sent = await withRedactedErrors(async () => sendPrompt(await connectGateway(), target, message));
     const value = { result: sent.result, target: summarizeTarget(sent.target) };
     return (
       <Agent.Result value={value}>
