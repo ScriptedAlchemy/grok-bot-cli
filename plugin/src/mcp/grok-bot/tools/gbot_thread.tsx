@@ -29,7 +29,7 @@ export default defineTool(
         full: {
           default: false,
           description:
-            'Return complete entry text up to bounded budgets (20k chars per entry, 200k total) instead of the 400-character preview. Every entry still reports truncated/fullLength; read the remainder with `gbot thread --full` / `--json` on the machine.',
+            'Return entries with text up to bounded budgets (20k chars per entry, 200k total). Every entry reports truncated/fullLength; read any remainder with `gbot thread --full` / `--json` on the machine.',
           type: 'boolean',
         },
         target: { description: 'Bot or group name or id, for example "General".', type: 'string' },
@@ -52,14 +52,14 @@ export default defineTool(
     const entries = transcriptEntries(tail.transcript, { full, limit });
     const cursor = threadCursor(tail.transcript, entries.length);
     const summarized = summarizeTarget(tail.target);
-    const summary = `${summarized.kind} ${summarized.name}: ${entries.length} entries. cursor ${cursor === '' ? '(none)' : cursor}.`;
+    const summary = `${summarized.kind} ${summarized.name}: ${entries.length} entries.`;
     // Keep both model-facing channels small by omitting entries from the default
     // structured value as well as withholding per-entry Agent.Text.
     if (!full) {
       const value = { cursor, target: summarized };
       return (
         <Agent.Result value={value}>
-          <Agent.Text>{`${summary} Entry text withheld; pass full:true to read it.`}</Agent.Text>
+          <Agent.Text>{`${summary} Cursor returned separately; entry text withheld; pass full:true to read it.`}</Agent.Text>
         </Agent.Result>
       );
     }

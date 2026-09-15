@@ -65,7 +65,10 @@ const transcripts: Record<string, unknown> = {
     entries: Array.from({ length: 11 }, (_, index) => ({ id: `b${index}`, kind: 'note', text: 'q'.repeat(20000) })),
   },
   'bot-7': {
-    entries: [{ id: 'i'.repeat(300), kind: 'k'.repeat(300), role: 'R'.repeat(5000), text: 'hi' }],
+    entries: [
+      { id: 'i'.repeat(300), kind: 'k'.repeat(300), role: 'R'.repeat(5000), text: 'hi' },
+      { id: 'last-valid-id', kind: 7 },
+    ],
   },
 };
 const responses: Record<string, (body: Record<string, unknown>) => [number, unknown]> = {
@@ -163,7 +166,8 @@ describe('grok-bot MCP server', () => {
     });
     expect(calls[1]).toMatchObject({ body: { id: 'grp-1', limit: 3 }, method: 'getAgentTranscriptTail' });
     const summary = contentText(result.content);
-    expect(summary).toContain('group Launch: 3 entries. cursor t3.');
+    expect(summary).toContain('group Launch: 3 entries.');
+    expect(summary).not.toContain('cursor t3');
     expect(summary).toContain('pass full:true');
     expect(summary).not.toContain('hello from the test');
     expect(summary).not.toContain('reply');
@@ -190,7 +194,7 @@ describe('grok-bot MCP server', () => {
     const empty = await invokeMcpTool('gbot_thread', { input: { target: 'General' }, server: 'grok-bot' });
     expect(calls[1]?.body).toEqual({ id: 'bot-1', limit: 40 });
     expect(empty.structuredContent).toEqual({ cursor: '', target: { id: 'bot-1', kind: 'bot', name: 'General' } });
-    expect(contentText(empty.content)).toContain('bot General: 0 entries. cursor (none).');
+    expect(contentText(empty.content)).toContain('bot General: 0 entries.');
 
     const legacy = await invokeMcpTool('gbot_thread', { input: { target: 'Legacy' }, server: 'grok-bot' });
     expect(legacy.structuredContent).toEqual({
@@ -198,7 +202,8 @@ describe('grok-bot MCP server', () => {
       target: { id: 'bot-2', kind: 'bot', name: 'Legacy' },
     });
     const legacySummary = contentText(legacy.content);
-    expect(legacySummary).toContain('bot Legacy: 4 entries. cursor l4.');
+    expect(legacySummary).toContain('bot Legacy: 4 entries.');
+    expect(legacySummary).not.toContain('cursor l4');
     expect(legacySummary).not.toContain('direct text');
     expect(legacySummary).not.toContain('…');
     expect(legacySummary).not.toContain('x'.repeat(450));
@@ -225,7 +230,7 @@ describe('grok-bot MCP server', () => {
       ],
       target: { id: 'bot-4', kind: 'bot', name: 'Odd' },
     });
-    expect(contentText(odd.content)).toContain('bot Odd: 3 entries. cursor o3.');
+    expect(contentText(odd.content)).toContain('bot Odd: 3 entries.');
   });
 
   it('gbot_thread default summary stays small on a 60-entry tail while full:true reads the text', async () => {
@@ -237,7 +242,8 @@ describe('grok-bot MCP server', () => {
     expect(JSON.stringify(structured)).not.toContain('update 1');
     expect(JSON.stringify(structured).length).toBeLessThan(300);
     const summaryText = contentText(summary.content);
-    expect(summaryText).toContain('60 entries. cursor n60.');
+    expect(summaryText).toContain('60 entries.');
+    expect(summaryText).not.toContain('cursor n60');
     expect(summaryText).not.toContain('update 1');
 
     const full = await invokeMcpTool('gbot_thread', {
@@ -294,14 +300,17 @@ describe('grok-bot MCP server', () => {
     const summary = await invokeMcpTool('gbot_thread', { input: { target: 'Meta' }, server: 'grok-bot' });
     expect(summary.isError).toBe(false);
     expect(summary.structuredContent).toEqual({
-      cursor: 'i'.repeat(300),
+      cursor: 'last-valid-id',
       target: { id: 'bot-7', kind: 'bot', name: 'Meta' },
     });
+    const summaryText = contentText(summary.content);
+    expect(summaryText).not.toContain('i'.repeat(300));
+    expect(summaryText.length).toBeLessThan(300);
 
     const odd = await invokeMcpTool('gbot_thread', { input: { full: true, target: 'Meta' }, server: 'grok-bot' });
     expect(odd.isError).toBe(false);
     expect(odd.structuredContent).toEqual({
-      cursor: 'i'.repeat(300),
+      cursor: 'last-valid-id',
       entries: [
         {
           id: `${'i'.repeat(200)}…`,
@@ -311,6 +320,7 @@ describe('grok-bot MCP server', () => {
           truncated: false,
           fullLength: 2,
         },
+        { id: '', kind: 'unknown', text: '', truncated: false, fullLength: 0 },
       ],
       target: { id: 'bot-7', kind: 'bot', name: 'Meta' },
     });

@@ -68,6 +68,7 @@ const entryFields = z.object({
   role: z.string().optional(),
   timestampMs: z.number().optional(),
 });
+const cursorFields = entryFields.pick({ id: true });
 
 const capMeta = (value: string): string => (value.length > ENTRY_META_MAX ? `${value.slice(0, ENTRY_META_MAX)}…` : value);
 
@@ -120,7 +121,7 @@ export const transcriptEntries = (transcript: unknown, opts: { full?: boolean; l
 export const threadCursor = (transcript: unknown, entryCount: number): string => {
   const rows = unwrapEntries(transcript).slice(0, entryCount);
   for (let index = rows.length - 1; index >= 0; index -= 1) {
-    const fields = entryFields.safeParse(rows[index]);
+    const fields = cursorFields.safeParse(rows[index]);
     if (fields.success && fields.data.id !== '') return fields.data.id;
   }
   return '';
