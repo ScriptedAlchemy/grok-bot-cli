@@ -6,10 +6,12 @@ import { join } from "node:path";
 
 // Chromium OSCrypt: "v10" = fixed password (macOS: the Keychain password; Linux: "peanuts"),
 // "v11" = Linux Secret Service password. macOS stretches with 1003 PBKDF2 rounds, Linux with 1.
+// Windows v10 uses AES-256-GCM with a DPAPI-wrapped key from Local State (not PBKDF2).
 const SAFE_STORAGE_PREFIX_V10 = "v10";
 const SAFE_STORAGE_PREFIX_V11 = "v11";
+const SAFE_STORAGE_PREFIX_V10_BUF = Buffer.from(SAFE_STORAGE_PREFIX_V10);
 const LINUX_BASIC_TEXT_PASSWORD = "peanuts";
-const SUPPORTED_PLATFORMS = new Set(["darwin", "linux"]);
+const SUPPORTED_PLATFORMS = new Set(["darwin", "linux", "win32"]);
 
 export class GrokBotGatewaySessionError extends Error {
   constructor(code, message) {
@@ -80,23 +82,57 @@ export function decryptSafeStorageString(encryptedBase64, password, platform = "
   ]).toString("utf8");
 }
 
-export function grokBotGatewayDescriptorPath(home = homedir(), platform = process.platform, env = process.env) {
+// Windows Chromium Safe Storage: "v10" + 12-byte nonce + AES-256-GCM ciphertext + 16-byte tag.
+export function decryptWindowsSafeStorageString(encryptedBase64, key) {
+  const encrypted = Buffer.from(encryptedBase64, "base64");
+  if (!encrypted.subarray(0, 3).equals(SAFE_STORAGE_PREFIX_V10_BUF)) {
+    throw new Error("Unsupported Grok Bot Safe Storage format.");
+  }
+
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    key,
+    encrypted.subarray(3, 15),
+  );
+  decipher.setAuthTag(encrypted.subarray(-16));
+  return Buffer.concat([
+    decipher.update(encrypted.subarray(15, -16)),
+    decipher.final(),
+  ]).toString("utf8");
+}
+
+function grokBotAppDataPath(home, platform, env = {}) {
+  if (platform === "win32") {
+    const appData = env.APPDATA || join(home, "AppData/Roaming");
+    return join(appData, "Grok Bot");
+  }
   if (platform === "linux") {
     const configHome = env.XDG_CONFIG_HOME || join(home, ".config");
-    return join(configHome, "Grok Bot/gateway-descriptor.json");
+    return join(configHome, "Grok Bot");
   }
-  return join(
-    home,
-    "Library/Application Support/Grok Bot/gateway-descriptor.json",
-  );
+  return join(home, "Library/Application Support/Grok Bot");
+}
+
+export function grokBotGatewayDescriptorPath(home = homedir(), platform = process.platform, env = process.env) {
+  return join(grokBotAppDataPath(home, platform, env), "gateway-descriptor.json");
+}
+
+function sessionEnv({ env = process.env, appData } = {}) {
+  // Windows tests pass appData directly; empty string clears APPDATA to exercise the home fallback.
+  if (appData !== undefined) return { ...env, APPDATA: appData };
+  return env;
 }
 
 export function hasGrokBotGatewaySession({
   platform = process.platform,
   home = homedir(),
   env = process.env,
+  appData,
 } = {}) {
-  return SUPPORTED_PLATFORMS.has(platform) && existsSync(grokBotGatewayDescriptorPath(home, platform, env));
+  return (
+    SUPPORTED_PLATFORMS.has(platform) &&
+    existsSync(grokBotGatewayDescriptorPath(home, platform, sessionEnv({ env, appData })))
+  );
 }
 
 function readKeychainPassword(platform = process.platform) {
@@ -114,27 +150,72 @@ function readKeychainPassword(platform = process.platform) {
   ).trimEnd();
 }
 
+function unprotectWithDpapi(blob) {
+  const script =
+    "Add-Type -AssemblyName System.Security; " +
+    "$blob = [Convert]::FromBase64String([Console]::In.ReadToEnd().Trim()); " +
+    "[Convert]::ToBase64String([Security.Cryptography.ProtectedData]::Unprotect($blob, $null, 'CurrentUser'))";
+  const out = execFileSync(
+    join(
+      process.env.SystemRoot ?? "C:\\Windows",
+      "System32/WindowsPowerShell/v1.0/powershell.exe",
+    ),
+    ["-NoProfile", "-NonInteractive", "-Command", script],
+    { input: blob.toString("base64"), encoding: "utf8" },
+  );
+  return Buffer.from(out.trim(), "base64");
+}
+
+function readWindowsSafeStorageKey(home, env, unprotectData) {
+  const path = join(grokBotAppDataPath(home, "win32", env), "Local State");
+  const encryptedKey = existsSync(path)
+    ? JSON.parse(readFileSync(path, "utf8")).os_crypt?.encrypted_key
+    : null;
+  const blob = Buffer.from(
+    typeof encryptedKey === "string" ? encryptedKey : "",
+    "base64",
+  );
+  if (blob.subarray(0, 5).toString("latin1") !== "DPAPI") {
+    throw new GrokBotGatewaySessionError(
+      "MISSING_SAFE_STORAGE_KEY",
+      "Grok Bot Local State has no Safe Storage key.",
+    );
+  }
+  return unprotectData(blob.subarray(5));
+}
+
 export function loadGrokBotGatewaySession({
   platform = process.platform,
   home = homedir(),
   env = process.env,
+  appData,
   getKeychainPassword = readKeychainPassword,
+  unprotectData = unprotectWithDpapi,
 } = {}) {
   if (!SUPPORTED_PLATFORMS.has(platform)) return null;
 
-  const path = grokBotGatewayDescriptorPath(home, platform, env);
+  const effectiveEnv = sessionEnv({ env, appData });
+  const path = grokBotGatewayDescriptorPath(home, platform, effectiveEnv);
   if (!existsSync(path)) return null;
 
   const wrapped = JSON.parse(readFileSync(path, "utf8"));
   const encrypted = encryptedPayload(wrapped);
-  const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
-  // Linux v10 is the keyring-less basic_text backend; no secret store to ask.
-  const needsKeychain = !(platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10);
-  const clear = decryptSafeStorageString(
-    encrypted,
-    needsKeychain ? getKeychainPassword(platform) : LINUX_BASIC_TEXT_PASSWORD,
-    platform,
-  );
+  let clear;
+  if (platform === "win32") {
+    clear = decryptWindowsSafeStorageString(
+      encrypted,
+      readWindowsSafeStorageKey(home, effectiveEnv, unprotectData),
+    );
+  } else {
+    const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
+    // Linux v10 is the keyring-less basic_text backend; no secret store to ask.
+    const needsKeychain = !(platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10);
+    clear = decryptSafeStorageString(
+      encrypted,
+      needsKeychain ? getKeychainPassword(platform) : LINUX_BASIC_TEXT_PASSWORD,
+      platform,
+    );
+  }
   const descriptor = JSON.parse(clear);
   if (!descriptor.baseUrl || !descriptor.token) {
     throw new GrokBotGatewaySessionError(
