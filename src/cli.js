@@ -337,7 +337,8 @@ async function main(argv) {
     return;
   }
 
-  const { json, gateway, files: filesMode, dir: rootFlag, noHistory, historyDir } = takeLeadingGlobals(args);
+  // `json` may also be peeled later from command-local argv (trailing `--json`).
+  let { json, gateway, files: filesMode, dir: rootFlag, noHistory, historyDir } = takeLeadingGlobals(args);
   const cmd = args[0];
   const sub = args[1];
   const rest = args.slice(2);
@@ -377,6 +378,8 @@ async function main(argv) {
 
   if (cmd === "history") {
     const options = args.slice(1);
+    // Command-local flags (globals only peel from argv before the command).
+    if (hasFlag(options, "--json")) json = true;
     const showPath = hasFlag(options, "--path");
     const search = takeFlag(options, "--search");
     const limitRaw = takeFlag(options, "--limit");
@@ -511,6 +514,7 @@ async function main(argv) {
 
   if (cmd === "send") {
     const ref = sub;
+    if (hasFlag(rest, "--json")) json = true;
     const message = rest.join(" ").trim();
     if (!ref || !message) throw new StoreError("gbot send <bot-or-group> <message...>");
     const out = await backend.send(ref, message);
@@ -524,6 +528,7 @@ async function main(argv) {
   if (cmd === "thread" || cmd === "chat") {
     const ref = sub;
     if (!ref) throw new StoreError("gbot thread <bot-or-group> [--limit N] [--root MESSAGE_ID] [--full]");
+    if (hasFlag(rest, "--json")) json = true;
     const full = rest.includes("--full");
     if (full) rest.splice(rest.indexOf("--full"), 1);
     const limitRaw = takeFlag(rest, "--limit");

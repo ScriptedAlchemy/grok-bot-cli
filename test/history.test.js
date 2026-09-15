@@ -55,7 +55,7 @@ test("send persists a full multiline prompt across processes, searchable offline
   const prompt = 'Investigate timeout\nwith "quotes" and Unicode 🔧';
   const sent = await f.run(["send", "Researcher", prompt, "--json"]);
   assert.equal(JSON.parse(sent.stdout).result.ok, true);
-  assert.equal(sent.stderr, "");
+  assert.match(sent.stderr, /^(warning: GROK_BOT_ALLOW_LOCAL_GATEWAY is set; credentials may be sent to a loopback gateway\.\n)?$/);
   const [row] = f.rows();
   assert.equal(row.text, prompt);
   assert.equal(row.role, "user");

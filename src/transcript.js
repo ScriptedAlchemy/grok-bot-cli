@@ -24,7 +24,8 @@ export function entryText(e) {
 
 function entryTextRaw(e) {
   if (!e || typeof e !== "object") return "";
-  const direct = e.text || e.prompt || e.message || e.preview;
+  // Prefer full body fields over `preview` (often truncated for list UIs).
+  const direct = e.text || e.prompt || e.message;
   if (typeof direct === "string" && direct) return direct;
   const content = e.content;
   if (typeof content === "string") return content;
@@ -38,7 +39,7 @@ function entryTextRaw(e) {
   if (content && typeof content === "object") return content.text || toSafeText(content);
   // Bot replies arrive as `{ kind: "send-message", message: { type, content } }`.
   if (e.message && typeof e.message === "object" && typeof e.message.content === "string") return e.message.content;
-  return "";
+  return typeof e.preview === "string" ? e.preview : "";
 }
 
 export function transcriptEntries(payload) {
