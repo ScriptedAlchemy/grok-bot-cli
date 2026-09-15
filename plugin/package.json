@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@rstest/core": "0.11.12",
-    "@types/node": "^22.18.0",
+    "@types/node": "^24.0.0",
     "@types/react": "^19.2.18",
     "agent-bundle": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/agent-bundle@62ffe403c5af73499fe7f5767c6d60be26e250db",
     "typescript": "7.0.2"
