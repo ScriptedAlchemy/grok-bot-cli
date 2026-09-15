@@ -4,6 +4,7 @@ import { hasGatewayAuth } from "./gateway.js";
 import { openBackend } from "./commands.js";
 import { inspectGrokBotGatewaySession } from "./app-session.js";
 import { redactSecrets } from "./url-policy.js";
+import { codexStatus, listCodexThreads, sendToCodexThread } from "./codex-bridge.js";
 
 function print(value) {
   if (typeof value === "string") process.stdout.write(value + "\n");
@@ -48,6 +49,9 @@ function usage() {
     "  send <bot-or-group> <message...>",
     "  thread <bot-or-group> [--limit N] [--root MESSAGE_ID]",
     "  chat <bot-or-group>     alias for thread",
+    "  codex status",
+    "  codex list-threads [--limit N]",
+    "  codex send <threadId> <message...>",
     "",
     "Max group members: " + MAX_GROUP_MEMBERS,
     "--description / --instructions is the UI Instructions field (same key).",
@@ -56,6 +60,7 @@ function usage() {
     "Flags: --gateway  --files  --dir DIR  --json",
     "Auth: GROK_BOT_GATEWAY_URL + GROK_BOT_GATEWAY_TOKEN, or the Grok Bot app session, or CURSOR_ACCESS_TOKEN",
     "File fallback: GROK_BOT_AGENTS_DIR",
+    "Codex: talks to the local app-server daemon socket under CODEX_HOME (default ~/.codex)",
   ].join("\n");
 }
 
@@ -220,6 +225,50 @@ function formatTranscript(out) {
   return lines.join("\n");
 }
 
+function formatCodexStatus(s) {
+  const lines = ["socket: " + s.socketPath];
+  if (!s.reachable) return lines.concat("reachable: no", s.message).join("\n");
+  lines.push("reachable: yes (daemon)");
+  lines.push("daemon version: " + (s.daemonVersion ?? "unknown") + "  cli version: " + (s.cliVersion ?? "unknown") + "  pinned schema: " + s.pinnedVersion);
+  if (s.versionMismatch) lines.push("warning: daemon and CLI versions differ; `codex app-server daemon restart` picks up the installed CLI");
+  return lines.join("\n");
+}
+
+function formatCodexThread(t) {
+  const title = t.name ? " - " + t.name : "";
+  const preview = t.preview ? "\n    " + String(t.preview).replace(/\s+/g, " ").slice(0, 200) : "";
+  return t.id + "  " + t.status + title + "\n    " + (t.cwd ?? "") + preview;
+}
+
+async function runCodex(sub, rest, json) {
+  if (sub === "status") {
+    const status = await codexStatus();
+    print(json ? status : formatCodexStatus(status));
+    if (!status.reachable) process.exitCode = 1;
+    return;
+  }
+  if (sub === "list-threads") {
+    const limitRaw = takeFlag(rest, "--limit");
+    const limit = limitRaw ? Number(limitRaw) : 20;
+    if (!Number.isInteger(limit) || limit < 1) throw new StoreError("--limit must be a positive integer");
+    const out = await listCodexThreads({ limit });
+    if (json) print(out);
+    else if (out.threads.length === 0) print("No Codex threads.");
+    else print(out.threads.map(formatCodexThread).join("\n\n"));
+    return;
+  }
+  if (sub === "send") {
+    const threadId = rest.shift();
+    const message = rest.join(" ").trim();
+    if (!threadId || threadId.startsWith("-") || !message) throw new StoreError("gbot codex send <threadId> <message...>");
+    const out = await sendToCodexThread(threadId, message);
+    if (json) print(out);
+    else print("Started turn " + out.turnId + " (" + out.turnStatus + ") on Codex thread " + out.threadId);
+    return;
+  }
+  throw new StoreError("gbot codex status | list-threads [--limit N] | send <threadId> <message...>");
+}
+
 async function main(argv) {
   const args = argv.slice(2);
   if (args.length === 0 || args[0] === "-h" || args[0] === "--help") {
@@ -265,6 +314,11 @@ async function main(argv) {
       for (const c of candidates) print("  " + c);
       print(note);
     }
+    return;
+  }
+
+  if (cmd === "codex") {
+    await runCodex(sub, rest, json);
     return;
   }
 
