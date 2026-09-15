@@ -308,6 +308,44 @@ test("server requests stay unanswered until our own turn starts", async () => {
   }
 });
 
+test("codex send ignores approvals naming another thread during our turn", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "turn/start": (params, ok, err, send) => {
+      send({ jsonrpc: "2.0", id: "srv-foreign-thread", method: "item/commandExecution/requestApproval", params: { threadId: "other-thread", command: "rm -rf /" } });
+      setTimeout(() => ok({ turn: { id: "turn-20", status: "inProgress", items: [] } }), 50);
+    },
+  });
+  try {
+    const env = { ...process.env, CODEX_HOME: fake.home };
+    const outcome = await sendToCodexThread("t-1", "do it", { env });
+    assert.equal(outcome.exitCode, 0);
+    assert.equal(outcome.turnId, "turn-20");
+    assert.equal(fake.received.find((m) => m.id === "srv-foreign-thread"), undefined);
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send ignores approvals naming a Desktop turn during our turn", async () => {
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "turn/start": (params, ok, err, send) => {
+      send({ jsonrpc: "2.0", id: "srv-foreign-turn", method: "item/commandExecution/requestApproval", params: { threadId: params.threadId, turnId: "desktop-turn-1" } });
+      setTimeout(() => ok({ turn: { id: "turn-21", status: "inProgress", items: [] } }), 50);
+    },
+  });
+  try {
+    const env = { ...process.env, CODEX_HOME: fake.home };
+    const outcome = await sendToCodexThread("t-1", "do it", { env });
+    assert.equal(outcome.exitCode, 0);
+    assert.equal(outcome.turnId, "turn-21");
+    assert.equal(fake.received.find((m) => m.id === "srv-foreign-turn"), undefined);
+  } finally {
+    await fake.close();
+  }
+});
+
 test("codex send returns once the turn starts; later approval requests are the daemon's to route", async () => {
   const fake = await fakeAppServer({
     ...baseHandlers,
