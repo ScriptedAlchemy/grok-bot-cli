@@ -976,7 +976,9 @@ test("bridge send to a non-reading peer times out instead of hanging", {
   try {
     rmSync(socketPath, { force: true });
   } catch {}
+  let serverSocket = null;
   const server = createServer((socket) => {
+    serverSocket = socket;
     socket.on("error", () => {});
     let request = Buffer.alloc(0);
     let upgraded = false;
@@ -1005,14 +1007,83 @@ test("bridge send to a non-reading peer times out instead of hanging", {
   try {
     const line = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{},"pad":"${"x".repeat(30000)}"}\n`;
     const started = Date.now();
-    const out = await runBridge(writeBridge(dir), dir, {
-      CODEX_APP_SERVER_SOCK: socketPath,
-      CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "5",
-    }, line.repeat(300));
+    // Flood past the socket buffer so a send blocks; the harness tolerates
+    // EPIPE because the bridge exits 2 mid-flood — that fast exit is the point.
+    const out = await new Promise((resolve, reject) => {
+      const child = spawn("python3", [writeBridge(dir)], {
+        env: {
+          ...process.env,
+          CODEX_STDIO_BRIDGE_LOG: join(dir, "bridge.log"),
+          CODEX_APP_SERVER_SOCK: socketPath,
+          CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT: "5",
+        },
+      });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.setEncoding("utf8");
+      child.stdout.on("data", (chunk) => {
+        stdout += chunk;
+      });
+      child.stderr.setEncoding("utf8");
+      child.stderr.on("data", (chunk) => {
+        stderr += chunk;
+      });
+      child.stdin.on("error", () => {});
+      const timer = setTimeout(() => {
+        child.kill("SIGKILL");
+        reject(new Error(`bridge hung: stdout=${stdout} stderr=${stderr}`));
+      }, 25000);
+      child.on("error", (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+      child.on("close", (code, signal) => {
+        clearTimeout(timer);
+        resolve({ status: code, signal, stdout, stderr });
+      });
+      // Flood past the socket buffer so a send blocks, in small chunks so a
+      // mid-flood bridge exit surfaces as a plain writable-side EPIPE/close
+      // instead of one giant pending write. Stop at the first sign of exit.
+      const flood = line.repeat(300);
+      const CHUNK = 65536;
+      let offset = 0;
+      let done = false;
+      const finishWrites = () => {
+        if (done) return;
+        done = true;
+        try {
+          child.stdin.end();
+        } catch {}
+      };
+      child.on("close", finishWrites);
+      const pump = () => {
+        if (done) return;
+        if (offset >= flood.length) {
+          finishWrites();
+          return;
+        }
+        let ok = true;
+        try {
+          ok = child.stdin.write(flood.slice(offset, offset + CHUNK));
+        } catch {
+          finishWrites();
+          return;
+        }
+        offset += CHUNK;
+        if (!ok) child.stdin.once("drain", pump);
+        else setImmediate(pump);
+      };
+      pump();
+    });
     const elapsed = Date.now() - started;
     assert.equal(out.status, 2, `wedged send must exit mid-session, got ${out.status} ${out.stderr}`);
     assert.ok(elapsed < 20000, `send must time out instead of hanging, took ${elapsed}ms`);
   } finally {
+    // The blackhole socket is paused and never reads, so a remote FIN sits
+    // unread and server.close() would wait forever: destroy it first.
+    try {
+      serverSocket?.destroy();
+    } catch {}
     await new Promise((resolve) => server.close(resolve));
   }
 });

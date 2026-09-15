@@ -1276,7 +1276,15 @@ test("codex send still refuses our own approval that arrives before the turn ack
     assert.equal(outcome.delivery, "accepted");
     assert.equal(outcome.reason, "approval-refused");
     assert.equal(outcome.turnId, "turn-12");
-    const refusal = fake.received.find((m) => m.id === "srv-early-own");
+    // The deferred reply is flushed on the same tick as close: give the
+    // loopback a beat to deliver it before asserting its arrival.
+    const deadline = Date.now() + 3000;
+    let refusal;
+    while (refusal === undefined && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      refusal = fake.received.find((m) => m.id === "srv-early-own");
+    }
+    assert.ok(refusal, "deferred own-turn approval is answered after the ack");
     assert.equal(refusal.error.code, -32601);
     assert.equal(refusal.result, undefined);
   } finally {
