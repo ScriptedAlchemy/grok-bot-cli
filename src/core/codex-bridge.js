@@ -54,7 +54,15 @@ export function singleLine(text) {
   return stripTerminalControls(text).replace(/[\t\n\r\u2028\u2029]+/g, " ");
 }
 
-export function unreachableMessage(path) {
+export function unreachableMessage(path, desktopAttached = "unknown") {
+  if (desktopAttached === "private-stdio") {
+    return [
+      "ChatGPT Desktop is running its private stdio app-server, which external clients cannot reach",
+      "(" + UPSTREAM_DESKTOP_ISSUES.join(", ") + ").",
+      "No Codex app-server control socket at " + path + ": start a managed standalone daemon with `codex app-server daemon start`.",
+      "gbot codex targets daemon-managed threads only.",
+    ].join("\n");
+  }
   return [
     "No Codex app-server control socket at " + path + ".",
     "Either no daemon is running (start one with `codex app-server daemon start`),",
@@ -486,28 +494,79 @@ export function probeLocalCodexVersion(timeoutMs = CODEX_VERSION_PROBE_TIMEOUT_M
   return m ? { version: m[1], probe: "ok" } : { version: null, probe: "error" };
 }
 
+/** Bounded `ps` snapshot for Desktop detection: process names only, never pipes or sockets. */
+export const DESKTOP_PROCESS_LIST_TIMEOUT_MS = 3000;
+
+export function listDesktopProcesses(timeoutMs = DESKTOP_PROCESS_LIST_TIMEOUT_MS) {
+  if (process.platform === "win32") return "";
+  try {
+    const out = spawnSync("ps", ["-eo", "args"], { encoding: "utf8", timeout: timeoutMs });
+    if (out.error || out.status !== 0 || typeof out.stdout !== "string") return "";
+    return out.stdout;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Pure Desktop private-stdio detector. Returns `"private-stdio"` when the process list
+ * shows Desktop's bundled `.../ChatGPT.app/.../Resources/codex` running `app-server`
+ * (the `codex_app` override corroborates, the Resources path alone suffices); `"unknown"`
+ * otherwise. Never `"detached"`: absence of a match means "not observed", not "not running".
+ * Windows stays `"unknown"` (unsupported route, unchanged).
+ *
+ * @param {{ platform?: string, listProcesses?: string | string[] | null }} [opts]
+ */
+export function detectDesktopPrivateAppServer({ platform = process.platform, listProcesses = "" } = {}) {
+  if (platform === "win32") return "unknown";
+  const lines = Array.isArray(listProcesses) ? listProcesses : String(listProcesses ?? "").split(/\r?\n/);
+  for (const line of lines) {
+    if (!/app-server/.test(line)) continue;
+    // Desktop's bundled binary, Mac or Windows-style separators with optional .exe.
+    if (/ChatGPT\.app[\\/].*Resources[\\/]codex(\.exe)?(["'\s]|$)/.test(line)) return "private-stdio";
+    // Same app-server line owned by ChatGPT.app carrying the app-tools override.
+    if (/ChatGPT\.app/.test(line) && /(codex_app|mcp_servers\.codex_app|codex-app-tools)/.test(line)) return "private-stdio";
+  }
+  return "unknown";
+}
+
 /**
  * Status contract: `reachable` is endpoint reachability only. `schema.compatibility` is
  * `exact` when the daemon reports the pinned version, otherwise `unverified` (methods
- * usually survive upgrades) or `unknown`. Whether ChatGPT Desktop owns any thread is not
- * observable from the socket, so `desktopAttached` is always `"unknown"`.
+ * usually survive upgrades) or `unknown`. `desktopAttached` is `"private-stdio"` when a
+ * Desktop-bundled app-server process is visible (see `detectDesktopPrivateAppServer`),
+ * otherwise `"unknown"` — whether Desktop owns any thread is never observable from the
+ * socket itself, and `"detached"` is never reported.
+ *
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {{ listProcesses?: string | string[] }} [opts] injected process list for tests;
+ *   defaults to a live `ps` snapshot. Never reads pipes or connects to Desktop.
  */
-export async function codexStatus(env = process.env) {
+export async function codexStatus(env = process.env, { listProcesses } = {}) {
   const path = codexSocketPath(env);
   const cli = probeLocalCodexVersion();
+  const desktopAttached = detectDesktopPrivateAppServer({
+    platform: process.platform,
+    listProcesses: listProcesses ?? listDesktopProcesses(),
+  });
   const base = {
     socketPath: path,
     socketState: socketState(path),
     pinnedVersion: PINNED_CODEX_VERSION,
     cliVersion: cli.version,
     cliVersionProbe: cli.probe,
-    desktopAttached: "unknown",
+    desktopAttached,
   };
   let session;
   try {
     session = await openSession(env);
   } catch (err) {
-    if (err instanceof CodexRouteError) return withStatusExitCode({ ...base, reachable: false, mode: err.mode, message: err.message });
+    if (err instanceof CodexRouteError) {
+      // Name the private-stdio case explicitly: Desktop is up but unreachable, so the
+      // operator needs a managed standalone daemon, not a Desktop reconnect.
+      const message = err.mode === "socket-absent" ? unreachableMessage(path, desktopAttached) : err.message;
+      return withStatusExitCode({ ...base, reachable: false, mode: err.mode, message });
+    }
     // The endpoint answered; what it said does not match the pinned schema.
     if (err instanceof CodexProtocolError) return withStatusExitCode({ ...base, reachable: true, mode: err.mode, message: err.message });
     throw err;

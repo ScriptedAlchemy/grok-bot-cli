@@ -7,7 +7,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread } from "../src/core/codex-bridge.js";
+import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, codexStatus, detectDesktopPrivateAppServer, unreachableMessage } from "../src/core/codex-bridge.js";
+import { formatCodexStatus } from "../src/core/format.js";
 import { createServer as createTcpServer } from "node:net";
 
 const CLI = fileURLToPath(new URL("../dist/bin/gbot.mjs", import.meta.url));
@@ -1109,4 +1110,75 @@ test("--when-busy queue hands a busy thread to the daemon queue under the experi
   } finally {
     await old.close();
   }
+});
+
+// ---- Desktop private-stdio detection (openai/codex#41014 / #41112) ----
+
+const DESKTOP_MAC_PS = [
+  "PID TTY          TIME CMD",
+  "1234 ??        0:01.12 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT",
+  "5678 ??        2:33.44 /Applications/ChatGPT.app/Contents/Resources/codex -c features.code_mode_host=true app-server --analytics-default-enabled -c plugins.codex-app-tools@openai-bundled.mcp_servers.codex_app.enabled=true",
+  "9012 ??        0:00.01 /usr/local/bin/codex app-server daemon start",
+].join("\n");
+
+test("detectDesktopPrivateAppServer matches the Desktop bundled app-server line", () => {
+  assert.equal(detectDesktopPrivateAppServer({ platform: "darwin", listProcesses: DESKTOP_MAC_PS }), "private-stdio");
+  assert.equal(detectDesktopPrivateAppServer({ platform: "darwin", listProcesses: DESKTOP_MAC_PS.split("\n") }), "private-stdio");
+  assert.equal(
+    detectDesktopPrivateAppServer({ platform: "linux", listProcesses: "/Applications/ChatGPT.app/Contents/Resources/codex app-server" }),
+    "private-stdio",
+    "Resources path alone suffices, no override needed",
+  );
+});
+
+test("detectDesktopPrivateAppServer stays unknown without Desktop evidence", () => {
+  assert.equal(detectDesktopPrivateAppServer({ platform: "darwin", listProcesses: "/usr/local/bin/codex app-server daemon start" }), "unknown");
+  assert.equal(
+    detectDesktopPrivateAppServer({ platform: "darwin", listProcesses: "/Applications/ChatGPT.app/Contents/Resources/codex --version" }),
+    "unknown",
+    "bundled binary without app-server is not a server",
+  );
+  assert.equal(detectDesktopPrivateAppServer({ platform: "darwin", listProcesses: "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT" }), "unknown");
+  assert.equal(detectDesktopPrivateAppServer({ platform: "darwin", listProcesses: "" }), "unknown");
+  assert.equal(detectDesktopPrivateAppServer({ platform: "darwin" }), "unknown");
+  assert.equal(detectDesktopPrivateAppServer({ platform: "darwin", listProcesses: null }), "unknown");
+});
+
+test("detectDesktopPrivateAppServer stays unknown on Windows", () => {
+  assert.equal(detectDesktopPrivateAppServer({ platform: "win32", listProcesses: DESKTOP_MAC_PS }), "unknown");
+});
+
+test("codexStatus reports private-stdio with a managed-daemon message when the socket is absent", async () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-codex-desktop-"));
+  const status = await codexStatus({ ...process.env, CODEX_HOME: home, PATH: "/nonexistent" }, { listProcesses: DESKTOP_MAC_PS });
+  assert.equal(status.desktopAttached, "private-stdio");
+  assert.equal(status.reachable, false);
+  assert.equal(status.mode, "socket-absent");
+  assert.equal(status.exitCode, 1);
+  assert.match(status.message, /private stdio/);
+  assert.match(status.message, /codex app-server daemon start/);
+  assert.match(status.message, /managed standalone/);
+  assert.match(status.message, /openai\/codex\/issues\/41014/);
+  assert.match(status.message, /openai\/codex\/issues\/41112/);
+});
+
+test("codexStatus keeps unknown and the generic message without Desktop evidence", async () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-codex-nodesktop-"));
+  const env = { ...process.env, CODEX_HOME: home, PATH: "/nonexistent" };
+  const status = await codexStatus(env, { listProcesses: "init\n/usr/local/bin/codex app-server daemon start" });
+  assert.equal(status.desktopAttached, "unknown");
+  assert.equal(status.mode, "socket-absent");
+  assert.equal(status.message, unreachableMessage(join(home, "app-server-control", "app-server-control.sock")));
+  assert.match(status.message, /Either no daemon is running/);
+});
+
+test("formatCodexStatus names the private-stdio case and keeps the unknown line", () => {
+  const daemon = {
+    socketPath: "/s", socketState: "absent", reachable: true, mode: "daemon",
+    daemonVersion: "0.154.0", cliVersion: null, pinnedVersion: "0.154.0",
+    schema: { compatibility: "exact" }, versionMismatch: false,
+  };
+  assert.match(formatCodexStatus({ ...daemon, desktopAttached: "private-stdio" }), /desktop attached: private-stdio/);
+  assert.match(formatCodexStatus({ ...daemon, desktopAttached: "private-stdio" }), /codex app-server daemon start/);
+  assert.match(formatCodexStatus({ ...daemon, desktopAttached: "unknown" }), /desktop attached: unknown \(not observable from the socket\)/);
 });
