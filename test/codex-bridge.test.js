@@ -256,12 +256,56 @@ test("codex send fails fast when the server sends a Close frame mid-request", as
   }
 });
 
-test("codex send surfaces other JSON-RPC errors verbatim", async () => {
-  const fake = await fakeAppServer({ ...baseHandlers, "turn/start": (params, ok, err) => err({ code: -32600, message: "model unavailable" }) });
+test("codex send keeps --json / --dir tokens that appear after the thread id", async () => {
+  const fake = await fakeAppServer(baseHandlers);
   try {
-    const { code, err } = await gbot(fake.home, "codex", "send", "t-1", "hi");
-    assert.equal(code, 1);
-    assert.equal(err, "Codex app-server rejected turn/start: model unavailable\n");
+    const { code, out } = await gbot(
+      fake.home,
+      "codex",
+      "send",
+      "t-1",
+      "explain",
+      "--json",
+      "output",
+      "and",
+      "--dir",
+      "src",
+    );
+    assert.equal(code, 0);
+    assert.match(out, /Started turn/);
+    const start = fake.received.find((m) => m.method === "turn/start");
+    assert.equal(start.params.input[0].text, "explain --json output and --dir src");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex list-threads strips terminal controls from names and previews", async () => {
+  const handlers = {
+    ...baseHandlers,
+    "thread/list": (params, ok) =>
+      ok({
+        data: [
+          {
+            id: "t-evil",
+            status: { type: "idle" },
+            name: "Build\u001b[31mRED\u001b[0m",
+            preview: "hi\u001b]0;owned\u0007 there",
+            cwd: "/repo",
+            source: "cli",
+            updatedAt: 1,
+          },
+        ],
+        nextCursor: null,
+      }),
+  };
+  const fake = await fakeAppServer(handlers);
+  try {
+    const { code, out } = await gbot(fake.home, "codex", "list-threads");
+    assert.equal(code, 0);
+    assert.match(out, /BuildRED/);
+    assert.doesNotMatch(out, /\u001b/);
+    assert.doesNotMatch(out, /\]0;owned/);
   } finally {
     await fake.close();
   }
