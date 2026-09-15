@@ -52,17 +52,18 @@ export default defineTool(
     const entries = transcriptEntries(tail.transcript, { full, limit });
     const cursor = threadCursor(entries);
     const summarized = summarizeTarget(tail.target);
-    const value = full ? { cursor, entries, target: summarized } : { cursor, target: summarized };
     const summary = `${summarized.kind} ${summarized.name}: ${entries.length} entries. cursor ${cursor === '' ? '(none)' : cursor}.`;
     // Keep both model-facing channels small by omitting entries from the default
     // structured value as well as withholding per-entry Agent.Text.
     if (!full) {
+      const value = { cursor, target: summarized };
       return (
         <Agent.Result value={value}>
           <Agent.Text>{`${summary} Entry text withheld; pass full:true to read it.`}</Agent.Text>
         </Agent.Result>
       );
     }
+    const value = { cursor, entries, target: summarized };
     return (
       <Agent.Result value={value}>
         <Agent.Text>{summary}</Agent.Text>
