@@ -105,13 +105,6 @@ function takeRepeating(args, name) {
   return out;
 }
 
-function hasFlag(args, name) {
-  const i = args.indexOf(name);
-  if (i === -1) return false;
-  args.splice(i, 1);
-  return true;
-}
-
 /** Peel global CLI options only from the leading argv (before the command). */
 function takeLeadingGlobals(args) {
   let json = false;
