@@ -125,7 +125,11 @@ export function formatDesktopShimStatus(s) {
   if (!s.installed) {
     lines.push("shim: not installed — run `gbot codex desktop-shim install` (Desktop keeps stock behavior until then)");
   } else if (!s.wrapperPointsAtShim) {
-    lines.push("shim: installed but CODEX_CLI_PATH does not point at it — reinstall or relaunch ChatGPT.app after login");
+    lines.push(
+      s.platform === "darwin"
+        ? "shim: installed but CODEX_CLI_PATH does not point at it — reinstall or relaunch ChatGPT.app after login"
+        : "shim: installed but CODEX_CLI_PATH does not point at it — export CODEX_CLI_PATH=" + s.wrapperPath,
+    );
   } else {
     lines.push("shim: active — Desktop app-server spawns bridge onto the managed daemon");
   }
