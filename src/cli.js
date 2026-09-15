@@ -6,22 +6,27 @@ import { inspectGrokBotGatewaySession } from "./app-session.js";
 import { entryText, transcriptDelta, transcriptEntries } from "./transcript.js";
 import { historyPath, readHistory, saveHistory } from "./history.js";
 import { redactSecrets } from "./url-policy.js";
-import { codexStatus, listCodexThreads, sendToCodexThread } from "./codex-bridge.js";
+import { buildEnvelope, codexStatus, listCodexThreads, sendToCodexThread, stripTerminalControls, withEnvelopeHeader } from "./codex-bridge.js";
 
 function print(value) {
   if (typeof value === "string") process.stdout.write(value + "\n");
   else process.stdout.write(JSON.stringify(value, null, 2) + "\n");
 }
 
+/** Exit 1 for every failure; `--json` callers read `reason` / `mode` / `delivery` instead of the exit code. */
 function fail(err) {
   let message = err instanceof Error ? err.message : String(err);
   message = redactSecrets(message);
   if (jsonErrors && err instanceof Error) {
     const out = { error: message };
-    if (err.delivery !== undefined) out.delivery = err.delivery;
-    if (err.threadId !== undefined) out.threadId = err.threadId;
-    if (err.turnId !== undefined) out.turnId = err.turnId;
-    if (err.targetId !== undefined) out.targetId = err.targetId;
+    for (const key of ["delivery", "reason", "mode", "threadId", "turnId", "targetId", "messageId", "correlationId"]) {
+      if (err[key] !== undefined) out[key] = err[key];
+    }
+    if (err.envelope && typeof err.envelope === "object") {
+      out.messageId = err.envelope.messageId;
+      out.correlationId = err.envelope.correlationId;
+      out.hop = err.envelope.hop;
+    }
     process.stderr.write(JSON.stringify(out) + "\n");
   } else {
     process.stderr.write(message + "\n");
@@ -57,14 +62,18 @@ function usage() {
     "  groups remove <group> <bot>",
     "  groups set <group> --member ID [--member ...]",
     "  groups delete <id-or-name>",
-    "  send <bot-or-group> <message...>",
+    "  send [envelope flags] <bot-or-group> <message...>",
     "  thread <bot-or-group> [--limit N] [--after ENTRY_ID] [--root MESSAGE_ID] [--full]",
     "  chat <bot-or-group>     alias for thread",
     "  history [bot-or-group] [--search TEXT] [--limit N]  (offline)",
     "  history --path         print the local JSONL file path",
     "  codex status",
-    "  codex list-threads [--limit N]",
-    "  codex send <threadId> <message...>",
+    "  codex list-threads [--limit N] [--cursor CURSOR]",
+    "  codex send [envelope flags] <threadId> <message...>",
+    "",
+    "Envelope flags (before the target): --correlation-id ID  --reply-to MESSAGE_ID  --hop N  --envelope",
+    "  Receipts carry messageId/correlationId/hop; a reply passes the original correlation id and hop+1.",
+    "  Sends at hop >= GROK_BOT_MAX_HOPS (default 4) are refused. --envelope prepends the [gbot ...] header.",
     "",
     "Max group members: " + MAX_GROUP_MEMBERS,
     "--description / --instructions is the UI Instructions field (same key).",
@@ -74,6 +83,7 @@ function usage() {
     "Auth: GROK_BOT_GATEWAY_URL + GROK_BOT_GATEWAY_TOKEN, or the Grok Bot app session, or CURSOR_ACCESS_TOKEN",
     "File fallback: GROK_BOT_AGENTS_DIR",
     "Codex: talks to the local app-server daemon socket under CODEX_HOME (default ~/.codex)",
+    "       GROK_BOT_CODEX_THREADS=id,id restricts `codex send` to operator-approved threads",
     "History: opt-in plaintext JSONL at ~/.grok-bot-cli/history.jsonl",
     "         GROK_BOT_HISTORY=on to record; --history-dir / GROK_BOT_HISTORY_DIR to relocate",
     "         --no-history to skip one command",
@@ -193,15 +203,6 @@ function takeLeadingGlobals(args) {
   return { json, gateway, files, dir, noHistory, historyDir };
 }
 
-/** Strip CSI/OSC and other C0/C1 controls so thread fields cannot drive the terminal. */
-function stripTerminalControls(text) {
-  return String(text)
-    .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "")
-    .replace(/\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g, "")
-    .replace(/\u001b./g, "")
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-}
-
 function parseOnOff(value, flag) {
   const v = String(value).trim().toLowerCase();
   if (v === "on" || v === "true" || v === "1" || v === "yes") return true;
@@ -306,10 +307,12 @@ function truncateCliText(text, max = 400) {
 }
 
 function formatCodexStatus(s) {
-  const lines = ["socket: " + s.socketPath];
-  if (!s.reachable) return lines.concat("reachable: no", s.message).join("\n");
+  const lines = ["socket: " + s.socketPath + " (" + s.socketState + ")"];
+  if (!s.reachable) return lines.concat("reachable: no (" + s.mode + ")", s.message).join("\n");
   lines.push("reachable: yes (daemon)");
-  lines.push("daemon version: " + (s.daemonVersion ?? "unknown") + "  cli version: " + (s.cliVersion ?? "unknown") + "  pinned schema: " + s.pinnedVersion);
+  const cli = s.cliVersion ?? (s.cliVersionProbe === "ok" ? "unknown" : "unknown, probe " + s.cliVersionProbe);
+  lines.push("daemon version: " + (s.daemonVersion ?? "unknown") + "  cli version: " + cli + "  pinned schema: " + s.pinnedVersion + " (" + s.schema.compatibility + ")");
+  lines.push("desktop attached: unknown (not observable from the socket)");
   if (s.versionMismatch) lines.push("warning: daemon and CLI versions differ; `codex app-server daemon restart` picks up the installed CLI");
   return lines.join("\n");
 }
@@ -322,6 +325,42 @@ function formatCodexThread(t) {
   return stripTerminalControls(t.id) + "  " + stripTerminalControls(t.status) + title + "\n    " + stripTerminalControls(t.cwd ?? "") + preview;
 }
 
+/** Structured subcommands accept only their documented flags; anything left over is an error. */
+function rejectUnknownArgs(rest, usageLine) {
+  if (rest.length) throw new StoreError("Unknown argument " + JSON.stringify(rest[0]) + ". Usage: " + usageLine);
+}
+
+/**
+ * Envelope flags live before the free-text target so message bodies keep their own `--` tokens.
+ * Returns a built envelope (or a hop-limit refusal) plus whether any flag was given.
+ */
+function takeEnvelopeFlags(rest) {
+  let correlationId;
+  let replyTo;
+  let hop;
+  let envelope = false;
+  for (;;) {
+    const a = rest[0];
+    if (a === "--correlation-id") { rest.shift(); correlationId = rest.shift(); if (correlationId == null) throw new StoreError("--correlation-id needs a value"); continue; }
+    if (a === "--reply-to") { rest.shift(); replyTo = rest.shift(); if (replyTo == null) throw new StoreError("--reply-to needs a value"); continue; }
+    if (a === "--hop") {
+      rest.shift();
+      const raw = rest.shift();
+      if (raw == null || !/^\d+$/.test(raw)) throw new StoreError("--hop must be a non-negative integer");
+      hop = Number(raw);
+      continue;
+    }
+    if (a === "--envelope") { rest.shift(); envelope = true; continue; }
+    break;
+  }
+  try {
+    return buildEnvelope({ correlationId, replyTo, hop, envelope });
+  } catch (err) {
+    if (err instanceof RangeError) throw new StoreError(err.message);
+    throw err;
+  }
+}
+
 async function runCodex(sub, rest, json) {
   // Structured subcommands take no free text, so --json peels anywhere. Send
   // peels a trailing --json only; mid-message tokens stay message content.
@@ -329,6 +368,7 @@ async function runCodex(sub, rest, json) {
     if (hasFlag(rest, "--json")) { json = true; jsonErrors = true; }
   }
   if (sub === "status") {
+    rejectUnknownArgs(rest, "gbot codex status [--json]");
     const status = await codexStatus();
     print(json ? status : formatCodexStatus(status));
     if (!status.reachable) process.exitCode = 1;
@@ -336,26 +376,34 @@ async function runCodex(sub, rest, json) {
   }
   if (sub === "list-threads") {
     const limitRaw = takeFlag(rest, "--limit");
+    const cursor = takeFlag(rest, "--cursor");
+    rejectUnknownArgs(rest, "gbot codex list-threads [--limit N] [--cursor CURSOR] [--json]");
     const limit = limitRaw ? Number(limitRaw) : 20;
-    if (!Number.isInteger(limit) || limit < 1) throw new StoreError("--limit must be a positive integer");
-    const out = await listCodexThreads({ limit });
+    let out;
+    try {
+      out = await listCodexThreads({ limit, cursor });
+    } catch (err) {
+      if (err instanceof RangeError) throw new StoreError(err.message);
+      throw err;
+    }
     if (json) print(out);
     else if (out.threads.length === 0) print("No Codex threads.");
-    else print(out.threads.map(formatCodexThread).join("\n\n"));
+    else print(out.threads.map(formatCodexThread).join("\n\n") + (out.nextCursor ? "\n\nmore: --cursor " + stripTerminalControls(out.nextCursor) : ""));
     return;
   }
   if (sub === "send") {
-    const threadId = rest.shift();
     if (takeTrailingFlag(rest, "--json")) { json = true; jsonErrors = true; }
+    const envelope = takeEnvelopeFlags(rest);
+    const threadId = rest.shift();
     if (rest[0] === "--") rest.shift();
     const message = rest.join(" ").trim();
-    if (!threadId || threadId.startsWith("-") || !message) throw new StoreError("gbot codex send <threadId> <message...>");
-    const out = await sendToCodexThread(threadId, message);
+    if (!threadId || threadId.startsWith("-") || !message) throw new StoreError("gbot codex send [envelope flags] <threadId> <message...>");
+    const out = await sendToCodexThread(threadId, message, { envelope });
     if (json) print(out);
-    else print("Started turn " + out.turnId + " (" + out.turnStatus + ") on Codex thread " + out.threadId);
+    else print("Started turn " + out.turnId + " (" + out.turnStatus + ") on Codex thread " + out.threadId + "; message " + out.messageId);
     return;
   }
-  throw new StoreError("gbot codex status | list-threads [--limit N] | send <threadId> <message...>");
+  throw new StoreError("gbot codex status | list-threads [--limit N] [--cursor CURSOR] | send [envelope flags] <threadId> <message...>");
 }
 
 async function main(argv) {
@@ -547,15 +595,33 @@ async function main(argv) {
   }
 
   if (cmd === "send") {
-    const ref = sub;
-    if (hasFlag(rest, "--json")) { json = true; jsonErrors = true; }
-    const message = rest.join(" ").trim();
-    if (!ref || !message) throw new StoreError("gbot send <bot-or-group> <message...>");
-    const out = await backend.send(ref, message);
+    // Envelope flags precede the target: `gbot send --reply-to M --hop 1 <bot> <message>`.
+    const sendArgs = [sub, ...rest].filter((a) => a !== undefined);
+    if (hasFlag(sendArgs, "--json")) { json = true; jsonErrors = true; }
+    const envelope = takeEnvelopeFlags(sendArgs);
+    const ref = sendArgs.shift();
+    const message = sendArgs.join(" ").trim();
+    if (!ref || ref.startsWith("-") || !message) throw new StoreError("gbot send [envelope flags] <bot-or-group> <message...>");
+    const out = await backend.send(ref, withEnvelopeHeader(message, envelope));
     saveHistory(out, { dir: historyDir, disabled: noHistory, event: "send", prompt: message });
+    // The gateway's message id (when returned) is the delivery receipt; the local envelope id
+    // is the correlation handle a reply quotes back with --reply-to.
     const receipt = out.messageId ? " message " + out.messageId : "";
-    if (json) print({ id: out.target.id, name: out.target.name, kind: out.target.isGroup ? "group" : "bot", result: out.result, delivery: out.delivery || "accepted", ...(out.messageId ? { messageId: out.messageId } : {}) });
-    else print("Sent to " + (out.target.isGroup ? "group" : "bot") + " " + out.target.name + " (" + out.target.id + ")" + receipt);
+    if (json) {
+      print({
+        id: out.target.id,
+        name: out.target.name,
+        kind: out.target.isGroup ? "group" : "bot",
+        result: out.result,
+        delivery: out.delivery || "accepted",
+        ...(out.messageId ? { messageId: out.messageId } : {}),
+        envelopeId: envelope.messageId,
+        correlationId: envelope.correlationId,
+        ...(envelope.replyTo ? { replyTo: envelope.replyTo } : {}),
+        hop: envelope.hop,
+        maxHops: envelope.maxHops,
+      });
+    } else print("Sent to " + (out.target.isGroup ? "group" : "bot") + " " + out.target.name + " (" + out.target.id + ")" + receipt + "; envelope " + envelope.messageId);
     return;
   }
 

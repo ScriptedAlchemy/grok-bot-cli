@@ -1,0 +1,5 @@
+---
+"grok-bot-cli": patch
+---
+
+Make `gbot codex` dependable for automation and safe for agent relays: `codex status --json` reports `socketState`, a stable failure `mode` (`socket-absent`, `permission-denied`, `not-a-socket`, `connect-failed`, `handshake-failed`, `bad-response`, `windows-unsupported`), `schema.compatibility` separate from reachability, a bounded `codex --version` probe (`cliVersionProbe`), and `desktopAttached: "unknown"`; `codex list-threads` adds `--cursor`, bounds `--limit` to 1–200, rejects unknown arguments, validates the response shape, and strips terminal controls from every text field in JSON too. `codex send` and `send` accept `--correlation-id`, `--reply-to`, `--hop`, and `--envelope`, return receipts with `messageId` (sent as Codex's `clientUserMessageId`), `correlationId`, `replyTo`, `hop`, and `maxHops`, refuse relays at `GROK_BOT_MAX_HOPS` (default 4) with `reason: "hop-limit"`, honor the operator allowlist `GROK_BOT_CODEX_THREADS`, refuse `active` threads with `reason: "busy"` instead of steering a running turn, and emit `reason`/`mode` in every `--json` failure. Fixes #37, #38, #39.

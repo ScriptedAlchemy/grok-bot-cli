@@ -1,7 +1,7 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { statSync } from "node:fs";
 import { createConnection } from "node:net";
-import { homedir } from "node:os";
+import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -29,12 +29,26 @@ export function codexSocketPath(env = process.env) {
   return join(home, "app-server-control", "app-server-control.sock");
 }
 
-export function socketPresent(path) {
+/** `socket` | `absent` | `permission-denied` | `not-a-socket`; permission failures are not absence. */
+export function socketState(path) {
   try {
-    return statSync(path).isSocket();
-  } catch {
-    return false;
+    return statSync(path).isSocket() ? "socket" : "not-a-socket";
+  } catch (err) {
+    return err && (err.code === "EACCES" || err.code === "EPERM") ? "permission-denied" : "absent";
   }
+}
+
+export function socketPresent(path) {
+  return socketState(path) === "socket";
+}
+
+/** Strip ANSI/OSC sequences and C0/C1 controls (tab and newline stay) from server-supplied text. */
+export function stripTerminalControls(text) {
+  return String(text)
+    .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "")
+    .replace(/\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g, "")
+    .replace(/\u001b./g, "")
+    .replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, "");
 }
 
 export function unreachableMessage(path) {
@@ -145,14 +159,56 @@ export class CodexRpcError extends Error {
 }
 
 export class CodexSendError extends Error {
-  constructor(message, { delivery, threadId, turnId, refused } = {}) {
+  constructor(message, { delivery, threadId, turnId, refused, reason, envelope } = {}) {
     super(message);
     this.name = "CodexSendError";
     this.delivery = delivery;
+    if (reason !== undefined) this.reason = reason;
     if (threadId !== undefined) this.threadId = threadId;
     if (turnId !== undefined) this.turnId = turnId;
     if (refused !== undefined) this.refused = refused;
+    if (envelope !== undefined) this.envelope = envelope;
   }
+}
+
+/** The route to the app-server is unavailable; `mode` is a stable machine-readable state. */
+export class CodexRouteError extends Error {
+  constructor(message, mode) {
+    super(message);
+    this.name = "CodexRouteError";
+    this.mode = mode;
+    this.delivery = "rejected";
+    this.reason = mode;
+  }
+}
+
+/** The app-server answered with a shape this pinned schema does not describe. */
+export class CodexProtocolError extends Error {
+  constructor(method, detail) {
+    super("Codex app-server returned an unexpected " + method + " response: " + detail
+      + ". gbot is pinned to app-server schema " + PINNED_CODEX_VERSION + "; run `gbot codex status --json` to compare versions.");
+    this.name = "CodexProtocolError";
+    this.method = method;
+    this.mode = "bad-response";
+    this.reason = "bad-response";
+  }
+}
+
+function isObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+/** Route failure modes carry structured state; anything else is left as-is. */
+function routeError(err, path) {
+  if (err instanceof CodexRouteError) return err;
+  const message = err && err.message ? err.message : String(err);
+  if (/^Timed out connecting|^Could not connect|^Codex app-server closed the connection/.test(message)) {
+    return new CodexRouteError(message + " (socket present at " + path + ", but no app-server answered).", "connect-failed");
+  }
+  if (/^Codex app-server refused the WebSocket upgrade|^Codex app-server (violated|sent|handshake)/.test(message)) {
+    return new CodexRouteError(message, "handshake-failed");
+  }
+  return err;
 }
 
 /**
@@ -356,69 +412,148 @@ function appServerVersion(initResult) {
   return m ? m[1] : null;
 }
 
+/** Throws CodexRouteError when the operator's socket cannot be used; the path comes only from CODEX_HOME. */
+export function assertRoute(path) {
+  if (process.platform === "win32") throw new CodexRouteError(windowsUnsupportedMessage(), "windows-unsupported");
+  const state = socketState(path);
+  if (state === "socket") return;
+  if (state === "permission-denied") {
+    throw new CodexRouteError("Codex app-server control socket at " + path + " exists but this user may not access it. "
+      + "gbot runs as the user who owns CODEX_HOME; check the socket's owner and mode.", "permission-denied");
+  }
+  if (state === "not-a-socket") {
+    throw new CodexRouteError(path + " exists but is not a Unix socket; remove the stale file and restart the daemon.", "not-a-socket");
+  }
+  throw new CodexRouteError(unreachableMessage(path), "socket-absent");
+}
+
 async function openSession(env = process.env) {
-  if (process.platform === "win32") throw new Error(windowsUnsupportedMessage());
   const path = codexSocketPath(env);
-  if (!socketPresent(path)) throw new Error(unreachableMessage(path));
-  const client = await connectCodexAppServer(path);
+  assertRoute(path);
+  let client;
+  try {
+    client = await connectCodexAppServer(path);
+  } catch (err) {
+    throw routeError(err, path);
+  }
   let init;
   try {
     init = await client.request("initialize", { clientInfo: { name: "gbot", version: pkg.version } });
   } catch (err) {
     client.close();
-    throw err;
+    throw routeError(err, path);
+  }
+  if (!isObject(init)) {
+    client.close();
+    throw new CodexProtocolError("initialize", "result is not an object");
   }
   client.notify("initialized");
   return { client, path, init };
 }
 
-export function localCodexVersion() {
-  const out = spawnSync("codex", ["--version"], { encoding: "utf8" });
+export const CODEX_VERSION_PROBE_TIMEOUT_MS = 3000;
+
+/** Bounded `codex --version` probe: `{ version, probe }` where probe is ok | missing | timeout | error. */
+export function probeLocalCodexVersion(timeoutMs = CODEX_VERSION_PROBE_TIMEOUT_MS) {
+  const out = spawnSync("codex", ["--version"], { encoding: "utf8", timeout: timeoutMs });
+  if (out.error) {
+    if (out.error.code === "ENOENT") return { version: null, probe: "missing" };
+    if (out.error.code === "ETIMEDOUT") return { version: null, probe: "timeout" };
+    return { version: null, probe: "error" };
+  }
   const m = out.status === 0 ? /(\d+\.\d+\.\d+\S*)/.exec(out.stdout) : null;
-  return m ? m[1] : null;
+  return m ? { version: m[1], probe: "ok" } : { version: null, probe: "error" };
 }
 
+export function localCodexVersion() {
+  return probeLocalCodexVersion().version;
+}
+
+/**
+ * Status contract: `reachable` is endpoint reachability only. `schema.compatibility` is
+ * `exact` when the daemon reports the pinned version, otherwise `unverified` (methods
+ * usually survive upgrades) or `unknown`. Whether ChatGPT Desktop owns any thread is not
+ * observable from the socket, so `desktopAttached` is always `"unknown"`.
+ */
 export async function codexStatus(env = process.env) {
   const path = codexSocketPath(env);
-  const base = { socketPath: path, pinnedVersion: PINNED_CODEX_VERSION, cliVersion: localCodexVersion() };
-  if (process.platform === "win32") {
-    return { ...base, reachable: false, mode: "windows-unsupported", message: windowsUnsupportedMessage() };
+  const cli = probeLocalCodexVersion();
+  const base = {
+    socketPath: path,
+    socketState: socketState(path),
+    pinnedVersion: PINNED_CODEX_VERSION,
+    cliVersion: cli.version,
+    cliVersionProbe: cli.probe,
+    desktopAttached: "unknown",
+  };
+  let session;
+  try {
+    session = await openSession(env);
+  } catch (err) {
+    if (err instanceof CodexRouteError || err instanceof CodexProtocolError) {
+      return { ...base, reachable: false, mode: err.mode, message: err.message };
+    }
+    throw err;
   }
-  if (!socketPresent(path)) {
-    return { ...base, reachable: false, mode: "socket-absent", message: unreachableMessage(path) };
-  }
-  const { client, init } = await openSession(env);
-  client.close();
-  const daemonVersion = appServerVersion(init);
+  session.client.close();
+  const daemonVersion = appServerVersion(session.init);
   return {
     ...base,
     reachable: true,
     mode: "daemon",
     daemonVersion,
-    codexHome: init.codexHome ?? null,
+    codexHome: typeof session.init.codexHome === "string" ? session.init.codexHome : null,
+    schema: {
+      pinned: PINNED_CODEX_VERSION,
+      daemon: daemonVersion,
+      compatibility: daemonVersion == null ? "unknown" : daemonVersion === PINNED_CODEX_VERSION ? "exact" : "unverified",
+    },
     versionMismatch: Boolean(base.cliVersion && daemonVersion && base.cliVersion !== daemonVersion),
   };
 }
 
+const THREAD_STATUSES = new Set(["notLoaded", "idle", "active", "systemError"]);
+
+function cleanText(value) {
+  return typeof value === "string" ? stripTerminalControls(value) : value == null ? null : stripTerminalControls(String(value));
+}
+
 export function summarizeThread(t) {
+  const type = t.status && typeof t.status.type === "string" ? t.status.type : "unknown";
   return {
-    id: t.id,
-    status: t.status && t.status.type ? t.status.type : "unknown",
-    name: t.name ?? null,
-    preview: t.preview ?? "",
-    cwd: t.cwd ?? null,
-    source: t.source ?? null,
-    updatedAt: t.updatedAt ?? null,
+    id: cleanText(t.id),
+    status: THREAD_STATUSES.has(type) ? type : "unknown",
+    activeFlags: t.status && Array.isArray(t.status.activeFlags) ? t.status.activeFlags.map(cleanText) : [],
+    name: t.name == null ? null : cleanText(t.name),
+    preview: cleanText(t.preview ?? ""),
+    cwd: t.cwd == null ? null : cleanText(t.cwd),
+    source: t.source == null ? null : cleanText(t.source),
+    updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : null,
   };
 }
 
-export async function listCodexThreads({ limit = 20, env = process.env } = {}) {
+export const THREAD_LIST_MAX_LIMIT = 200;
+
+export async function listCodexThreads({ limit = 20, cursor, env = process.env } = {}) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > THREAD_LIST_MAX_LIMIT) {
+    throw new RangeError("--limit must be an integer 1-" + THREAD_LIST_MAX_LIMIT);
+  }
+  if (cursor !== undefined && (typeof cursor !== "string" || !cursor)) throw new RangeError("--cursor must be a non-empty string");
   const { client } = await openSession(env);
   try {
     // The default listing rescans every rollout file to repair metadata (26 s on a busy machine);
     // the state DB already holds what we print.
-    const out = await client.request("thread/list", { limit, useStateDbOnly: true });
-    return { threads: out.data.map(summarizeThread), nextCursor: out.nextCursor ?? null };
+    const params = { limit, useStateDbOnly: true, ...(cursor !== undefined ? { cursor } : {}) };
+    let out;
+    try {
+      out = await client.request("thread/list", params);
+    } catch (err) {
+      throw routeError(err, codexSocketPath(env));
+    }
+    if (!isObject(out) || !Array.isArray(out.data)) throw new CodexProtocolError("thread/list", "missing `data` array");
+    if (out.nextCursor != null && typeof out.nextCursor !== "string") throw new CodexProtocolError("thread/list", "`nextCursor` is not a string");
+    const threads = out.data.filter(isObject).map(summarizeThread);
+    return { threads, nextCursor: out.nextCursor ?? null, limit };
   } finally {
     client.close();
   }
@@ -436,7 +571,108 @@ function explainSendError(err, threadId) {
   return err;
 }
 
-export async function sendToCodexThread(threadId, text, env = process.env) {
+export const DEFAULT_MAX_HOPS = 4;
+const ID_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
+
+/**
+ * Delivery envelope: `messageId` names this send, `correlationId` names the conversation it
+ * belongs to, `replyTo` names the message it answers, `hop` counts agent-to-agent forwards.
+ * `maxHops` (GROK_BOT_MAX_HOPS) bounds relays: a reply must carry hop = incoming hop + 1, and a
+ * send at or past the bound is refused, so two agents cannot ack each other forever.
+ * The textual header is caller-authored provenance for the reader, not authentication.
+ */
+export function buildEnvelope({ correlationId, replyTo, hop, envelope = false, env = process.env } = {}) {
+  const maxHops = Number.parseInt(env.GROK_BOT_MAX_HOPS ?? "", 10);
+  const bound = Number.isInteger(maxHops) && maxHops >= 0 ? maxHops : DEFAULT_MAX_HOPS;
+  for (const [name, value] of [["--correlation-id", correlationId], ["--reply-to", replyTo]]) {
+    if (value !== undefined && !ID_PATTERN.test(value)) throw new RangeError(name + " must be 1-128 characters of [A-Za-z0-9_.:-]");
+  }
+  const hopCount = hop === undefined ? 0 : hop;
+  if (!Number.isInteger(hopCount) || hopCount < 0) throw new RangeError("--hop must be a non-negative integer");
+  if (replyTo !== undefined && correlationId === undefined) {
+    throw new RangeError("--reply-to needs the original --correlation-id so the reply stays in its conversation");
+  }
+  const messageId = randomUUID();
+  const out = {
+    messageId,
+    correlationId: correlationId ?? messageId,
+    hop: hopCount,
+    maxHops: bound,
+    header: envelope || replyTo !== undefined || hop !== undefined || correlationId !== undefined,
+  };
+  if (replyTo !== undefined) out.replyTo = replyTo;
+  if (hopCount >= bound) {
+    throw new CodexSendError(
+      "Refusing to send: hop " + hopCount + " reaches the relay bound " + bound + " (GROK_BOT_MAX_HOPS). "
+      + "This message is an agent-to-agent relay that has already been forwarded too many times.",
+      { delivery: "rejected", reason: "hop-limit", envelope: out },
+    );
+  }
+  return out;
+}
+
+/** One-line header a receiving agent can read to reply with `--reply-to` and `--hop N+1`. */
+export function envelopeHeader(envelope, env = process.env) {
+  const from = (env.USER || env.USERNAME || "unknown") + "@" + hostnameSafe();
+  const parts = ["msg=" + envelope.messageId, "corr=" + envelope.correlationId];
+  if (envelope.replyTo) parts.push("reply-to=" + envelope.replyTo);
+  parts.push("hop=" + envelope.hop, "from=" + from);
+  return "[gbot " + parts.join(" ") + "]";
+}
+
+function hostnameSafe() {
+  try {
+    return stripTerminalControls(hostname()).slice(0, 64) || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+export function withEnvelopeHeader(text, envelope, env = process.env) {
+  return envelope.header ? envelopeHeader(envelope, env) + "\n" + text : text;
+}
+
+/** Operator-controlled destinations: GROK_BOT_CODEX_THREADS="id,id" restricts `codex send`. */
+export function assertThreadAllowed(threadId, env = process.env) {
+  const raw = env.GROK_BOT_CODEX_THREADS;
+  if (raw == null || raw.trim() === "") return;
+  const allowed = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!allowed.includes(threadId)) {
+    throw new CodexSendError(
+      "Codex thread " + threadId + " is not in GROK_BOT_CODEX_THREADS; the operator allows only: " + allowed.join(", "),
+      { delivery: "rejected", reason: "route-not-allowed", threadId },
+    );
+  }
+}
+
+/**
+ * Busy destinations: in app-server 0.154.0 `turn/start` on a thread with an active turn steers
+ * that turn instead of queueing (TurnStartParams.turnTrigger: "Ignored when this request steers
+ * an already-active turn"), and no client request adds to the server-side queue (only the
+ * `thread/queue/changed` notification exists). gbot never steers or interrupts human work, so an
+ * `active` thread is refused with a `busy` receipt; see docs/codex-busy-threads.md.
+ */
+function assertThreadIdle(resumed, threadId) {
+  const status = resumed && resumed.thread && resumed.thread.status;
+  const type = status && typeof status.type === "string" ? status.type : "unknown";
+  if (type === "active") {
+    const flags = Array.isArray(status.activeFlags) && status.activeFlags.length ? " (" + status.activeFlags.join(", ") + ")" : "";
+    throw new CodexSendError(
+      "Codex thread " + threadId + " has an active turn" + flags + "; sending now would steer that turn. "
+      + "Wait for it to go idle (`gbot codex list-threads`) and resend.",
+      { delivery: "rejected", reason: "busy", threadId },
+    );
+  }
+  if (type === "systemError") {
+    throw new CodexSendError("Codex thread " + threadId + " is in systemError state; open it in a Codex client first.",
+      { delivery: "rejected", reason: "thread-error", threadId });
+  }
+  return type;
+}
+
+export async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({ env }) } = {}) {
+  assertThreadAllowed(threadId, env);
+  const body = withEnvelopeHeader(text, envelope, env);
   const { client } = await openSession(env);
   try {
     let resumed;
@@ -446,14 +682,28 @@ export async function sendToCodexThread(threadId, text, env = process.env) {
       if (err instanceof CodexSendError) throw err;
       throw new CodexSendError(explainSendError(err, threadId).message, {
         delivery: err instanceof CodexRpcError ? "rejected" : (err && err.delivery) || "unknown",
+        reason: err instanceof CodexRpcError ? (/no rollout found|thread not found/i.test(String(err.rpc && err.rpc.message)) ? "unknown-thread"
+          : /active writer/i.test(String(err.rpc && err.rpc.message)) ? "external-owner" : "rejected") : "transport",
         threadId,
+        envelope,
       });
     }
+    if (!isObject(resumed) || !isObject(resumed.thread) || typeof resumed.thread.id !== "string") {
+      throw new CodexProtocolError("thread/resume", "missing `thread.id`");
+    }
+    // ponytail: idle-at-resume then turn/start is a small race with a human starting a turn first;
+    // the daemon exposes no atomic start-only request. Upgrade path: a native queue/start-only RPC.
+    const threadStatus = assertThreadIdle(resumed, threadId);
     // Scope refusals to this turn: server requests from earlier calls belong to another context.
     const seenRefused = client.refused.length;
     let turn;
     try {
-      turn = await client.request("turn/start", { threadId, input: [{ type: "text", text }] });
+      turn = await client.request("turn/start", {
+        threadId,
+        input: [{ type: "text", text: body }],
+        clientUserMessageId: envelope.messageId,
+        turnTrigger: "gbot",
+      });
     } catch (err) {
       if (err instanceof CodexSendError) throw err;
       const delivery = err instanceof CodexRpcError ? "rejected" : (err && err.delivery) || "unknown";
@@ -461,14 +711,14 @@ export async function sendToCodexThread(threadId, text, env = process.env) {
         ? err.message
         : "Lost the Codex turn/start response for thread " + threadId + ": " + ((err && err.message) || err)
           + ". Delivery is unknown; check the thread before resending.";
-      // ponytail: no blind retry here; a stable receipt/correlation envelope is issue #37.
-      throw new CodexSendError(detail, { delivery, threadId });
+      // No blind retry: the receipt carries messageId so the caller can look for it before resending.
+      throw new CodexSendError(detail, { delivery, reason: delivery === "rejected" ? "rejected" : "transport", threadId, envelope });
     }
     const turnId = turn && turn.turn && typeof turn.turn.id === "string" && turn.turn.id ? turn.turn.id : null;
     if (!turnId) {
       throw new CodexSendError(
         "Codex app-server sent a malformed turn/start acknowledgment for thread " + threadId + ". Delivery is unknown; check the thread before resending.",
-        { delivery: "unknown", threadId },
+        { delivery: "unknown", reason: "bad-response", threadId, envelope },
       );
     }
     const freshRefused = client.refused.slice(seenRefused)
@@ -478,17 +728,23 @@ export async function sendToCodexThread(threadId, text, env = process.env) {
       throw new CodexSendError(
         "Turn " + turnId + " started on thread " + threadId + " but Codex asked for " + methods + ", which gbot refused. "
         + "Answer it in a Codex client, or set `approval_policy = \"never\"` in the daemon's config.toml for unattended sends.",
-        { delivery: "accepted", threadId, turnId, refused: freshRefused.map((r) => r.method) },
+        { delivery: "accepted", reason: "approval-refused", threadId, turnId, refused: freshRefused.map((r) => r.method), envelope },
       );
     }
     return {
       delivery: "accepted",
       threadId: resumed.thread.id,
+      threadStatus,
       turnId,
       turnStatus: turn.turn.status,
       model: resumed.model,
       cwd: resumed.cwd,
       approvalPolicy: resumed.approvalPolicy,
+      messageId: envelope.messageId,
+      correlationId: envelope.correlationId,
+      ...(envelope.replyTo ? { replyTo: envelope.replyTo } : {}),
+      hop: envelope.hop,
+      maxHops: envelope.maxHops,
     };
   } finally {
     client.close();
