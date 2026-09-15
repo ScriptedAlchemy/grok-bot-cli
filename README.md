@@ -34,7 +34,7 @@ gbot bots delete Researcher
 gbot bots delete Writer
 ```
 
-`update` fields: `--name` `--description`/`--instructions` `--title` `--avatar-shape` `--avatar-color` `--notify` `--hidden`. `--description` is the UI Instructions field.
+`update` fields: `--name` `--description` `--title` `--avatar-shape` `--avatar-color` `--notify on|off` `--hidden on|off`. `--description` is the UI Instructions field.
 
 `gbot thread --after ID` filters the bounded tail locally and returns entries strictly
 after that opaque entry ID. Its JSON includes `cursor`, `entryCount`, and `gapReset`.
@@ -43,7 +43,10 @@ snapshot with `gapReset: true`. The gateway request remains limit-only.
 
 Run `gbot --help` for every command.
 Options are command-local (for example, `gbot send --history-dir DIR ...`);
-the former leading-global form is no longer accepted.
+the former leading-global form is no longer accepted. `--json` prints the
+canonical JSON result; `send` and the `codex` commands also report failures as
+a JSON document on stdout with `exitCode` (see below), every other command
+prints the failure message on stderr and exits 1.
 
 ## Gateway URL policy
 
@@ -89,7 +92,7 @@ Sends at `hop >= GROK_BOT_MAX_HOPS` (default 4) are refused with `reason: "hop-l
 
 **Busy threads.** `send` reads the thread status on resume. Only `idle` and `notLoaded` threads start a turn. An `active` thread (a turn in progress, or waiting on approval / user input) is refused with `reason: "busy"`: in app-server 0.154.0 a `turn/start` on an active thread steers that turn rather than queueing behind it, and `gbot` never steers or interrupts work a human may be doing. Either wait for `list-threads` to show `idle` and resend, or pass `--when-busy queue` to hand the message to the daemon's own queue through Codex's experimental `thread/queue/add` — that needs `GROK_BOT_CODEX_EXPERIMENTAL=1`, returns `delivery: "queued"` with `queuedSubmissionId`, and `gbot codex queue <threadId>` shows what is still waiting. `systemError` threads are refused with `reason: "thread-error"`, statuses this version does not know with `reason: "unknown-status"`. Receipts distinguish `delivery: "accepted"` (turn started; `turnId`, `turnStatus`), `"queued"`, `"rejected"` (nothing was sent; see `reason`), and `"unknown"` (the request left but no acknowledgment came back — look for `messageId` in the thread or queue before resending). The decision record, with the schema evidence and a live probe of the queue API, is in [`docs/codex-busy-threads.md`](docs/codex-busy-threads.md).
 
-**Failure modes.** Every `send` and `codex send` outcome under `--json` is one document on stdout with `exitCode`; failures include `{ error, delivery, reason, messageId, correlationId, hop, exitCode: 1, … }` and the process exits 1. Framework argument/schema errors remain on stderr and exit 2. `--json` is reserved anywhere before `--`; put `--` before flag-like message text. `reason` values are stable:
+**Failure modes.** Every `send` and `codex` outcome under `--json` is one document on stdout with `exitCode`; failures include `{ error, delivery, reason, messageId, correlationId, hop, exitCode: 1, … }` and the process exits 1. Framework argument/schema errors remain on stderr and exit 2. `--json` is reserved anywhere before `--`; put `--` before flag-like message text. `reason` values are stable:
 
 - `socket-absent` / `permission-denied` / `not-a-socket` / `connect-failed` / `handshake-failed` / `windows-unsupported`: the route is unavailable. Start the daemon, fix the socket, or wait for the upstream Desktop fixes.
 - `unknown-thread`: use `list-threads`.
@@ -117,7 +120,9 @@ gbot-install install cursor
 gbot-install doctor
 ```
 
-Add `--replace` to an install command to overwrite an earlier copy.
+Add `--replace` to an install command to overwrite an earlier copy. The bundle is
+registered as `gbot`; if you installed the pre-0.4 `grok-bot` plugin from a source
+checkout, uninstall it first so the two do not both register the `grok-bot` server.
 
 `gbot_thread` returns a small receipt by default: deterministic `summary`, opaque
 `cursor`, `entryCount`, and `gapReset`.

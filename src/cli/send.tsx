@@ -7,6 +7,7 @@ import { outcomeFromError } from '../core/codex/contract.js';
 import { saveHistory } from '../core/history.js';
 import {
   backendFlagsSchema,
+  failureDocumentSchema,
   openBackendFromInput,
 } from './_shared.js';
 
@@ -65,15 +66,7 @@ const receiptSchema = z
   .strict();
 
 // Refusals and gateway failures are the same flat document `codex send` emits.
-const failureSchema = z
-  .object({
-    delivery: z.enum(['rejected', 'unknown']),
-    error: z.string(),
-    exitCode: z.literal(1),
-  })
-  .catchall(z.json());
-
-export const resultSchema = z.union([receiptSchema, failureSchema]);
+export const resultSchema = z.union([receiptSchema, failureDocumentSchema]);
 
 const deliver = async (input: z.infer<typeof inputSchema>): Promise<z.infer<typeof receiptSchema>> => {
   const envelope = buildEnvelope({
@@ -112,13 +105,7 @@ export default async function send({ input }: CliRouteProps<typeof inputSchema>)
   try {
     value = await deliver(input);
   } catch (error) {
-    const outcome = outcomeFromError(error);
-    value = {
-      ...outcome,
-      delivery: outcome.delivery === 'unknown' ? ('unknown' as const) : ('rejected' as const),
-      error: outcome.error ?? String(error),
-      exitCode: 1 as const,
-    };
+    value = outcomeFromError(error);
   }
   const text = value.exitCode === 0
     ? `Sent to ${value.kind} ${value.name} (${value.id})${value.messageId ? ` message ${value.messageId}` : ''}; envelope ${value.envelopeId}`

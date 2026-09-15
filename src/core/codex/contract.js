@@ -73,7 +73,7 @@ export function sendExitCode(outcome) {
  *
  * @param {unknown} error
  * @param {{ isUsage?: (err: unknown) => boolean }} [opts]
- * @returns {CodexSendOutcome}
+ * @returns {CodexSendOutcome & { error: string, exitCode: 1 }}
  */
 export function outcomeFromError(error, opts = {}) {
   const isUsage = opts.isUsage ?? ((err) =>
@@ -96,8 +96,7 @@ export function outcomeFromError(error, opts = {}) {
   }
 
   if (out.delivery === undefined) out.delivery = "rejected";
-  const exitCode = sendExitCode(/** @type {{ delivery: CodexDelivery, reason?: string, error?: string }} */ (out));
-  return /** @type {CodexSendOutcome} */ ({ ...out, exitCode });
+  return /** @type {CodexSendOutcome & { error: string, exitCode: 1 }} */ ({ ...out, exitCode: 1 });
 }
 
 /**

@@ -88,6 +88,13 @@ export function formatCodexStatus(s) {
   return lines.join("\n");
 }
 
+export function formatCodexQueue({ threadId, queued }) {
+  if (queued.length === 0) return "No queued submissions on Codex thread " + threadId + ".";
+  return queued
+    .map((q) => q.id + "  " + (q.clientUserMessageId ?? "") + "\n    " + stripTerminalControls(q.text).replace(/\s+/g, " ").slice(0, 200))
+    .join("\n\n");
+}
+
 export function formatCodexThread(t) {
   const title = t.name ? " - " + stripTerminalControls(t.name) : "";
   const preview = t.preview

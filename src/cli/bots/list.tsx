@@ -19,7 +19,7 @@ export const config = {
 } satisfies CliRouteConfig;
 
 export const inputSchema = backendFlagsSchema;
-export const resultSchema = z.object({ bots: z.array(agentSummarySchema) }).strict();
+export const resultSchema = z.array(agentSummarySchema);
 
 export default async function botsList({ input }: CliRouteProps<typeof inputSchema>) {
   const backend = await openBackendFromInput(input);
@@ -28,7 +28,7 @@ export default async function botsList({ input }: CliRouteProps<typeof inputSche
   const bots = rows.map(summarize);
   const text = rows.length === 0 ? 'No bots.' : rows.map((r: Parameters<typeof formatRecord>[0]) => formatRecord(r, all)).join('\n\n');
   return (
-    <Agent.Result value={{ bots }}>
+    <Agent.Result value={bots}>
       <Agent.Text>{text}</Agent.Text>
     </Agent.Result>
   );

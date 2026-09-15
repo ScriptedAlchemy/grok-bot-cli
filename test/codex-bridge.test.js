@@ -766,10 +766,13 @@ test("codex list-threads pages with --cursor, echoes nextCursor, and rejects unk
 test("codex list-threads fails with bad-response when the daemon returns an unknown shape", async () => {
   const fake = await fakeAppServer({ ...baseHandlers, "thread/list": (params, ok) => ok({ threads: [] }) });
   try {
-    const { code, err } = await gbot(fake.home, "codex", "list-threads", "--json");
+    const { code, out } = await gbot(fake.home, "codex", "list-threads", "--json");
     assert.equal(code, 1);
-    assert.match(err, /unexpected thread\/list response: missing `data` array/);
-    assert.match(err, /pinned to app-server schema 0\.154\.0/);
+    const failure = JSON.parse(out);
+    assert.equal(failure.reason, "bad-response");
+    assert.equal(failure.exitCode, 1);
+    assert.match(failure.error, /unexpected thread\/list response: missing `data` array/);
+    assert.match(failure.error, /pinned to app-server schema 0\.154\.0/);
   } finally {
     await fake.close();
   }
@@ -799,9 +802,10 @@ test("codex list-threads sanitizes text fields, keeps structured source, and rej
   }
   const broken = await fakeAppServer({ ...baseHandlers, "thread/list": (params, ok) => ok({ data: [{ status: { type: "idle" } }], nextCursor: null }) });
   try {
-    const { code, err } = await gbot(broken.home, "codex", "list-threads", "--json");
+    const { code, out } = await gbot(broken.home, "codex", "list-threads", "--json");
     assert.equal(code, 1);
-    assert.match(err, /entry without a string `id`/);
+    assert.equal(JSON.parse(out).reason, "bad-response");
+    assert.match(JSON.parse(out).error, /entry without a string `id`/);
   } finally {
     await broken.close();
   }

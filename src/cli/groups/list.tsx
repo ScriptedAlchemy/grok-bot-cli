@@ -19,7 +19,7 @@ export const config = {
 } satisfies CliRouteConfig;
 
 export const inputSchema = backendFlagsSchema;
-export const resultSchema = z.object({ groups: z.array(agentSummarySchema) }).strict();
+export const resultSchema = z.array(agentSummarySchema);
 
 export default async function groupsList({ input }: CliRouteProps<typeof inputSchema>) {
   const backend = await openBackendFromInput(input);
@@ -28,7 +28,7 @@ export default async function groupsList({ input }: CliRouteProps<typeof inputSc
   const groups = rows.map(summarize);
   const text = rows.length === 0 ? 'No groups.' : rows.map((r: Parameters<typeof formatRecord>[0]) => formatRecord(r, all)).join('\n\n');
   return (
-    <Agent.Result value={{ groups }}>
+    <Agent.Result value={groups}>
       <Agent.Text>{text}</Agent.Text>
     </Agent.Result>
   );

@@ -199,6 +199,9 @@ test("failed sends and empty threads leave no history; disk failure does not fai
   assert.equal(looped.code, 1);
   assert.equal(JSON.parse(looped.stdout).reason, "hop-limit");
   assert.equal(f.calls.filter((c) => c.method === "/api/sendPrompt").length, sends, "hop-limit refusals never reach the gateway");
+  const usage = await f.run(["send", "--files", "--dir", f.home, "Researcher", "hi", "--json"], {}, false).catch((err) => err);
+  assert.equal(usage.code, 1);
+  assert.equal(JSON.parse(usage.stdout).reason, "usage", "StoreError keeps its name through redaction");
   assert.equal(existsSync(f.path), false);
   f.state.payload = { entries: [] };
   await f.run(["thread", "Researcher"]);
@@ -210,6 +213,9 @@ test("failed sends and empty threads leave no history; disk failure does not fai
   assert.equal(JSON.parse(result.stdout).result.ok, true);
   assert.match(result.stderr, /Warning: could not save local history/);
   assert.equal(f.calls.filter((c) => c.method === "/api/sendPrompt" && c.body.prompt === "sent once").length, 1);
+  const protectedText = await f.run(["send", "Researcher", "--", "--json"]);
+  assert.match(protectedText.stdout, /^Sent to bot Researcher/);
+  assert.equal(f.calls.at(-1).body.prompt, "--json", "`--` makes flag-like text literal");
 });
 
 test("history skips malformed records and separates interrupted writes on the next append", async (t) => {

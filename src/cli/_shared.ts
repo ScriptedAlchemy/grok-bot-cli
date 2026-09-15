@@ -11,6 +11,15 @@ export const backendFlagsSchema = z.object({
   gateway: z.boolean().optional().describe('Force the live gateway'),
 }).strict();
 
+/** The flat failure document `outcomeFromError` builds for `exitCode: 'result'` routes. */
+export const failureDocumentSchema = z
+  .object({
+    delivery: z.enum(['accepted', 'queued', 'rejected', 'unknown']),
+    error: z.string(),
+    exitCode: z.literal(1),
+  })
+  .catchall(z.json());
+
 // The framework prints thrown route errors verbatim; a fetch or proxy failure can echo a credential.
 const redactBackendErrors = <T extends object>(backend: T): T =>
   new Proxy(backend, {
