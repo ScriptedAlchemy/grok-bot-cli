@@ -109,6 +109,37 @@ test("supports all transcript envelopes and text fields already displayed by the
   assert.deepEqual(f.rows().map((r) => r.text), ["message text", "prompt text", "content text"]);
 });
 
+test("thread --after returns exclusive deltas, no-op receipts, and bounded gap resets", async (t) => {
+  const f = await fixture(t);
+  const entries = Array.from({ length: 45 }, (_, index) => ({ id: `m${index + 1}`, text: `message ${index + 1}` }));
+  f.state.payload = { entries };
+
+  const newer = JSON.parse((await f.run(["thread", "Researcher", "--limit", "45", "--after", "m43", "--json"])).stdout);
+  assert.deepEqual(f.calls.at(-1), { method: "/api/getAgentTranscriptTail", body: { id: target.id, limit: 45 } });
+  assert.deepEqual(newer.transcript.entries, entries.slice(43));
+  assert.deepEqual({ cursor: newer.cursor, entryCount: newer.entryCount, gapReset: newer.gapReset }, {
+    cursor: "m45",
+    entryCount: 2,
+    gapReset: false,
+  });
+
+  const unchanged = JSON.parse((await f.run(["thread", "Researcher", "--limit", "45", "--after", "m45", "--json"])).stdout);
+  assert.deepEqual(unchanged.transcript.entries, []);
+  assert.deepEqual({ cursor: unchanged.cursor, entryCount: unchanged.entryCount, gapReset: unchanged.gapReset }, {
+    cursor: "m45",
+    entryCount: 0,
+    gapReset: false,
+  });
+
+  const reset = JSON.parse((await f.run(["thread", "Researcher", "--limit", "40", "--after", "bogus", "--json"])).stdout);
+  assert.deepEqual(reset.transcript.entries, entries.slice(-40));
+  assert.deepEqual({ cursor: reset.cursor, entryCount: reset.entryCount, gapReset: reset.gapReset }, {
+    cursor: "m45",
+    entryCount: 40,
+    gapReset: true,
+  });
+});
+
 test("recording opt-outs do not create storage or disable access to existing history", async (t) => {
   const f = await fixture(t);
   await f.run(["--no-history", "send", "Researcher", "private prompt"]);

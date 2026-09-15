@@ -3,7 +3,7 @@ import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS, StoreError, defaultCan
 import { hasGatewayAuth } from "./gateway.js";
 import { openBackend } from "./commands.js";
 import { inspectGrokBotGatewaySession } from "./app-session.js";
-import { entryText, transcriptEntries } from "./transcript.js";
+import { entryText, transcriptDelta, transcriptEntries } from "./transcript.js";
 import { historyPath, readHistory, saveHistory } from "./history.js";
 import { redactSecrets } from "./url-policy.js";
 import { codexStatus, listCodexThreads, sendToCodexThread } from "./codex-bridge.js";
@@ -58,7 +58,7 @@ function usage() {
     "  groups set <group> --member ID [--member ...]",
     "  groups delete <id-or-name>",
     "  send <bot-or-group> <message...>",
-    "  thread <bot-or-group> [--limit N] [--root MESSAGE_ID] [--full]",
+    "  thread <bot-or-group> [--limit N] [--after ENTRY_ID] [--root MESSAGE_ID] [--full]",
     "  chat <bot-or-group>     alias for thread",
     "  history [bot-or-group] [--search TEXT] [--limit N]  (offline)",
     "  history --path         print the local JSONL file path",
@@ -561,16 +561,27 @@ async function main(argv) {
 
   if (cmd === "thread" || cmd === "chat") {
     const ref = sub;
-    if (!ref) throw new StoreError("gbot thread <bot-or-group> [--limit N] [--root MESSAGE_ID] [--full]");
+    if (!ref) throw new StoreError("gbot thread <bot-or-group> [--limit N] [--after ENTRY_ID] [--root MESSAGE_ID] [--full]");
     const full = hasFlag(rest, "--full");
     const limitRaw = takeFlag(rest, "--limit");
     const rootId = takeFlag(rest, "--root");
+    const after = takeFlag(rest, "--after");
     const limit = limitRaw ? Number(limitRaw) : 40;
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new StoreError("--limit must be an integer 1-200");
+    if (after !== undefined && (after.length === 0 || after.length > 1024)) throw new StoreError("--after must be 1-1024 characters");
+    if (after !== undefined && rootId !== undefined) throw new StoreError("--after cannot be combined with --root");
     const out = rootId ? await backend.thread(ref, rootId) : await backend.transcript(ref, limit);
-    saveHistory(out, { dir: historyDir, disabled: noHistory, event: cmd, rootId });
-    if (json) print(out);
-    else print(formatTranscript(out, { full }));
+    let selected = out;
+    if (after !== undefined) {
+      const delta = transcriptDelta(out.transcript, { after, limit });
+      selected = { ...out, transcript: { entries: delta.entries }, cursor: delta.cursor, entryCount: delta.entryCount, gapReset: delta.gapReset };
+    }
+    saveHistory(selected, { dir: historyDir, disabled: noHistory, event: cmd, rootId });
+    if (json) print(selected);
+    else {
+      const text = formatTranscript(selected, { full });
+      print(after === undefined ? text : text + "\n\ncursor: " + selected.cursor + (selected.gapReset ? " (gap reset)" : ""));
+    }
     return;
   }
 

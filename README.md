@@ -28,12 +28,18 @@ gbot groups update Launch --title "Launch room" --hidden off
 gbot send Researcher "Summarize the launch status."
 gbot send Launch "Share your updates."
 gbot thread Researcher
+gbot thread Researcher --after <last-entry-id> --json
 gbot groups delete Launch
 gbot bots delete Researcher
 gbot bots delete Writer
 ```
 
 `update` fields: `--name` `--description`/`--instructions` `--title` `--avatar-shape` `--avatar-color` `--notify` `--hidden`. `--description` is the UI Instructions field.
+
+`gbot thread --after ID` filters the bounded tail locally and returns entries strictly
+after that opaque entry ID. Its JSON includes `cursor`, `entryCount`, and `gapReset`.
+An unchanged poll has `entryCount: 0`; an unknown or expired ID returns one bounded
+snapshot with `gapReset: true`. The gateway request remains limit-only.
 
 Run `gbot --help` for every command.
 
@@ -98,6 +104,13 @@ npx agent-bundle doctor --from artifact
 Add `--replace` to an install command to overwrite an earlier copy. `npm run check`
 runs the plugin gates: source validation, build, artifact validation, typecheck, and
 the route-unit tests, which drive both tools against a loopback fake gateway.
+
+`gbot_thread` returns a small receipt by default: deterministic `summary`, opaque
+`cursor`, `entryCount`, and `gapReset`.
+Pass the cursor back as `after` for an exclusive client-side delta. Pass `full:true`
+only when bounded entry bodies are needed in structured content; `Agent.Text` remains
+the short summary. Unknown cursors set `gapReset: true`; repeat that call with
+`full:true` to inspect the bounded reset snapshot.
 
 Auth resolves exactly as for `gbot`: `GROK_BOT_GATEWAY_URL` + `GROK_BOT_GATEWAY_TOKEN`,
 then the Grok Bot app session, then `CURSOR_ACCESS_TOKEN`. The MCP server therefore

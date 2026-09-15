@@ -6,8 +6,8 @@ import {
   connectGateway,
   entrySchema,
   getTranscriptTail,
-  summarizeTarget,
-  targetSchema,
+  RECEIPT_CURSOR_MAX,
+  transcriptDelta,
   transcriptEntries,
   withRedactedErrors,
 } from '../../../gbot.js';
@@ -16,19 +16,23 @@ export default defineTool(
   {
     annotations: { readOnlyHint: true },
     description:
-      'Read the most recent messages in a Grok Bot bot or group thread, like `gbot thread`. Use it to collect the reply to a gbot_send.',
+      'Read a bounded Grok Bot thread tail. Returns a small receipt by default; pass the last cursor as after for an exclusive client-side delta, or full:true to include bounded entry text.',
     inputJsonSchema: {
       additionalProperties: false,
       properties: {
+        after: {
+          description: 'Opaque cursor from the previous call. Returns entries strictly after it; an unknown cursor resets with a bounded snapshot.',
+          type: 'string',
+        },
         limit: {
           default: 40,
-          description: 'How many trailing entries to return (1-200). Each entry text is capped at 400 characters.',
+          description: 'How many trailing entries to inspect (1-200). Entries are returned only with full:true.',
           type: 'number',
         },
         full: {
           default: false,
           description:
-            'Return complete entry text up to bounded budgets (20k chars per entry, 200k total) instead of the 400-character preview. Every entry still reports truncated/fullLength; read the remainder with `gbot thread --full` / `--json` on the machine.',
+            'Return entries with text up to bounded budgets (20k chars per entry, 200k total). Every entry reports truncated/fullLength; read any remainder with `gbot thread --full` / `--json` on the machine.',
           type: 'boolean',
         },
         target: { description: 'Bot or group name or id, for example "General".', type: 'string' },
@@ -39,22 +43,46 @@ export default defineTool(
     inputSchema: z.object({
       // ponytail: the route inputJsonSchema type cannot express minimum/maximum, so the
       // 1-200 bound lives here in zod (and in the CLI/gateway); widen the route type to align them.
+      after: z.string().min(1).max(RECEIPT_CURSOR_MAX).optional(),
       limit: z.number().int().min(1).max(200).default(40),
       full: z.boolean().default(false),
       target: z.string().min(1),
     }),
-    resultSchema: z.object({ entries: z.array(entrySchema), target: targetSchema }),
+    resultSchema: z.object({
+      cursor: z.string().max(RECEIPT_CURSOR_MAX),
+      entries: z.array(entrySchema).optional(),
+      entryCount: z.number().int().min(0).max(200),
+      gapReset: z.boolean(),
+      summary: z.string().max(256),
+    }),
     title: 'Read a Grok Bot thread',
   },
-  async ({ limit, target, full }) => {
+  async ({ after, limit, target, full }) => {
     const tail = await withRedactedErrors(async () => getTranscriptTail(await connectGateway(), target, limit));
-    const value = { entries: transcriptEntries(tail.transcript, { full, limit }), target: summarizeTarget(tail.target) };
+    const delta = transcriptDelta(tail.transcript, { after, limit });
+    const entries = transcriptEntries(delta.entries);
+    const summary = delta.gapReset
+      ? `${delta.entryCount} entries; gap reset`
+      : after === undefined
+        ? `${delta.entryCount} entries`
+        : `${delta.entryCount} new`;
+    const receipt = {
+      cursor: delta.cursor,
+      entryCount: delta.entryCount,
+      gapReset: delta.gapReset,
+      summary,
+    };
+    if (!full) {
+      return (
+        <Agent.Result value={receipt}>
+          <Agent.Text>{summary}</Agent.Text>
+        </Agent.Result>
+      );
+    }
+    const value = { ...receipt, entries };
     return (
       <Agent.Result value={value}>
-        <Agent.Text>{`${value.target.kind} ${value.target.name}: ${value.entries.length} entries.`}</Agent.Text>
-        {value.entries.map((entry, index) => (
-          <Agent.Text key={entry.id || index}>{`[${entry.role ?? entry.kind}] ${entry.text}`}</Agent.Text>
-        ))}
+        <Agent.Text>{summary}</Agent.Text>
       </Agent.Result>
     );
   },
