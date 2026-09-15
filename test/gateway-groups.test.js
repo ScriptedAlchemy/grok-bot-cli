@@ -73,6 +73,15 @@ for (const [name, run] of [
   });
 }
 
+test("add prefers bot-target error over unknown member", async (t) => {
+  const calls = mockGateway(t);
+  await assert.rejects(
+    addGroupMember(session, bots[0].name, "Missing bot"),
+    { name: "GatewayError", message: /is a bot, not a group/ },
+  );
+  assert.ok(calls.every((call) => call.method === "listAgents"));
+});
+
 test("add rejects a nested group before any mutation", async (t) => {
   const calls = mockGateway(t);
   await assert.rejects(addGroupMember(session, group.id, group.id), /Nested groups/);

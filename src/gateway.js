@@ -288,6 +288,7 @@ export async function setGroupMembers(session, groupRef, memberRefs) {
 export async function addGroupMember(session, groupRef, memberRef) {
   const records = await listAgents(session);
   const group = resolveFromList(records, groupRef);
+  if (!group.isGroup) throw new GatewayError(`"${group.name}" is a bot, not a group.`);
   const member = resolveFromList(records, memberRef);
   const next = [...new Set([...group.memberIds, member.id])];
   return setGroupMembers(session, group.id, next);
@@ -296,6 +297,7 @@ export async function addGroupMember(session, groupRef, memberRef) {
 export async function removeGroupMember(session, groupRef, memberRef) {
   const records = await listAgents(session);
   const group = resolveFromList(records, groupRef);
+  if (!group.isGroup) throw new GatewayError(`"${group.name}" is a bot, not a group.`);
   const member = resolveFromList(records, memberRef);
   const next = group.memberIds.filter((id) => id !== member.id);
   return setGroupMembers(session, group.id, next);
