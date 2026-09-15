@@ -82,11 +82,32 @@ export function hasGatewayAuth() {
   return Boolean(gatewayOverride() || accessTokenFromEnv() || hasGrokBotGatewaySession());
 }
 
-async function readJson(res) {
-  const text = await res.text();
-  if (text.length > GATEWAY_MAX_RESPONSE_BYTES) {
-    throw new GatewayError("Gateway response too large (" + text.length + " bytes, limit " + GATEWAY_MAX_RESPONSE_BYTES + ")");
+async function readTextCapped(res, maxBytes) {
+  if (!res.body || typeof res.body.getReader !== "function") {
+    const text = await res.text();
+    if (Buffer.byteLength(text, "utf8") > maxBytes) {
+      throw new GatewayError("Gateway response too large (over " + maxBytes + " bytes)");
+    }
+    return text;
   }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let bytes = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength ?? value.length;
+    if (bytes > maxBytes) {
+      try { await reader.cancel(); } catch { /* already closed */ }
+      throw new GatewayError("Gateway response too large (over " + maxBytes + " bytes)");
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks.map((c) => Buffer.from(c.buffer ?? c, c.byteOffset ?? 0, c.byteLength ?? c.length))).toString("utf8");
+}
+
+async function readJson(res) {
+  const text = await readTextCapped(res, GATEWAY_MAX_RESPONSE_BYTES);
   if (!text) return {};
   try {
     return JSON.parse(text);
@@ -343,8 +364,10 @@ export async function sendPrompt(session, ref, prompt, extra = {}) {
     }
     throw err;
   }
-  const messageId = data && typeof data.messageId === "string" ? data.messageId : null;
-  return { target: rec, result: data, delivery: "accepted", ...(messageId ? { messageId } : {}) };
+  const messageId = data && typeof data === "object" && typeof data.messageId === "string" ? data.messageId : null;
+  // Only a confirmed receipt counts as accepted; anything else is unknown, never a silent accept.
+  // ponytail: full send/execution correlation envelope stays in #37.
+  return { target: rec, result: data && typeof data === "object" ? data : {}, delivery: messageId ? "accepted" : "unknown", ...(messageId ? { messageId } : {}) };
 }
 
 export async function getTranscriptTail(session, ref, limit = 40) {

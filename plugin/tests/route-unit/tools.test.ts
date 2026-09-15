@@ -23,6 +23,9 @@ const roster = {
     { id: 'bot-2', isGroup: false, name: 'Legacy' },
     { id: 'bot-3', isGroup: false, name: 'Proxy' },
     { id: 'bot-4', isGroup: false, name: 'Odd' },
+    { id: 'bot-5', isGroup: false, name: 'Noreceipt' },
+    { id: 'bot-6', isGroup: false, name: 'Big' },
+    { id: 'bot-7', isGroup: false, name: 'Meta' },
   ],
 };
 const transcripts: Record<string, unknown> = {
@@ -50,6 +53,12 @@ const transcripts: Record<string, unknown> = {
       { id: 'o3', kind: 'note', text: `a${String.fromCharCode(0xd800)}b` },
     ],
   },
+  'bot-6': {
+    entries: Array.from({ length: 11 }, (_, index) => ({ id: `b${index}`, kind: 'note', text: 'q'.repeat(20000) })),
+  },
+  'bot-7': {
+    entries: [{ id: 'i'.repeat(300), kind: 'k'.repeat(300), role: 'R'.repeat(5000), text: 'hi' }],
+  },
 };
 const responses: Record<string, (body: Record<string, unknown>) => [number, unknown]> = {
   getAgentTranscriptTail: (body) => [200, transcripts[String(body.id)]],
@@ -57,7 +66,9 @@ const responses: Record<string, (body: Record<string, unknown>) => [number, unkn
   sendPrompt: (body) =>
     body.agentId === 'bot-3'
       ? [401, { message: 'upstream rejected authorization: Bearer test-token' }]
-      : [200, { messageId: 'm-1' }],
+      : body.agentId === 'bot-5'
+        ? [200, { ok: true }]
+        : [200, { messageId: 'm-1' }],
 };
 
 const calls: GatewayCall[] = [];
@@ -188,6 +199,62 @@ describe('grok-bot MCP server', () => {
         { id: 'o3', kind: 'note', text: 'a�b', truncated: false, fullLength: 3 },
       ],
       target: { id: 'bot-4', kind: 'bot', name: 'Odd' },
+    });
+  });
+
+  it('gbot_send stays unknown when the gateway confirms no receipt', async () => {
+    const result = await invokeMcpTool('gbot_send', {
+      input: { message: 'ping', target: 'Noreceipt' },
+      server: 'grok-bot',
+    });
+    expect(result.isError).toBe(false);
+    expect(result.structuredContent).toEqual({
+      delivery: 'unknown',
+      result: { ok: true },
+      target: { id: 'bot-5', kind: 'bot', name: 'Noreceipt' },
+    });
+    expect(contentText(result.content)).toContain('no receipt');
+    expect(contentText(result.content)).not.toContain(' as ');
+  });
+
+  it('gbot_thread caps aggregate output and keeps the remainder visible in metadata', async () => {
+    const full = await invokeMcpTool('gbot_thread', {
+      input: { full: true, target: 'Big' },
+      server: 'grok-bot',
+    });
+    expect(full.isError).toBe(false);
+    const entries = (full.structuredContent as { entries: { id: string; text: string; truncated: boolean; fullLength: number }[] }).entries;
+    expect(entries.length).toBe(11);
+    expect(entries[9]?.text.length).toBe(19940);
+    expect(entries[9]).toMatchObject({ id: 'b9', truncated: true, fullLength: 20000 });
+    expect(entries[10]).toEqual({ id: 'b10', kind: 'note', text: '', truncated: true, fullLength: 20000 });
+  });
+
+  it('gbot_thread enforces the requested count even when the gateway ignores the limit', async () => {
+    const capped = await invokeMcpTool('gbot_thread', {
+      input: { limit: 3, target: 'Big' },
+      server: 'grok-bot',
+    });
+    expect(capped.isError).toBe(false);
+    const entries = (capped.structuredContent as { entries: unknown[] }).entries;
+    expect(entries.length).toBe(3);
+  });
+
+  it('gbot_thread bounds id/kind/role metadata that would bypass the text budget', async () => {
+    const odd = await invokeMcpTool('gbot_thread', { input: { target: 'Meta' }, server: 'grok-bot' });
+    expect(odd.isError).toBe(false);
+    expect(odd.structuredContent).toEqual({
+      entries: [
+        {
+          id: `${'i'.repeat(200)}…`,
+          kind: `${'k'.repeat(200)}…`,
+          role: `${'R'.repeat(200)}…`,
+          text: 'hi',
+          truncated: false,
+          fullLength: 2,
+        },
+      ],
+      target: { id: 'bot-7', kind: 'bot', name: 'Meta' },
     });
   });
 

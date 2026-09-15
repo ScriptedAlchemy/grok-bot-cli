@@ -16,7 +16,16 @@ function print(value) {
 function fail(err) {
   let message = err instanceof Error ? err.message : String(err);
   message = redactSecrets(message);
-  process.stderr.write(message + "\n");
+  if (jsonErrors && err instanceof Error) {
+    const out = { error: message };
+    if (err.delivery !== undefined) out.delivery = err.delivery;
+    if (err.threadId !== undefined) out.threadId = err.threadId;
+    if (err.turnId !== undefined) out.turnId = err.turnId;
+    if (err.targetId !== undefined) out.targetId = err.targetId;
+    process.stderr.write(JSON.stringify(out) + "\n");
+  } else {
+    process.stderr.write(message + "\n");
+  }
   process.exit(1);
 }
 
@@ -118,7 +127,19 @@ function hasFlag(args, name) {
   return true;
 }
 
+/** Peel a trailing flag that `--` does not protect; free-text commands keep mid-text tokens. */
+function takeTrailingFlag(args, name) {
+  const stop = args.indexOf("--");
+  const end = stop === -1 ? args.length : stop;
+  if (end > 0 && args[end - 1] === name) {
+    args.splice(end - 1, 1);
+    return true;
+  }
+  return false;
+}
+
 /** Peel global CLI options only from the leading argv (before the command). */
+let jsonErrors = false;
 function takeLeadingGlobals(args) {
   let json = false;
   let gateway = false;
@@ -134,6 +155,7 @@ function takeLeadingGlobals(args) {
     }
     if (a === "--json") {
       json = true;
+      jsonErrors = true;
       args.shift();
       continue;
     }
@@ -301,6 +323,11 @@ function formatCodexThread(t) {
 }
 
 async function runCodex(sub, rest, json) {
+  // Structured subcommands take no free text, so --json peels anywhere. Send
+  // peels a trailing --json only; mid-message tokens stay message content.
+  if (sub === "status" || sub === "list-threads") {
+    if (hasFlag(rest, "--json")) { json = true; jsonErrors = true; }
+  }
   if (sub === "status") {
     const status = await codexStatus();
     print(json ? status : formatCodexStatus(status));
@@ -319,6 +346,7 @@ async function runCodex(sub, rest, json) {
   }
   if (sub === "send") {
     const threadId = rest.shift();
+    if (takeTrailingFlag(rest, "--json")) { json = true; jsonErrors = true; }
     if (rest[0] === "--") rest.shift();
     const message = rest.join(" ").trim();
     if (!threadId || threadId.startsWith("-") || !message) throw new StoreError("gbot codex send <threadId> <message...>");
@@ -379,7 +407,7 @@ async function main(argv) {
   if (cmd === "history") {
     const options = args.slice(1);
     // Command-local flags (globals only peel from argv before the command).
-    if (hasFlag(options, "--json")) json = true;
+    if (hasFlag(options, "--json")) { json = true; jsonErrors = true; }
     const showPath = hasFlag(options, "--path");
     const search = takeFlag(options, "--search");
     const limitRaw = takeFlag(options, "--limit");
@@ -404,6 +432,12 @@ async function main(argv) {
     await runCodex(sub, rest, json);
     return;
   }
+
+  // Peel command-local --json before touching the backend so auth/gateway
+  // failures honor it. Send peels a trailing --json only (mid-text tokens stay
+  // message content); `--` protects everything after it.
+  if (cmd === "send" && takeTrailingFlag(rest, "--json")) { json = true; jsonErrors = true; }
+  if ((cmd === "thread" || cmd === "chat") && hasFlag(rest, "--json")) { json = true; jsonErrors = true; }
 
   const backend = await openBackend({ root: rootFlag, gateway, files: filesMode });
 
@@ -514,7 +548,7 @@ async function main(argv) {
 
   if (cmd === "send") {
     const ref = sub;
-    if (hasFlag(rest, "--json")) json = true;
+    if (hasFlag(rest, "--json")) { json = true; jsonErrors = true; }
     const message = rest.join(" ").trim();
     if (!ref || !message) throw new StoreError("gbot send <bot-or-group> <message...>");
     const out = await backend.send(ref, message);
@@ -528,9 +562,7 @@ async function main(argv) {
   if (cmd === "thread" || cmd === "chat") {
     const ref = sub;
     if (!ref) throw new StoreError("gbot thread <bot-or-group> [--limit N] [--root MESSAGE_ID] [--full]");
-    if (hasFlag(rest, "--json")) json = true;
-    const full = rest.includes("--full");
-    if (full) rest.splice(rest.indexOf("--full"), 1);
+    const full = hasFlag(rest, "--full");
     const limitRaw = takeFlag(rest, "--limit");
     const rootId = takeFlag(rest, "--root");
     const limit = limitRaw ? Number(limitRaw) : 40;
