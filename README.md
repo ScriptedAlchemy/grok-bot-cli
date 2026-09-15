@@ -28,12 +28,18 @@ gbot groups update Launch --title "Launch room" --hidden off
 gbot send Researcher "Summarize the launch status."
 gbot send Launch "Share your updates."
 gbot thread Researcher
+gbot thread Researcher --after <last-entry-id> --json
 gbot groups delete Launch
 gbot bots delete Researcher
 gbot bots delete Writer
 ```
 
 `update` fields: `--name` `--description`/`--instructions` `--title` `--avatar-shape` `--avatar-color` `--notify` `--hidden`. `--description` is the UI Instructions field.
+
+`gbot thread --after ID` filters the bounded tail locally and returns entries strictly
+after that opaque entry ID. Its JSON includes `cursor`, `entryCount`, and `gapReset`.
+An unchanged poll has `entryCount: 0`; an unknown or expired ID returns one bounded
+snapshot with `gapReset: true`. The gateway request remains limit-only.
 
 Run `gbot --help` for every command.
 
@@ -99,6 +105,12 @@ Add `--replace` to an install command to overwrite an earlier copy. `npm run che
 runs the plugin gates: source validation, build, artifact validation, typecheck, and
 the route-unit tests, which drive both tools against a loopback fake gateway.
 
+`gbot_thread` returns a small receipt by default: deterministic `summary`, opaque
+`cursor`, `entryCount`, `gapReset`, target metadata, and an optional Markdown `path`.
+Pass the cursor back as `after` for an exclusive client-side delta. Pass `full:true`
+only when bounded entry bodies are needed in structured content; `Agent.Text` remains
+the short summary. Unknown cursors produce a bounded snapshot with `gapReset: true`.
+
 Auth resolves exactly as for `gbot`: `GROK_BOT_GATEWAY_URL` + `GROK_BOT_GATEWAY_TOKEN`,
 then the Grok Bot app session, then `CURSOR_ACCESS_TOKEN`. The MCP server therefore
 needs outbound HTTPS to the gateway host and read access to the app-session file
@@ -135,6 +147,9 @@ gbot history --path
 `history` works offline. Use `--history-dir` / `GROK_BOT_HISTORY_DIR` to relocate,
 `--no-history` to skip one command. New dirs are `0700`, files `0600`. Conversation
 text is recorded as you typed it; gateway credentials and raw response metadata are not.
+When this same opt-in is visible to the plugin, `gbot_thread` also maintains one bounded
+Markdown view under `thread-artifacts/` and returns its path. With recording disabled,
+the receipt omits `path`; the Markdown file is an output view, not a watermark ledger.
 
 ## License
 

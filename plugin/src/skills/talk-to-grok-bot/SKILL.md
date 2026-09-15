@@ -16,7 +16,11 @@ Do not ping a bot for work you can finish yourself. Replies are asynchronous —
 ## How
 
 1. `gbot_send` with `target` (name or id) and `message` (first line: who you are + what you need).
-2. Later, `gbot_thread` with the same `target` (`limit` defaults to 40). It returns a short summary plus a `cursor` and omits entries by default; pass `full: true` to return entries and read their text. Bot replies are `send-message` entries; yours are `message` with `role: user`.
+2. Later, call `gbot_thread` with the same `target` (`limit` defaults to 40). The default receipt has `summary`, `cursor`, `entryCount`, `gapReset`, and an optional Markdown `path`; it never includes entries.
+3. Poll with the previous `cursor` as `after`. This is exclusive and client-side: `entryCount: 0` means no change. `gapReset: true` means the cursor fell outside the bounded tail, so the result represents one fresh snapshot.
+4. Read `path` when present. Pass `full: true` only when entry bodies are needed inline; it adds bounded `entries` to structured content, not to `Agent.Text`.
+
+Artifacts use the existing opt-in history root. Without `GROK_BOT_HISTORY=on`, `path` is omitted rather than creating another local ledger. Bot replies are `send-message` entries; yours are `message` with `role: user`.
 
 List targets with `gbot bots list` / `gbot groups list` when the name is ambiguous.
 
