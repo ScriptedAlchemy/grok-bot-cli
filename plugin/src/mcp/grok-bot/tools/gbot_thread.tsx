@@ -8,6 +8,7 @@ import {
   getTranscriptTail,
   summarizeTarget,
   targetSchema,
+  threadCursor,
   transcriptEntries,
   withRedactedErrors,
 } from '../../../gbot.js';
@@ -16,7 +17,7 @@ export default defineTool(
   {
     annotations: { readOnlyHint: true },
     description:
-      'Read the most recent messages in a Grok Bot bot or group thread, like `gbot thread`. Use it to collect the reply to a gbot_send.',
+      'Read the most recent messages in a Grok Bot bot or group thread, like `gbot thread`. By default returns a short summary plus a cursor and withholds entry text; pass full:true to read the text. Use it to collect the reply to a gbot_send.',
     inputJsonSchema: {
       additionalProperties: false,
       properties: {
@@ -43,15 +44,28 @@ export default defineTool(
       full: z.boolean().default(false),
       target: z.string().min(1),
     }),
-    resultSchema: z.object({ entries: z.array(entrySchema), target: targetSchema }),
+    resultSchema: z.object({ cursor: z.string(), entries: z.array(entrySchema), target: targetSchema }),
     title: 'Read a Grok Bot thread',
   },
   async ({ limit, target, full }) => {
     const tail = await withRedactedErrors(async () => getTranscriptTail(await connectGateway(), target, limit));
-    const value = { entries: transcriptEntries(tail.transcript, { full, limit }), target: summarizeTarget(tail.target) };
+    const entries = transcriptEntries(tail.transcript, { full, limit });
+    const cursor = threadCursor(entries);
+    const summarized = summarizeTarget(tail.target);
+    const value = { cursor, entries, target: summarized };
+    const summary = `${summarized.kind} ${summarized.name}: ${entries.length} entries. cursor ${cursor === '' ? '(none)' : cursor}.`;
+    // Default Agent.Text stays a short summary: dumping every entry here doubles
+    // the token cost of the structured value. full:true keeps the per-entry text.
+    if (!full) {
+      return (
+        <Agent.Result value={value}>
+          <Agent.Text>{`${summary} Entry text withheld; pass full:true to read it.`}</Agent.Text>
+        </Agent.Result>
+      );
+    }
     return (
       <Agent.Result value={value}>
-        <Agent.Text>{`${value.target.kind} ${value.target.name}: ${value.entries.length} entries.`}</Agent.Text>
+        <Agent.Text>{summary}</Agent.Text>
         {value.entries.map((entry, index) => (
           <Agent.Text key={entry.id || index}>{`[${entry.role ?? entry.kind}] ${entry.text}`}</Agent.Text>
         ))}

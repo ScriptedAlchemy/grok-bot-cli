@@ -16,7 +16,7 @@ Do not ping a bot for work you can finish yourself. Replies are asynchronous —
 ## How
 
 1. `gbot_send` with `target` (name or id) and `message` (first line: who you are + what you need).
-2. Later, `gbot_thread` with the same `target` (`limit` defaults to 40). Bot replies are `send-message` entries; yours are `message` with `role: user`.
+2. Later, `gbot_thread` with the same `target` (`limit` defaults to 40). It returns a short summary plus a `cursor` by default; pass `full: true` to read entry text. Bot replies are `send-message` entries; yours are `message` with `role: user`.
 
 List targets with `gbot bots list` / `gbot groups list` when the name is ambiguous.
 

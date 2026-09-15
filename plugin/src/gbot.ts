@@ -111,3 +111,16 @@ export const transcriptEntries = (transcript: unknown, opts: { full?: boolean; l
     return entry;
   });
 };
+
+/**
+ * Opaque client-held watermark for a thread read: the id of the last entry with
+ * one, or '' when the tail is empty or entries carry no ids. Slice 1 will accept
+ * this back as `after`; until then just hold it, never send it anywhere.
+ */
+export const threadCursor = (entries: readonly Pick<Entry, 'id'>[]): string => {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const id = entries[index]?.id;
+    if (typeof id === 'string' && id !== '') return id;
+  }
+  return '';
+};
