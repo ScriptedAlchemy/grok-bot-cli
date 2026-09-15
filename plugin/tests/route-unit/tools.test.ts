@@ -31,6 +31,7 @@ const transcripts: Record<string, unknown> = {
       { content: 'ignored when text is set', id: 'l1', text: 'direct text' },
       { content: [{ text: 'part one' }, 'part two', { content: 'part three' }], id: 'l2', kind: 'note' },
       { id: 'l3', message: 'plain message' },
+      { id: 'l4', kind: 'message', text: `${'x'.repeat(450)}` },
     ],
   },
   'grp-1': {
@@ -151,8 +152,11 @@ describe('grok-bot MCP server', () => {
         { id: 'l1', kind: 'message', text: 'direct text' },
         { id: 'l2', kind: 'note', text: 'part one\npart two\npart three' },
         { id: 'l3', kind: 'message', text: 'plain message' },
+        { id: 'l4', kind: 'message', text: `${'x'.repeat(399)}…` },
       ],
     });
+    expect(contentText(legacy.content)).toContain('…');
+    expect(contentText(legacy.content)).not.toContain('x'.repeat(450));
   });
 
   it('redacts a bearer token echoed by the gateway before the error reaches the host', async () => {

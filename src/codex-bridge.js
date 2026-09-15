@@ -41,6 +41,14 @@ export function unreachableMessage(path) {
   ].join("\n");
 }
 
+export function windowsUnsupportedMessage() {
+  return [
+    "gbot codex does not support native Windows yet.",
+    "Codex's control socket is AF_UNIX; this CLI's Node client only dials Unix domain sockets.",
+    "Use WSL, Linux, or macOS (or a future stdio proxy path).",
+  ].join("\n");
+}
+
 export function encodeFrame(opcode, payload, mask) {
   const len = payload.length;
   const head = Buffer.alloc(len < 126 ? 2 : len < 65536 ? 4 : 10);
@@ -222,6 +230,7 @@ function appServerVersion(initResult) {
 }
 
 async function openSession(env = process.env) {
+  if (process.platform === "win32") throw new Error(windowsUnsupportedMessage());
   const path = codexSocketPath(env);
   if (!socketPresent(path)) throw new Error(unreachableMessage(path));
   const client = await connectCodexAppServer(path);
@@ -239,6 +248,9 @@ export function localCodexVersion() {
 export async function codexStatus(env = process.env) {
   const path = codexSocketPath(env);
   const base = { socketPath: path, pinnedVersion: PINNED_CODEX_VERSION, cliVersion: localCodexVersion() };
+  if (process.platform === "win32") {
+    return { ...base, reachable: false, mode: "windows-unsupported", message: windowsUnsupportedMessage() };
+  }
   if (!socketPresent(path)) {
     return { ...base, reachable: false, mode: "socket-absent", message: unreachableMessage(path) };
   }

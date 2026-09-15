@@ -37,6 +37,14 @@ export const entrySchema = z.object({
 });
 type Entry = z.infer<typeof entrySchema>;
 
+/** Match `gbot thread` CLI preview width so MCP hosts are not flooded. */
+export const ENTRY_TEXT_MAX = 400;
+
+export const truncateEntryText = (text: string, max = ENTRY_TEXT_MAX): string => {
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(0, max - 1))}…`;
+};
+
 const entryFields = z.object({
   id: z.string().default(''),
   kind: z.string().default('message'),
@@ -46,13 +54,15 @@ const entryFields = z.object({
 
 const threadEntry = (raw: unknown): Entry => {
   const fields = entryFields.safeParse(raw);
-  if (!fields.success) return { id: '', kind: 'unknown', text: JSON.stringify(raw) };
+  if (!fields.success) {
+    return { id: '', kind: 'unknown', text: truncateEntryText(JSON.stringify(raw)) };
+  }
   const { id, kind, role, timestampMs } = fields.data;
   return {
     id,
     kind,
     ...(role === undefined ? {} : { role }),
-    text: entryText(raw),
+    text: truncateEntryText(entryText(raw)),
     ...(timestampMs === undefined ? {} : { timestampMs }),
   };
 };

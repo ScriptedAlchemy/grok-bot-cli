@@ -105,11 +105,51 @@ function takeRepeating(args, name) {
   return out;
 }
 
-function hasFlag(args, name) {
-  const i = args.indexOf(name);
-  if (i === -1) return false;
-  args.splice(i, 1);
-  return true;
+/** Peel global CLI options only from the leading argv (before the command). */
+function takeLeadingGlobals(args) {
+  let json = false;
+  let gateway = false;
+  let files = false;
+  let dir;
+  while (args.length) {
+    const a = args[0];
+    if (a === "--") {
+      args.shift();
+      break;
+    }
+    if (a === "--json") {
+      json = true;
+      args.shift();
+      continue;
+    }
+    if (a === "--gateway") {
+      gateway = true;
+      args.shift();
+      continue;
+    }
+    if (a === "--files") {
+      files = true;
+      args.shift();
+      continue;
+    }
+    if (a === "--dir") {
+      args.shift();
+      const value = args.shift();
+      if (value == null || value.startsWith("-")) throw new StoreError("--dir needs a value");
+      dir = value;
+      continue;
+    }
+    break;
+  }
+  return { json, gateway, files, dir };
+}
+
+/** Strip CSI/OSC so thread names/previews cannot drive the terminal. */
+function stripTerminalControls(text) {
+  return String(text)
+    .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "")
+    .replace(/\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g, "")
+    .replace(/\u001b./g, "");
 }
 
 function parseOnOff(value, flag) {
@@ -219,9 +259,11 @@ function formatCodexStatus(s) {
 }
 
 function formatCodexThread(t) {
-  const title = t.name ? " - " + t.name : "";
-  const preview = t.preview ? "\n    " + String(t.preview).replace(/\s+/g, " ").slice(0, 200) : "";
-  return t.id + "  " + t.status + title + "\n    " + (t.cwd ?? "") + preview;
+  const title = t.name ? " - " + stripTerminalControls(t.name) : "";
+  const preview = t.preview
+    ? "\n    " + stripTerminalControls(String(t.preview).replace(/\s+/g, " ")).slice(0, 200)
+    : "";
+  return stripTerminalControls(t.id) + "  " + stripTerminalControls(t.status) + title + "\n    " + stripTerminalControls(t.cwd ?? "") + preview;
 }
 
 async function runCodex(sub, rest, json) {
@@ -243,6 +285,7 @@ async function runCodex(sub, rest, json) {
   }
   if (sub === "send") {
     const threadId = rest.shift();
+    if (rest[0] === "--") rest.shift();
     const message = rest.join(" ").trim();
     if (!threadId || threadId.startsWith("-") || !message) throw new StoreError("gbot codex send <threadId> <message...>");
     const out = await sendToCodexThread(threadId, message);
@@ -260,10 +303,7 @@ async function main(argv) {
     return;
   }
 
-  const json = hasFlag(args, "--json");
-  const gateway = hasFlag(args, "--gateway");
-  const filesMode = hasFlag(args, "--files");
-  const rootFlag = takeFlag(args, "--dir");
+  const { json, gateway, files: filesMode, dir: rootFlag } = takeLeadingGlobals(args);
   const cmd = args[0];
   const sub = args[1];
   const rest = args.slice(2);
