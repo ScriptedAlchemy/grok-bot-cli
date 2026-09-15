@@ -86,11 +86,12 @@ export function renderWrapperScript({ realPath, bridgePath, wrapperLogPath, code
 # daemon's control socket. Reversible: \`gbot codex desktop-shim uninstall\`.
 # The daemon is kept up by the LaunchAgent login script, not here: this hot path
 # never starts the daemon itself, so a wedged daemon lock cannot hang
-# Desktop. Fail-open runs ONLY before any stdin is consumed: an absent socket
-# fails the preflight and a pre-session bridge failure (exit 1) falls through
+# Desktop. Fail-open runs ONLY while stdio is still pristine (no stdin
+# consumed, no stdout written): an absent socket fails the preflight and a
+# pre-session bridge failure (exit 1) falls through
 # to the real standalone codex on pristine stdio. A mid-session bridge failure
 # (exit 2+) exits promptly so Desktop reconnects; the fallback never runs on
-# half-consumed stdin. Bridge exit 0 means it served the session. Never touches
+# half-consumed stdin or dirty stdout. Bridge exit 0 means it served the session. Never touches
 # Desktop binaries or its private tool pipe.
 set -u
 REAL="\${CODEX_DESKTOP_WRAPPER_REAL:-${realPath}}"
@@ -107,7 +108,11 @@ echo "$(ts) argv: $*" >>"$LOG" 2>/dev/null || true
 if [[ ! -x "$REAL" ]]; then
   FALLBACK="$(command -v codex 2>/dev/null || true)"
   if [[ -n "$FALLBACK" && -x "$FALLBACK" ]]; then
-    REAL="$FALLBACK"
+    if [[ "$FALLBACK" -ef "$0" ]] 2>/dev/null || { [[ -n "\${CODEX_CLI_PATH:-}" ]] && [[ "$FALLBACK" -ef "\${CODEX_CLI_PATH}" ]] 2>/dev/null; }; then
+      echo "$(ts) refusing self fallback $FALLBACK" >>"$LOG" 2>/dev/null || true
+    else
+      REAL="$FALLBACK"
+    fi
   fi
 fi
 
@@ -128,7 +133,7 @@ preflight() {
 }
 
 if [[ "$has_app_server" -eq 1 && "$has_daemon" -eq 0 && "$has_proxy" -eq 0 && "$has_generate" -eq 0 ]]; then
-  if [[ -x "$REAL" && -f "$BRIDGE" ]] && command -v python3 >/dev/null 2>&1; then
+  if [[ -f "$BRIDGE" ]] && command -v python3 >/dev/null 2>&1; then
     if preflight; then
       echo "$(ts) rewrite -> stdio-ws bridge" >>"$LOG" 2>/dev/null || true
       python3 "$BRIDGE"
@@ -339,9 +344,10 @@ export function uninstallDesktopShim({
   const warnings = [];
   const removed = [];
   for (const path of [paths.wrapperPath, paths.bridgePath, paths.envScriptPath]) {
+    const existed = fileExists(path);
     try {
       if (rmSync(path, { force: true }) === undefined && fileExists(path)) warnings.push(`could not remove ${path}`);
-      else if (!fileExists(path)) removed.push(path);
+      else if (existed && !fileExists(path)) removed.push(path);
     } catch (error) {
       warnings.push(`could not remove ${path} (${error instanceof Error ? error.message : String(error)})`);
     }

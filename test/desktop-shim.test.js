@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { chmodSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
 import { BRIDGE_SOURCE } from "../src/core/desktop-shim-bridge.js";
+import { formatDesktopShimStatus } from "../src/core/format.js";
 import {
   defaultPaths,
   desktopShimStatus,
@@ -682,4 +683,226 @@ test("login script keeps one CODEX_HOME for GUI env and daemon upkeep", () => {
   assert.match(renderedEnv, /export CODEX_HOME="\$CODEX_HOME_DIR"/);
   assert.match(renderedEnv, /CODEX_HOME_DIR="\/c"/);
   assert.match(renderedEnv, /launchctl setenv CODEX_HOME "\$CODEX_HOME_DIR"/);
+});
+
+test("wrapper rejects a self fallback and gates the bridge without REAL", () => {
+  const script = renderWrapperScript({
+    bridgeLogPath: "/b/bridge.log",
+    bridgePath: "/b/bridge.py",
+    codexHome: "/b",
+    realPath: "/r/codex",
+    wrapperLogPath: "/b/w.log",
+  });
+  assert.match(script, /refusing self fallback/);
+  assert.match(script, /-ef "\$0"/);
+  assert.match(script, /CODEX_CLI_PATH/);
+  // The bridge attempt must not require an executable REAL: REAL is only for
+  // passthrough/fallthrough at the bottom.
+  assert.doesNotMatch(script, /-x "\$REAL" && -f "\$BRIDGE"/);
+  assert.match(script, /if \[\[ -f "\$BRIDGE" \]\]/);
+});
+
+test("vendored bridge pins the I/O timeout and stdout commit", () => {
+  assert.match(BRIDGE_SOURCE, /CODEX_BRIDGE_IO_TIMEOUT/);
+  assert.match(BRIDGE_SOURCE, /IO_TIMEOUT_S/);
+  assert.match(BRIDGE_SOURCE, /first_msg\.is_set\(\)/);
+  assert.doesNotMatch(BRIDGE_SOURCE, /settimeout\(None\)/);
+});
+
+test("wrapper refuses a self fallback instead of exec-looping", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-self-"));
+  const bridgePath = join(dir, "bridge.py");
+  writeFileSync(bridgePath, '#!/usr/bin/env python3\nimport sys; sys.exit(0)\n');
+  const wrapperPath = join(dir, "wrapper.sh");
+  const script = renderWrapperScript({
+    bridgeLogPath: join(dir, "bridge.log"),
+    bridgePath,
+    codexHome: dir,
+    realPath: join(dir, "no-such-codex"),
+    wrapperLogPath: join(dir, "wrapper.log"),
+  });
+  writeFileSync(wrapperPath, script);
+  chmodSync(wrapperPath, 0o755);
+  // Shadow `codex` on PATH with the wrapper itself: the fallback must refuse
+  // it and fail instead of exec-looping forever.
+  const binDir = join(dir, "bin");
+  mkdirSync(binDir, { recursive: true });
+  symlinkSync(wrapperPath, join(binDir, "codex"));
+  const out = spawnSync("bash", [wrapperPath, "--version"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      CODEX_APP_SERVER_SOCK: join(dir, "no-such.sock"),
+      CODEX_CLI_PATH: wrapperPath,
+      PATH: `${binDir}:${process.env.PATH}`,
+    },
+    timeout: 15000,
+  });
+  assert.equal(out.status, 1);
+  assert.match(out.stderr, /no runnable codex/);
+});
+
+test("wrapper attempts the bridge even when REAL is missing", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-noreal-"));
+  const socketPath = join(dir, "fine.sock");
+  const server = await silentListener(socketPath);
+  try {
+    const bridgePath = join(dir, "bridge-ok.py");
+    writeFileSync(bridgePath, '#!/usr/bin/env python3\nimport sys; sys.exit(0)\n');
+    const wrapperPath = join(dir, "wrapper.sh");
+    const script = renderWrapperScript({
+      bridgeLogPath: join(dir, "bridge.log"),
+      bridgePath,
+      codexHome: dir,
+      realPath: join(dir, "no-such-codex"),
+      wrapperLogPath: join(dir, "wrapper.log"),
+    });
+    writeFileSync(wrapperPath, script);
+    chmodSync(wrapperPath, 0o755);
+    const out = runWrapper(wrapperPath, ["app-server"], { CODEX_APP_SERVER_SOCK: socketPath });
+    assert.equal(out.status, 0);
+    assert.doesNotMatch(out.stdout, /FAKE-REAL/);
+  } finally {
+    server.close();
+  }
+});
+
+/** Wrapper run that can hold stdin open, mirroring runBridge for bridge-stdout tests. */
+const runWrapperAsync = (wrapperPath, args, env, { input = null, leaveStdinOpen = false } = {}) =>
+  new Promise((resolve, reject) => {
+    const child = spawn("bash", [wrapperPath, ...args], { env: { ...process.env, ...env } });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`wrapper hung: stdout=${stdout} stderr=${stderr}`));
+    }, 25000);
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    child.on("close", (code, signal) => {
+      clearTimeout(timer);
+      resolve({ status: code, signal, stdout, stderr });
+    });
+    if (input) child.stdin.write(input);
+    if (!leaveStdinOpen) child.stdin.end();
+  });
+
+test("bridge commits on the first stdout frame: greet-then-close exits mid-session", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-greet-"));
+  const daemon = await fakeWsDaemon(dir, "greet.sock", {
+    closeAfterMs: 500,
+    prelude: wsServerFrame(0x1, Buffer.from('{"greet":true}')),
+  });
+  try {
+    const out = await runBridge(writeBridge(dir), dir,
+      { CODEX_APP_SERVER_SOCK: daemon.socketPath }, "", { leaveStdinOpen: true });
+    assert.equal(out.status, 2);
+    assert.ok(out.stdout.includes('{"greet":true}'), `greeting must reach stdout, got: ${out.stdout}`);
+  } finally {
+    await closeDaemon(daemon);
+  }
+});
+
+test("wrapper never falls through after the daemon wrote stdout", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-dirty-"));
+  const daemon = await fakeWsDaemon(dir, "dirty.sock", {
+    closeAfterMs: 500,
+    prelude: wsServerFrame(0x1, Buffer.from('{"greet":true}')),
+  });
+  try {
+    const { wrapperPath } = stageWrapper(dir, { bridgePath: writeBridge(dir) });
+    const out = await runWrapperAsync(wrapperPath, ["app-server"],
+      { CODEX_APP_SERVER_SOCK: daemon.socketPath }, { leaveStdinOpen: true });
+    assert.equal(out.status, 2);
+    assert.ok(out.stdout.includes('{"greet":true}'), `greeting must reach stdout, got: ${out.stdout}`);
+    assert.doesNotMatch(out.stdout, /FAKE-REAL/);
+  } finally {
+    await closeDaemon(daemon);
+  }
+});
+
+test("bridge post-upgrade I/O is bounded and exits mid-session once committed", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-io-"));
+  const daemon = await fakeWsDaemon(dir, "wedged.sock", {
+    prelude: wsServerFrame(0x1, Buffer.from('{"greet":true}')),
+    quiet: true,
+  });
+  try {
+    const started = Date.now();
+    const out = await runBridge(writeBridge(dir), dir, {
+      CODEX_APP_SERVER_SOCK: daemon.socketPath,
+      CODEX_BRIDGE_IO_TIMEOUT: "2",
+    }, "", { leaveStdinOpen: true });
+    const elapsed = Date.now() - started;
+    assert.equal(out.status, 2);
+    assert.ok(out.stdout.includes('{"greet":true}'), `greeting must reach stdout, got: ${out.stdout}`);
+    assert.ok(elapsed < 15000, `post-upgrade I/O must time out instead of hanging, took ${elapsed}ms`);
+  } finally {
+    await closeDaemon(daemon);
+  }
+});
+
+test("uninstall only reports paths that existed before delete", () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-shim-gone-home-"));
+  const codexHome = mkdtempSync(join(tmpdir(), "gbot-shim-gone-codex-"));
+  const env = { CODEX_HOME: codexHome, HOME: home };
+  const runner = () => ({ status: 0 });
+  const empty = uninstallDesktopShim({ env, home, platform: "linux", runner });
+  assert.deepEqual(empty.removed, []);
+
+  const installed = installDesktopShim({ env, home, platform: "linux", runner });
+  rmSync(installed.bridgePath, { force: true });
+  const partial = uninstallDesktopShim({ env, home, platform: "linux", runner });
+  assert.ok(!partial.removed.includes(installed.bridgePath), `missing bridge must not be reported: ${partial.removed}`);
+  assert.ok(partial.removed.includes(installed.wrapperPath));
+});
+
+test("linux status never mentions ChatGPT.app", () => {
+  const base = {
+    bridgePath: "/b",
+    bridgePresent: true,
+    envScriptPath: "/e",
+    envScriptPresent: true,
+    installed: true,
+    socketPath: "/s",
+    socketSource: "CODEX_HOME",
+    socketState: "absent",
+    warnings: [],
+    wrapperExecutable: true,
+    wrapperPath: "/w",
+    wrapperPointsAtShim: false,
+    wrapperPresent: true,
+  };
+  const linux = formatDesktopShimStatus({ ...base, platform: "linux" });
+  assert.doesNotMatch(linux, /ChatGPT\.app/);
+  assert.match(linux, /CODEX_CLI_PATH=\/w/);
+  const mac = formatDesktopShimStatus({
+    ...base,
+    cliPath: null,
+    guiCliPath: null,
+    platform: "darwin",
+    plistPath: "/p",
+    plistPresent: true,
+  });
+  assert.match(mac, /ChatGPT\.app/);
 });
