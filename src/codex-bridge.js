@@ -260,7 +260,9 @@ export function summarizeThread(t) {
 export async function listCodexThreads({ limit = 20, env = process.env } = {}) {
   const { client } = await openSession(env);
   try {
-    const out = await client.request("thread/list", { limit });
+    // The default listing rescans every rollout file to repair metadata (26 s on a busy machine);
+    // the state DB already holds what we print.
+    const out = await client.request("thread/list", { limit, useStateDbOnly: true });
     return { threads: out.data.map(summarizeThread), nextCursor: out.nextCursor ?? null };
   } finally {
     client.close();

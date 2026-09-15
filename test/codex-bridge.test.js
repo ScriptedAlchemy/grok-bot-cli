@@ -131,7 +131,7 @@ test("codex list-threads passes --limit and prints threads", async () => {
     const text = await gbot(fake.home, "codex", "list-threads", "--limit", "1");
     assert.equal(text.code, 0, text.err);
     assert.equal(text.out, "t-1  idle - Fix the build\n    /repo/a\n    please fix the build\n");
-    assert.deepEqual(fake.received.find((m) => m.method === "thread/list").params, { limit: 1 });
+    assert.deepEqual(fake.received.find((m) => m.method === "thread/list").params, { limit: 1, useStateDbOnly: true });
 
     const json = await gbot(fake.home, "--json", "codex", "list-threads");
     assert.equal(json.code, 0, json.err);
@@ -142,7 +142,7 @@ test("codex list-threads passes --limit and prints threads", async () => {
       ],
       nextCursor: null,
     });
-    assert.deepEqual(fake.received.at(-1).params, { limit: 20 });
+    assert.deepEqual(fake.received.at(-1).params, { limit: 20, useStateDbOnly: true });
   } finally {
     await fake.close();
   }
