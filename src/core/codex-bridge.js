@@ -308,7 +308,7 @@ export function connectCodexAppServer(path, { timeoutMs = 15000, signal, onNotif
     // the socket callback. Rejected async callbacks use the same cleanup path.
     const invoke = (listener, message, closing = false) => {
       const failed = (cause) => {
-        if (!closing) failAll(new Error("Codex event listener failed: " + String(cause?.message ?? cause), { cause }));
+        if (!closing) failAll(new Error("Codex event listener failed", { cause }));
       };
       try {
         const result = listener(message);
@@ -356,6 +356,21 @@ export function connectCodexAppServer(path, { timeoutMs = 15000, signal, onNotif
       } catch (err) { failAll(err); throw err; }
     };
     const sendJson = (obj) => write(0x1, Buffer.from(JSON.stringify(obj)));
+    const respondToRequest = (id, payload) => {
+      if (closed) throw closeError;
+      if (!serverRequests.has(id)) throw new Error("Unknown or resolved server request: " + id);
+      // Consume ownership before JSON.stringify can invoke caller-owned getters
+      // or toJSON hooks. A failed serialization closes rather than restoring it.
+      serverRequests.delete(id);
+      client.deferred = client.deferred.filter(entry => entry.id !== id);
+      try { sendJson({ jsonrpc: "2.0", id, ...payload }); }
+      catch (cause) {
+        if (closed) throw closeError;
+        const err = new Error("Codex server response serialization failed", { cause });
+        failAll(err);
+        throw err;
+      }
+    };
 
     const client = {
       refused,
@@ -363,18 +378,8 @@ export function connectCodexAppServer(path, { timeoutMs = 15000, signal, onNotif
       onNotification: (listener) => subscribe("notification", listener),
       onServerRequest: (listener) => subscribe("serverRequest", listener),
       onClose: (listener) => subscribe("close", listener),
-      respond(id, result) {
-        if (closed) throw closeError;
-        if (!serverRequests.has(id)) throw new Error("Unknown or resolved server request: " + id);
-        sendJson({ jsonrpc: "2.0", id, result });
-        serverRequests.delete(id);
-      },
-      rejectRequest(id, error) {
-        if (closed) throw closeError;
-        if (!serverRequests.has(id)) throw new Error("Unknown or resolved server request: " + id);
-        sendJson({ jsonrpc: "2.0", id, error });
-        serverRequests.delete(id);
-      },
+      respond: (id, result) => respondToRequest(id, { result }),
+      rejectRequest: (id, error) => respondToRequest(id, { error }),
       // Server-initiated requests are only *answered* once our own turn/start
       // is in flight, and then only when they name our own thread/turn:
       // anything earlier — or naming another thread or Desktop turn — belongs
@@ -403,7 +408,7 @@ export function connectCodexAppServer(path, { timeoutMs = 15000, signal, onNotif
           const namedTurnId = params
             ? (params.turnId ?? params.turn_id ?? (params.turn && params.turn.id))
             : null;
-          if (threadId === client.expectedThreadId && namedTurnId === turnId && serverRequests.has(entry.id)) {
+          if (threadId === client.expectedThreadId && namedTurnId === turnId && serverRequests.get(entry.id) === entry) {
             client.rejectRequest(entry.id, { code: -32601, message: "gbot codex does not answer " + entry.method + "; configure approval_policy on the daemon" });
             entry.answered = true;
           }
@@ -453,7 +458,8 @@ export function connectCodexAppServer(path, { timeoutMs = 15000, signal, onNotif
         if (serverRequests.size >= CODEX_MAX_REQUESTS || refused.length >= CODEX_MAX_REQUESTS || client.deferred.length >= CODEX_MAX_REQUESTS) {
           return failAll(new Error("Codex remembered server request limit exceeds " + CODEX_MAX_REQUESTS));
         }
-        serverRequests.set(msg.id, msg);
+        const entry = { id: msg.id, method: msg.method, params: msg.params, answered: false };
+        serverRequests.set(msg.id, entry);
         dispatch("serverRequest", msg);
         if (closed) return;
         let answered = client.answerServerRequests;
@@ -475,7 +481,7 @@ export function connectCodexAppServer(path, { timeoutMs = 15000, signal, onNotif
         }
         answered = answered && serverRequests.has(msg.id);
         defer = defer && serverRequests.has(msg.id);
-        const entry = { id: msg.id, method: msg.method, params: msg.params, answered };
+        entry.answered = answered;
         refused.push(entry);
         if (defer) {
           client.deferred.push(entry);

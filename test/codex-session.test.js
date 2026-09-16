@@ -223,7 +223,9 @@ test("async observer rejections close the transport and close rejections are con
   const closed = new Promise(resolve => client.onClose(resolve));
   client.onServerRequest(async () => { throw new Error("async observer failed"); });
   p.send({ id: 1, method: "approval" });
-  assert.match((await closed).message, /async observer failed/);
+  const error = await closed;
+  assert.match(error.message, /listener failed/);
+  assert.equal(error.cause.message, "async observer failed");
   await tick();
 });
 
@@ -246,3 +248,70 @@ test("a single stalled outbound write has an absolute drain deadline", { timeout
   assert.match((await closed).message, /write|drain/i);
   assert.equal(client.closed, true);
 });
+
+for (const method of ["respond", "rejectRequest"]) {
+  test(`${method} clears deferred ownership before a foreign request reuses its ID`, async t => {
+    const { p, client } = await connected(t);
+    client.answerServerRequests = true;
+    client.expectedThreadId = "ours";
+    p.send({ id: 1, method: "approval", params: { threadId: "ours", turnId: "our-turn" } });
+    await tick();
+    client[method](1, method === "respond" ? { decision: "decline" } : { code: -32601, message: "declined" });
+    p.send({ id: 1, method: "approval", params: { threadId: "foreign", turnId: "foreign-turn" } });
+    await tick();
+    client._adoptTurn("our-turn");
+    await tick();
+    assert.equal(p.received.length, 1);
+    assert.equal(client.refused[1].answered, false);
+  });
+
+  test(`${method} reserves ownership before serialization can reenter either response method`, async t => {
+    const { p, client } = await connected(t);
+    p.send({ id: "a", method: "approval" });
+    await tick();
+    const refused = [];
+    client[method]("a", {
+      toJSON() {
+        for (const reentrant of ["respond", "rejectRequest"]) {
+          try { client[reentrant]("a", {}); }
+          catch (error) { refused.push(error); }
+        }
+        return method === "respond" ? { decision: "decline" } : { code: -32601, message: "declined" };
+      },
+    });
+    await tick();
+    assert.equal(refused.length, 2);
+    assert.ok(refused.every(error => /resolved|unknown/.test(error.message)));
+    assert.equal(p.received.length, 1);
+  });
+
+  test(`${method} serialization failure closes and clears pending response ownership`, { timeout: 500 }, async t => {
+    const { p, client } = await connected(t);
+    p.send({ id: "a", method: "approval" });
+    await tick();
+    const closed = new Promise(resolve => client.onClose(resolve));
+    const circular = {};
+    circular.self = circular;
+    assert.throws(() => client[method]("a", circular));
+    assert.equal(client.closed, true);
+    assert.match((await closed).message, /serializ|response/i);
+    assert.throws(() => client.respond("a", {}));
+    await tick();
+    assert.equal(p.received.length, 0);
+  });
+}
+
+for (const kind of ["null prototype", "throwing message getter"]) {
+  test(`async observer ${kind} rejection closes without an unhandled rejection`, { timeout: 500 }, async t => {
+    const { p, client } = await connected(t);
+    const cause = kind === "null prototype" ? Object.create(null) : Object.defineProperty({}, "message", { get() { throw new Error("getter failed"); } });
+    const closed = new Promise(resolve => client.onClose(resolve));
+    client.onNotification(async () => { throw cause; });
+    p.send({ method: "event" });
+    const error = await closed;
+    assert.match(error.message, /listener/);
+    assert.equal(error.cause, cause);
+    assert.equal(client.closed, true);
+    await tick(); // node:test reports any unhandled rejection as a test failure.
+  });
+}
