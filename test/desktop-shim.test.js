@@ -98,7 +98,10 @@ test("wrapper preflights the socket and runs the bridge as a fallible child", ()
   assert.match(script, /bridge failed mid-session.*exiting so Desktop reconnects/);
 });
 
-test("wrapper exports CODEX_HOME and derives the socket from it at runtime", () => {
+test("wrapper exports CODEX_HOME and derives the socket from it at runtime", {
+  // path.win32.join rewrites the /tmp assertions; the installed wrapper is Unix bash.
+  skip: process.platform === "win32" && "Unix path assertions fail on Windows (Package CI runner)",
+}, () => {
   const custom = defaultPaths({ env: { CODEX_HOME: "/tmp/custom-home", HOME: "/tmp/u" }, home: "/tmp/u" });
   const script = renderWrapperScript(custom);
   assert.ok(custom.socketPath.startsWith("/tmp/custom-home"));
@@ -145,7 +148,10 @@ test("env script and plist point at the installed paths with the stable label", 
   assert.match(plist, /<string>Aqua<\/string>/);
 });
 
-test("install then uninstall round-trips in a scratch Codex home (no live Desktop)", () => {
+test("install then uninstall round-trips in a scratch Codex home (no live Desktop)", {
+  // Windows file modes omit the executable bit, and path.join uses backslashes, so the Unix round-trip cannot pass.
+  skip: process.platform === "win32" && "Unix executable bit and path separators fail on Windows (Package CI runner)",
+}, () => {
   const home = mkdtempSync(join(tmpdir(), "gbot-shim-home-"));
   const codexHome = mkdtempSync(join(tmpdir(), "gbot-shim-codex-"));
   const env = { CODEX_HOME: codexHome, HOME: home };
