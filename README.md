@@ -53,7 +53,8 @@ prints the failure message on stderr and exits 1.
 In a native Codex invocation, `gbot_send` sends once and returns a durable exchange
 receipt. Continue working: matching Grok replies arrive in the originating Codex
 thread automatically. That thread's next answer is not sent back to Grok unless
-you deliberately send again. The background worker survives the MCP caller exiting.
+you deliberately send again. The background worker survives the MCP caller exiting. Outgoing MCP tool calls
+still follow the host's tool-approval policy; the bridge does not change it.
 
 When native identity is unavailable (including Cursor), supply `codexThreadId` on
 the send, or make a one-time `gbot_bridge_start` binding with `grokTarget`,
@@ -196,10 +197,14 @@ Sends at `hop >= GROK_BOT_MAX_HOPS` (default 4) are refused with `reason: "hop-l
 ## Talking to Grok Bot from Codex
 
 The npm package is also an [Agent Bundle](https://scriptedalchemy.github.io/agent-bundle/) plugin
-that gives Codex, Claude Code, and Cursor two MCP tools on a `grok-bot` server,
-`gbot_send` and `gbot_thread`, plus a `talk-to-grok-bot` skill that tells the agent
-when to ping a bot and how to word the message. The tools bundle this repository's
-gateway client, so the installed plugin does not need `gbot` on `PATH`.
+that gives Codex, Claude Code, and Cursor a `grok-bot` MCP server with messaging,
+Codex conversation, and managed bridge tools, plus a `talk-to-grok-bot` skill.
+`gbot_send` and `gbot_thread` handle Grok conversations; `codex_threads`,
+`codex_send`, `codex_wait`, and `codex_watch` handle Codex conversations.
+`gbot_bridge_start`, `gbot_bridge_status`, `gbot_bridge_stop`, and
+`gbot_codex_respond` manage automatic delivery and scoped operator responses.
+The tools bundle this repository's gateway client and worker, so the installed
+plugin does not need `gbot` on `PATH`.
 
 Install the bundled host projections from the same npm package:
 
