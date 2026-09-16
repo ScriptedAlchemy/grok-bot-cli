@@ -56,7 +56,7 @@ test("unusable app session falls through to CURSOR_ACCESS_TOKEN EnsureSandBox", 
     calls.push({ url: String(url), body: options.body });
     return new Response(
       JSON.stringify({
-        gatewayUrl: "https://box.cursor.sh",
+        gatewayUrl: "http://127.0.0.1:1341",
         gatewayToken: "from-ensure",
       }),
       { status: 200 },
@@ -68,6 +68,7 @@ test("unusable app session falls through to CURSOR_ACCESS_TOKEN EnsureSandBox", 
       HOME: home,
       USERPROFILE: home,
       CURSOR_ACCESS_TOKEN: "cursor-access-token",
+      CURSOR_API_BASE_URL: "http://127.0.0.1:1340",
       GROK_BOT_GATEWAY_URL: null,
       GROK_BOT_GATEWAY_TOKEN: null,
       SAND_HOST_GATEWAY_URL: null,
@@ -81,7 +82,7 @@ test("unusable app session falls through to CURSOR_ACCESS_TOKEN EnsureSandBox", 
     },
     async () => {
       const session = await connectGateway();
-      assert.equal(session.gatewayUrl, "https://box.cursor.sh");
+      assert.equal(session.gatewayUrl, "http://127.0.0.1:1341");
       assert.equal(session.gatewayToken, "from-ensure");
       assert.equal(calls.length, 1);
       assert.match(calls[0].url, /EnsureSandBox/);

@@ -8,7 +8,7 @@ import {
 } from "../src/core/gateway.js";
 import { MAX_GROUP_MEMBERS } from "../src/core/store.js";
 
-const session = { gatewayUrl: "https://box.cursor.sh", gatewayToken: "test-token" };
+const session = { gatewayUrl: "http://127.0.0.1:1340", gatewayToken: "test-token" };
 const bots = Array.from({ length: MAX_GROUP_MEMBERS + 1 }, (_, i) => ({
   id: `bot-${i + 1}`,
   name: `Bot ${i + 1}`,

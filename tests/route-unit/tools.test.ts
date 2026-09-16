@@ -111,6 +111,8 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
   for (const key of envKeys) savedEnv[key] = process.env[key];
+  // rstest.route-unit.config.ts sets this; url-policy then refuses every non-loopback gateway.
+  expect(process.env.GROK_BOT_TEST).toBe('1');
   process.env.GROK_BOT_GATEWAY_URL = `http://127.0.0.1:${port}`;
   process.env.GROK_BOT_GATEWAY_TOKEN = 'test-token';
   process.env.GROK_BOT_ALLOW_LOCAL_GATEWAY = '1';

@@ -13,6 +13,8 @@ const files = readdirSync(dir)
   .map((name) => join("test", name));
 const result = spawnSync(process.execPath, ["--test", ...files], {
   cwd: root,
+  // Loopback-only credential URLs (src/core/url-policy.js testMode): a test can never reach a live gateway.
+  env: { ...process.env, GROK_BOT_TEST: "1" },
   stdio: "inherit",
 });
 process.exit(result.status === null ? 1 : result.status);
