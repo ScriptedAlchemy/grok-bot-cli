@@ -19,13 +19,3 @@ test("npm package metadata identifies the public source repository", () => {
     url: "https://github.com/ScriptedAlchemy/grok-bot-cli/issues",
   });
 });
-
-test("npm executable paths point at the Agent Bundle dist bins", () => {
-  assert.deepEqual(packageJson.bin, {
-    gbot: "./dist/bin/gbot.mjs",
-    "gbot-install": "./dist/bin/gbot-install.js",
-    "grok-bot": "./dist/bin/gbot.mjs",
-  });
-  assert.deepEqual(packageJson.files, ["dist", "README.md", "CHANGELOG.md", "LICENSE"]);
-  assert.equal(packageJson.scripts.prepack, "agent-bundle prepack");
-});

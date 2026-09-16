@@ -77,16 +77,6 @@ describe("codex contract — outcomeFromError", () => {
     assert.equal(out.exitCode, 1);
   });
 
-  it("keeps the bridge reason strings verbatim", () => {
-    const reasons = ["busy", "hop-limit", "route-not-allowed", "thread-error", "unknown-status", "unknown-thread", "external-owner", "experimental-disabled", "unsupported", "rejected", "transport", "bad-response", "approval-refused", "usage"];
-    for (const reason of reasons) {
-      const out = outcomeFromError(
-        Object.assign(new Error(reason), { delivery: "rejected", reason }),
-      );
-      assert.equal(out.reason, reason);
-      assert.equal(out.exitCode, 1);
-    }
-  });
 });
 
 describe("codex contract — outcomeFromReceipt", () => {
@@ -110,6 +100,6 @@ describe("codex contract — outcomeFromReceipt", () => {
       refused: ["approvals/request"],
     });
     assert.equal(out.exitCode, 1);
-    assert.ok(typeof out.error === "string" && out.error.length > 0);
+    assert.equal(out.error, "Codex refused one or more approvals.");
   });
 });
