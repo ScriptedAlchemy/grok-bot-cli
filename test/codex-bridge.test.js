@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, codexSocketPath, codexStatus, detectDesktopPrivateAppServer, unreachableMessage } from "../src/core/codex-bridge.js";
+import { desktopShimStatus } from "../src/core/desktop-shim.js";
 import { formatCodexStatus } from "../src/core/format.js";
 import { createServer as createTcpServer } from "node:net";
 
@@ -1065,13 +1066,14 @@ test("every codex send rejection carries the envelope, and unknown statuses are 
     "thread/resume": (params, ok) => ok({ thread: { id: params.threadId, status: { type: "hibernating" } }, model: "m", cwd: "/", approvalPolicy: "never" }),
   });
   const run = (env, ...args) => new Promise((resolve) => {
-    execFile(process.execPath, [CLI, ...args], { encoding: "utf8", env: { ...process.env, CODEX_HOME: fake.home, PATH: "/nonexistent", ...env } }, (error, out, err) => resolve({ code: error ? error.code : 0, out, err }));
+    // Clear GROK_BOT_CODEX_EXPERIMENTAL in the base env so a host export cannot leak into the "experimental off" case.
+    execFile(process.execPath, [CLI, ...args], { encoding: "utf8", env: { ...process.env, CODEX_HOME: fake.home, PATH: "/nonexistent", GROK_BOT_CODEX_EXPERIMENTAL: "", ...env } }, (error, out, err) => resolve({ code: error ? error.code : 0, out, err }));
   });
   try {
     for (const [label, env, args, reason] of [
       ["allowlist", { GROK_BOT_CODEX_THREADS: "other" }, ["t-1", "x"], "route-not-allowed"],
       ["unknown status", {}, ["t-1", "x"], "unknown-status"],
-      ["experimental off", {}, ["--when-busy", "queue", "t-1", "x"], "experimental-disabled"],
+      ["experimental off", { GROK_BOT_CODEX_EXPERIMENTAL: "0" }, ["--when-busy", "queue", "t-1", "x"], "experimental-disabled"],
     ]) {
       const { code, out } = await run(env, "codex", "send", "--correlation-id", "corr-9", ...args, "--json");
       assert.equal(code, 1, label);
@@ -1221,6 +1223,58 @@ test("codexStatus reports private-stdio with a managed-daemon message when the s
   assert.match(status.message, /openai\/codex\/issues\/41112/);
 });
 
+test("codexStatus reports attached-shim when the shim is active, even with a stale private-stdio process list", async () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-codex-shim-"));
+  const env = { ...process.env, CODEX_HOME: home, PATH: "/nonexistent" };
+
+  const active = await codexStatus(env, {
+    listProcesses: DESKTOP_MAC_PS,
+    shim: { installed: true, wrapperPointsAtShim: true },
+  });
+  assert.equal(active.desktopAttached, "attached-shim");
+  assert.equal(active.mode, "socket-absent");
+
+  const pointedAway = await codexStatus(env, {
+    listProcesses: DESKTOP_MAC_PS,
+    shim: { installed: true, wrapperPointsAtShim: false },
+  });
+  assert.equal(pointedAway.desktopAttached, "private-stdio", "installed but unpointed shim defers to the process list");
+
+  const quiet = await codexStatus(env, {
+    listProcesses: "init\n/usr/local/bin/codex app-server daemon start",
+    shim: { installed: false, wrapperPointsAtShim: false },
+  });
+  assert.equal(quiet.desktopAttached, "unknown");
+
+  // Live wiring: real wrapper+bridge files. On Darwin, Desktop-facing CODEX_CLI_PATH
+  // is launchctl's GUI domain (not shell env), so mock launchctl getenv for the status probe.
+  const bin = join(home, "bin");
+  mkdirSync(bin, { recursive: true });
+  const wrapper = join(bin, "codex-desktop-to-daemon");
+  writeFileSync(wrapper, "#!/bin/bash\n");
+  chmodSync(wrapper, 0o755);
+  writeFileSync(join(bin, "codex-stdio-to-daemon-ws.py"), "# bridge\n");
+  const liveShim = desktopShimStatus({
+    env: { ...env, CODEX_CLI_PATH: wrapper },
+    runner: (file, args) => {
+      if (file === "launchctl" && args[0] === "getenv" && args[1] === "CODEX_CLI_PATH") {
+        return { status: 0, stdout: wrapper + "\n" };
+      }
+      return { status: 0, stdout: "" };
+    },
+  });
+  assert.equal(liveShim.installed, true);
+  assert.equal(liveShim.wrapperPointsAtShim, true);
+  const live = await codexStatus(
+    { ...env, CODEX_CLI_PATH: wrapper },
+    {
+      listProcesses: DESKTOP_MAC_PS,
+      shim: { installed: liveShim.installed, wrapperPointsAtShim: liveShim.wrapperPointsAtShim },
+    },
+  );
+  assert.equal(live.desktopAttached, "attached-shim");
+});
+
 test("codexStatus keeps unknown and the generic message without Desktop evidence", async () => {
   const home = mkdtempSync(join(tmpdir(), "gbot-codex-nodesktop-"));
   const env = { ...process.env, CODEX_HOME: home, PATH: "/nonexistent" };
@@ -1239,6 +1293,7 @@ test("formatCodexStatus names the private-stdio case and keeps the unknown line"
   };
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "private-stdio" }), /desktop attached: private-stdio/);
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "private-stdio" }), /codex app-server daemon start/);
+  assert.match(formatCodexStatus({ ...daemon, desktopAttached: "attached-shim" }), /desktop attached: attached-shim/);
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "unknown" }), /desktop attached: unknown \(not observable from the socket\)/);
 });
 

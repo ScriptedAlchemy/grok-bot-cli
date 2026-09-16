@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 
 import { outcomeFromError, outcomeFromReceipt, withStatusExitCode } from "./codex/contract.js";
+import { desktopShimStatus } from "./desktop-shim.js";
 
 // Method and param names below come from `codex app-server generate-json-schema`
 // of this Codex release. Newer daemons usually keep them; `gbot codex status`
@@ -597,19 +598,35 @@ export function detectDesktopPrivateAppServer({ platform = process.platform, lis
 /**
  * Status contract: `reachable` is endpoint reachability only. `schema.compatibility` is
  * `exact` when the daemon reports the pinned version, otherwise `unverified` (methods
- * usually survive upgrades) or `unknown`. `desktopAttached` is `"private-stdio"` when a
- * Desktop-bundled app-server process is visible (see `detectDesktopPrivateAppServer`),
- * otherwise `"unknown"` — whether Desktop owns any thread is never observable from the
- * socket itself, and `"detached"` is never reported.
+ * usually survive upgrades) or `unknown`. `desktopAttached` is `"attached-shim"` when the
+ * desktop-shim is active (installed wrapper that the Desktop-facing CODEX_CLI_PATH points
+ * at — the GUI domain on Darwin — so Desktop spawns bridge onto the managed daemon),
+ * `"private-stdio"` when a Desktop-bundled app-server process is visible (see
+ * `detectDesktopPrivateAppServer`), otherwise `"unknown"` — whether Desktop owns any
+ * thread is never observable from the socket itself, and `"detached"` is never reported.
+ * An active shim outranks a stale-looking private-stdio process list.
  *
  * @param {NodeJS.ProcessEnv} [env]
- * @param {{ listProcesses?: string | string[] }} [opts] injected process list for tests;
- *   defaults to a live `ps` snapshot. Never reads pipes or connects to Desktop.
+ * @param {{ listProcesses?: string | string[], shim?: { installed?: boolean, wrapperPointsAtShim?: boolean } | null }} [opts]
+ *   injected process list and shim state for tests; defaults to a live `ps` snapshot and
+ *   `desktopShimStatus`. Never reads pipes or connects to Desktop.
  */
-export async function codexStatus(env = process.env, { listProcesses } = {}) {
+export async function codexStatus(env = process.env, { listProcesses, shim } = {}) {
   const path = codexSocketPath(env);
   const cli = probeLocalCodexVersion();
-  const desktopAttached = detectDesktopPrivateAppServer({
+  // Shim state comes from the install record + the Desktop-facing CODEX_CLI_PATH
+  // (GUI domain on Darwin), never from process-list scraping: when the shim is
+  // active, Desktop's spawns bridge onto this socket, so report the live path.
+  let shimActive = Boolean(shim && shim.installed && shim.wrapperPointsAtShim);
+  if (shim === undefined) {
+    try {
+      const live = desktopShimStatus({ env });
+      shimActive = Boolean(live.installed && live.wrapperPointsAtShim);
+    } catch {
+      shimActive = false;
+    }
+  }
+  const desktopAttached = shimActive ? "attached-shim" : detectDesktopPrivateAppServer({
     platform: process.platform,
     listProcesses: listProcesses ?? listDesktopProcesses(),
   });
