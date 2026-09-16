@@ -6,7 +6,7 @@ import {
   resetPolicyWarnings,
 } from "../src/core/url-policy.js";
 
-// Tests run with GROK_BOT_TEST=1 (scripts/run-unit-tests.mjs); production-policy
+// Unit tests run with GROK_BOT_TEST=1; production-policy
 // cases opt out explicitly so the assertions below describe the real CLI.
 function withEnv(values, fn) {
   values = { GROK_BOT_TEST: null, NODE_ENV: null, ...values };

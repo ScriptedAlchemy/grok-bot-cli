@@ -21,13 +21,8 @@ test("doctor reports a present but unusable Grok Bot app session", {
   for (const name of [
     "XDG_CONFIG_HOME",
     "CURSOR_ACCESS_TOKEN",
-    "GROK_BOT_ACCESS_TOKEN",
     "GROK_BOT_GATEWAY_URL",
     "GROK_BOT_GATEWAY_TOKEN",
-    "SAND_ACCESS_TOKEN",
-    "SAND_HOST_GATEWAY_URL",
-    "SAND_HOST_GATEWAY_TOKEN",
-    "SAND_GATEWAY_TOKEN",
   ]) delete env[name];
 
   const result = spawnSync(process.execPath, [CLI, "doctor", "--json"], {

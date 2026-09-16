@@ -34,4 +34,6 @@ Framework argument/schema errors use stderr and exit 2. `--json` is reserved bef
 
 ## Auth
 
-Same order as `gbot`: explicit `GROK_BOT_GATEWAY_*`, else Grok Bot app session, else `CURSOR_ACCESS_TOKEN`. `gbot doctor` shows which source is present.
+Same order as `gbot`: `GROK_BOT_GATEWAY_URL` plus `GROK_BOT_GATEWAY_TOKEN`,
+else the Grok Bot app session, else `CURSOR_ACCESS_TOKEN`. `gbot doctor` shows
+which source is present.

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 
 import { grokBotGatewayDescriptorPath } from "../src/core/app-session.js";
-import { connectGateway } from "../src/core/gateway.js";
+import { connectGateway, hasGatewayAuth } from "../src/core/gateway.js";
 
 function withEnv(values, fn) {
   const prev = {};
@@ -69,13 +69,9 @@ test("unusable app session falls through to CURSOR_ACCESS_TOKEN EnsureSandBox", 
       USERPROFILE: home,
       CURSOR_ACCESS_TOKEN: "cursor-access-token",
       CURSOR_API_BASE_URL: "http://127.0.0.1:1340",
+      SAND_BACKEND_URL: "https://ignored.invalid",
       GROK_BOT_GATEWAY_URL: null,
       GROK_BOT_GATEWAY_TOKEN: null,
-      SAND_HOST_GATEWAY_URL: null,
-      SAND_HOST_GATEWAY_TOKEN: null,
-      SAND_GATEWAY_TOKEN: null,
-      GROK_BOT_ACCESS_TOKEN: null,
-      SAND_ACCESS_TOKEN: null,
       GROK_BOT_ALLOW_ANY_GATEWAY: null,
       GROK_BOT_ALLOW_LOCAL_GATEWAY: null,
       ...env,
@@ -87,6 +83,27 @@ test("unusable app session falls through to CURSOR_ACCESS_TOKEN EnsureSandBox", 
       assert.equal(calls.length, 1);
       assert.match(calls[0].url, /EnsureSandBox/);
     },
+  );
+});
+
+test("removed token and gateway env aliases do not select gateway auth", () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-connect-alias-home-"));
+  withEnv(
+    {
+      HOME: home,
+      USERPROFILE: home,
+      XDG_CONFIG_HOME: join(home, ".config"),
+      APPDATA: join(home, "AppData/Roaming"),
+      CURSOR_ACCESS_TOKEN: null,
+      GROK_BOT_GATEWAY_URL: null,
+      GROK_BOT_GATEWAY_TOKEN: null,
+      GROK_BOT_ACCESS_TOKEN: "removed",
+      SAND_ACCESS_TOKEN: "removed",
+      SAND_HOST_GATEWAY_URL: "http://127.0.0.1:1340",
+      SAND_HOST_GATEWAY_TOKEN: "removed",
+      SAND_GATEWAY_TOKEN: "removed",
+    },
+    () => assert.equal(hasGatewayAuth(), false),
   );
 });
 
@@ -102,13 +119,8 @@ test("unusable app session without access token surfaces the session error", asy
       HOME: home,
       USERPROFILE: home,
       CURSOR_ACCESS_TOKEN: null,
-      GROK_BOT_ACCESS_TOKEN: null,
-      SAND_ACCESS_TOKEN: null,
       GROK_BOT_GATEWAY_URL: null,
       GROK_BOT_GATEWAY_TOKEN: null,
-      SAND_HOST_GATEWAY_URL: null,
-      SAND_HOST_GATEWAY_TOKEN: null,
-      SAND_GATEWAY_TOKEN: null,
       ...env,
     },
     async () => {

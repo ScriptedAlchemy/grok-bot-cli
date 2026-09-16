@@ -20,7 +20,7 @@ const roster = {
   agents: [
     { id: 'bot-1', isGroup: false, name: 'General' },
     { id: 'grp-1', memberAgentIds: ['bot-1'], name: 'Launch' },
-    { id: 'bot-2', isGroup: false, name: 'Legacy' },
+    { id: 'bot-2', isGroup: false, name: 'Varied' },
     { id: 'bot-3', isGroup: false, name: 'Proxy' },
     { id: 'bot-4', isGroup: false, name: 'Odd' },
     { id: 'bot-5', isGroup: false, name: 'Noreceipt' },
@@ -39,7 +39,7 @@ const transcripts: Record<string, unknown> = {
     })),
   },
   'bot-2': {
-    messages: [
+    entries: [
       { content: 'ignored when text is set', id: 'l1', text: 'direct text' },
       { content: [{ text: 'part one' }, 'part two', { content: 'part three' }], id: 'l2', kind: 'note' },
       { id: 'l3', message: 'plain message' },
@@ -191,7 +191,7 @@ describe('grok-bot MCP server', () => {
     expect(contentText(full.content)).toBe('3 entries');
   });
 
-  it('gbot_thread defaults the limit to 40 like the CLI and reads the other transcript shapes', async () => {
+  it('gbot_thread defaults the limit to 40 like the CLI and summarizes varied entry shapes', async () => {
     const empty = await invokeMcpTool('gbot_thread', { input: { target: 'General' }, server: 'grok-bot' });
     expect(calls[1]?.body).toEqual({ id: 'bot-1', limit: 40 });
     expect(empty.structuredContent).toEqual({
@@ -202,23 +202,23 @@ describe('grok-bot MCP server', () => {
     });
     expect(contentText(empty.content)).toBe('0 entries');
 
-    const legacy = await invokeMcpTool('gbot_thread', { input: { target: 'Legacy' }, server: 'grok-bot' });
-    expect(legacy.structuredContent).toEqual({
+    const varied = await invokeMcpTool('gbot_thread', { input: { target: 'Varied' }, server: 'grok-bot' });
+    expect(varied.structuredContent).toEqual({
       cursor: 'l4',
       entryCount: 4,
       gapReset: false,
       summary: '4 entries',
     });
-    const legacySummary = contentText(legacy.content);
-    expect(legacySummary).toBe('4 entries');
-    expect(legacySummary).not.toContain('direct text');
-    expect(legacySummary).not.toContain('…');
-    expect(legacySummary).not.toContain('x'.repeat(450));
+    const variedSummary = contentText(varied.content);
+    expect(variedSummary).toBe('4 entries');
+    expect(variedSummary).not.toContain('direct text');
+    expect(variedSummary).not.toContain('…');
+    expect(variedSummary).not.toContain('x'.repeat(450));
   });
 
   it('gbot_thread recovers a complete long reply with full:true and normalizes malformed entries', async () => {
     const full = await invokeMcpTool('gbot_thread', {
-      input: { full: true, target: 'Legacy' },
+      input: { full: true, target: 'Varied' },
       server: 'grok-bot',
     });
     expect(full.isError).toBe(false);

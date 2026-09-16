@@ -4,7 +4,7 @@ import { hasGrokBotGatewaySession, loadGrokBotGatewaySession } from "./app-sessi
 import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS } from "./store.js";
 import { assertAllowedCredentialUrl, redactSecrets } from "./url-policy.js";
 
-export class GatewayError extends Error {
+class GatewayError extends Error {
   constructor(message, { status, method } = {}) {
     super(message);
     this.name = "GatewayError";
@@ -14,42 +14,27 @@ export class GatewayError extends Error {
 }
 
 // ponytail: fixed 30 s deadline and buffered byte cap; upgrade path is per-method budgets plus streaming reads.
-export const GATEWAY_TIMEOUT_MS = 30000;
+const GATEWAY_TIMEOUT_MS = 30000;
 export const GATEWAY_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 function backendBase() {
   return (
-    process.env.SAND_BACKEND_URL ||
     process.env.CURSOR_API_BASE_URL ||
     "https://api2.cursor.sh"
   ).replace(/\/$/, "");
 }
 
 function accessTokenFromEnv() {
-  return (
-    process.env.CURSOR_ACCESS_TOKEN ||
-    process.env.GROK_BOT_ACCESS_TOKEN ||
-    process.env.SAND_ACCESS_TOKEN ||
-    ""
-  ).trim();
+  return (process.env.CURSOR_ACCESS_TOKEN || "").trim();
 }
 
 function gatewayTokenFromEnv() {
-  return (
-    process.env.GROK_BOT_GATEWAY_TOKEN ||
-    process.env.SAND_HOST_GATEWAY_TOKEN ||
-    process.env.SAND_GATEWAY_TOKEN ||
-    ""
-  ).trim();
+  return (process.env.GROK_BOT_GATEWAY_TOKEN || "").trim();
 }
 
 function gatewayOverride() {
   const token = gatewayTokenFromEnv();
-  const explicitUrl = (process.env.GROK_BOT_GATEWAY_URL || process.env.SAND_HOST_GATEWAY_URL || "").trim();
-  const localUrl = token
-    ? "http://127.0.0.1:" + (process.env.SAND_HOST_PORT || "1340")
-    : "";
-  const url = explicitUrl || localUrl;
+  const url = (process.env.GROK_BOT_GATEWAY_URL || "").trim();
   if (url && token) {
     return {
       gatewayUrl: assertAllowedCredentialUrl(url.replace(/\/$/, ""), { kind: "gateway" }),
@@ -124,7 +109,7 @@ function pick(obj, ...keys) {
   return undefined;
 }
 
-export async function ensureSandbox(accessToken) {
+async function ensureSandbox(accessToken) {
   const url = assertAllowedCredentialUrl(backendBase(), { kind: "backend" }) + "/aiserver.v1.GrokBotService/EnsureSandBox";
   const res = await fetch(url, {
     method: "POST",
@@ -158,7 +143,7 @@ export async function connectGateway() {
   return ensureSandbox(token);
 }
 
-export async function gatewayCall(session, method, body = {}) {
+async function gatewayCall(session, method, body = {}) {
   const base = assertAllowedCredentialUrl(session.gatewayUrl, { kind: "gateway" });
   const url = base + "/api/" + method;
   const res = await fetch(url, {
@@ -341,14 +326,13 @@ export async function removeGroupMember(session, groupRef, memberRef) {
   return setGroupMembers(session, group.id, next);
 }
 
-export async function sendPrompt(session, ref, prompt, extra = {}) {
+export async function sendPrompt(session, ref, prompt) {
   const rec = await resolveRef(session, ref);
   const body = {
     agentId: rec.id,
     prompt,
-    clientNonce: extra.clientNonce || randomUUID(),
+    clientNonce: randomUUID(),
   };
-  if (extra.replyToId) body.replyToId = extra.replyToId;
   let data;
   try {
     data = await gatewayCall(session, "sendPrompt", body);

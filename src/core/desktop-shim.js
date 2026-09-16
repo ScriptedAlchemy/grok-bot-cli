@@ -23,19 +23,19 @@ import { BRIDGE_SOURCE } from "./desktop-shim-bridge.js";
  */
 
 export const SHIM_LABEL = "com.zackjackson.codex-desktop-shared-daemon";
-export const WRAPPER_FILENAME = "codex-desktop-to-daemon";
-export const BRIDGE_FILENAME = "codex-stdio-to-daemon-ws.py";
-export const ENV_SCRIPT_FILENAME = "codex-desktop-shared-daemon-env.sh";
-export const BRIDGE_LOG_FILENAME = "codex-stdio-to-daemon-ws.log";
-export const WRAPPER_LOG_FILENAME = "codex-desktop-to-daemon.log";
-export const ENV_LOG_FILENAME = "codex-desktop-shared-daemon-env.log";
-export const STANDALONE_REAL_SUFFIX = join("packages", "standalone", "current", "bin", "codex");
+const WRAPPER_FILENAME = "codex-desktop-to-daemon";
+const BRIDGE_FILENAME = "codex-stdio-to-daemon-ws.py";
+const ENV_SCRIPT_FILENAME = "codex-desktop-shared-daemon-env.sh";
+const BRIDGE_LOG_FILENAME = "codex-stdio-to-daemon-ws.log";
+const WRAPPER_LOG_FILENAME = "codex-desktop-to-daemon.log";
+const ENV_LOG_FILENAME = "codex-desktop-shared-daemon-env.log";
+const STANDALONE_REAL_SUFFIX = join("packages", "standalone", "current", "bin", "codex");
 
-export function codexHomeDir(env = process.env) {
+function codexHomeDir(env = process.env) {
   return env.CODEX_HOME || join(env.HOME || homedir(), ".codex");
 }
 
-export function userHomeDir(env = process.env) {
+function userHomeDir(env = process.env) {
   return env.HOME || homedir();
 }
 

@@ -62,7 +62,7 @@ export default defineTool(
   async ({ after, limit, target, full }) => {
     const tail = await withRedactedErrors(async () => getTranscriptTail(await connectGateway(), target, limit));
     const delta = transcriptDelta(tail.transcript, { after, limit });
-    const entries = transcriptEntries(delta.entries);
+    const entries = transcriptEntries({ entries: delta.entries });
     const summary = delta.gapReset
       ? `${delta.entryCount} entries; gap reset`
       : after === undefined

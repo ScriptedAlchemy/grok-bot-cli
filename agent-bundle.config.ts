@@ -1,15 +1,5 @@
 import { defineConfig } from 'agent-bundle/config';
 
-/**
- * One Agent Bundle project at repo root — same shape as cargo-hauler.
- * Nested `plugin/` + hand `src/cli.js` are gone; hosts and npm share this tree.
- *
- * - `src/mcp/grok-bot/tools/*` → MCP tools
- * - `src/cli/**` → npm CLI, including send/thread/history and Codex
- * - `src/gbot-install.ts` → `gbot-install` host installer
- * - `src/core/*` → domain (gateway, store, codex-bridge, …)
- * - `src/skills/*` → installed skills
- */
 export default defineConfig({
   bin: {
     'gbot-install': './src/gbot-install.ts',

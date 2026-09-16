@@ -11,7 +11,6 @@ import {
 } from './_shared.js';
 
 export const config = {
-  aliases: ['chat'],
   description: 'Read the most recent messages in a Grok Bot bot or group thread.',
   inputJsonSchema: {
     additionalProperties: false,

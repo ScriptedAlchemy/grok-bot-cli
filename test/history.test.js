@@ -77,11 +77,11 @@ test("send persists a full multiline prompt across processes, searchable offline
   }
 });
 
-test("thread and chat preserve full replies, group and root metadata, and repeated observations", async (t) => {
+test("thread preserves full replies, group and root metadata, and repeated observations", async (t) => {
   const f = await fixture(t);
   await f.run(["thread", "Researcher", "--limit", "80"]);
   assert.deepEqual(f.calls.at(-1), { method: "/api/getAgentTranscriptTail", body: { id: target.id, limit: 80 } });
-  await f.run(["chat", "Launch", "--root", "root-1", "--json"]);
+  await f.run(["thread", "Launch", "--root", "root-1", "--json"]);
   assert.deepEqual(f.calls.at(-1), { method: "/api/getAgentThread", body: { id: group.id, rootId: "root-1" } });
   const rows = f.rows();
   assert.equal(rows.length, 2);
@@ -95,19 +95,6 @@ test("thread and chat preserve full replies, group and root metadata, and repeat
   assert.deepEqual(JSON.parse(found.stdout), [rows[1]]);
   await f.run(["thread", "Researcher"]);
   assert.equal(f.rows().length, 3);
-});
-
-test("supports all transcript envelopes and text fields already displayed by the CLI", async (t) => {
-  const f = await fixture(t);
-  for (const [key, entry] of [
-    ["messages", { messageId: "m1", sender: "assistant", message: "message text" }],
-    ["items", { kind: "user", prompt: "prompt text" }],
-    [null, { type: "assistant", content: "content text" }],
-  ]) {
-    f.state.payload = key ? { [key]: [entry] } : [entry];
-    await f.run(["thread", "Researcher"]);
-  }
-  assert.deepEqual(f.rows().map((r) => r.text), ["message text", "prompt text", "content text"]);
 });
 
 test("thread --after returns exclusive deltas, no-op receipts, and bounded gap resets", async (t) => {

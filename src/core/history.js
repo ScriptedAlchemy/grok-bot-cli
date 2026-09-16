@@ -24,7 +24,7 @@ export function saveHistory(out, { dir, disabled, event, prompt, rootId } = {}) 
       target,
       ...(rootId ? { rootId } : {}),
       role: String(entry.role || entry.kind || entry.sender || entry.type || "msg"),
-      ...(entry.id || entry.messageId ? { messageId: String(entry.id || entry.messageId) } : {}),
+      ...(entry.id ? { messageId: String(entry.id) } : {}),
       ...(entry.timestamp || entry.createdAt ? { timestamp: String(entry.timestamp || entry.createdAt) } : {}),
       text: entryText(entry),
     }));
