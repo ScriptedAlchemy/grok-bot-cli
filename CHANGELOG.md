@@ -1,5 +1,12 @@
 # grok-bot-cli
 
+## 0.4.5
+
+### Patch Changes
+
+- f7fbeea: Report Desktop shim configuration separately from attachment evidence. `gbot codex status` now includes `desktopShimConfigured` and no longer emits `attached-shim` merely because the wrapper is installed and selected. Preserve observed private-stdio processes and report managed attachment as unverified, including when the daemon is unreachable.
+- 5395aa7: Refuse every non-loopback gateway or backend URL when `GROK_BOT_TEST=1` or `NODE_ENV=test`, ignoring `GROK_BOT_ALLOW_ANY_GATEWAY`, so the test suites can never send a prompt to a live thread. The unit and route-unit runners set `GROK_BOT_TEST=1`.
+
 ## 0.4.4
 
 ### Patch Changes
