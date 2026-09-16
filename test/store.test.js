@@ -7,6 +7,7 @@ import {
   addGroupMember,
   createAgent,
   createGroup,
+  defaultCandidateRoots,
   deleteAgent,
   listRecords,
   removeGroupMember,
@@ -20,6 +21,28 @@ function withRoot(fn) {
     .then(() => fn(root))
     .finally(() => rmSync(root, { recursive: true, force: true }));
 }
+
+test("agent root discovery ignores removed sand env aliases", () => {
+  const previousAgentsDir = process.env.GROK_BOT_AGENTS_DIR;
+  const previousSandAgentsDir = process.env.SAND_AGENTS_DIR;
+  const previousSandDataRoot = process.env.SAND_DATA_ROOT;
+  try {
+    process.env.GROK_BOT_AGENTS_DIR = "/canonical";
+    process.env.SAND_AGENTS_DIR = "/removed-agents";
+    process.env.SAND_DATA_ROOT = "/removed-data";
+    const candidates = defaultCandidateRoots();
+    assert.equal(candidates[0], "/canonical");
+    assert.equal(candidates.includes("/removed-agents"), false);
+    assert.equal(candidates.some((path) => path.startsWith("/removed-data")), false);
+  } finally {
+    if (previousAgentsDir === undefined) delete process.env.GROK_BOT_AGENTS_DIR;
+    else process.env.GROK_BOT_AGENTS_DIR = previousAgentsDir;
+    if (previousSandAgentsDir === undefined) delete process.env.SAND_AGENTS_DIR;
+    else process.env.SAND_AGENTS_DIR = previousSandAgentsDir;
+    if (previousSandDataRoot === undefined) delete process.env.SAND_DATA_ROOT;
+    else process.env.SAND_DATA_ROOT = previousSandDataRoot;
+  }
+});
 
 test("create list delete bots", async () => {
   await withRoot((root) => {

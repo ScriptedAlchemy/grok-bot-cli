@@ -4,17 +4,15 @@ import { describe, it } from "node:test";
 import {
   outcomeFromError,
   outcomeFromReceipt,
-  sendExitCode,
-  statusExitCode,
   withStatusExitCode,
 } from "../src/core/codex/contract.js";
 
 describe("codex contract — status exit", () => {
   it("exit 0 only for reachable daemon", () => {
-    assert.equal(statusExitCode({ reachable: true, mode: "daemon" }), 0);
-    assert.equal(statusExitCode({ reachable: false, mode: "socket-absent" }), 1);
-    assert.equal(statusExitCode({ reachable: true, mode: "bad-response" }), 1);
-    assert.equal(statusExitCode({ reachable: false, mode: "daemon" }), 1);
+    assert.equal(withStatusExitCode({ reachable: true, mode: "daemon" }).exitCode, 0);
+    assert.equal(withStatusExitCode({ reachable: false, mode: "socket-absent" }).exitCode, 1);
+    assert.equal(withStatusExitCode({ reachable: true, mode: "bad-response" }).exitCode, 1);
+    assert.equal(withStatusExitCode({ reachable: false, mode: "daemon" }).exitCode, 1);
   });
 
   it("withStatusExitCode attaches exitCode without mutating", () => {
@@ -27,18 +25,18 @@ describe("codex contract — status exit", () => {
 
 describe("codex contract — send exit", () => {
   it("accepted and queued succeed", () => {
-    assert.equal(sendExitCode({ delivery: "accepted" }), 0);
-    assert.equal(sendExitCode({ delivery: "queued" }), 0);
+    assert.equal(outcomeFromReceipt({ delivery: "accepted" }).exitCode, 0);
+    assert.equal(outcomeFromReceipt({ delivery: "queued" }).exitCode, 0);
   });
 
   it("rejected, unknown, and error fail", () => {
-    assert.equal(sendExitCode({ delivery: "rejected", error: "nope" }), 1);
-    assert.equal(sendExitCode({ delivery: "unknown", error: "maybe" }), 1);
-    assert.equal(sendExitCode({ delivery: "accepted", error: "x" }), 1);
+    assert.equal(outcomeFromReceipt({ delivery: "rejected", error: "nope" }).exitCode, 1);
+    assert.equal(outcomeFromReceipt({ delivery: "unknown", error: "maybe" }).exitCode, 1);
+    assert.equal(outcomeFromReceipt({ delivery: "accepted", error: "x" }).exitCode, 1);
   });
 
   it("approval-refused is accepted delivery with exit 1", () => {
-    assert.equal(sendExitCode({ delivery: "accepted", reason: "approval-refused" }), 1);
+    assert.equal(outcomeFromReceipt({ delivery: "accepted", reason: "approval-refused" }).exitCode, 1);
   });
 });
 
@@ -49,7 +47,9 @@ describe("codex contract — outcomeFromError", () => {
       delivery: "rejected",
       reason: "busy",
       threadId: "thr_1",
-      envelope: { messageId: "m_1", correlationId: "c_1", hop: 2 },
+      messageId: "m_1",
+      correlationId: "c_1",
+      hop: 2,
     });
     const out = outcomeFromError(err);
     assert.equal(out.error, "busy thread");

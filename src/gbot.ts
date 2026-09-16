@@ -8,7 +8,7 @@ export { connectGateway, getTranscriptTail, sendPrompt, transcriptDelta };
 
 // Hosts and the CLI print thrown error text (and stack), and a fetch or proxy failure can echo
 // a credential. Rewrap with a redacted message; keep `name` and own fields such as `reason`,
-// `delivery`, `mode`, and `envelope` so outcome documents still classify the failure.
+// `delivery`, `mode`, and correlation ids so outcome documents still classify the failure.
 export const withRedactedErrors = async <T>(run: () => Promise<T>): Promise<T> => {
   try {
     return await run();
@@ -82,7 +82,7 @@ const metaLength = (entry: Entry): number => entry.id.length + entry.kind.length
 export const transcriptEntries = (transcript: unknown): Entry[] => {
   const rows = unwrapEntries(transcript);
   let remaining = TRANSCRIPT_TOTAL_MAX;
-  return rows.map((raw) => {
+  return rows.map((raw: unknown) => {
     const entry = threadEntry(raw);
     const allowText = Math.max(0, Math.min(entry.text.length, remaining - metaLength(entry)));
     if (allowText < entry.text.length) {

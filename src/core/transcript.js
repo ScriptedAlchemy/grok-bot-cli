@@ -1,7 +1,5 @@
-// Shared by `gbot thread` and the grok-bot plugin's gbot_thread tool.
-
 /** Coerce anything to a string without throwing (numbers, BigInt, unserializable objects). */
-export function toSafeText(value) {
+function toSafeText(value) {
   if (typeof value === "string") return value;
   if (value == null) return "";
   if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
@@ -14,7 +12,7 @@ export function toSafeText(value) {
 }
 
 /** Coerce to string and replace lone surrogates so downstream slicing/JSON never breaks. */
-export function normalizeText(value) {
+function normalizeText(value) {
   return toSafeText(value).replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "\uFFFD");
 }
 
@@ -43,16 +41,13 @@ function entryTextRaw(e) {
 }
 
 export function transcriptEntries(payload) {
-  if (Array.isArray(payload)) return payload;
   if (!payload || typeof payload !== "object") return [];
-  const entries = payload.entries || payload.messages || payload.items;
-  return Array.isArray(entries) ? entries : [];
+  return Array.isArray(payload.entries) ? payload.entries : [];
 }
 
 export function sourceEntryId(entry) {
   if (!entry || typeof entry !== "object") return "";
-  if (typeof entry.id === "string" && entry.id) return entry.id;
-  return typeof entry.messageId === "string" ? entry.messageId : "";
+  return typeof entry.id === "string" ? entry.id : "";
 }
 
 function lastSourceId(entries, fallback = "") {

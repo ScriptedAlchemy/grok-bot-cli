@@ -16,15 +16,15 @@ function truthyEnv(name) {
   return v === "1" || v === "true" || v === "yes";
 }
 
-export function allowAnyGateway() {
+function allowAnyGateway() {
   return truthyEnv("GROK_BOT_ALLOW_ANY_GATEWAY");
 }
 
-export function allowLocalGateway() {
+function allowLocalGateway() {
   return truthyEnv("GROK_BOT_ALLOW_LOCAL_GATEWAY");
 }
 
-export function testMode() {
+function testMode() {
   return truthyEnv("GROK_BOT_TEST") || process.env.NODE_ENV === "test";
 }
 

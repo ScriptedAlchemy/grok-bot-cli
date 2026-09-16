@@ -13,7 +13,7 @@ const SAFE_STORAGE_PREFIX_V10_BUF = Buffer.from(SAFE_STORAGE_PREFIX_V10);
 const LINUX_BASIC_TEXT_PASSWORD = "peanuts";
 const SUPPORTED_PLATFORMS = new Set(["darwin", "linux", "win32"]);
 
-export class GrokBotGatewaySessionError extends Error {
+class GrokBotGatewaySessionError extends Error {
   constructor(code, message) {
     super(message);
     this.name = "GrokBotGatewaySessionError";

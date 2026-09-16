@@ -43,8 +43,7 @@ snapshot with `gapReset: true`. The gateway request remains limit-only.
 
 Run `gbot --help` for every command.
 Options are command-local (for example, `gbot send --history-dir DIR ...`);
-the former leading-global form is no longer accepted. `--json` prints the
-canonical JSON result; `send` and the `codex` commands also report failures as
+`--json` prints the canonical JSON result; `send` and the `codex` commands also report failures as
 a JSON document on stdout with `exitCode` (see below), every other command
 prints the failure message on stderr and exits 1.
 
@@ -95,7 +94,7 @@ Permanent tradeoff, stated plainly: Desktop's app-tools MCP (`-c` overrides on i
 
 **Status contract (`gbot codex status --json`).** `reachable` is endpoint reachability only. `socketState` is `socket`, `absent`, `permission-denied`, or `not-a-socket`; `mode` is `daemon` for a usable daemon, otherwise the failure: `socket-absent`, `permission-denied` (the file or the connect refused this user), `not-a-socket`, `connect-failed` (socket present, nothing completed the WebSocket upgrade), `handshake-failed` (upgrade or `initialize` failed), `windows-unsupported`, or `bad-response` (reachable, but `initialize` returned something off-schema — `reachable` stays `true`). `schema.compatibility` is `exact` when the daemon reports the pinned version, `unverified` when it differs (methods usually survive upgrades, but the shapes are not re-checked), or `unknown`. `cliVersionProbe` reports whether `codex --version` answered (`ok`, `missing`, `timeout` after 3 s, `error`). The document is always written to stdout and includes `exitCode`; it is `0` only for a usable daemon.
 
-`desktopShimConfigured` is true when the installed wrapper is selected by Desktop-facing `CODEX_CLI_PATH` (the GUI domain on macOS). This describes configuration for future launches; a running Desktop may not have inherited it, and the wrapper may have fallen back to stock Codex. `desktopAttached` is `"private-stdio"` when a Desktop-bundled app-server process is observed, otherwise `"unknown"`. That process observation and shim configuration can both be present. Neither a configured shim nor a reachable daemon proves Desktop is attached to that daemon. The former `"attached-shim"` value is no longer emitted; consumers checking shim setup should use `desktopShimConfigured`. Verify actual attachment with a controlled shared-thread interaction and matching thread/turn IDs.
+`desktopShimConfigured` is true when the installed wrapper is selected by Desktop-facing `CODEX_CLI_PATH` (the GUI domain on macOS). This describes configuration for future launches; a running Desktop may not have inherited it, and the wrapper may have fallen back to stock Codex. `desktopAttached` is `"private-stdio"` when a Desktop-bundled app-server process is observed, otherwise `"unknown"`. That process observation and shim configuration can both be present. Neither a configured shim nor a reachable daemon proves Desktop is attached to that daemon. Verify actual attachment with a controlled shared-thread interaction and matching thread/turn IDs.
 
 **Thread discovery.** `list-threads --limit N` (1–200) pages with the opaque `--cursor` from the previous `nextCursor`; JSON keeps the cursor verbatim, text output prints a sanitized `more: --cursor …` hint. Text fields are stripped of terminal control sequences in both outputs (single-line fields also lose line breaks; `preview` keeps its newlines; a structured `source` such as `{ "custom": … }` passes through unchanged), `status` is one of `notLoaded | idle | active | systemError | unknown`, and non-numeric `updatedAt` becomes `null`. Unknown arguments are rejected before the socket is touched; a response that does not match the pinned schema (including an entry without a string `id`) fails with `reason: "bad-response"`.
 
@@ -138,9 +137,8 @@ gbot-install install cursor
 gbot-install doctor
 ```
 
-Add `--replace` to an install command to overwrite an earlier copy. The bundle is
-registered as `gbot`; if you installed the pre-0.4 `grok-bot` plugin from a source
-checkout, uninstall it first so the two do not both register the `grok-bot` server.
+Add `--replace` to an install command to overwrite an existing copy. The bundle is
+registered as `gbot`.
 
 `gbot_thread` returns a small receipt by default: deterministic `summary`, opaque
 `cursor`, `entryCount`, and `gapReset`.
@@ -157,6 +155,8 @@ A sandbox that blocks network egress or hides the home directory makes `gbot_sen
 fail with the gateway error; run `gbot doctor` inside the same sandbox to see which
 credential source is visible.
 
+For on-disk `--files` mode, pass `--dir` or set `GROK_BOT_AGENTS_DIR`.
+
 To route a repository's agents to a bot by default, add a note to its `AGENTS.md`:
 
 ```md
@@ -171,7 +171,7 @@ for it.
 ## Local history
 
 Recording is **opt-in**. Set `GROK_BOT_HISTORY=on` (or `true`/`1`) to append successful
-`send`/`thread`/`chat` observations as plaintext JSONL at
+`send`/`thread` observations as plaintext JSONL at
 `~/.grok-bot-cli/history.jsonl`. Without that env, nothing is written.
 
 ```bash

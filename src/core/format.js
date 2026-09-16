@@ -1,7 +1,7 @@
 import { entryText, transcriptEntries } from "./transcript.js";
 
 /** Strip CSI/OSC and other C0/C1 controls so thread fields cannot drive the terminal. */
-export function stripTerminalControls(text) {
+function stripTerminalControls(text) {
   return String(text)
     .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "")
     .replace(/\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g, "")
@@ -57,7 +57,7 @@ export function formatTranscript(out, { full = false } = {}) {
   for (const e of entries) {
     const role = e.role || e.kind || e.sender || e.type || "msg";
     const text = entryText(e);
-    const id = e.id || e.messageId || "";
+    const id = e.id || "";
     lines.push("[" + role + (id ? " " + id : "") + "] " + (full ? text : truncateCliText(text)));
   }
   return lines.join("\n");
@@ -108,7 +108,7 @@ export function formatCodexThread(t) {
 }
 
 /** Shell-safe single-quoting for copy-pasteable export lines (spaces, quotes, $). */
-export function shellQuote(value) {
+function shellQuote(value) {
   return "'" + String(value).replace(/'/g, "'\\''") + "'";
 }
 

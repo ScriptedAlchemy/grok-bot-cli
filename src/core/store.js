@@ -11,11 +11,11 @@ import {
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export const GROUP_JSON_VERSION = 1;
+const GROUP_JSON_VERSION = 1;
 export const MAX_GROUP_MEMBERS = 6;
-export const PROFILE_FILE = "profile.json";
-export const GROUP_FILE = "group.json";
-export const SETTINGS_FILE = "settings.json";
+const PROFILE_FILE = "profile.json";
+const GROUP_FILE = "group.json";
+const SETTINGS_FILE = "settings.json";
 
 export const AVATAR_SHAPES = [
   "blob",
@@ -76,12 +76,7 @@ function isUuid(value) {
 
 export function defaultCandidateRoots() {
   const home = homedir();
-  const env = [
-    process.env.GROK_BOT_AGENTS_DIR,
-    process.env.SAND_AGENTS_DIR,
-    process.env.SAND_DATA_ROOT && join(process.env.SAND_DATA_ROOT, "agents"),
-    process.env.SAND_DATA_ROOT && join(process.env.SAND_DATA_ROOT, "agent-data", "agents"),
-  ].filter(Boolean);
+  const env = [process.env.GROK_BOT_AGENTS_DIR].filter(Boolean);
 
   return [
     ...env,

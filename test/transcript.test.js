@@ -19,11 +19,8 @@ test("direct string keys win over content, then content parts join", () => {
   assert.equal(entryText({ preview: "preview only" }), "preview only");
 });
 
-test("transcript containers unwrap to an entry list", () => {
+test("transcript containers expose their canonical entries list", () => {
   assert.deepEqual(transcriptEntries({ entries: [1], nextBeforeSeq: 2 }), [1]);
-  assert.deepEqual(transcriptEntries({ messages: [2] }), [2]);
-  assert.deepEqual(transcriptEntries({ items: [3] }), [3]);
-  assert.deepEqual(transcriptEntries([4]), [4]);
   assert.deepEqual(transcriptEntries({ nextBeforeSeq: 2 }), []);
   assert.deepEqual(transcriptEntries(null), []);
 });

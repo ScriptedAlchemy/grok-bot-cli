@@ -1,7 +1,7 @@
 import * as files from "./store.js";
 import * as gw from "./gateway.js";
 
-export function chooseBackend(opts) {
+function chooseBackend(opts) {
   const forceFiles = Boolean(opts.root) || opts.files;
   const forceGw = Boolean(opts.gateway);
   if (forceGw && forceFiles) {
@@ -27,7 +27,7 @@ export async function openBackend(opts) {
       setGroupMembers: (group, members) => gw.setGroupMembers(session, group, members),
       addGroupMember: (group, bot) => gw.addGroupMember(session, group, bot),
       removeGroupMember: (group, bot) => gw.removeGroupMember(session, group, bot),
-      send: (ref, prompt, extra) => gw.sendPrompt(session, ref, prompt, extra),
+      send: (ref, prompt) => gw.sendPrompt(session, ref, prompt),
       transcript: (ref, limit) => gw.getTranscriptTail(session, ref, limit),
       thread: (ref, rootId) => gw.getThread(session, ref, rootId),
     };
