@@ -231,7 +231,7 @@ export async function codexReturnOperation(
         bindingId: input.bindingId,
         message: input.message,
         requestId: input.requestId,
-        busyPolicy: input.whenBusy ?? "steer",
+        busyPolicy: input.whenBusy,
         hop: input.hop,
         correlationId: input.correlationId,
       },

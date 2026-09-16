@@ -8,7 +8,7 @@ import test from "node:test";
 import { fakeAppServer } from "./helpers/codex-server.js";
 import { relayRequest } from "../src/core/relay/control.js";
 
-export async function fixture({ active = false, interaction } = {}) {
+export async function fixture({ active = false, interaction, onGateway } = {}) {
   const calls = [];
   const entries = [];
   const gateway = createServer(async (req, res) => {
@@ -16,6 +16,7 @@ export async function fixture({ active = false, interaction } = {}) {
     for await (const c of req) body += c;
     const value = JSON.parse(body);
     calls.push({ path: req.url, value });
+    await onGateway?.(req.url, value);
     res.setHeader("content-type", "application/json");
     res.end(
       JSON.stringify(
@@ -1117,6 +1118,152 @@ test(
         assert.match(JSON.stringify(send.params), /reply-to=prior/);
       }
     } finally {
+      await client?.close();
+      await f.close();
+    }
+  },
+);
+
+for (const surface of ["MCP", "CLI"])
+  test(
+    `per-send busy policy: ${surface} honors explicit and omitted policy without changing binding defaults`,
+    { timeout: 30000 },
+    async () => {
+      const f = await fixture({ active: true });
+      let client;
+      try {
+        client = await mcp(
+          resolve(process.env.RELAY_ARTIFACT_ROOT ?? "artifact"),
+          f.env,
+        );
+        for (const busyPolicy of ["steer", "reject"]) {
+          const { binding } = await client.call("gbot_bridge_start", {
+            grokTarget: busyPolicy === "steer" ? "General" : "Alice",
+            codexThreadId: "thread-active",
+            busyPolicy,
+          });
+          for (const whenBusy of ["reject", "steer", undefined]) {
+            const before = f.fake.received.filter(
+              (x) => x.method === "turn/steer",
+            ).length;
+            const out =
+              surface === "MCP"
+                ? await client.call("codex_send", {
+                    threadId: "thread-active",
+                    bindingId: binding.id,
+                    message: "per-send policy",
+                    ...(whenBusy === undefined ? {} : { whenBusy }),
+                  })
+                : JSON.parse(
+                    (
+                      await cli(
+                        f.env,
+                        "codex",
+                        "send",
+                        "--binding-id",
+                        binding.id,
+                        ...(whenBusy === undefined
+                          ? []
+                          : ["--when-busy", whenBusy]),
+                        "thread-active",
+                        "per-send policy",
+                      )
+                    ).out,
+                  );
+            const expected =
+              (whenBusy ?? busyPolicy) === "reject" ? "rejected" : "accepted";
+            assert.equal(
+              out.delivery,
+              expected,
+              `${surface} binding=${busyPolicy} override=${whenBusy}`,
+            );
+            assert.equal(
+              f.fake.received.filter((x) => x.method === "turn/steer").length -
+                before,
+              expected === "accepted" ? 1 : 0,
+            );
+            const status = await client.call("gbot_bridge_status", {
+              bindingId: binding.id,
+            });
+            assert.equal(status.bindings[0].busyPolicy, busyPolicy);
+          }
+        }
+      } finally {
+        await client?.close();
+        await f.close();
+      }
+    },
+  );
+
+test(
+  "managed gateway cancellation: generated binding stop prevents held recipient preflight from sending",
+  { timeout: 20000 },
+  async () => {
+    let armed = false,
+      lookups = 0,
+      entered,
+      release;
+    const reached = new Promise((r) => {
+        entered = r;
+      }),
+      gate = new Promise((r) => {
+        release = r;
+      });
+    const f = await fixture({
+      onGateway: async (path) => {
+        if (armed && path === "/api/listAgents" && ++lookups === 2) {
+          entered();
+          await gate;
+        }
+      },
+    });
+    let client;
+    try {
+      client = await mcp(
+        resolve(process.env.RELAY_ARTIFACT_ROOT ?? "artifact"),
+        f.env,
+      );
+      const { binding: a } = await client.call("gbot_bridge_start", {
+        grokTarget: "General",
+        codexThreadId: "thread-a",
+      });
+      const { binding: b } = await client.call("gbot_bridge_start", {
+        grokTarget: "Alice",
+        codexThreadId: "thread-b",
+      });
+      armed = true;
+      const sending = client.call("gbot_send", {
+        target: "General",
+        bindingId: a.id,
+        message: "cancel before prompt",
+      });
+      sending.catch(() => {});
+      await reached;
+      const status = await client.call("gbot_bridge_status", {
+        bindingId: a.id,
+      });
+      assert.equal(status.receipts[0].delivery, "sending");
+      await client.call("gbot_bridge_stop", { bindingId: a.id });
+      const receipt = await sending;
+      assert.equal(receipt.delivery, "rejected");
+      assert.equal(receipt.reason, "cancelled");
+      assert.equal(
+        f.calls.filter((x) => x.path.endsWith("sendPrompt")).length,
+        0,
+      );
+      release();
+      const other = await client.call("gbot_send", {
+        target: "Alice",
+        bindingId: b.id,
+        message: "other binding",
+      });
+      assert.equal(other.delivery, "accepted");
+      assert.equal(
+        f.calls.filter((x) => x.path.endsWith("sendPrompt")).length,
+        1,
+      );
+    } finally {
+      release();
       await client?.close();
       await f.close();
     }

@@ -25,7 +25,12 @@ function createGateway() {
     resolve: async (ref) => resolveRef(await connectGateway(), ref),
     tail: async (id) => getTranscriptTail(await connectGateway(), id, 200),
     send: async (id, text, extra) =>
-      sendPrompt(await connectGateway(), id, text, extra),
+      sendPrompt(
+        await connectGateway({ signal: extra.signal }),
+        id,
+        text,
+        extra,
+      ),
   };
 }
 /** Core owns policy and durable intents; its caller must hold the single-worker lock. */
@@ -73,7 +78,7 @@ export async function openRelayEngine({
       state.read().bindings[record.bindingId]?.state !== "running"
     )
       scoped.abort();
-    return scoped.signal;
+    return AbortSignal.any([controller.signal, scoped.signal]);
   }
   const runnable = (r) =>
     !closed &&
@@ -110,6 +115,11 @@ export async function openRelayEngine({
     return work;
   }
   async function route(input) {
+    if (
+      input.busyPolicy !== undefined &&
+      !["steer", "reject"].includes(input.busyPolicy)
+    )
+      throw new Error("Unsupported busy policy");
     if (input.bindingId) {
       const b = state.read().bindings[input.bindingId];
       if (!b || b.state !== "running")
@@ -120,7 +130,7 @@ export async function openRelayEngine({
           throw new Error("Explicit Grok target does not match binding");
       }
       await codex.verify(b);
-      return b;
+      return { ...b, busyPolicy: input.busyPolicy ?? b.busyPolicy };
     }
     const threadId = relayId.parse(input.codexThreadId),
       target = await gateway.resolve(input.grokTarget),
@@ -130,8 +140,6 @@ export async function openRelayEngine({
       expectedCwd: input.expectedCwd,
     });
     const busyPolicy = input.busyPolicy ?? "steer";
-    if (!["steer", "reject"].includes(busyPolicy))
-      throw new Error("Unsupported busy policy");
     return { targetId, threadId, expectedCwd: verified.cwd, busyPolicy };
   }
   async function submit(id) {
@@ -155,19 +163,26 @@ export async function openRelayEngine({
     r = state.read().records[id];
     let result;
     try {
-      result =
-        r.kind === "codex"
-          ? await codex.send(r, { signal: submissionSignal(r) })
-          : await gateway.send(r.targetId, r.text, {
-              clientNonce: r.clientId,
-              ...(r.sourceIds[0] ? { replyToId: r.sourceIds[0] } : {}),
-            });
+      const signal = submissionSignal(r);
+      if (!runnable(r) || signal.aborted) {
+        result = { delivery: "rejected", reason: "cancelled" };
+      } else if (r.kind === "codex") {
+        result = await codex.send(r, { signal });
+      } else {
+        result = await gateway.send(r.targetId, r.text, {
+          signal,
+          clientNonce: r.clientId,
+          ...(r.sourceIds[0] ? { replyToId: r.sourceIds[0] } : {}),
+        });
+      }
     } catch (error) {
       result = {
         delivery: error.delivery === "rejected" ? "rejected" : "unknown",
         reason:
           error.delivery === "rejected"
-            ? "submission-rejected"
+            ? error.reason === "cancelled"
+              ? "cancelled"
+              : "submission-rejected"
             : "transport-uncertain",
       };
     }

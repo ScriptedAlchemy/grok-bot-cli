@@ -25,7 +25,11 @@ export function createIntake({
   }
   async function poll(targetId, force = false) {
     let target = state.read().targets[targetId];
-    if (target.state === "paused" || (!force && target.nextPoll > clock()))
+    const retryAuth = target.reason === "auth";
+    if (
+      (target.state === "paused" && !retryAuth) ||
+      ((!force || retryAuth) && target.nextPoll > clock())
+    )
       return;
     let page;
     try {
@@ -36,7 +40,7 @@ export function createIntake({
         auth = [401, 403].includes(error.status);
       await change("targets", {
         ...target,
-        state: coverage || auth ? "paused" : "backoff",
+        state: coverage ? "paused" : "backoff",
         reason: coverage
           ? "invalid-coverage"
           : auth

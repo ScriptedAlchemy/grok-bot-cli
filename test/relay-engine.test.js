@@ -591,3 +591,59 @@ for (const method of ["sendToGrok", "sendToCodex"])
     );
     assert.equal(f.engine.status().receiptCount, 0);
   });
+
+for (const bindingPolicy of ["steer", "reject"])
+  test(`per-send busy policy overrides ${bindingPolicy} binding without changing its default`, async (t) => {
+    const f = await fixture(t, { active: true });
+    const binding = await f.engine.startBinding({
+      grokTarget: "target",
+      codexThreadId: "thread",
+      busyPolicy: bindingPolicy,
+    });
+    for (const policy of [undefined, "steer", "reject"]) {
+      const before = f.fake.received.filter(
+        (x) => x.method === "turn/steer",
+      ).length;
+      const out = await f.engine.sendToCodex({
+        bindingId: binding.id,
+        message: "policy test",
+        ...(policy === undefined ? {} : { busyPolicy: policy }),
+      });
+      const expected =
+        (policy ?? bindingPolicy) === "reject" ? "rejected" : "accepted";
+      assert.equal(
+        out.delivery,
+        expected,
+        `binding=${bindingPolicy} override=${policy}`,
+      );
+      assert.equal(
+        f.fake.received.filter((x) => x.method === "turn/steer").length -
+          before,
+        expected === "accepted" ? 1 : 0,
+      );
+      assert.equal(f.engine.status().bindings[0].busyPolicy, bindingPolicy);
+    }
+  });
+test("invalid per-send binding busy policies reject before recording or submitting", async (t) => {
+  const f = await fixture(t, { active: true });
+  const binding = await f.engine.startBinding({
+    grokTarget: "target",
+    codexThreadId: "thread",
+  });
+  for (const busyPolicy of ["queue", "invalid", null, 0])
+    await assert.rejects(
+      f.engine.sendToCodex({
+        bindingId: binding.id,
+        message: "invalid",
+        busyPolicy,
+      }),
+      /busy policy/i,
+    );
+  assert.equal(f.engine.status().receiptCount, 0);
+  assert.equal(
+    f.fake.received.filter((x) =>
+      ["turn/start", "turn/steer"].includes(x.method),
+    ).length,
+    0,
+  );
+});

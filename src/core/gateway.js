@@ -17,6 +17,20 @@ export class GatewayError extends Error {
 export const GATEWAY_TIMEOUT_MS = 30000;
 export const GATEWAY_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
+function assertGatewayActive(signal) {
+  if (signal?.aborted) {
+    const error = new GatewayError("Gateway submission cancelled before transmission");
+    error.delivery = "rejected";
+    error.reason = "cancelled";
+    throw error;
+  }
+}
+
+function gatewayDeadline(signal) {
+  const timeout = AbortSignal.timeout(GATEWAY_TIMEOUT_MS);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
 function backendBase() {
   return (
     process.env.SAND_BACKEND_URL ||
@@ -124,16 +138,24 @@ function pick(obj, ...keys) {
   return undefined;
 }
 
-export async function ensureSandbox(accessToken) {
+export async function ensureSandbox(accessToken, { signal } = {}) {
+  assertGatewayActive(signal);
   const url = assertAllowedCredentialUrl(backendBase(), { kind: "backend" }) + "/aiserver.v1.GrokBotService/EnsureSandBox";
-  const res = await fetch(url, {
-    method: "POST",
-    redirect: "error",
-    signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS),
-    headers: ensureSandboxHeaders(accessToken),
-    body: "{}",
-  });
-  const body = await readJson(res);
+  let res, body;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      redirect: "error",
+      signal: gatewayDeadline(signal),
+      headers: ensureSandboxHeaders(accessToken),
+      body: "{}",
+    });
+    body = await readJson(res);
+  } catch (error) {
+    assertGatewayActive(signal);
+    throw error;
+  }
+  assertGatewayActive(signal);
   if (!res.ok) {
     const detail = body.message || body.error || body.raw || res.statusText;
     throw new GatewayError("EnsureSandBox failed: " + res.status + " " + redactSecrets(detail), { status: res.status, method: "EnsureSandBox" });
@@ -146,7 +168,8 @@ export async function ensureSandbox(accessToken) {
   return { gatewayUrl: assertAllowedCredentialUrl(String(gatewayUrl).replace(/\/$/, ""), { kind: "gateway" }), gatewayToken: String(gatewayToken), gatewayHeaders: mergeGatewayHeaders(headersFromEnsureSandbox(body), headersFromEnv()) };
 }
 
-export async function connectGateway() {
+export async function connectGateway({ signal } = {}) {
+  assertGatewayActive(signal);
   const override = gatewayOverride();
   if (override) return override;
   const fromApp = sessionFromApp();
@@ -155,20 +178,33 @@ export async function connectGateway() {
   if (!token) {
     throw new GatewayError("Set CURSOR_ACCESS_TOKEN, or GROK_BOT_GATEWAY_URL + GROK_BOT_GATEWAY_TOKEN. Do not use a Cursor dashboard API key.");
   }
-  return ensureSandbox(token);
+  return ensureSandbox(token, { signal });
 }
 
-export async function gatewayCall(session, method, body = {}) {
+export async function gatewayCall(session, method, body = {}, { signal } = {}) {
+  assertGatewayActive(signal);
   const base = assertAllowedCredentialUrl(session.gatewayUrl, { kind: "gateway" });
   const url = base + "/api/" + method;
-  const res = await fetch(url, {
+  // Cancellation can abort read/auth preflights. Once a prompt request starts,
+  // observe its actual receipt (or timeout) instead of losing certainty on stop.
+  const prompt = method === "sendPrompt";
+  const options = {
     method: "POST",
     redirect: "error",
-    signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS),
+    signal: gatewayDeadline(prompt ? undefined : signal),
     headers: requestHeaders(session),
     body: JSON.stringify(body),
-  });
-  const data = await readJson(res);
+  };
+  assertGatewayActive(signal); // Final synchronous boundary before transmission.
+  let res, data;
+  try {
+    res = await fetch(url, options);
+    data = await readJson(res);
+  } catch (error) {
+    if (!prompt) assertGatewayActive(signal);
+    throw error;
+  }
+  if (!prompt) assertGatewayActive(signal);
   if (!res.ok) {
     const detail = data.message || data.error || data.raw || res.statusText;
     throw new GatewayError(method + " failed: " + res.status + " " + redactSecrets(String(detail).slice(0, 300)), { status: res.status, method });
@@ -216,8 +252,8 @@ function unwrapOne(data) {
   return asRecord(data.agent || data);
 }
 
-export async function listAgents(session) {
-  const data = await gatewayCall(session, "listAgents", {});
+export async function listAgents(session, { signal } = {}) {
+  const data = await gatewayCall(session, "listAgents", {}, { signal });
   return unwrapList(data).map(asRecord).filter((r) => r && r.id);
 }
 
@@ -231,8 +267,8 @@ function resolveFromList(records, ref) {
   throw new GatewayError("Ambiguous name \"" + ref + "\"");
 }
 
-export async function resolveRef(session, ref) {
-  return resolveFromList(await listAgents(session), ref);
+export async function resolveRef(session, ref, { signal } = {}) {
+  return resolveFromList(await listAgents(session, { signal }), ref);
 }
 
 export async function createAgent(session, input) {
@@ -342,7 +378,8 @@ export async function removeGroupMember(session, groupRef, memberRef) {
 }
 
 export async function sendPrompt(session, ref, prompt, extra = {}) {
-  const rec = await resolveRef(session, ref);
+  assertGatewayActive(extra.signal);
+  const rec = await resolveRef(session, ref, { signal: extra.signal });
   const body = {
     agentId: rec.id,
     prompt,
@@ -351,7 +388,7 @@ export async function sendPrompt(session, ref, prompt, extra = {}) {
   if (extra.replyToId) body.replyToId = extra.replyToId;
   let data;
   try {
-    data = await gatewayCall(session, "sendPrompt", body);
+    data = await gatewayCall(session, "sendPrompt", body, { signal: extra.signal });
   } catch (err) {
     // Delivery states: the server answered no (rejected) vs the request may have landed (unknown).
     // Never retry an unknown delivery blindly; read the thread first.

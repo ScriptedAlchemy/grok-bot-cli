@@ -61,7 +61,9 @@ the send, or make a one-time `gbot_bridge_start` binding with `grokTarget`,
 in that Codex thread, and its corresponding terminal answer returns to Grok.
 Existing transcript history is not replayed. `codex_send` can also request a return
 with `replyToGrok` or `bindingId`. Managed delivery defaults to guarded steering of
-active work; `busyPolicy: "reject"` on a binding refuses busy threads.
+active work; `busyPolicy: "reject"` on a binding refuses busy threads. A managed
+`codex_send` can select `whenBusy` for that one delivery; omitting it uses the
+binding's stored policy. An override does not change subsequent linked traffic.
 
 Without an identifiable native source or explicit route, `gbot_send` preserves the
 ordinary send and returns `replyRoute: {mode: "manual", reason: "source-unavailable"}`;
@@ -99,6 +101,8 @@ amendments remain in the owning Codex UI.
 State lives in the user-owned `~/.grok-bot-cli/relay/` directory, or
 `GROK_BOT_RELAY_DIR`, outside plugin caches. Profile mismatches fail visibly; gateway
 overrides and thread restrictions cannot reuse a differently authorized worker.
+Authentication failures use bounded retries (1..30 seconds) from the saved cursor;
+restored credentials do not reset coverage or resend uncertain submissions.
 No login service is installed. Network reconnects are automatic; a dead process
 needs a new tracked send or bridge start to resume saved routes. A dead worker is
 reported as stopped, not running.
@@ -141,7 +145,7 @@ gbot codex send <threadId> "Grok here: the build is green, please continue."
 
 `send` resumes the thread, starts a turn with your text, prints the turn id, and returns; Codex keeps working after `gbot` disconnects. Every command accepts `--json`.
 
-**Which Codex you reach.** `gbot` connects to `$CODEX_HOME/app-server-control/app-server-control.sock` (default `~/.codex/...`) with a built-in WebSocket client. The daemon must be started by `codex app-server daemon start`. `list-threads` shows the threads recorded under `CODEX_HOME` (CLI, TUI, VS Code); `send` works on any of them that no other client currently holds open. Method and parameter names are pinned to the Codex release recorded in `src/core/codex-bridge.js` (`codex app-server generate-json-schema`); `status` prints the daemon and CLI versions so a stale daemon is visible, and `codex app-server daemon restart` picks up the installed CLI. Native Windows is not supported yet (AF_UNIX control socket); use WSL, Linux, or macOS.
+**Which Codex you reach.** `gbot` connects to `$CODEX_HOME/app-server-control/app-server-control.sock` (default `~/.codex/...`) with a built-in WebSocket client. The daemon must be started by `codex app-server daemon start`. `list-threads` shows the threads recorded under `CODEX_HOME` (CLI, TUI, VS Code); `send` uses the resumed thread state and selected busy policy: ordinary sends reject active work, while explicitly selected guarded steering can deliver into the active turn. Method and parameter names are pinned to the Codex release recorded in `src/core/codex-bridge.js` (`codex app-server generate-json-schema`); `status` prints the daemon and CLI versions so a stale daemon is visible, and `codex app-server daemon restart` picks up the installed CLI. Native Windows is not supported yet (AF_UNIX control socket); use WSL, Linux, or macOS.
 
 **ChatGPT Desktop limitation.** Desktop runs its own private stdio app-server and does not publish the shared control socket, so external clients cannot reach live Desktop tasks. When the socket is absent, `gbot codex status` exits 1 and says so, naming the upstream issues: [openai/codex#41014](https://github.com/openai/codex/issues/41014) and [openai/codex#41112](https://github.com/openai/codex/issues/41112). `gbot` never reads Desktop's temporary `CODEX_APP_TOOLS_PIPE_PATH` sockets under `/tmp/codex-browser-use/`; that channel is private to Desktop.
 
