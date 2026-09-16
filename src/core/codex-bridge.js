@@ -722,10 +722,10 @@ export function detectDesktopPrivateAppServer({ platform = process.platform, lis
   const lines = Array.isArray(listProcesses) ? listProcesses : String(listProcesses ?? "").split(/\r?\n/);
   for (const line of lines) {
     if (!/app-server/.test(line)) continue;
-    // Desktop's bundled binary, Mac or Windows-style separators with optional .exe.
+    // Desktop's bundled binary only (Mac/Windows separators, optional .exe).
+    // Do NOT match probe shells whose cmdline merely mentions ChatGPT.app +
+    // app-server + codex-app-tools — that false-positives MATCH2 / Scout noise.
     if (/ChatGPT\.app[\\/].*Resources[\\/]codex(\.exe)?(["'\s]|$)/.test(line)) return "private-stdio";
-    // Same app-server line owned by ChatGPT.app carrying the app-tools override.
-    if (/ChatGPT\.app/.test(line) && /(codex_app|mcp_servers\.codex_app|codex-app-tools)/.test(line)) return "private-stdio";
   }
   return "unknown";
 }
