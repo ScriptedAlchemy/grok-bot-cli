@@ -1221,6 +1221,40 @@ test("codexStatus reports private-stdio with a managed-daemon message when the s
   assert.match(status.message, /openai\/codex\/issues\/41112/);
 });
 
+test("codexStatus reports attached-shim when the shim is active, even with a stale private-stdio process list", async () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-codex-shim-"));
+  const env = { ...process.env, CODEX_HOME: home, PATH: "/nonexistent" };
+
+  const active = await codexStatus(env, {
+    listProcesses: DESKTOP_MAC_PS,
+    shim: { installed: true, wrapperPointsAtShim: true },
+  });
+  assert.equal(active.desktopAttached, "attached-shim");
+  assert.equal(active.mode, "socket-absent");
+
+  const pointedAway = await codexStatus(env, {
+    listProcesses: DESKTOP_MAC_PS,
+    shim: { installed: true, wrapperPointsAtShim: false },
+  });
+  assert.equal(pointedAway.desktopAttached, "private-stdio", "installed but unpointed shim defers to the process list");
+
+  const quiet = await codexStatus(env, {
+    listProcesses: "init\n/usr/local/bin/codex app-server daemon start",
+    shim: { installed: false, wrapperPointsAtShim: false },
+  });
+  assert.equal(quiet.desktopAttached, "unknown");
+
+  // Live wiring: real wrapper+bridge files with CODEX_CLI_PATH pointed at them.
+  const bin = join(home, "bin");
+  mkdirSync(bin, { recursive: true });
+  const wrapper = join(bin, "codex-desktop-to-daemon");
+  writeFileSync(wrapper, "#!/bin/bash\n");
+  chmodSync(wrapper, 0o755);
+  writeFileSync(join(bin, "codex-stdio-to-daemon-ws.py"), "# bridge\n");
+  const live = await codexStatus({ ...env, CODEX_CLI_PATH: wrapper }, { listProcesses: DESKTOP_MAC_PS });
+  assert.equal(live.desktopAttached, "attached-shim");
+});
+
 test("codexStatus keeps unknown and the generic message without Desktop evidence", async () => {
   const home = mkdtempSync(join(tmpdir(), "gbot-codex-nodesktop-"));
   const env = { ...process.env, CODEX_HOME: home, PATH: "/nonexistent" };
@@ -1239,6 +1273,7 @@ test("formatCodexStatus names the private-stdio case and keeps the unknown line"
   };
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "private-stdio" }), /desktop attached: private-stdio/);
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "private-stdio" }), /codex app-server daemon start/);
+  assert.match(formatCodexStatus({ ...daemon, desktopAttached: "attached-shim" }), /desktop attached: attached-shim/);
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "unknown" }), /desktop attached: unknown \(not observable from the socket\)/);
 });
 

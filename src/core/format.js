@@ -81,9 +81,11 @@ export function formatCodexStatus(s) {
       + "  cli version: " + cli
       + "  pinned schema: " + s.pinnedVersion + " (" + s.schema.compatibility + ")",
   );
-  lines.push(s.desktopAttached === "private-stdio"
-    ? "desktop attached: private-stdio (ChatGPT Desktop runs its own private stdio app-server; start a managed daemon with `codex app-server daemon start`)"
-    : "desktop attached: unknown (not observable from the socket)");
+  lines.push(s.desktopAttached === "attached-shim"
+    ? "desktop attached: attached-shim (Desktop shim bridges onto the managed daemon)"
+    : s.desktopAttached === "private-stdio"
+      ? "desktop attached: private-stdio (ChatGPT Desktop runs its own private stdio app-server; start a managed daemon with `codex app-server daemon start`)"
+      : "desktop attached: unknown (not observable from the socket)");
   if (s.versionMismatch) {
     lines.push("warning: daemon and CLI versions differ; `codex app-server daemon restart` picks up the installed CLI");
   }

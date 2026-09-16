@@ -4,7 +4,6 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { BRIDGE_SOURCE } from "./desktop-shim-bridge.js";
-import { codexSocketPath } from "./codex-bridge.js";
 
 /**
  * ChatGPT Desktop -> managed Codex daemon shim (CODEX_CLI_PATH bridge).
@@ -432,9 +431,11 @@ export function desktopShimStatus({
   // Desktop-facing value: the GUI domain on macOS, the caller env elsewhere.
   const desktopCliPath = platform === "darwin" ? guiCliPath : cliPath;
   const installed = wrapperPresent && isExecutable(paths.wrapperPath) && bridgePresent;
-  // Effective socket, resolved exactly like gbot's own client so status and
-  // send/queue/status never disagree: CODEX_APP_SERVER_SOCK wins, else CODEX_HOME.
-  const socketPath = codexSocketPath({ ...env, CODEX_HOME: paths.codexHome });
+  // Effective socket, resolved exactly like gbot's own client (CODEX_APP_SERVER_SOCK
+  // wins, else the install-time CODEX_HOME) so status and send/queue/status never
+  // disagree. Inlined here so codex-bridge can reuse desktopShimStatus without a cycle.
+  const socketPath = env.CODEX_APP_SERVER_SOCK
+    || join(paths.codexHome, "app-server-control", "app-server-control.sock");
   return {
     action: "status",
     bridgePath: paths.bridgePath,
