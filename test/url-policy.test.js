@@ -108,10 +108,14 @@ test("test mode allows only loopback, for gateway and backend, and ignores escap
     withEnv({ GROK_BOT_ALLOW_ANY_GATEWAY: "1", GROK_BOT_ALLOW_LOCAL_GATEWAY: null, ...env }, () => {
       assert.equal(assertAllowedCredentialUrl("http://127.0.0.1:1340/"), "http://127.0.0.1:1340");
       assert.equal(assertAllowedCredentialUrl("http://localhost:1340", { kind: "backend" }), "http://localhost:1340");
-      assert.throws(() => assertAllowedCredentialUrl("https://box.cursor.sh"), /test mode/i);
-      assert.throws(() => assertAllowedCredentialUrl("https://api2.cursor.sh", { kind: "backend" }), /test mode/i);
-      assert.throws(() => assertAllowedCredentialUrl("https://evil.example"), /test mode/i);
-      assert.throws(() => assertAllowedCredentialUrl("ws://127.0.0.1:1340"), /test mode/i);
+      assert.throws(() => assertAllowedCredentialUrl("https://box.cursor.sh"), {
+        message: 'Rejected gateway URL host "box.cursor.sh": test mode (GROK_BOT_TEST / NODE_ENV=test) only allows http(s) loopback gateways.',
+      });
+      assert.throws(() => assertAllowedCredentialUrl("https://api2.cursor.sh", { kind: "backend" }), {
+        message: 'Rejected backend URL host "api2.cursor.sh": test mode (GROK_BOT_TEST / NODE_ENV=test) only allows http(s) loopback gateways.',
+      });
+      assert.throws(() => assertAllowedCredentialUrl("https://evil.example"), /^Error: Rejected gateway URL host "evil.example": test mode/);
+      assert.throws(() => assertAllowedCredentialUrl("ws://127.0.0.1:1340"), /^Error: Rejected gateway URL host "127.0.0.1": test mode/);
     });
   }
 });

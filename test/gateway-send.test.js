@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { once } from "node:events";
+import { createServer } from "node:http";
 
 import { GATEWAY_MAX_RESPONSE_BYTES, getTranscriptTail, sendPrompt } from "../src/core/gateway.js";
 
@@ -13,13 +15,39 @@ function mockGateway(t, send) {
   });
 }
 
-test("sendPrompt refuses a live gateway host in test mode before any request", async (t) => {
-  const fetchMock = t.mock.method(globalThis, "fetch", async () => new Response("{}", { status: 200 }));
+test("test mode: a loopback gateway is served, a live gateway host is refused before any request", async (t) => {
+  const received = [];
+  const server = createServer(async (req, res) => {
+    let text = "";
+    for await (const chunk of req) text += chunk;
+    received.push({ url: req.url, body: JSON.parse(text) });
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify(req.url === "/api/listAgents" ? roster : { messageId: "m-loop" }));
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const local = { gatewayUrl: "http://127.0.0.1:" + server.address().port, gatewayToken: "t" };
+
+  const out = await sendPrompt(local, "General", "hi");
+  assert.deepEqual(out, {
+    target: { id: "bot-1", name: "General", title: "", description: "", avatarShape: "", avatarColor: "", isGroup: false, memberIds: [] },
+    result: { messageId: "m-loop" },
+    delivery: "accepted",
+    messageId: "m-loop",
+  });
+  assert.deepEqual(received.map((r) => r.url), ["/api/listAgents", "/api/sendPrompt"]);
+  assert.equal(received[1].body.prompt, "hi");
+
+  // A non-routable host, and the production escape hatch switched on: production
+  // policy would let this through, test mode must still refuse it.
+  process.env.GROK_BOT_ALLOW_ANY_GATEWAY = "1";
+  t.after(() => { delete process.env.GROK_BOT_ALLOW_ANY_GATEWAY; });
   await assert.rejects(
-    sendPrompt({ gatewayUrl: "https://box.cursor.sh", gatewayToken: "t" }, "General", "hi"),
-    /test mode/i,
+    sendPrompt({ gatewayUrl: "https://gateway.invalid", gatewayToken: "t" }, "General", "hi"),
+    { message: 'Rejected gateway URL host "gateway.invalid": test mode (GROK_BOT_TEST / NODE_ENV=test) only allows http(s) loopback gateways.' },
   );
-  assert.equal(fetchMock.mock.callCount(), 0);
+  assert.equal(received.length, 2, "the refused send reached no server");
 });
 
 test("sendPrompt accepts only a confirmed messageId receipt", async (t) => {
