@@ -45,4 +45,5 @@ jobs:
           test "${#package_files[@]}" -eq 1
           npm install --global --prefix "$install_root" "${package_files[0]}"
           "$install_root/bin/gbot" --help
+          "$install_root/bin/grok-bot" --help
           "$install_root/bin/gbot-install" --help
