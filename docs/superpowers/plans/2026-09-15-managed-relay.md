@@ -9,7 +9,7 @@
 
 ### Task 1: Durable conversation relay engine
 
-**Files:** Create `src/core/relay/state.js`, `src/core/relay/engine.js` and focused helper modules if needed, `test/relay-state.test.js`, `test/relay-engine.test.js`, optional `test/helpers/` fixtures. May add narrowly needed public conversation/history helpers in `src/core/codex/conversation.js` with tests; avoid duplicated protocol logic. Do not modify surface routes, runtime config or package files in this task.
+**Files:** Create `src/core/relay/state.js`, `src/core/relay/engine.js` and focused helper modules if needed, `test/relay-state.test.js`, `test/relay-engine.test.js`, optional `test/helpers/` fixtures; narrowly update the existing `test/codex-bridge.test.js` fixture to reuse safe short Unix socket paths on macOS (same reproduced EINVAL as the new fixture). May add narrowly needed public conversation/history helpers in `src/core/codex/conversation.js` with tests; avoid duplicated protocol logic. Do not modify surface routes, runtime config or package files in this task.
 
 - [ ] Read exact spec and reviewed conversation interfaces; write failing state/engine tests for automatic request replies and explicit linked Grok→Codex→Grok return.
 - [ ] Implement a bounded, validated relay adapter over the existing Agent Bundle SQLite state kernel (do not duplicate its journal/transaction code) and intake/receipt/checkpoint transitions, scoped transcript correlation and echo prevention.
@@ -20,7 +20,7 @@
 
 ### Task 2: Managed worker and fluid plugin/MCP experience
 
-**Files:** Create process/control modules in `src/core/relay/`, built worker entry `src/gbot-relay.ts` or equivalent; modify `agent-bundle.config.ts` only to package worker, `src/mcp/grok-bot/tools/gbot_send.tsx`, `codex_send.tsx`, new bridge start/status/stop/respond tools, shared TS adapter/schema module, CLI bridge routes and explicit gbot send auto-route options. Update installed skill, README, feature changeset and route/packed-worker tests.
+**Files:** Create process/control modules in `src/core/relay/`, bundled worker entry `src/scripts/gbot-relay.ts` through the existing script pipeline (verified all-host emission); modify plugin description in `agent-bundle.config.ts`, `src/mcp/grok-bot/tools/gbot_send.tsx`, `codex_send.tsx`, new bridge start/status/stop/respond tools, shared TS adapter/schema module, CLI bridge routes and explicit gbot send auto-route options. Update installed skill, README, feature changeset and route/packed-worker tests.
 
 - [ ] Write failing generated MCP tests for native source identity automatic routing, source-unavailable manual receipt and explicit return route, plus worker survival after caller exits and concurrent starts.
 - [ ] Implement private bounded worker control protocol, verified startup/profile identity, stable mutation request IDs, concurrency-safe lifetime and foreground mode. Locate packaged worker correctly from CLI and generated MCP/host installations, including paths with spaces.
