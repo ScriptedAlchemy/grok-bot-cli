@@ -963,14 +963,18 @@ function requireExperimental(env, what) {
     { delivery: "rejected", reason: "experimental-disabled" });
 }
 
-function unsupportedOrRpc(err, method, threadId, envelope) {
+function unsupportedOrRpc(err, method, threadId, envelope, turnId) {
+  const guarded = method === "turn/steer";
   if (err instanceof CodexRpcError && err.rpc && err.rpc.code === -32601) {
     return new CodexSendError("Codex app-server does not offer " + method + " (daemon predates it, or experimentalApi was not granted). "
-      + "Upgrade Codex or send without --when-busy queue.", { delivery: "rejected", reason: "unsupported", threadId, envelope });
+      + (guarded ? "Upgrade Codex before retrying guarded steering." : "Upgrade Codex or send without --when-busy queue."),
+      { delivery: "rejected", reason: "unsupported", threadId, turnId, envelope });
   }
-  if (err instanceof CodexRpcError) return new CodexSendError(err.message, { delivery: "rejected", reason: "rejected", threadId, envelope });
+  if (err instanceof CodexRpcError) return new CodexSendError(err.message, { delivery: "rejected", reason: "rejected", threadId, turnId, envelope });
   return new CodexSendError("Lost the Codex " + method + " response for thread " + threadId + ": " + ((err && err.message) || err)
-    + ". Delivery is unknown; list the queue before resending.", { delivery: (err && err.delivery) || "unknown", reason: "transport", threadId, envelope });
+    + (guarded ? ". Delivery is unknown; check thread " + threadId + " turn " + turnId + " before resending."
+      : ". Delivery is unknown; list the queue before resending."),
+    { delivery: (err && err.delivery) || "unknown", reason: "transport", threadId, turnId, envelope });
 }
 
 /** Read the daemon's queue for one thread (experimental `thread/queue/list`). */
@@ -1028,6 +1032,13 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy,
   envelope = { ...validated, messageId: envelope.messageId, header: Boolean(envelope.header) };
   assertThreadAllowed(threadId, env);
   if (whenBusy === "queue") requireExperimental(env, "--when-busy queue");
+  if (signal !== undefined && !(signal instanceof AbortSignal)) throw new TypeError("signal must be an AbortSignal");
+  const assertNotCancelled = () => {
+    if (signal?.aborted) throw new CodexSendError("Codex submission cancelled before delivery", {
+      delivery: "rejected", reason: "cancelled", threadId, turnId: whenBusy === "steer" ? expectedTurnId : undefined, envelope,
+    });
+  };
+  assertNotCancelled();
   const body = withEnvelopeHeader(text, envelope, env);
   const { client } = session ?? await openSession(env, { experimental: whenBusy === "queue", signal });
   try {
@@ -1035,6 +1046,7 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy,
     try {
       resumed = await client.request("thread/resume", { threadId, excludeTurns: true });
     } catch (err) {
+      assertNotCancelled();
       if (err instanceof CodexSendError) throw err;
       throw new CodexSendError(explainSendError(err, threadId).message, {
         delivery: err instanceof CodexRpcError ? "rejected" : (err && err.delivery) || "unknown",
@@ -1044,6 +1056,9 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy,
         envelope,
       });
     }
+    // A shared session stays connected when this conversation is cancelled.
+    // Recheck after the last awaited preflight, before any submission request.
+    assertNotCancelled();
     if (!isObject(resumed) || !isObject(resumed.thread) || typeof resumed.thread.id !== "string") {
       throw new CodexProtocolError("thread/resume", "missing `thread.id`");
     }
@@ -1074,7 +1089,7 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy,
       let steered;
       try {
         steered = await client.request("turn/steer", { threadId, expectedTurnId, clientUserMessageId: envelope.messageId, input: [{ type: "text", text: body }] });
-      } catch (err) { throw unsupportedOrRpc(err, "turn/steer", threadId, envelope); }
+      } catch (err) { throw unsupportedOrRpc(err, "turn/steer", threadId, envelope, expectedTurnId); }
       if (typeof steered?.turnId !== "string" || steered.turnId !== expectedTurnId) {
         throw new CodexSendError("Malformed turn/steer acknowledgment", { delivery: "unknown", reason: "bad-response", threadId, turnId: expectedTurnId, envelope });
       }

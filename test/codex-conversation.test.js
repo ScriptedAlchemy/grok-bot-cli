@@ -133,3 +133,104 @@ test('accepted turn remains observable while history has not caught up',async()=
  const c=await openCodexConversation('thread-1',{env:{CODEX_HOME:fake.home}});
  try {const receipt=await c.send('hello');const r=await c.wait({turnId:receipt.turnId,timeoutMs:10});assert.equal(r.execution.state,'timeout');}finally{await c.close();await fake.close();}
 });
+
+for (const whenBusy of ['reject', 'queue', 'steer']) {
+  for (const abortAt of ['before-send', 'during-resume']) {
+    test(`shared ${whenBusy} cancellation ${abortAt} rejects before submission`, async () => {
+      const { openCodexSession, buildEnvelope } = await import('../src/core/codex-bridge.js');
+      const controller = new AbortController();
+      let resumes = 0;
+      const fake = await fakeAppServer({
+        ...handlers,
+        'thread/resume': (params, ok) => {
+          if (++resumes === 2 && abortAt === 'during-resume') controller.abort();
+          ok({ thread: { id: params.threadId, status: { type: whenBusy === 'reject' ? 'idle' : 'active', activeFlags: [] } } });
+        },
+        'thread/queue/add': (_, ok) => ok({ queuedSubmission: { id: 'queued-1' } }),
+        'turn/steer': (params, ok) => ok({ turnId: params.expectedTurnId }),
+      });
+      const env = { CODEX_HOME: fake.home, GROK_BOT_CODEX_EXPERIMENTAL: '1' };
+      const session = await openCodexSession(env, { experimental: true });
+      const conversation = await openCodexConversation('thread-1', { env, session, signal: controller.signal });
+      const envelope = buildEnvelope({ correlationId: 'cancel-correlation' });
+      try {
+        if (abortAt === 'before-send') controller.abort();
+        const receipt = await conversation.send('must not submit', { whenBusy, expectedTurnId: 'turn-1', envelope });
+        assert.equal(receipt.delivery, 'rejected');
+        assert.equal(receipt.reason, 'cancelled');
+        assert.equal(receipt.threadId, 'thread-1');
+        assert.equal(receipt.messageId, envelope.messageId);
+        assert.equal(receipt.correlationId, envelope.correlationId);
+        assert.equal(receipt.exitCode, 1);
+        assert.equal(fake.received.filter(message => ['turn/start', 'turn/steer', 'thread/queue/add'].includes(message.method)).length, 0);
+        assert.equal(session.client.closed, false);
+        const other = await openCodexConversation('thread-1', { env, session });
+        try { assert.equal((await other.wait({ turnId: 'turn-1' })).execution.state, 'completed'); }
+        finally { await other.close(); }
+        assert.equal(session.client.closed, false);
+      } finally {
+        await conversation.close();
+        session.client.close();
+        await fake.close();
+      }
+    });
+  }
+}
+
+for (const status of ['completed', 'failed']) {
+  test(`completion during empty history reconciliation preserves ${status}`, async () => {
+    const fake = await fakeAppServer({
+      ...handlers,
+      'thread/turns/list': (params, ok, err, send) => {
+        send({ method: 'turn/completed', params: { threadId: params.threadId, turn: {
+          id: 'turn-1', status, error: status === 'failed' ? { message: 'execution failed' } : null,
+          items: [{ id: 'late-final', type: 'agentMessage', phase: 'final_answer', text: 'done' }],
+        } } });
+        ok({ data: [], nextCursor: null });
+      },
+      'thread/items/list': (_, ok) => ok({ data: [], nextCursor: null }),
+    });
+    const conversation = await openCodexConversation('thread-1', { env: { CODEX_HOME: fake.home } });
+    try {
+      const result = await conversation.wait({ turnId: 'turn-1', messageId: 'message-1' });
+      assert.equal(result.execution.state, status);
+      assert.equal(result.reply.text, 'done');
+      assert.equal(result.reply.truncated, false);
+      assert.equal(result.messageId, 'message-1');
+      if (status === 'completed') assert.equal(result.execution.error, undefined);
+      else assert.deepEqual(result.execution.error, { message: 'execution failed' });
+    } finally {
+      await conversation.close();
+      await fake.close();
+    }
+  });
+}
+
+for (const failure of ['disconnect', 'reject']) {
+  test(`guarded steer ${failure} retains known turn and correlation`, async () => {
+    const { buildEnvelope } = await import('../src/core/codex-bridge.js');
+    const fake = await fakeAppServer({
+      ...handlers,
+      'turn/steer': (_, ok, err, send, socket) => {
+        if (failure === 'disconnect') socket.destroy();
+        else err({ code: -32600, message: 'guard mismatch' });
+      },
+    });
+    const conversation = await openCodexConversation('thread-1', { env: { CODEX_HOME: fake.home } });
+    const envelope = buildEnvelope({ correlationId: 'steer-correlation' });
+    try {
+      const receipt = await conversation.send('guarded work', { whenBusy: 'steer', expectedTurnId: 'turn-1', envelope });
+      assert.equal(receipt.delivery, failure === 'disconnect' ? 'unknown' : 'rejected');
+      assert.equal(receipt.threadId, 'thread-1');
+      assert.equal(receipt.turnId, 'turn-1');
+      assert.equal(receipt.messageId, envelope.messageId);
+      assert.equal(receipt.correlationId, envelope.correlationId);
+      assert.doesNotMatch(receipt.error, /queue/);
+      if (failure === 'disconnect') assert.match(receipt.error, /check.*turn turn-1/i);
+      assert.equal(fake.received.filter(message => message.method === 'turn/start').length, 0);
+    } finally {
+      await conversation.close();
+      await fake.close();
+    }
+  });
+}

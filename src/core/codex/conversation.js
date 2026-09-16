@@ -149,6 +149,8 @@ export async function openCodexConversation(threadId, options = {}) {
           if (!turn) return false;
           found = true; if (!terminal(status)) { status = turn.status; error = turn.error; } return true;
         }, { stopped: () => done });
+        // Notifications can establish completion while the history response is in flight.
+        scan();
         if (!found && !status) return ['unknown', 'History coverage incomplete: selected turn not found'];
         await visitCodexHistory(session, threadId, 'thread/items/list', { turnId }, data => {
           for (const row of data) {
@@ -197,7 +199,7 @@ export async function openCodexConversation(threadId, options = {}) {
      * @param {{envelope?: object, whenBusy?: string, expectedTurnId?: string}} [options] */
     async send(text, { envelope = buildEnvelope({ env }), whenBusy = 'reject', expectedTurnId } = {}) {
       if (closed) return outcomeFromError(Object.assign(new Error('Conversation closed'), { delivery: 'rejected', reason: 'closed', threadId, envelope }));
-      const receipt = await sendToCodexThread(threadId, text, { env, envelope, whenBusy, expectedTurnId, session, expectedCwd });
+      const receipt = await sendToCodexThread(threadId, text, { env, envelope, whenBusy, expectedTurnId, session, expectedCwd, signal });
       if (receipt.delivery === 'accepted' && receipt.turnId) {
         acceptedTurns.add(receipt.turnId);
         if (acceptedTurns.size > 100) acceptedTurns.delete(acceptedTurns.values().next().value);
