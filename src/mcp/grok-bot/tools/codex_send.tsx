@@ -1,12 +1,11 @@
 import { Agent, agent } from '@agent-bundle/runtime';
-import type { CliRouteConfig, CliRouteProps } from 'agent-bundle';
-import { z } from 'zod';
-import { sendFields, resultSchema, sendOperation, resultText } from '../../core/codex/routes.js';
-export { resultSchema };
-export const inputSchema = z.object({ ...sendFields, correlationId: z.string().min(1).optional(), replyTo: z.string().min(1).optional(), message: z.array(z.string()).min(1) }).strict();
-export const config = {
-  description: 'Send to Codex; acceptance is distinct from completion. Options precede threadId.',
-  exitCode: 'result', render: { maxElapsedMs: 660000 }, positionals: ['threadId', 'message'],
+import { defineTool } from 'agent-bundle/routes';
+import { sendSchema as inputSchema, resultSchema, sendOperation, resultText } from '../../../core/codex/routes.js';
+export { inputSchema };
+export default defineTool({
+  description: 'Send to a Codex thread. Accepted means submitted, not finished; optional wait observes bounded completion. Guarded steer requires expectedTurnId.', title: 'Codex send', annotations: { readOnlyHint: false },
+  render: { maxElapsedMs: 660000 },
+  inputSchema, resultSchema,
   inputJsonSchema: { type: 'object', additionalProperties: false, properties: {
       "threadId": {
         "type": "string"
@@ -50,15 +49,11 @@ export const config = {
         ]
       },
       "message": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
+        "type": "string"
       }
     }, required: ['threadId', 'message'] },
-} satisfies CliRouteConfig;
-export default async function route({ input, signal }: CliRouteProps<typeof inputSchema>) {
+}, async input => {
   const context = await agent();
-  const out = await sendOperation({ ...input, message: input.message.join(' ').trim() }, signal, message => context.progress.report({ message }), true);
+  const out = await sendOperation(input, context.signal, message => context.progress.report({ message }));
   return <Agent.Result value={out}><Agent.Text>{resultText(out)}</Agent.Text></Agent.Result>;
-}
+});

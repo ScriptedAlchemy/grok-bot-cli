@@ -1,6 +1,6 @@
 ---
 name: talk-to-grok-bot
-description: Send or read a Grok Bot thread via gbot_send/gbot_thread. Use when handing off to a named bot/group or posting a status note agents watch — not for work you can finish yourself.
+description: Send or read Grok Bot threads via gbot_send/gbot_thread and Codex daemon threads via codex_send/codex_threads. Use when handing off to a named bot/group or posting a status note agents watch — not for work you can finish yourself.
 ---
 # Talk to Grok Bot
 
@@ -35,3 +35,30 @@ Framework argument/schema errors use stderr and exit 2. `--json` is reserved bef
 ## Auth
 
 Same order as `gbot`: explicit `GROK_BOT_GATEWAY_*`, else Grok Bot app session, else `CURSOR_ACCESS_TOKEN`. `gbot doctor` shows which source is present.
+
+## Codex conversation tools
+
+The generated Codex, Cursor, and Claude plugins and portable MCP artifact expose these
+additional tools on the same `grok-bot` MCP server. Codex tools use the local Codex
+app-server control socket; Grok tools use the Grok gateway. Portable MCP artifacts
+must be configured in an MCP-capable host; they are not automatically loaded by the Grok app.
+
+- `codex_threads`: bounded discovery of daemon-managed Codex threads.
+- `codex_send`: submit a message with a correlation envelope. Default delivery is
+  immediate acceptance, which does not mean execution finished. `wait: true` adds
+  bounded execution and final reply fields. An accepted message remains accepted
+  when observation times out or execution fails.
+- `codex_wait`: explicitly observe a known thread/turn and recover its final output.
+- `codex_watch`: diagnostic observation of bounded thread events. It never answers approvals.
+
+Use `expectedCwd` to verify the destination workspace. Busy sends reject by default;
+`whenBusy: queue` needs `GROK_BOT_CODEX_EXPERIMENTAL=1`. Explicit `whenBusy: steer`
+requires `expectedTurnId` and visibly rejects a stale guard without retrying another turn.
+Final replies omit commentary/reasoning; older phase-null agent messages are a fallback
+only after terminal execution. Inspect `reply.truncated` and execution errors for coverage limits.
+
+CLI equivalents are `gbot codex send --wait --timeout-ms 1000 THREAD_ID hello --json`,
+`gbot codex wait --timeout-ms 1000 THREAD_ID TURN_ID --json`, and
+`gbot codex watch --timeout-ms 1000 --max-events 20 THREAD_ID --json`.
+Use framework `--ndjson` for progress. Wait/watch are explicit diagnostics; automatic
+background reply routing is not provided by this conversation slice.

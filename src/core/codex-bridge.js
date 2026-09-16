@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { statSync } from "node:fs";
+import { statSync, realpathSync } from "node:fs";
 import { createConnection } from "node:net";
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
@@ -1002,25 +1002,34 @@ export async function listCodexQueue(threadId, { env = process.env, limit = 50, 
 /**
  * @param {string} threadId
  * @param {string} text
- * @param {{ env?: NodeJS.ProcessEnv, envelope?: object, whenBusy?: "reject"|"queue" }} [opts]
+ * @param {{ env?: NodeJS.ProcessEnv, envelope?: object, whenBusy?: "reject"|"queue"|"steer", session?: object, expectedTurnId?: string, expectedCwd?: string, signal?: AbortSignal }} [opts]
  */
-export async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({ env }), whenBusy = "reject" } = {}) {
+export async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({ env }), whenBusy = "reject", session, expectedTurnId, expectedCwd, signal } = {}) {
   try {
-    const receipt = await sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy });
+    const receipt = await sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, signal });
     return outcomeFromReceipt(receipt);
   } catch (err) {
     // Every receipt names the message, including refusals that never reached the daemon.
-    if ((err instanceof CodexSendError || err instanceof CodexRouteError || err instanceof CodexProtocolError) && err.envelope === undefined) err.envelope = envelope;
+    if (err && typeof err === "object") {
+      err.envelope = envelope;
+      if (err.threadId === undefined) err.threadId = threadId;
+    }
     return outcomeFromError(err);
   }
 }
 
-async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy }) {
-  if (whenBusy !== "reject" && whenBusy !== "queue") throw new RangeError("--when-busy must be reject or queue");
+async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, signal }) {
+  if (!["reject", "queue", ...(session ? ["steer"] : [])].includes(whenBusy)) throw new RangeError("--when-busy must be reject, queue, or persistent steer");
+  if (whenBusy === "steer" && (typeof expectedTurnId !== "string" || !ID_PATTERN.test(expectedTurnId))) throw new RangeError("steer requires expectedTurnId");
+  if (typeof threadId !== "string" || !ID_PATTERN.test(threadId)) throw new RangeError("Invalid threadId");
+  if (typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > WS_MAX_MESSAGE_BYTES) throw new RangeError("Message must contain text within 4 MiB");
+  if (!envelope || typeof envelope.messageId !== "string" || !ID_PATTERN.test(envelope.messageId)) throw new RangeError("Invalid envelope messageId");
+  const validated = buildEnvelope({ correlationId: envelope.correlationId, replyTo: envelope.replyTo, hop: envelope.hop, env });
+  envelope = { ...validated, messageId: envelope.messageId, header: Boolean(envelope.header) };
   assertThreadAllowed(threadId, env);
   if (whenBusy === "queue") requireExperimental(env, "--when-busy queue");
   const body = withEnvelopeHeader(text, envelope, env);
-  const { client } = await openSession(env, { experimental: whenBusy === "queue" });
+  const { client } = session ?? await openSession(env, { experimental: whenBusy === "queue", signal });
   try {
     let resumed;
     try {
@@ -1038,6 +1047,8 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
     if (!isObject(resumed) || !isObject(resumed.thread) || typeof resumed.thread.id !== "string") {
       throw new CodexProtocolError("thread/resume", "missing `thread.id`");
     }
+    if (resumed.thread.id !== threadId) throw new CodexSendError("thread/resume returned a different thread ID", { delivery: "rejected", reason: "bad-response", threadId, envelope });
+    if (expectedCwd !== undefined && realpathSync(resumed.cwd ?? resumed.thread.cwd) !== realpathSync(expectedCwd)) throw new CodexSendError("Codex thread cwd does not match expectedCwd", { delivery: "rejected", reason: "cwd-mismatch", threadId, envelope });
     const state = threadState(resumed, threadId);
     const receiptBase = {
       threadId: resumed.thread.id,
@@ -1058,6 +1069,16 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
         + "Wait for it to go idle (`gbot codex list-threads`) and resend, or pass --when-busy queue.",
         { delivery: "rejected", reason: "busy", threadId, envelope },
       );
+    }
+    if (whenBusy === "steer") {
+      let steered;
+      try {
+        steered = await client.request("turn/steer", { threadId, expectedTurnId, clientUserMessageId: envelope.messageId, input: [{ type: "text", text: body }] });
+      } catch (err) { throw unsupportedOrRpc(err, "turn/steer", threadId, envelope); }
+      if (typeof steered?.turnId !== "string" || steered.turnId !== expectedTurnId) {
+        throw new CodexSendError("Malformed turn/steer acknowledgment", { delivery: "unknown", reason: "bad-response", threadId, turnId: expectedTurnId, envelope });
+      }
+      return { delivery: "accepted", ...receiptBase, turnId: steered.turnId };
     }
     if (state.busy) {
       let queued;
@@ -1084,9 +1105,11 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
     // that arrives before the acknowledgment supplies our turn id wait in
     // client.deferred and are adopted only on a match. Requests missing
     // thread or turn IDs remain unanswered because ownership is unknown.
-    client.expectedThreadId = threadId;
-    client.expectedTurnId = null;
-    client.answerServerRequests = true;
+    if (!session) {
+      client.expectedThreadId = threadId;
+      client.expectedTurnId = null;
+      client.answerServerRequests = true;
+    }
     let turn;
     try {
       turn = await client.request("turn/start", {
@@ -1112,7 +1135,7 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
         { delivery: "unknown", reason: "bad-response", threadId, envelope },
       );
     }
-    client._adoptTurn(turnId);
+    if (!session) client._adoptTurn(turnId);
     const freshRefused = client.refused.slice(seenRefused)
       .filter((r) => {
         if (!r.answered) return false;
@@ -1134,6 +1157,6 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
     }
     return { delivery: "accepted", ...receiptBase, turnId, turnStatus: turn.turn.status };
   } finally {
-    client.close();
+    if (!session) client.close();
   }
 }
