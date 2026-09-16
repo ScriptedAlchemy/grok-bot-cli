@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { fakeAppServer, createCodexFixtureHome } from "./helpers/codex-server.js";
 
 import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, codexSocketPath, codexStatus, detectDesktopPrivateAppServer, unreachableMessage } from "../src/core/codex-bridge.js";
 import { desktopShimStatus } from "../src/core/desktop-shim.js";
@@ -18,62 +19,6 @@ const THREADS = [
   { id: "t-1", status: { type: "idle" }, name: "Fix the build", preview: "please fix the build", cwd: "/repo/a", source: "vscode", updatedAt: 1700000001 },
   { id: "t-2", status: { type: "notLoaded" }, name: null, preview: "second   thread\npreview", cwd: "/repo/b", source: "cli", updatedAt: 1700000000 },
 ];
-
-/**
- * Fake Codex app-server: WebSocket over a Unix socket under a scratch CODEX_HOME.
- * `handlers[method](params, reply)` answers each request; `received` keeps every inbound message.
- */
-async function fakeAppServer(handlers) {
-  const home = mkdtempSync(join(tmpdir(), "gbot-codex-"));
-  mkdirSync(join(home, "app-server-control"));
-  const socketPath = join(home, "app-server-control", "app-server-control.sock");
-  const received = [];
-  const sockets = new Set();
-  let resolveDisconnected;
-  const disconnected = new Promise((resolve) => { resolveDisconnected = resolve; });
-  const server = createServer();
-  server.on("upgrade", (req, socket) => {
-    sockets.add(socket);
-    socket.on("close", () => {
-      sockets.delete(socket);
-      resolveDisconnected();
-    });
-    socket.write(
-      "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-      + "Sec-WebSocket-Accept: " + websocketAccept(req.headers["sec-websocket-key"]) + "\r\n\r\n",
-    );
-    const send = (obj) => socket.write(encodeFrame(0x1, Buffer.from(JSON.stringify(obj))));
-    let buf = Buffer.alloc(0);
-    socket.on("data", (chunk) => {
-      buf = Buffer.concat([buf, chunk]);
-      for (;;) {
-        const frame = decodeFrame(buf);
-        if (!frame) return;
-        buf = frame.rest;
-        if (frame.opcode === 0x8) { socket.end(); return; }
-        if (frame.opcode !== 0x1) continue;
-        const msg = JSON.parse(frame.payload.toString());
-        received.push(msg);
-        if (msg.method && msg.id != null) {
-          const handler = handlers[msg.method];
-          if (!handler) send({ jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: "unknown method " + msg.method } });
-          else handler(msg.params, (result) => send({ jsonrpc: "2.0", id: msg.id, result }), (error) => send({ jsonrpc: "2.0", id: msg.id, error }), send, socket);
-        }
-      }
-    });
-    socket.on("error", () => {});
-  });
-  await new Promise((resolve) => server.listen(socketPath, resolve));
-  return {
-    home,
-    received,
-    disconnected,
-    close: () => new Promise((resolve) => {
-      for (const sock of sockets) sock.destroy();
-      server.close(resolve);
-    }),
-  };
-}
 
 const baseHandlers = {
   initialize: (params, ok) => ok({ userAgent: "gbot/0.154.0 (Ubuntu 24.4.0; x86_64) dumb (" + params.clientInfo.name + ")", codexHome: "/fake" }),
@@ -424,7 +369,7 @@ test("codex send reassembles a fragmented turn/start reply split across TCP chun
   }
 });
 
-test("codex status fails on a wrong handshake and closes the socket instead of leaking it", async () => {  const home = mkdtempSync(join(tmpdir(), "gbot-codex-badhs-"));
+test("codex status fails on a wrong handshake and closes the socket instead of leaking it", async () => {  const home = createCodexFixtureHome("gbot-codex-badhs-");
   mkdirSync(join(home, "app-server-control"));
   const socketPath = join(home, "app-server-control", "app-server-control.sock");
   let serverSocket = null;
@@ -560,7 +505,7 @@ test("a JSON null message fails as malformed instead of crashing on msg.id", asy
 });
 
 test("handshake timeout is absolute; trickled bytes do not extend it", async () => {
-  const home = mkdtempSync(join(tmpdir(), "gbot-codex-trickle-"));
+  const home = createCodexFixtureHome("gbot-codex-trickle-");
   mkdirSync(join(home, "app-server-control"));
   const socketPath = join(home, "app-server-control", "app-server-control.sock");
   const server = createTcpServer((sock) => {
@@ -581,7 +526,7 @@ test("handshake timeout is absolute; trickled bytes do not extend it", async () 
 });
 
 test("codex status rejects terminated oversized handshake headers", async () => {
-  const home = mkdtempSync(join(tmpdir(), "gbot-codex-bighdr-"));
+  const home = createCodexFixtureHome("gbot-codex-bighdr-");
   mkdirSync(join(home, "app-server-control"));
   const socketPath = join(home, "app-server-control", "app-server-control.sock");
   const server = createTcpServer((sock) => {
@@ -729,7 +674,7 @@ test("codex status distinguishes permission-denied and stale files from an absen
 });
 
 test("codex status reports connect-failed when the socket exists but nothing answers", async () => {
-  const home = mkdtempSync(join(tmpdir(), "gbot-codex-dead-"));
+  const home = createCodexFixtureHome("gbot-codex-dead-");
   mkdirSync(join(home, "app-server-control"));
   const socketPath = join(home, "app-server-control", "app-server-control.sock");
   const server = createTcpServer((sock) => sock.destroy());
@@ -1042,7 +987,7 @@ test("codex status classifies initialize failures as handshake-failed and off-sc
 });
 
 test("codex status reports permission-denied when connect fails with EACCES", { skip: process.platform === "win32" || process.getuid?.() === 0 }, async () => {
-  const home = mkdtempSync(join(tmpdir(), "gbot-codex-eacces-"));
+  const home = createCodexFixtureHome("gbot-codex-eacces-");
   mkdirSync(join(home, "app-server-control"));
   const socketPath = join(home, "app-server-control", "app-server-control.sock");
   const server = createTcpServer((sock) => sock.destroy());

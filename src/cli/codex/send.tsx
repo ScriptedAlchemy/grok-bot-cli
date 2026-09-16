@@ -1,84 +1,121 @@
-import { Agent } from '@agent-bundle/runtime';
+import { Agent, agent } from '@agent-bundle/runtime';
 import type { CliRouteConfig, CliRouteProps } from 'agent-bundle';
 import { z } from 'zod';
-
-import { buildEnvelope, sendToCodexThread } from '../../core/codex-bridge.js';
-import { outcomeFromError } from '../../core/codex/contract.js';
-
+import {
+  sendFields,
+  resultSchema as plainResultSchema,
+  sendOperation,
+  resultText,
+} from '../../core/codex/routes.js';
+import {
+  codexReturnOperation,
+  relayResultSchema,
+} from '../../core/relay/routes.js';
+export const resultSchema = z.union([plainResultSchema, relayResultSchema]);
+export const inputSchema = z
+  .object({
+    ...sendFields,
+    whenBusy: z.enum(['reject', 'queue', 'steer']).optional(),
+    replyToGrok: z.string().min(1).optional(),
+    bindingId: z.string().min(1).optional(),
+    requestId: z.string().min(1).max(128).optional(),
+    correlationId: z.string().min(1).optional(),
+    replyTo: z.string().min(1).optional(),
+    message: z.array(z.string()).min(1),
+  })
+  .strict();
 export const config = {
   description:
-    'Send a message to a Codex thread. Options go before <threadId>; `--` protects flag-like text.',
+    'Send to Codex; acceptance is distinct from completion. Options precede threadId.',
   exitCode: 'result',
+  render: { maxElapsedMs: 660000 },
+  positionals: ['threadId', 'message'],
   inputJsonSchema: {
+    type: 'object',
     additionalProperties: false,
     properties: {
-      correlationId: { description: 'Stable correlation id for multi-hop replies', type: 'string' },
+      replyToGrok: { type: 'string' },
+      bindingId: { type: 'string' },
+      requestId: { type: 'string' },
+      threadId: {
+        type: 'string',
+      },
+      expectedCwd: {
+        type: 'string',
+      },
+      timeoutMs: {
+        type: 'number',
+        description: 'Observation timeout: 1-600000 milliseconds.',
+      },
+      correlationId: {
+        type: 'string',
+      },
       envelope: {
-        description: 'Prepend the [gbot …] header to the message body',
         type: 'boolean',
       },
-      hop: { description: 'Hop count; refused at GROK_BOT_MAX_HOPS', type: 'number' },
-      message: { items: { type: 'string' }, type: 'array' },
-      replyTo: { description: 'Prior message id this send replies to', type: 'string' },
-      threadId: { type: 'string' },
-      whenBusy: {
-        description: 'reject (default) or queue (needs GROK_BOT_CODEX_EXPERIMENTAL=1)',
-        enum: ['reject', 'queue'],
+      hop: {
+        type: 'number',
+      },
+      replyTo: {
         type: 'string',
+      },
+      expectedTurnId: {
+        type: 'string',
+        description:
+          'Required active-turn guard for steer; stale guards reject.',
+      },
+      wait: {
+        type: 'boolean',
+      },
+      maxOutputBytes: {
+        type: 'number',
+        description: 'Reply budget: 1-4194304 bytes.',
+      },
+      whenBusy: {
+        type: 'string',
+        enum: ['reject', 'queue', 'steer'],
+      },
+      message: {
+        type: 'array',
+        items: {
+          type: 'string',
+        },
       },
     },
     required: ['threadId', 'message'],
-    type: 'object',
   },
-  positionals: ['threadId', 'message'],
 } satisfies CliRouteConfig;
-
-export const inputSchema = z
-  .object({
-    correlationId: z.string().min(1).optional(),
-    envelope: z.boolean().optional(),
-    hop: z.number().int().min(0).optional(),
-    message: z.array(z.string()).min(1),
-    replyTo: z.string().min(1).optional(),
-    threadId: z.string().min(1),
-    whenBusy: z.enum(['reject', 'queue']).default('reject'),
-  })
-  .strict();
-
-export const resultSchema = z
-  .object({
-    delivery: z.enum(['accepted', 'queued', 'rejected', 'unknown']),
-    exitCode: z.union([z.literal(0), z.literal(1)]),
-  })
-  .passthrough();
-
-export default async function codexSend({ input }: CliRouteProps<typeof inputSchema>) {
-  let out;
-  try {
-    const envelope = buildEnvelope({
-      correlationId: input.correlationId,
-      envelope: Boolean(input.envelope),
-      hop: input.hop,
-      replyTo: input.replyTo,
-    });
-    out = await sendToCodexThread(input.threadId, input.message.join(' ').trim(), {
-      envelope,
-      whenBusy: input.whenBusy,
-    });
-  } catch (error) {
-    out = outcomeFromError(error);
+export default async function route({
+  input,
+  signal,
+}: CliRouteProps<typeof inputSchema>) {
+  const context = await agent();
+  if (input.replyToGrok || input.bindingId) {
+    const out = await codexReturnOperation(
+      { ...input, message: input.message.join(' ').trim() },
+      context,
+    );
+    return (
+      <Agent.Result
+        value={{ ...out, exitCode: out.delivery === 'rejected' ? 1 : 0 }}
+      >
+        <Agent.Text>{`Delivery ${out.delivery}; terminal answer returns to Grok automatically.`}</Agent.Text>
+      </Agent.Result>
+    );
   }
-  const text =
-    out.delivery === 'queued' && typeof out.queuedSubmissionId === 'string'
-      ? `Queued ${out.queuedSubmissionId} on busy Codex thread ${out.threadId}; message ${out.messageId}`
-      : out.exitCode === 0
-        ? `Started turn ${out.turnId} (${out.turnStatus}) on Codex thread ${out.threadId}; message ${out.messageId}`
-        : typeof out.error === 'string'
-          ? out.error
-          : `Codex delivery ${out.delivery} on thread ${out.threadId}`;
+  const out = await sendOperation(
+    {
+      ...input,
+      whenBusy: input.whenBusy ?? 'reject',
+      message: input.message.join(' ').trim(),
+    },
+    signal,
+    (message) => context.progress.report({ message }),
+    true,
+  );
   return (
     <Agent.Result value={out}>
-      <Agent.Text>{text}</Agent.Text>
+      <Agent.Text>{resultText(out)}</Agent.Text>
     </Agent.Result>
   );
 }
