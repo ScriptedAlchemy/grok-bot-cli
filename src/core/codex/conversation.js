@@ -204,10 +204,12 @@ export async function openCodexConversation(threadId, options = {}) {
   }
   return { threadId, cwd: resumed.cwd ?? resumed.thread.cwd, wait, watch, close,
     /** @param {string} text
-     * @param {{envelope?: object, whenBusy?: string, expectedTurnId?: string}} [options] */
-    async send(text, { envelope = buildEnvelope({ env }), whenBusy = 'reject', expectedTurnId } = {}) {
+     * @param {{envelope?: object, whenBusy?: string, expectedTurnId?: string, signal?: AbortSignal}} [options] */
+    async send(text, { envelope = buildEnvelope({ env }), whenBusy = 'reject', expectedTurnId, signal: sendSignal } = {}) {
       if (closed) return outcomeFromError(Object.assign(new Error('Conversation closed'), { delivery: 'rejected', reason: 'closed', threadId, envelope }));
-      const receipt = await sendToCodexThread(threadId, text, { env, envelope, whenBusy, expectedTurnId, session, expectedCwd, signal });
+      if (sendSignal !== undefined && !(sendSignal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
+      const submissionSignal = signal && sendSignal ? AbortSignal.any([signal, sendSignal]) : sendSignal ?? signal;
+      const receipt = await sendToCodexThread(threadId, text, { env, envelope, whenBusy, expectedTurnId, session, expectedCwd, signal: submissionSignal });
       if (receipt.delivery === 'accepted' && receipt.turnId) {
         acceptedTurns.add(receipt.turnId);
         if (acceptedTurns.size > 100) acceptedTurns.delete(acceptedTurns.values().next().value);

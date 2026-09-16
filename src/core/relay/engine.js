@@ -51,7 +51,8 @@ export async function openRelayEngine({
   const controller = new AbortController();
   let closed = false,
     queue = Promise.resolve(),
-    lastError = null;
+    lastError = null,
+    reconcileOffset = 0;
   const codex = createRelayCodex({
     env,
     read: state.read,
@@ -61,6 +62,19 @@ export async function openRelayEngine({
     openConversation,
   });
   const stoppedBindings = new Set();
+  const bindingControllers = new Map();
+  function submissionSignal(record) {
+    if (!record.bindingId) return controller.signal;
+    if (!bindingControllers.has(record.bindingId))
+      bindingControllers.set(record.bindingId, new AbortController());
+    const scoped = bindingControllers.get(record.bindingId);
+    if (
+      stoppedBindings.has(record.bindingId) ||
+      state.read().bindings[record.bindingId]?.state !== "running"
+    )
+      scoped.abort();
+    return scoped.signal;
+  }
   const runnable = (r) =>
     !closed &&
     (!r.bindingId ||
@@ -138,7 +152,7 @@ export async function openRelayEngine({
     try {
       result =
         r.kind === "codex"
-          ? await codex.send(r)
+          ? await codex.send(r, { signal: submissionSignal(r) })
           : await gateway.send(r.targetId, r.text, {
               clientNonce: r.clientId,
               ...(r.sourceIds[0] ? { replyToId: r.sourceIds[0] } : {}),
@@ -227,14 +241,21 @@ export async function openRelayEngine({
     return receipt(await submit(id));
   }
   async function reconcile() {
-    for (const r of records(state.read())
-      .filter(
-        (r) =>
-          r.kind === "codex" &&
-          ["sending", "unknown"].includes(r.submission) &&
-          runnable(r),
-      )
-      .slice(0, 20)) {
+    const candidates = records(state.read()).filter(
+      (r) =>
+        r.kind === "codex" &&
+        ["sending", "unknown"].includes(r.submission) &&
+        runnable(r),
+    );
+    const selected = Array.from(
+      { length: Math.min(20, candidates.length) },
+      (_, index) => candidates[(reconcileOffset + index) % candidates.length],
+    );
+    reconcileOffset = candidates.length
+      ? (reconcileOffset + selected.length) % candidates.length
+      : 0;
+    for (const r of selected) {
+      if (!runnable(r)) continue;
       try {
         const observed = await codex.reconcile(r);
         if (observed)
@@ -338,6 +359,7 @@ export async function openRelayEngine({
       const b = state.read().bindings[bindingId];
       if (!b) throw new Error("Unknown binding");
       stoppedBindings.add(bindingId);
+      bindingControllers.get(bindingId)?.abort();
       await change("bindings", { ...b, state: "stopped" });
       if (
         !Object.values(state.read().bindings).some(

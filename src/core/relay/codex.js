@@ -94,38 +94,63 @@ export function createRelayCodex({
       const c = await conversation({ threadId, expectedCwd });
       return { threadId, cwd: realpathSync(c.cwd) };
     },
-    async send(record) {
-      const c = await conversation(record),
+    async send(record, { signal: deliverySignal } = {}) {
+      const submissionSignal =
+        signal && deliverySignal
+          ? AbortSignal.any([signal, deliverySignal])
+          : (deliverySignal ?? signal);
+      const cancelled = () => ({
+        delivery: "rejected",
+        reason: "cancelled",
+        threadId: record.threadId,
+        messageId: record.clientId,
+      });
+      let c, s;
+      try {
+        c = await conversation(record);
         s = await connect();
+      } catch (error) {
+        if (submissionSignal?.aborted) return cancelled();
+        throw error;
+      }
       let receipt;
       for (let attempt = 0; attempt < 3; attempt++) {
+        if (submissionSignal?.aborted) return cancelled();
         let active = null;
-        if (record.busyPolicy === "steer")
-          await visitCodexHistory(
-            s,
-            record.threadId,
-            "thread/turns/list",
-            {},
-            (rows) => {
-              for (const turn of rows) {
-                if (
-                  !turn ||
-                  typeof turn.id !== "string" ||
-                  typeof turn.status !== "string"
-                )
-                  throw new Error("Invalid turn history");
-                if (turn.status === "inProgress") {
-                  active = turn.id;
-                  return true;
+        if (record.busyPolicy === "steer") {
+          try {
+            await visitCodexHistory(
+              s,
+              record.threadId,
+              "thread/turns/list",
+              {},
+              (rows) => {
+                for (const turn of rows) {
+                  if (
+                    !turn ||
+                    typeof turn.id !== "string" ||
+                    typeof turn.status !== "string"
+                  )
+                    throw new Error("Invalid turn history");
+                  if (turn.status === "inProgress") {
+                    active = turn.id;
+                    return true;
+                  }
                 }
-              }
-              return false;
-            },
-            { signal },
-          );
+                return false;
+              },
+              { signal: submissionSignal },
+            );
+          } catch (error) {
+            if (submissionSignal?.aborted) return cancelled();
+            throw error;
+          }
+        }
+        if (submissionSignal?.aborted) return cancelled();
         // Once a steer guard is rejected, retry only another observed guarded steer.
         if (attempt && !active) return receipt;
         receipt = await c.send(record.text, {
+          signal: submissionSignal,
           envelope: {
             messageId: record.clientId,
             correlationId: record.correlationId,
