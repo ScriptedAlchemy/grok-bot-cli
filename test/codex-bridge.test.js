@@ -1154,6 +1154,17 @@ test("detectDesktopPrivateAppServer stays unknown on Windows", () => {
   assert.equal(detectDesktopPrivateAppServer({ platform: "win32", listProcesses: DESKTOP_MAC_PS }), "unknown");
 });
 
+
+test("detectDesktopPrivateAppServer ignores probe-shell cmdline noise (MATCH2 false-positive)", () => {
+  // Scout observed: a shell whose argv text mentions ChatGPT.app + app-server +
+  // codex-app-tools without being Desktop's Resources/codex binary.
+  const probe = [
+    "1234 ?? 0:00.01 /bin/zsh -c echo ChatGPT.app app-server codex-app-tools mcp_servers.codex_app",
+    "1235 ?? 0:00.01 node /tmp/probe.js --from ChatGPT.app --flag app-server --tools codex-app-tools",
+  ].join("\n");
+  assert.equal(detectDesktopPrivateAppServer({ platform: "darwin", listProcesses: probe }), "unknown");
+});
+
 test("codexStatus reports private-stdio with a managed-daemon message when the socket is absent", async () => {
   const home = mkdtempSync(join(tmpdir(), "gbot-codex-desktop-"));
   const status = await codexStatus({ ...process.env, CODEX_HOME: home, PATH: "/nonexistent" }, { listProcesses: DESKTOP_MAC_PS });
