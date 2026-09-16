@@ -14,6 +14,7 @@
     "agent-bundle.config.ts",
     "tsconfig.json",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ]
 }
