@@ -121,7 +121,7 @@ export async function fixture({ active = false, interaction, onGateway } = {}) {
 export async function mcp(
   root,
   env,
-  name = "codex-mcp-client",
+  name = "cursor",
   manifestPath = process.env.RELAY_MCP_MANIFEST ?? "mcp.json",
 ) {
   const manifest = JSON.parse(await readFile(join(root, manifestPath), "utf8"));
@@ -224,6 +224,7 @@ test(
       client = await mcp(
         resolve(process.env.RELAY_ARTIFACT_ROOT ?? "artifact"),
         f.env,
+        "codex-mcp-client",
       );
       const names = (await client.rpc("tools/list", {})).result.tools.map(
         (t) => t.name,
@@ -232,9 +233,9 @@ test(
         "gbot_bridge_start",
         "gbot_bridge_status",
         "gbot_bridge_stop",
-        "gbot_codex_respond",
       ])
         assert.ok(names.includes(name), name);
+      assert.ok(!names.includes("gbot_codex_respond"));
       const manual = await client.call("gbot_send", {
         target: "General",
         message: "manual",

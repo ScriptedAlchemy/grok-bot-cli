@@ -8,6 +8,7 @@ import {
 export { inputSchema };
 export default defineTool(
   {
+    excludeClients: ['codex'],
     description:
       'Explicit operator response to a current scoped Codex interaction. Supports only one-time accept/decline/cancel or exact question-ID answers. Never auto-approve.',
     title: 'gbot_codex_respond',

@@ -8,6 +8,7 @@ import {
 export { inputSchema };
 export default defineTool(
   {
+    excludeClients: ['grok bot', 'grokbot', 'grok-bot'],
     description:
       'Send to Grok Bot. Native Codex calls automatically receive replies in their originating thread; send once and continue work. Without a native source, supply codexThreadId or use manual gbot_thread reading.',
     title: 'Send a message to Grok Bot',

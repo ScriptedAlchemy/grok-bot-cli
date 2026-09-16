@@ -23,6 +23,7 @@ export const inputSchema = z.object({
 
 export default defineTool(
   {
+    excludeClients: ['grok bot', 'grokbot', 'grok-bot'],
     annotations: { readOnlyHint: true },
     description:
       'Read a bounded Grok Bot thread tail. Returns a small receipt by default; pass the last cursor as after for an exclusive client-side delta, or full:true to include bounded entry text.',

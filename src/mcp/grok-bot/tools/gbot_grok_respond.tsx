@@ -3,6 +3,7 @@ import { defineTool } from 'agent-bundle/routes';
 import { respondSchema as inputSchema, resultSchema, respondOperation } from '../../../core/grok-approval-routes.js';
 export { inputSchema };
 export default defineTool({
+  excludeClients: ['grok bot', 'grokbot', 'grok-bot'],
   title: 'Respond to Grok approval', description: 'Only after an explicit user decision: accept one current Grok approval once or decline it. Exact target, entryId and approval requestId required. Never auto-approve or grant persistent permissions. Success acknowledges response delivery, not execution.',
   annotations: { readOnlyHint: false }, inputSchema, resultSchema,
   inputJsonSchema: {

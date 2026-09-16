@@ -3,6 +3,7 @@ import { defineTool } from 'agent-bundle/routes';
 import { waitSchema as inputSchema, resultSchema, observeOperation, resultText } from '../../../core/codex/routes.js';
 export { inputSchema };
 export default defineTool({
+  excludeClients: ['codex'],
   description: 'Explicit diagnostic observation of one Codex turn; returns execution and final reply without interrupting it.', title: 'Codex wait', annotations: { readOnlyHint: true },
   render: { maxElapsedMs: 660000 },
   inputSchema, resultSchema,
