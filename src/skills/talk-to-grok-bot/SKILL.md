@@ -44,6 +44,16 @@ change session permissions, or respond to an unsupported interaction; use its ow
 
 Bot replies are `send-message` entries; yours are `message` with `role: user`.
 
+Grok-origin approvals are separate from Codex interactions. `gbot_grok_approvals`
+(CLI: `gbot approvals list TARGET`) lists pending auto-review and local-tool cards in
+the latest 200 entries. Linked/tracked routes forward new pending cards as notices;
+their chat answers never authorize an action. After an explicit user decision, use
+`gbot_grok_respond` (CLI: `gbot approvals respond --target TARGET --entry-id ID
+--request-id ID --decision accept|decline`). Copy the exact IDs from the current
+card. Accept grants once; persistent grants are unavailable. Responses recheck the
+card before sending; delivery success does not prove execution. Older cards,
+cookie/payment approvals and other unsupported requests require the owning Grok UI.
+
 List targets with `gbot bots list` / `gbot groups list` when the name is ambiguous.
 
 ## CLI automation

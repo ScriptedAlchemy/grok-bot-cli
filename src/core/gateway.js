@@ -3,6 +3,7 @@ import { ensureSandboxHeaders, headersFromEnsureSandbox, headersFromEnv, mergeGa
 import { hasGrokBotGatewaySession, loadGrokBotGatewaySession } from "./app-session.js";
 import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS } from "./store.js";
 import { assertAllowedCredentialUrl, redactSecrets } from "./url-policy.js";
+import { grokApproval, grokApprovalResponseSchema } from "./grok-approvals.js";
 
 class GatewayError extends Error {
   constructor(message, { status, method } = {}) {
@@ -403,4 +404,29 @@ export async function getThread(session, ref, rootId) {
   const rec = await resolveRef(session, ref);
   const data = await gatewayCall(session, "getAgentThread", { id: rec.id, rootId });
   return { target: rec, thread: data };
+}
+
+export async function listGrokApprovals(session, ref) {
+  const { target, transcript } = await getTranscriptTail(session, ref, 200);
+  if (!Array.isArray(transcript?.entries) || transcript.entries.length > 200) throw new GatewayError("Invalid approval transcript coverage");
+  return {
+    target: { id: target.id, name: target.name },
+    approvals: transcript.entries.map(grokApproval).filter(Boolean),
+    coverage: "Latest 200 transcript entries only; older requests require the owning Grok UI.",
+  };
+}
+
+export async function respondGrokApproval(session, ref, input) {
+  const { entryId, requestId, decision } = grokApprovalResponseSchema.parse({ ...input, target: ref });
+  const { target, approvals } = await listGrokApprovals(session, ref);
+  const matches = approvals.filter(card => card.entryId === entryId && card.requestId === requestId);
+  if (matches.length !== 1) throw new GatewayError("Stale, foreign or unsupported Grok approval; refresh pending requests or use the owning Grok UI");
+  const approval = matches[0];
+  if (decision === "accept" && approval.truncated) throw new GatewayError("Approval details are truncated; acceptance requires the owning Grok UI");
+  const local = approval.type === "local-tool-permission";
+  await gatewayCall(session, local ? "resolveLocalToolPermission" : "resolveAutoReviewApproval", {
+    agentId: target.id, entryId, requestId,
+    resolution: local ? (decision === "accept" ? "allow-once" : "deny") : (decision === "accept" ? "approved" : "denied"),
+  });
+  return { target, entryId, requestId, decision, delivery: "accepted" };
 }

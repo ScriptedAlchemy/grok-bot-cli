@@ -73,6 +73,8 @@ const transcripts: Record<string, unknown> = {
 };
 const responses: Record<string, (body: Record<string, unknown>) => [number, unknown]> = {
   getAgentTranscriptTail: (body) => [200, transcripts[String(body.id)]],
+  resolveAutoReviewApproval: () => [200, {}],
+  resolveLocalToolPermission: () => [200, {}],
   listAgents: () => [200, roster],
   sendPrompt: (body) =>
     body.agentId === 'bot-3'
@@ -131,7 +133,33 @@ beforeEach(() => {
 describe('grok-bot MCP server', () => {
   it('registers messaging, conversation and managed bridge tools', async () => {
     const surface = await listMcpSurface({ server: 'grok-bot' });
-    expect([...surface.tools].sort()).toEqual(['codex_send', 'codex_threads', 'codex_wait', 'codex_watch', 'gbot_bridge_start', 'gbot_bridge_status', 'gbot_bridge_stop', 'gbot_codex_respond', 'gbot_send', 'gbot_thread']);
+    expect([...surface.tools].sort()).toEqual(['codex_send', 'codex_threads', 'codex_wait', 'codex_watch', 'gbot_bridge_start', 'gbot_bridge_status', 'gbot_bridge_stop', 'gbot_codex_respond', 'gbot_grok_approvals', 'gbot_grok_respond', 'gbot_send', 'gbot_thread']);
+  });
+
+  it('lists and responds to an exact current Grok approval through the native API', async () => {
+    transcripts['bot-1'] = { entries: [{ id: 'card', kind: 'send-message', message: {
+      type: 'auto-review-approval', approval: { requestId: 'approval', status: 'pending', command: 'echo test' },
+    } }] };
+    try {
+      const listed = await invokeMcpTool('gbot_grok_approvals', { server: 'grok-bot', input: { target: 'General' } });
+      expect(listed.isError).toBe(false);
+      expect(listed.structuredContent).toMatchObject({ approvals: [{ entryId: 'card', requestId: 'approval' }] });
+      const result = await invokeMcpTool('gbot_grok_respond', {
+        server: 'grok-bot', input: { target: 'General', entryId: 'card', requestId: 'approval', decision: 'decline' },
+      });
+      expect(result.isError).toBe(false);
+      expect(calls.at(-1)).toMatchObject({ method: 'resolveAutoReviewApproval', body: {
+        agentId: 'bot-1', entryId: 'card', requestId: 'approval', resolution: 'denied',
+      } });
+      transcripts['bot-1'] = { entries: [] };
+      const stale = await invokeMcpTool('gbot_grok_respond', {
+        server: 'grok-bot', input: { target: 'General', entryId: 'card', requestId: 'approval', decision: 'accept' },
+      });
+      expect(stale.isError).toBe(true);
+      expect(calls.filter(call => call.method.startsWith('resolve'))).toHaveLength(1);
+    } finally {
+      transcripts['bot-1'] = { entries: [], nextBeforeSeq: 0 };
+    }
   });
 
   it('gbot_send resolves the target by name and posts the prompt with the gateway token', async () => {

@@ -1,5 +1,6 @@
 import { entryText, sourceEntryId } from "../transcript.js";
 import { op, hash, MAX_TEXT, pageEntries, messageText } from "./records.js";
+import { grokApprovalNotice } from "../grok-approvals.js";
 
 /** Correlate the whole page before atomically recording intake and advancing its checkpoint. */
 export function createIntake({
@@ -141,6 +142,8 @@ export function createIntake({
     const incoming = page.slice(index + 1);
     for (const entry of incoming) {
       if (entry.kind !== "send-message" || own.has(entry.requestId)) continue;
+      const approvalNotice = grokApprovalNotice(entry, targetId);
+      if (["auto-review-approval", "local-tool-permission"].includes(entry.message?.type) && !approvalNotice) continue;
       const parent = requests.get(entry.requestId);
       // Without nonce coverage, unsolicited classification could echo a return or misroute a reply.
       if (!parent && unresolved) {
@@ -169,7 +172,7 @@ export function createIntake({
       if (local[id]) continue;
       let body;
       try {
-        body = messageText(entryText(entry));
+        body = messageText(approvalNotice ?? entryText(entry));
       } catch {
         await change("targets", {
           ...target,
@@ -178,7 +181,7 @@ export function createIntake({
         });
         return;
       }
-      const text = `[Grok sender ${targetId}; message ${sourceId}]\n${parent ? "Reply to a tracked request. Your next final answer is not returned automatically." : "Linked conversation. Your corresponding final answer returns automatically to Grok."}\n\n${body}`;
+      const text = `[Grok sender ${targetId}; message ${sourceId}]\n${approvalNotice ? "Approval notice. Your next final answer is not returned automatically." : parent ? "Reply to a tracked request. Your next final answer is not returned automatically." : "Linked conversation. Your corresponding final answer returns automatically to Grok."}\n\n${body}`;
       if (Buffer.byteLength(text) > MAX_TEXT) {
         await change("targets", {
           ...target,
@@ -190,7 +193,7 @@ export function createIntake({
       const record = newRecord("codex", id, destination, text, {
         sourceIds: [sourceId],
         parentId: parent?.id,
-        returnToGrok: !parent,
+        returnToGrok: !parent && !approvalNotice,
         correlationId: parent?.correlationId,
         hop: parent ? parent.hop + 1 : 0,
         maxHops: parent?.maxHops,
