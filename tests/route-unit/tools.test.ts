@@ -111,8 +111,6 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
   for (const key of envKeys) savedEnv[key] = process.env[key];
-  // rstest.route-unit.config.ts sets this; url-policy then refuses every non-loopback gateway.
-  expect(process.env.GROK_BOT_TEST).toBe('1');
   process.env.GROK_BOT_GATEWAY_URL = `http://127.0.0.1:${port}`;
   process.env.GROK_BOT_GATEWAY_TOKEN = 'test-token';
   process.env.GROK_BOT_ALLOW_LOCAL_GATEWAY = '1';
@@ -396,6 +394,37 @@ describe('grok-bot MCP server', () => {
     expect(text).toContain('sendPrompt failed: 401');
     expect(text).toContain('<redacted>');
     expect(text).not.toContain('test-token');
+  });
+
+  it('refuses a live gateway host under the test runner and still serves the loopback fake', async () => {
+    // rstest.route-unit.config.ts sets GROK_BOT_TEST=1; the URL policy then turns any
+    // non-loopback gateway into a tool error before a request is built.
+    const loopbackUrl = process.env.GROK_BOT_GATEWAY_URL;
+    process.env.GROK_BOT_GATEWAY_URL = 'https://box.cursor.sh';
+    try {
+      const live = await invokeMcpTool('gbot_send', {
+        input: { message: 'must not leave the machine', target: 'General' },
+        server: 'grok-bot',
+      });
+      expect(live.isError).toBe(true);
+      expect(contentText(live.content)).toBe(
+        'Rejected gateway URL host "box.cursor.sh": test mode (GROK_BOT_TEST / NODE_ENV=test) only allows http(s) loopback gateways.',
+      );
+      expect(calls).toEqual([]);
+    } finally {
+      process.env.GROK_BOT_GATEWAY_URL = loopbackUrl;
+    }
+    const local = await invokeMcpTool('gbot_send', {
+      input: { message: 'loopback is fine', target: 'General' },
+      server: 'grok-bot',
+    });
+    expect(local.structuredContent).toEqual({
+      delivery: 'accepted',
+      messageId: 'm-1',
+      result: { messageId: 'm-1' },
+      target: { id: 'bot-1', kind: 'bot', name: 'General' },
+    });
+    expect(calls[1]).toMatchObject({ body: { agentId: 'bot-1', prompt: 'loopback is fine' }, method: 'sendPrompt' });
   });
 
   it('surfaces an unknown target as a tool error without sending anything', async () => {
