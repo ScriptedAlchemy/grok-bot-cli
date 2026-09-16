@@ -39,9 +39,13 @@ test("test mode: a loopback gateway is served, a live gateway host is refused be
   assert.deepEqual(received.map((r) => r.url), ["/api/listAgents", "/api/sendPrompt"]);
   assert.equal(received[1].body.prompt, "hi");
 
+  // A non-routable host, and the production escape hatch switched on: production
+  // policy would let this through, test mode must still refuse it.
+  process.env.GROK_BOT_ALLOW_ANY_GATEWAY = "1";
+  t.after(() => { delete process.env.GROK_BOT_ALLOW_ANY_GATEWAY; });
   await assert.rejects(
-    sendPrompt({ gatewayUrl: "https://box.cursor.sh", gatewayToken: "t" }, "General", "hi"),
-    { message: 'Rejected gateway URL host "box.cursor.sh": test mode (GROK_BOT_TEST / NODE_ENV=test) only allows http(s) loopback gateways.' },
+    sendPrompt({ gatewayUrl: "https://gateway.invalid", gatewayToken: "t" }, "General", "hi"),
+    { message: 'Rejected gateway URL host "gateway.invalid": test mode (GROK_BOT_TEST / NODE_ENV=test) only allows http(s) loopback gateways.' },
   );
   assert.equal(received.length, 2, "the refused send reached no server");
 });

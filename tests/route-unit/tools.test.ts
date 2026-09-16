@@ -399,8 +399,11 @@ describe('grok-bot MCP server', () => {
   it('refuses a live gateway host under the test runner and still serves the loopback fake', async () => {
     // rstest.route-unit.config.ts sets GROK_BOT_TEST=1; the URL policy then turns any
     // non-loopback gateway into a tool error before a request is built.
+    // Non-routable host plus the production escape hatch: production policy would
+    // proceed, test mode must refuse, and a regression cannot reach a real gateway.
     const loopbackUrl = process.env.GROK_BOT_GATEWAY_URL;
-    process.env.GROK_BOT_GATEWAY_URL = 'https://box.cursor.sh';
+    process.env.GROK_BOT_GATEWAY_URL = 'https://gateway.invalid';
+    process.env.GROK_BOT_ALLOW_ANY_GATEWAY = '1';
     try {
       const live = await invokeMcpTool('gbot_send', {
         input: { message: 'must not leave the machine', target: 'General' },
@@ -408,11 +411,12 @@ describe('grok-bot MCP server', () => {
       });
       expect(live.isError).toBe(true);
       expect(contentText(live.content)).toBe(
-        'Rejected gateway URL host "box.cursor.sh": test mode (GROK_BOT_TEST / NODE_ENV=test) only allows http(s) loopback gateways.',
+        'Rejected gateway URL host "gateway.invalid": test mode (GROK_BOT_TEST / NODE_ENV=test) only allows http(s) loopback gateways.',
       );
       expect(calls).toEqual([]);
     } finally {
       process.env.GROK_BOT_GATEWAY_URL = loopbackUrl;
+      delete process.env.GROK_BOT_ALLOW_ANY_GATEWAY;
     }
     const local = await invokeMcpTool('gbot_send', {
       input: { message: 'loopback is fine', target: 'General' },
