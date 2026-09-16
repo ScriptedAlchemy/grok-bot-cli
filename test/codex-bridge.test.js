@@ -1223,7 +1223,7 @@ test("codexStatus reports private-stdio with a managed-daemon message when the s
   assert.match(status.message, /openai\/codex\/issues\/41112/);
 });
 
-test("codexStatus reports attached-shim when the shim is active, even with a stale private-stdio process list", async () => {
+test("codexStatus separates configured shim from observed Desktop processes", async () => {
   const home = mkdtempSync(join(tmpdir(), "gbot-codex-shim-"));
   const env = { ...process.env, CODEX_HOME: home, PATH: "/nonexistent" };
 
@@ -1231,14 +1231,26 @@ test("codexStatus reports attached-shim when the shim is active, even with a sta
     listProcesses: DESKTOP_MAC_PS,
     shim: { installed: true, wrapperPointsAtShim: true },
   });
-  assert.equal(active.desktopAttached, "attached-shim");
+  assert.equal(active.desktopAttached, "private-stdio");
+  assert.equal(active.desktopShimConfigured, true);
   assert.equal(active.mode, "socket-absent");
+
+  const configured = await codexStatus(env, {
+    listProcesses: "",
+    shim: { installed: true, wrapperPointsAtShim: true },
+  });
+  assert.equal(configured.desktopAttached, "unknown");
+  assert.equal(configured.desktopShimConfigured, true);
+  assert.equal(configured.reachable, false);
+  assert.match(formatCodexStatus(configured), /desktop shim: configured/);
+  assert.doesNotMatch(formatCodexStatus(configured), /attached-shim/);
 
   const pointedAway = await codexStatus(env, {
     listProcesses: DESKTOP_MAC_PS,
     shim: { installed: true, wrapperPointsAtShim: false },
   });
-  assert.equal(pointedAway.desktopAttached, "private-stdio", "installed but unpointed shim defers to the process list");
+  assert.equal(pointedAway.desktopAttached, "private-stdio");
+  assert.equal(pointedAway.desktopShimConfigured, false);
 
   const quiet = await codexStatus(env, {
     listProcesses: "init\n/usr/local/bin/codex app-server daemon start",
@@ -1272,7 +1284,24 @@ test("codexStatus reports attached-shim when the shim is active, even with a sta
       shim: { installed: liveShim.installed, wrapperPointsAtShim: liveShim.wrapperPointsAtShim },
     },
   );
-  assert.equal(live.desktopAttached, "attached-shim");
+  assert.equal(live.desktopAttached, "private-stdio");
+  assert.equal(live.desktopShimConfigured, true);
+});
+
+test("codexStatus does not infer Desktop attachment from a healthy daemon and configured shim", async () => {
+  const fake = await fakeAppServer(baseHandlers);
+  try {
+    const status = await codexStatus({ ...process.env, CODEX_HOME: fake.home, PATH: "/nonexistent" }, {
+      listProcesses: "",
+      shim: { installed: true, wrapperPointsAtShim: true },
+    });
+    assert.equal(status.reachable, true);
+    assert.equal(status.mode, "daemon");
+    assert.equal(status.desktopAttached, "unknown");
+    assert.equal(status.desktopShimConfigured, true);
+  } finally {
+    await fake.close();
+  }
 });
 
 test("codexStatus keeps unknown and the generic message without Desktop evidence", async () => {
@@ -1292,8 +1321,11 @@ test("formatCodexStatus names the private-stdio case and keeps the unknown line"
     schema: { compatibility: "exact" }, versionMismatch: false,
   };
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "private-stdio" }), /desktop attached: private-stdio/);
-  assert.match(formatCodexStatus({ ...daemon, desktopAttached: "private-stdio" }), /codex app-server daemon start/);
-  assert.match(formatCodexStatus({ ...daemon, desktopAttached: "attached-shim" }), /desktop attached: attached-shim/);
+  assert.match(formatCodexStatus({ ...daemon, desktopAttached: "private-stdio" }), /process observed/);
+  const configured = formatCodexStatus({ ...daemon, desktopAttached: "unknown", desktopShimConfigured: true });
+  assert.match(configured, /desktop shim: configured/);
+  assert.match(configured, /attachment unverified/);
+  assert.doesNotMatch(configured, /attached-shim/);
   assert.match(formatCodexStatus({ ...daemon, desktopAttached: "unknown" }), /desktop attached: unknown \(not observable from the socket\)/);
 });
 
