@@ -76,7 +76,6 @@ describe("codex contract — outcomeFromError", () => {
     assert.equal(out.delivery, "rejected");
     assert.equal(out.exitCode, 1);
   });
-
 });
 
 describe("codex contract — outcomeFromReceipt", () => {
