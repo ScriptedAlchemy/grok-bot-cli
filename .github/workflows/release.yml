@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: macos-14
+    runs-on: windows-latest
     timeout-minutes: 15
     steps:
       - name: Check out the repository
