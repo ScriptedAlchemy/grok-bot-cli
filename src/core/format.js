@@ -70,6 +70,7 @@ function truncateCliText(text, max = 400) {
 
 export function formatCodexStatus(s) {
   const lines = ["socket: " + s.socketPath + " (" + s.socketState + ")"];
+  if (s.desktopShimConfigured) lines.push("desktop shim: configured (managed attachment unverified)");
   if (!s.reachable) return lines.concat("reachable: no (" + s.mode + ")", s.message).join("\n");
   if (s.mode !== "daemon") {
     return lines.concat("reachable: yes, but unusable (" + s.mode + ")", s.message).join("\n");
@@ -81,11 +82,9 @@ export function formatCodexStatus(s) {
       + "  cli version: " + cli
       + "  pinned schema: " + s.pinnedVersion + " (" + s.schema.compatibility + ")",
   );
-  lines.push(s.desktopAttached === "attached-shim"
-    ? "desktop attached: attached-shim (Desktop shim bridges onto the managed daemon)"
-    : s.desktopAttached === "private-stdio"
-      ? "desktop attached: private-stdio (ChatGPT Desktop runs its own private stdio app-server; start a managed daemon with `codex app-server daemon start`)"
-      : "desktop attached: unknown (not observable from the socket)");
+  lines.push(s.desktopAttached === "private-stdio"
+    ? "desktop attached: private-stdio (Desktop-bundled app-server process observed; managed attachment unverified)"
+    : "desktop attached: unknown (not observable from the socket)");
   if (s.versionMismatch) {
     lines.push("warning: daemon and CLI versions differ; `codex app-server daemon restart` picks up the installed CLI");
   }

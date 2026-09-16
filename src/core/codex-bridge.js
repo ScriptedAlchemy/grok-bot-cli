@@ -598,13 +598,11 @@ export function detectDesktopPrivateAppServer({ platform = process.platform, lis
 /**
  * Status contract: `reachable` is endpoint reachability only. `schema.compatibility` is
  * `exact` when the daemon reports the pinned version, otherwise `unverified` (methods
- * usually survive upgrades) or `unknown`. `desktopAttached` is `"attached-shim"` when the
- * desktop-shim is active (installed wrapper that the Desktop-facing CODEX_CLI_PATH points
- * at — the GUI domain on Darwin — so Desktop spawns bridge onto the managed daemon),
- * `"private-stdio"` when a Desktop-bundled app-server process is visible (see
- * `detectDesktopPrivateAppServer`), otherwise `"unknown"` — whether Desktop owns any
- * thread is never observable from the socket itself, and `"detached"` is never reported.
- * An active shim outranks a stale-looking private-stdio process list.
+ * usually survive upgrades) or `unknown`. `desktopShimConfigured` records an installed
+ * wrapper selected by Desktop-facing CODEX_CLI_PATH (the GUI domain on Darwin).
+ * Configuration does not prove a running Desktop inherited it or connected.
+ * `desktopAttached` is `"private-stdio"` when a Desktop-bundled app-server process
+ * is visible, otherwise `"unknown"`. Managed attachment is not observable here.
  *
  * @param {NodeJS.ProcessEnv} [env]
  * @param {{ listProcesses?: string | string[], shim?: { installed?: boolean, wrapperPointsAtShim?: boolean } | null }} [opts]
@@ -614,19 +612,16 @@ export function detectDesktopPrivateAppServer({ platform = process.platform, lis
 export async function codexStatus(env = process.env, { listProcesses, shim } = {}) {
   const path = codexSocketPath(env);
   const cli = probeLocalCodexVersion();
-  // Shim state comes from the install record + the Desktop-facing CODEX_CLI_PATH
-  // (GUI domain on Darwin), never from process-list scraping: when the shim is
-  // active, Desktop's spawns bridge onto this socket, so report the live path.
-  let shimActive = Boolean(shim && shim.installed && shim.wrapperPointsAtShim);
+  let desktopShimConfigured = Boolean(shim && shim.installed && shim.wrapperPointsAtShim);
   if (shim === undefined) {
     try {
       const live = desktopShimStatus({ env });
-      shimActive = Boolean(live.installed && live.wrapperPointsAtShim);
+      desktopShimConfigured = Boolean(live.installed && live.wrapperPointsAtShim);
     } catch {
-      shimActive = false;
+      desktopShimConfigured = false;
     }
   }
-  const desktopAttached = shimActive ? "attached-shim" : detectDesktopPrivateAppServer({
+  const desktopAttached = detectDesktopPrivateAppServer({
     platform: process.platform,
     listProcesses: listProcesses ?? listDesktopProcesses(),
   });
@@ -637,6 +632,7 @@ export async function codexStatus(env = process.env, { listProcesses, shim } = {
     cliVersion: cli.version,
     cliVersionProbe: cli.probe,
     desktopAttached,
+    desktopShimConfigured,
   };
   let session;
   try {
