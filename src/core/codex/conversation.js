@@ -81,10 +81,13 @@ export async function openCodexConversation(threadId, options = {}) {
     if (expected !== undefined && (typeof cwd !== 'string' || realpathSync(cwd) !== expected)) throw new Error('Codex thread cwd does not match expectedCwd');
   } catch (error) { await close(); throw error; }
 
-  /** @param {{turnId: string, messageId?: string, timeoutMs?: number, signal?: AbortSignal, maxOutputBytes?: number}} options */
-  async function wait({ turnId, messageId, timeoutMs = 120000, signal: waitSignal, maxOutputBytes = 1048576 }) {
+  /** @param {{turnId: string, messageId?: string, afterMessageId?: string|string[], timeoutMs?: number, signal?: AbortSignal, maxOutputBytes?: number}} options */
+  async function wait({ turnId, messageId, afterMessageId, timeoutMs = 120000, signal: waitSignal, maxOutputBytes = 1048576 }) {
     conversationId(turnId, 'turnId');
     if (messageId !== undefined) conversationId(messageId, 'messageId');
+    const anchors = afterMessageId === undefined ? [] : Array.isArray(afterMessageId) ? afterMessageId : [afterMessageId];
+    if (afterMessageId !== undefined) boundedInteger(anchors.length, 200, 'afterMessageId count');
+    for (const anchor of anchors) conversationId(anchor, 'afterMessageId');
     boundedInteger(timeoutMs, 600000, 'timeoutMs'); boundedInteger(maxOutputBytes, BUDGET, 'maxOutputBytes');
     if (waitSignal !== undefined && !(waitSignal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
     let done = false, status = acceptedTurns.has(turnId) ? 'inProgress' : undefined, error, historyError, itemBytes = 0, truncated = overflow;
@@ -106,10 +109,10 @@ export async function openCodexConversation(threadId, options = {}) {
         if (namedTurn(p) !== turnId) continue;
         if (event.kind === 'interaction') interactions.set(event.id, event);
         if (event.method === 'turn/started' && !terminal(status)) status = p.turn?.status;
-        if (event.method === 'item/completed') add(p.item);
+        if (event.method === 'item/completed' && afterMessageId === undefined) add(p.item);
         if (event.method === 'turn/completed') {
           status = p.turn?.status; error = p.turn?.error;
-          for (const item of p.turn?.items ?? []) add(item);
+          if (afterMessageId === undefined) for (const item of p.turn?.items ?? []) add(item);
         }
       }
       return [...interactions.values()];
@@ -142,24 +145,29 @@ export async function openCodexConversation(threadId, options = {}) {
     const collect = async () => {
       scan();
       try {
-        let found = false;
+        let found = false, historyTerminal = false, anchorFound = afterMessageId === undefined;
+        const missingAnchors = new Set(anchors);
         await visitCodexHistory(session, threadId, 'thread/turns/list', {}, data => {
           for (const turn of data) if (!turn || typeof turn.id !== 'string' || typeof turn.status !== 'string') throw new Error('Invalid turn history');
           const turn = data.find(t => t.id === turnId);
           if (!turn) return false;
-          found = true; if (!terminal(status)) { status = turn.status; error = turn.error; } return true;
+          found = true; historyTerminal = terminal(turn.status); if (!terminal(status)) { status = turn.status; error = turn.error; } return true;
         }, { stopped: () => done });
         // Notifications can establish completion while the history response is in flight.
         scan();
         if (!found && !status) return ['unknown', 'History coverage incomplete: selected turn not found'];
-        await visitCodexHistory(session, threadId, 'thread/items/list', { turnId }, data => {
+        await visitCodexHistory(session, threadId, 'thread/items/list', { turnId, sortDirection: 'asc' }, data => {
           for (const row of data) {
             if (!row || row.turnId !== turnId || !row.item) throw new Error('Invalid thread/items/list wrapper');
-            add(row.item);
+            if (row.item.type === 'userMessage' && anchors.includes(row.item.clientId)) { anchorFound = true; missingAnchors.delete(row.item.clientId); }
+            if (anchorFound) add(row.item);
           }
           return false;
         }, { stopped: () => done });
+        if (!anchorFound || missingAnchors.size) { items.clear(); return ['unknown', 'History coverage incomplete: reply anchor not found']; }
+        if (afterMessageId !== undefined && !historyTerminal) return scan().length ? ['waiting-for-input'] : ['unknown', 'Anchored reply awaits terminal history'];
       } catch (err) { historyError = err.message; truncated = true; }
+      if (afterMessageId !== undefined && historyError) { items.clear(); return ['unknown', historyError]; }
       while (!done) {
         const interactions = scan();
         if (terminal(status)) return [status, error ?? historyError];

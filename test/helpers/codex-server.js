@@ -1,10 +1,17 @@
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeFrame, encodeFrame, websocketAccept } from "../../src/core/codex-bridge.js";
+export function createCodexFixtureHome(prefix = "gbot-codex-") {
+  // Darwin's sockaddr_un.sun_path holds 104 bytes including the NUL. Its
+  // per-user TMPDIR is often too long; retain mkdtemp isolation in a short root.
+  const candidate = join(tmpdir(), prefix + "XXXXXX", "app-server-control", "app-server-control.sock");
+  const root = process.platform !== "win32" && Buffer.byteLength(candidate) >= 104 ? "/tmp" : tmpdir();
+  return mkdtempSync(join(root, prefix));
+}
 export async function fakeAppServer(handlers) {
-  const home = mkdtempSync(join(tmpdir(), "gbot-codex-"));
+  const home = createCodexFixtureHome();
   mkdirSync(join(home, "app-server-control"));
   const socketPath = join(home, "app-server-control", "app-server-control.sock");
   const received = [];
@@ -43,14 +50,19 @@ export async function fakeAppServer(handlers) {
     });
     socket.on("error", () => {});
   });
-  await new Promise((resolve) => server.listen(socketPath, resolve));
+  try {
+    await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, resolve);
+    });
+  } catch (error) { rmSync(home, { recursive: true, force: true }); throw error; }
   return {
     home,
     received,
     disconnected,
     close: () => new Promise((resolve) => {
       for (const sock of sockets) sock.destroy();
-      server.close(resolve);
+      server.close(() => { rmSync(home, { recursive: true, force: true }); resolve(); });
     }),
   };
 }

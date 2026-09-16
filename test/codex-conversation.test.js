@@ -234,3 +234,21 @@ for (const failure of ['disconnect', 'reject']) {
     }
   });
 }
+
+test('anchored collection excludes finals before steered user message', async () => {
+ const rows = [final, {id:'user',type:'userMessage',clientId:'steered'}, {...final,id:'after',text:'answer after steer'}];
+ const fake = await fakeAppServer({...handlers,'thread/items/list':(_,ok)=>ok({data:rows.map(item=>({turnId:'turn-1',item})),nextCursor:null})});
+ const c = await openCodexConversation('thread-1',{env:{CODEX_HOME:fake.home}});
+ try {
+  assert.equal((await c.wait({turnId:'turn-1',afterMessageId:'steered'})).reply.text,'answer after steer');
+  const missing = await c.wait({turnId:'turn-1',afterMessageId:'missing'});
+  assert.equal(missing.execution.state,'unknown'); assert.equal(missing.reply.text,''); assert.match(missing.execution.error,/anchor/);
+  assert.equal((await c.wait({turnId:'turn-1',afterMessageId:['steered','missing']})).execution.state,'unknown');
+ } finally {await c.close();await fake.close();}
+});
+
+test('coalesced anchors select earliest actual user regardless of record order', async () => {
+ const rows = [final,{id:'u1',type:'userMessage',clientId:'first'},{...final,id:'between',text:'included'}, {id:'u2',type:'userMessage',clientId:'second'},{...final,id:'last',text:'last'}];
+ const fake=await fakeAppServer({...handlers,'thread/items/list':(_,ok)=>ok({data:rows.map(item=>({turnId:'turn-1',item})),nextCursor:null})});const c=await openCodexConversation('thread-1',{env:{CODEX_HOME:fake.home}});
+ try{assert.equal((await c.wait({turnId:'turn-1',afterMessageId:['second','first']})).reply.text,'included\nlast');}finally{await c.close();await fake.close();}
+});
