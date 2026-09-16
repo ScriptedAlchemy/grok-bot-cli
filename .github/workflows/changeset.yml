@@ -17,7 +17,7 @@ concurrency:
 jobs:
   changeset:
     name: Changeset present
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 10
     steps:
       # `changeset status --since=origin/main` diffs against the merge-base.
@@ -30,6 +30,7 @@ jobs:
           node-version: "24"
       - run: npm ci
       - name: Require a changeset for shipped-package changes
+        shell: bash
         env:
           SKIP_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'skip-changeset') }}
           # Only the machine-owned release branch of this repository is exempt.

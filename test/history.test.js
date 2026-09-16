@@ -69,9 +69,10 @@ test("send persists a full multiline prompt across processes, searchable offline
   const history = await f.run(["history", "researcher", "--search", "TIMEOUT", "--json"], {}, false);
   assert.deepEqual(JSON.parse(history.stdout), [row]);
   assert.equal(f.calls.length, count);
-  const grep = await exec("grep", ["-n", "timeout", f.path]);
-  assert.match(grep.stdout, /^1:/);
   if (process.platform !== "win32") {
+    // grep is not on the Windows PATH; file modes are not Unix permission bits there.
+    const grep = await exec("grep", ["-n", "timeout", f.path]);
+    assert.match(grep.stdout, /^1:/);
     assert.equal(statSync(f.path).mode & 0o777, 0o600);
     assert.equal(statSync(join(f.home, ".grok-bot-cli")).mode & 0o777, 0o700);
   }
