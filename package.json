@@ -20,7 +20,7 @@
     "release": "changeset publish",
     "test": "npm run test:unit && npm run test:routes",
     "test:routes": "rstest --config rstest.route-unit.config.ts",
-    "test:unit": "node --env-file=test.env --test \"test/*.test.js\"",
+    "test:unit": "node scripts/run-unit-tests.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "validate": "agent-bundle validate",
     "validate:artifact": "agent-bundle validate --artifact artifact"
