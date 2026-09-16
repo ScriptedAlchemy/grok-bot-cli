@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,7 +16,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: macos-latest
+    runs-on: windows-latest
     timeout-minutes: 15
     steps:
       - name: Check out the repository

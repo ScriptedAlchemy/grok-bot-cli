@@ -26,7 +26,10 @@ test("state commits atomically, reopens without replay, and skips unchanged patc
     await s.close();
     s = await openRelayState({ dir, profile: "test" });
     assert.deepEqual(s.read().targets[target.id], target);
-    assert.equal((await stat(join(dir, "relay.sqlite"))).mode & 0o777, 0o600);
+    // Windows reports 0o666 regardless of chmod; Unix mode bits are not stored.
+    if (process.platform !== "win32") {
+      assert.equal((await stat(join(dir, "relay.sqlite"))).mode & 0o777, 0o600);
+    }
     await s.close();
     s = null;
     await assert.rejects(openRelayState({ dir, profile: "other" }), /profile/);
