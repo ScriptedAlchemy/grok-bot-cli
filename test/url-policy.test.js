@@ -6,7 +6,10 @@ import {
   resetPolicyWarnings,
 } from "../src/core/url-policy.js";
 
+// Tests run with GROK_BOT_TEST=1 (scripts/run-unit-tests.mjs); production-policy
+// cases opt out explicitly so the assertions below describe the real CLI.
 function withEnv(values, fn) {
+  values = { GROK_BOT_TEST: null, NODE_ENV: null, ...values };
   const prev = {};
   for (const key of Object.keys(values)) {
     prev[key] = process.env[key];
@@ -98,6 +101,19 @@ test("ALLOW_ANY_GATEWAY bypasses host checks", () => {
       "https://evil.example/path",
     );
   });
+});
+
+test("test mode allows only loopback, for gateway and backend, and ignores escape hatches", () => {
+  for (const env of [{ GROK_BOT_TEST: "1" }, { NODE_ENV: "test" }]) {
+    withEnv({ GROK_BOT_ALLOW_ANY_GATEWAY: "1", GROK_BOT_ALLOW_LOCAL_GATEWAY: null, ...env }, () => {
+      assert.equal(assertAllowedCredentialUrl("http://127.0.0.1:1340/"), "http://127.0.0.1:1340");
+      assert.equal(assertAllowedCredentialUrl("http://localhost:1340", { kind: "backend" }), "http://localhost:1340");
+      assert.throws(() => assertAllowedCredentialUrl("https://box.cursor.sh"), /test mode/i);
+      assert.throws(() => assertAllowedCredentialUrl("https://api2.cursor.sh", { kind: "backend" }), /test mode/i);
+      assert.throws(() => assertAllowedCredentialUrl("https://evil.example"), /test mode/i);
+      assert.throws(() => assertAllowedCredentialUrl("ws://127.0.0.1:1340"), /test mode/i);
+    });
+  }
 });
 
 test("redacts bearer, basic, cookie, and token-like fields", () => {

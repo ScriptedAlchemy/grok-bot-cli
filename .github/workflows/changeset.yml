@@ -1,0 +1,54 @@
+name: Changeset
+
+# Every pull request that changes the shipped package must carry a
+# `.changeset/*.md` entry. Separate from ci.yml so toggling the
+# `skip-changeset` label re-evaluates only this check.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: changeset-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changeset:
+    name: Changeset present
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # `changeset status --since=origin/main` diffs against the merge-base.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+      - run: npm ci
+      - name: Require a changeset for shipped-package changes
+        env:
+          SKIP_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'skip-changeset') }}
+          # Only the machine-owned release branch of this repository is exempt.
+          IS_RELEASE_BRANCH: >-
+            ${{ github.event.pull_request.head.ref == 'changeset-release/main' &&
+            github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "$SKIP_LABEL" = "true" ]; then
+            echo "::notice::skip-changeset label present; not requiring a changeset."
+            exit 0
+          fi
+          if [ "$IS_RELEASE_BRANCH" = "true" ]; then
+            echo "::notice::Release branch; changesets are consumed here, not added."
+            exit 0
+          fi
+          # Exit 1 when a shipped file changed (changedFilePatterns in
+          # .changeset/config.json) and this PR adds no .changeset/*.md.
+          if ! npx changeset status --since=origin/main --verbose; then
+            echo "::error::This PR changes grok-bot-cli's shipped surface without a changeset. Run 'npx changeset' (or add .changeset/<slug>.md). For a genuinely no-op change, apply the 'skip-changeset' label."
+            exit 1
+          fi

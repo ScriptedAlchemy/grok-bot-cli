@@ -22,6 +22,7 @@ async function fixture(t) {
   for (const key of Object.keys(env)) {
     if (/^(GROK_BOT_|CURSOR_|SAND_)/.test(key)) delete env[key];
   }
+  env.GROK_BOT_TEST = "1";
   env.GROK_BOT_HISTORY = "on";
   env.GROK_BOT_ALLOW_LOCAL_GATEWAY = "1";
   const calls = [];

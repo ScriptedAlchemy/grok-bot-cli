@@ -7,5 +7,13 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": [],
+  "changedFilePatterns": [
+    "src/**",
+    "package.json",
+    "agent-bundle.config.ts",
+    "tsconfig.json",
+    "README.md",
+    "LICENSE"
+  ]
 }

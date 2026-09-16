@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { GATEWAY_MAX_RESPONSE_BYTES, getTranscriptTail, sendPrompt } from "../src/core/gateway.js";
 
-const session = { gatewayUrl: "https://box.cursor.sh", gatewayToken: "t" };
+const session = { gatewayUrl: "http://127.0.0.1:1340", gatewayToken: "t" };
 const roster = { agents: [{ id: "bot-1", name: "General" }] };
 
 function mockGateway(t, send) {
@@ -12,6 +12,15 @@ function mockGateway(t, send) {
     return send();
   });
 }
+
+test("sendPrompt refuses a live gateway host in test mode before any request", async (t) => {
+  const fetchMock = t.mock.method(globalThis, "fetch", async () => new Response("{}", { status: 200 }));
+  await assert.rejects(
+    sendPrompt({ gatewayUrl: "https://box.cursor.sh", gatewayToken: "t" }, "General", "hi"),
+    /test mode/i,
+  );
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
 
 test("sendPrompt accepts only a confirmed messageId receipt", async (t) => {
   mockGateway(t, () => new Response(JSON.stringify({ messageId: "m-1" }), { status: 200 }));

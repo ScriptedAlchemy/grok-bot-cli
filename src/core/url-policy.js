@@ -7,6 +7,8 @@
  * never *.cursorvm.com, so a CURSOR_ACCESS_TOKEN cannot be pointed at a box host.
  * Local/dev gateways: http(s)://127.0.0.1|localhost|::1 when GROK_BOT_ALLOW_LOCAL_GATEWAY=1.
  * Escape hatch: GROK_BOT_ALLOW_ANY_GATEWAY=1 (unsafe; disables host checks; warns once).
+ * Test mode (GROK_BOT_TEST=1 or NODE_ENV=test): loopback only, for gateway and backend
+ * alike, and the escape hatches are ignored — a test can never reach a live thread.
  */
 
 function truthyEnv(name) {
@@ -20,6 +22,10 @@ export function allowAnyGateway() {
 
 export function allowLocalGateway() {
   return truthyEnv("GROK_BOT_ALLOW_LOCAL_GATEWAY");
+}
+
+export function testMode() {
+  return truthyEnv("GROK_BOT_TEST") || process.env.NODE_ENV === "test";
 }
 
 const warned = new Set();
@@ -69,6 +75,16 @@ export function assertAllowedCredentialUrl(rawUrl, opts = {}) {
 
   if (parsed.username || parsed.password) {
     throw new Error("Rejected " + label + ": userinfo is not allowed.");
+  }
+
+  if (testMode()) {
+    if (!isLocalHostname(parsed.hostname) || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) {
+      throw new Error(
+        "Rejected " + label + " host \"" + parsed.hostname +
+          "\": test mode (GROK_BOT_TEST / NODE_ENV=test) only allows http(s) loopback gateways.",
+      );
+    }
+    return String(rawUrl).replace(/\/$/, "");
   }
 
   if (allowAnyGateway()) {
