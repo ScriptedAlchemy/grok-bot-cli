@@ -1,5 +1,11 @@
 # grok-bot-cli
 
+## 0.4.4
+
+### Patch Changes
+
+- 4563466: Report `attached-shim` from `gbot codex status` when the desktop-shim is active (installed wrapper that the Desktop-facing `CODEX_CLI_PATH` points at), outranking a stale-looking private-stdio process list.
+
 ## 0.4.3
 
 ### Patch Changes
