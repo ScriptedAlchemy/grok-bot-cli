@@ -4,7 +4,7 @@ import { createConnection } from "node:net";
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
+import pkg from "../../package.json" with { type: "json" };
 
 import { outcomeFromError, outcomeFromReceipt, withStatusExitCode } from "./codex/contract.js";
 import { desktopShimStatus } from "./desktop-shim.js";
@@ -28,7 +28,6 @@ export const WS_MAX_WRITE_BYTES = 8 * 1024 * 1024;
 export const CODEX_MAX_REQUESTS = 128;
 export const CODEX_MAX_LISTENERS = 128;
 const textDecoder = new TextDecoder("utf-8", { fatal: true });
-const pkg = createRequire(import.meta.url)("../../package.json");
 
 export function codexSocketPath(env = process.env) {
   // Explicit socket wins so status/send/queue agree with a shim-installed or

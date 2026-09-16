@@ -48,6 +48,71 @@ canonical JSON result; `send` and the `codex` commands also report failures as
 a JSON document on stdout with `exitCode` (see below), every other command
 prints the failure message on stderr and exits 1.
 
+## Automatic Grok ↔ Codex replies
+
+In a native Codex invocation, `gbot_send` sends once and returns a durable exchange
+receipt. Continue working: matching Grok replies arrive in the originating Codex
+thread automatically. That thread's next answer is not sent back to Grok unless
+you deliberately send again. The background worker survives the MCP caller exiting.
+
+When native identity is unavailable (including Cursor), supply `codexThreadId` on
+the send, or make a one-time `gbot_bridge_start` binding with `grokTarget`,
+`codexThreadId` and optional `expectedCwd`. New visible Grok bot messages then arrive
+in that Codex thread, and its corresponding terminal answer returns to Grok.
+Existing transcript history is not replayed. `codex_send` can also request a return
+with `replyToGrok` or `bindingId`. Managed delivery defaults to guarded steering of
+active work; `busyPolicy: "reject"` on a binding refuses busy threads.
+
+Without an identifiable native source or explicit route, `gbot_send` preserves the
+ordinary send and returns `replyRoute: {mode: "manual", reason: "source-unavailable"}`;
+read with `gbot_thread` later. `replyMode: "manual"` deliberately selects that flow.
+An automatic-route startup failure never falls back to an untracked send.
+
+```sh
+# CLI sends remain manual unless routing is explicitly requested.
+gbot send --reply-mode auto --codex-thread-id THREAD_ID Researcher "Please investigate"
+gbot codex bridge start --codex-thread-id THREAD_ID --expected-cwd /project Researcher --json
+gbot codex bridge status --json
+gbot codex send --reply-to-grok Researcher THREAD_ID "Investigate and return your final answer"
+gbot codex bridge stop --binding-id BINDING_ID --json
+# Explicitly stop the process; pending records remain for a later restart.
+gbot codex bridge stop --worker --json
+```
+
+`gbot_bridge_status` separates worker health, binding coverage, submission, execution,
+return delivery and pending operator interactions. `unknown` is not rejection: inspect
+status before resending. Caller-supplied `requestId` (CLI `--request-id`) permits exact
+replay of a tracked send without another submission; returned `controlRequestId` is
+that control identity, separate from the gateway's transcript `requestId`.
+Explicit chain `hop`/`correlationId` remain bounded. Automatic CLI routes own their
+envelope; omit the legacy `--envelope` and `--reply-to` flags.
+Paused gaps/capacity or unsupported interactions need attention; never guess a cursor
+or automatically approve. `gbot_codex_respond` / `gbot codex bridge respond` requires
+current `interactionId`, `generation`, `threadId`, `turnId` and binding/exchange scope.
+Supply one-time `decision: accept|decline|cancel`, or `answersJson` containing exact
+question IDs mapped to `{"answers":["answer"]}`. Session permissions and policy
+amendments remain in the owning Codex UI.
+
+State lives in the user-owned `~/.grok-bot-cli/relay/` directory, or
+`GROK_BOT_RELAY_DIR`, outside plugin caches. Profile mismatches fail visibly; gateway
+overrides and thread restrictions cannot reuse a differently authorized worker.
+No login service is installed. Network reconnects are automatic; a dead process
+needs a new tracked send or bridge start to resume saved routes. A dead worker is
+reported as stopped, not running.
+
+`gbot codex bridge run --lifetime-ms 60000` runs in the foreground for an explicit
+bounded lifetime (default and maximum 23 hours), then closes cleanly before the CLI
+renderer deadline. For an unlimited foreground service entry, run
+`node /path/to/plugin/scripts/gbot-relay.mjs` (npm package: `dist/scripts/gbot-relay.mjs`)
+with the same authorized environment. SIGINT/SIGTERM or explicit worker stop closes
+observation without interrupting a Codex turn. Windows retains the Codex Unix-socket
+limitation.
+
+Codex, Cursor, Claude and portable artifacts contain these tools and the worker.
+Grok Bot participates through its existing gateway conversation; a native Grok plugin
+loader or remote stdio tunnel has not been established. Artifact availability alone
+does not mean a host has loaded the plugin.
+
 ## Gateway URL policy
 
 By default `gbot` only sends credentials to expected hosts:
@@ -91,7 +156,7 @@ Fail-open runs only before any stdin byte is consumed and no daemon payload was 
 
 Residual risks, stated honestly: requests without both matching thread and turn IDs remain unanswered; a Codex client must handle those requests. A daemon that speaks framing-valid but semantically unexpected JSON-RPC (unknown methods, id-less responses) is treated as transport; pins are to app-server schema 0.154.0. The bridge trusts the local control socket; a malicious local daemon could hold the session up to the stated budgets, not past them.
 
-Permanent tradeoff, stated plainly: Desktop's app-tools MCP (`-c` overrides on its spawn line) is not applied to the already-running managed daemon, and no config/`mcpServer`/`reload` path imports Desktop's `-c` flags — Desktop app-tools stay degraded while pointed at the shared daemon. Fully quit and relaunch ChatGPT.app after install (or login) so it inherits `CODEX_CLI_PATH`. `status` reads the macOS GUI-domain value via `launchctl getenv` (what Desktop actually inherits) alongside the calling shell's value. LaunchAgent persistence is macOS-first; elsewhere install still writes the wrapper and bridge but leaves `CODEX_CLI_PATH` for you to export. `~/.codex/bin` holds scripts only — there is no extra revert note to clean up; revert is `gbot codex desktop-shim uninstall` plus this section.
+Current shim limitation: Desktop's spawn-time app-tools MCP `-c` overrides are not forwarded to the already-running managed daemon. No restoration path or app-tools parity has been demonstrated here; this is not a claim of permanent protocol impossibility. Fully quit and relaunch ChatGPT.app after install (or login) so it inherits `CODEX_CLI_PATH`. `status` reads the macOS GUI-domain value via `launchctl getenv` (what Desktop actually inherits) alongside the calling shell's value. LaunchAgent persistence is macOS-first; elsewhere install still writes the wrapper and bridge but leaves `CODEX_CLI_PATH` for you to export. `~/.codex/bin` holds scripts only — there is no extra revert note to clean up; revert is `gbot codex desktop-shim uninstall` plus this section.
 
 **Status contract (`gbot codex status --json`).** `reachable` is endpoint reachability only. `socketState` is `socket`, `absent`, `permission-denied`, or `not-a-socket`; `mode` is `daemon` for a usable daemon, otherwise the failure: `socket-absent`, `permission-denied` (the file or the connect refused this user), `not-a-socket`, `connect-failed` (socket present, nothing completed the WebSocket upgrade), `handshake-failed` (upgrade or `initialize` failed), `windows-unsupported`, or `bad-response` (reachable, but `initialize` returned something off-schema — `reachable` stays `true`). `schema.compatibility` is `exact` when the daemon reports the pinned version, `unverified` when it differs (methods usually survive upgrades, but the shapes are not re-checked), or `unknown`. `cliVersionProbe` reports whether `codex --version` answered (`ok`, `missing`, `timeout` after 3 s, `error`). The document is always written to stdout and includes `exitCode`; it is `0` only for a usable daemon.
 
@@ -108,7 +173,7 @@ gbot codex send --correlation-id M --reply-to M --hop 1 <threadId> "ack" # the a
 
 Sends at `hop >= GROK_BOT_MAX_HOPS` (default 4) are refused with `reason: "hop-limit"` before anything reaches the daemon, so two agents cannot acknowledge each other forever; `gbot` never auto-acknowledges. `--envelope` (implied by any envelope flag) prepends a one-line `[gbot msg=… corr=… reply-to=… hop=… from=user@host]` header so the receiving agent can quote the ids back. That header is caller-authored provenance for the reader, not authentication: the daemon authenticates the local user through the socket, nothing else. Private ChatGPT Desktop pipes and arbitrary ChatGPT chats stay out of scope; only Codex threads on a reachable app-server daemon are routes.
 
-**Busy threads.** `send` reads the thread status on resume. Only `idle` and `notLoaded` threads start a turn. An `active` thread (a turn in progress, or waiting on approval / user input) is refused with `reason: "busy"`: in app-server 0.154.0 a `turn/start` on an active thread steers that turn rather than queueing behind it, and `gbot` never steers or interrupts work a human may be doing. Either wait for `list-threads` to show `idle` and resend, or pass `--when-busy queue` to hand the message to the daemon's own queue through Codex's experimental `thread/queue/add` — that needs `GROK_BOT_CODEX_EXPERIMENTAL=1`, returns `delivery: "queued"` with `queuedSubmissionId`, and `gbot codex queue <threadId>` shows what is still waiting. `systemError` threads are refused with `reason: "thread-error"`, statuses this version does not know with `reason: "unknown-status"`. Receipts distinguish `delivery: "accepted"` (turn started; `turnId`, `turnStatus`), `"queued"`, `"rejected"` (nothing was sent; see `reason`), and `"unknown"` (the request left but no acknowledgment came back — look for `messageId` in the thread or queue before resending). The decision record, with the schema evidence and a live probe of the queue API, is in [`docs/codex-busy-threads.md`](docs/codex-busy-threads.md).
+**Busy threads.** `send` reads the thread status on resume. Only `idle` and `notLoaded` threads start a turn. An `active` thread (a turn in progress, or waiting on approval / user input) is refused with `reason: "busy"`: in app-server 0.154.0 a `turn/start` on an active thread steers that turn rather than queueing behind it, by default. Explicit guarded steering and managed bridge routes can deliver into active work; they never interrupt a turn. Either wait for `list-threads` to show `idle` and resend, or pass `--when-busy queue` to hand the message to the daemon's own queue through Codex's experimental `thread/queue/add` — that needs `GROK_BOT_CODEX_EXPERIMENTAL=1`, returns `delivery: "queued"` with `queuedSubmissionId`, and `gbot codex queue <threadId>` shows what is still waiting. `systemError` threads are refused with `reason: "thread-error"`, statuses this version does not know with `reason: "unknown-status"`. Receipts distinguish `delivery: "accepted"` (turn started; `turnId`, `turnStatus`), `"queued"`, `"rejected"` (nothing was sent; see `reason`), and `"unknown"` (the request left but no acknowledgment came back — look for `messageId` in the thread or queue before resending). The decision record, with the schema evidence and a live probe of the queue API, is in [`docs/codex-busy-threads.md`](docs/codex-busy-threads.md).
 
 **Failure modes.** Every `send` and `codex` outcome under `--json` is one document on stdout with `exitCode`; failures include `{ error, delivery, reason, messageId, correlationId, hop, exitCode: 1, … }` and the process exits 1. Framework argument/schema errors remain on stderr and exit 2. `--json` is reserved anywhere before `--`; put `--` before flag-like message text. `reason` values are stable:
 

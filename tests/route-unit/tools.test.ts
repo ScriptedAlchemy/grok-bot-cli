@@ -129,9 +129,9 @@ beforeEach(() => {
 });
 
 describe('grok-bot MCP server', () => {
-  it('registers exactly the two gbot tools', async () => {
+  it('registers messaging, conversation and managed bridge tools', async () => {
     const surface = await listMcpSurface({ server: 'grok-bot' });
-    expect([...surface.tools].sort()).toEqual(['codex_send', 'codex_threads', 'codex_wait', 'codex_watch', 'gbot_send', 'gbot_thread']);
+    expect([...surface.tools].sort()).toEqual(['codex_send', 'codex_threads', 'codex_wait', 'codex_watch', 'gbot_bridge_start', 'gbot_bridge_status', 'gbot_bridge_stop', 'gbot_codex_respond', 'gbot_send', 'gbot_thread']);
   });
 
   it('gbot_send resolves the target by name and posts the prompt with the gateway token', async () => {
@@ -142,6 +142,7 @@ describe('grok-bot MCP server', () => {
     expect(result.isError).toBe(false);
     expect(result.structuredContent).toEqual({
       delivery: 'accepted',
+      replyRoute: { mode: 'manual', reason: 'source-unavailable' },
       messageId: 'm-1',
       result: { messageId: 'm-1' },
       target: { id: 'bot-1', kind: 'bot', name: 'General' },
@@ -319,6 +320,7 @@ describe('grok-bot MCP server', () => {
     expect(result.isError).toBe(false);
     expect(result.structuredContent).toEqual({
       delivery: 'unknown',
+      replyRoute: { mode: 'manual', reason: 'source-unavailable' },
       result: { ok: true },
       target: { id: 'bot-5', kind: 'bot', name: 'Noreceipt' },
     });
@@ -424,6 +426,7 @@ describe('grok-bot MCP server', () => {
     });
     expect(local.structuredContent).toEqual({
       delivery: 'accepted',
+      replyRoute: { mode: 'manual', reason: 'source-unavailable' },
       messageId: 'm-1',
       result: { messageId: 'm-1' },
       target: { id: 'bot-1', kind: 'bot', name: 'General' },

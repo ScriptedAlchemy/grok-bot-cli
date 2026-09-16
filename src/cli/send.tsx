@@ -1,7 +1,12 @@
-import { Agent } from '@agent-bundle/runtime';
+import { Agent, agent } from '@agent-bundle/runtime';
 import type { CliRouteConfig, CliRouteProps } from 'agent-bundle';
 import { z } from 'zod';
 
+import {
+  grokSendOperation,
+  routeFields,
+  relayResultSchema,
+} from '../core/relay/routes.js';
 import { buildEnvelope, withEnvelopeHeader } from '../core/codex-bridge.js';
 import { outcomeFromError } from '../core/codex/contract.js';
 import { saveHistory } from '../core/history.js';
@@ -17,16 +22,36 @@ export const config = {
   inputJsonSchema: {
     additionalProperties: false,
     properties: {
-      correlationId: { description: 'Stable correlation id for multi-hop replies', type: 'string' },
+      replyMode: { type: 'string', enum: ['auto', 'manual'] },
+      codexThreadId: { type: 'string' },
+      bindingId: { type: 'string' },
+      expectedCwd: { type: 'string' },
+      requestId: { type: 'string' },
+      correlationId: {
+        description: 'Stable correlation id for multi-hop replies',
+        type: 'string',
+      },
       dir: { description: 'Agents directory for --files mode', type: 'string' },
       envelope: { description: 'Prepend the [gbot …] header', type: 'boolean' },
       files: { description: 'Force the on-disk agents store', type: 'boolean' },
       gateway: { description: 'Force the live gateway', type: 'boolean' },
-      historyDir: { description: 'Directory containing history.jsonl', type: 'string' },
-      hop: { description: 'Hop count; refused at GROK_BOT_MAX_HOPS', type: 'number' },
+      historyDir: {
+        description: 'Directory containing history.jsonl',
+        type: 'string',
+      },
+      hop: {
+        description: 'Hop count; refused at GROK_BOT_MAX_HOPS',
+        type: 'number',
+      },
       message: { items: { type: 'string' }, type: 'array' },
-      noHistory: { description: 'Skip local history for this command', type: 'boolean' },
-      replyTo: { description: 'Prior message id this send replies to', type: 'string' },
+      noHistory: {
+        description: 'Skip local history for this command',
+        type: 'boolean',
+      },
+      replyTo: {
+        description: 'Prior message id this send replies to',
+        type: 'string',
+      },
       target: { type: 'string' },
     },
     required: ['target', 'message'],
@@ -37,6 +62,8 @@ export const config = {
 
 export const inputSchema = backendFlagsSchema
   .extend({
+    ...routeFields,
+    replyMode: z.enum(['auto', 'manual']).optional(),
     correlationId: z.string().min(1).optional(),
     envelope: z.boolean().default(false),
     historyDir: z.string().min(1).optional(),
@@ -66,9 +93,15 @@ const receiptSchema = z
   .strict();
 
 // Refusals and gateway failures are the same flat document `codex send` emits.
-export const resultSchema = z.union([receiptSchema, failureDocumentSchema]);
+export const resultSchema = z.union([
+  receiptSchema,
+  failureDocumentSchema,
+  relayResultSchema,
+]);
 
-const deliver = async (input: z.infer<typeof inputSchema>): Promise<z.infer<typeof receiptSchema>> => {
+const deliver = async (
+  input: z.infer<typeof inputSchema>,
+): Promise<z.infer<typeof receiptSchema>> => {
   const envelope = buildEnvelope({
     correlationId: input.correlationId,
     envelope: input.envelope,
@@ -77,7 +110,10 @@ const deliver = async (input: z.infer<typeof inputSchema>): Promise<z.infer<type
   });
   const message = input.message.join(' ').trim();
   const backend = await openBackendFromInput(input);
-  const out = await backend.send(input.target, withEnvelopeHeader(message, envelope));
+  const out = await backend.send(
+    input.target,
+    withEnvelopeHeader(message, envelope),
+  );
   saveHistory(out, {
     dir: input.historyDir,
     disabled: input.noHistory,
@@ -89,7 +125,10 @@ const deliver = async (input: z.infer<typeof inputSchema>): Promise<z.infer<type
     name: out.target.name,
     kind: out.target.isGroup ? ('group' as const) : ('bot' as const),
     result: out.result,
-    delivery: out.delivery === 'accepted' ? ('accepted' as const) : ('unknown' as const),
+    delivery:
+      out.delivery === 'accepted'
+        ? ('accepted' as const)
+        : ('unknown' as const),
     ...(typeof out.messageId === 'string' ? { messageId: out.messageId } : {}),
     envelopeId: envelope.messageId,
     correlationId: envelope.correlationId,
@@ -100,16 +139,49 @@ const deliver = async (input: z.infer<typeof inputSchema>): Promise<z.infer<type
   };
 };
 
-export default async function send({ input }: CliRouteProps<typeof inputSchema>) {
-  let value: z.infer<typeof resultSchema>;
+export default async function send({
+  input,
+}: CliRouteProps<typeof inputSchema>) {
+  let value:
+    z.infer<typeof receiptSchema> | z.infer<typeof failureDocumentSchema>;
   try {
+    if (input.replyMode === 'auto' || input.codexThreadId || input.bindingId) {
+      if (input.envelope || input.replyTo)
+        throw Error(
+          'Automatic routes own their envelope; omit --envelope and --reply-to. Use --hop and --correlation-id for explicit chains.',
+        );
+      if (input.files)
+        throw Error('Automatic routes require the gateway backend');
+      const out = await grokSendOperation(
+        {
+          target: input.target,
+          message: input.message.join(' ').trim(),
+          replyMode: input.replyMode ?? 'auto',
+          codexThreadId: input.codexThreadId,
+          bindingId: input.bindingId,
+          expectedCwd: input.expectedCwd,
+          requestId: input.requestId,
+          hop: input.hop,
+          correlationId: input.correlationId,
+        },
+        await agent(),
+      );
+      return (
+        <Agent.Result
+          value={{ ...out, exitCode: out.delivery === 'rejected' ? 1 : 0 }}
+        >
+          <Agent.Text>{`Delivery ${out.delivery}; inspect codex bridge status for automatic reply delivery.`}</Agent.Text>
+        </Agent.Result>
+      );
+    }
     value = await deliver(input);
   } catch (error) {
     value = outcomeFromError(error);
   }
-  const text = value.exitCode === 0
-    ? `Sent to ${value.kind} ${value.name} (${value.id})${value.messageId ? ` message ${value.messageId}` : ''}; envelope ${value.envelopeId}`
-    : value.error;
+  const text =
+    value.exitCode === 0
+      ? `Sent to ${value.kind} ${value.name} (${value.id})${value.messageId ? ` message ${value.messageId}` : ''}; envelope ${value.envelopeId}`
+      : value.error;
   return (
     <Agent.Result value={value}>
       <Agent.Text>{text}</Agent.Text>

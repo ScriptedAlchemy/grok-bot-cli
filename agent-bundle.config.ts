@@ -19,7 +19,7 @@ export default defineConfig({
   output: { distPath: 'artifact' },
   plugin: {
     description:
-      'Message Grok Bot bots and groups and read their threads from Codex, Claude Code, and Cursor.',
+      'Message Grok Bot from Codex, Claude Code, and Cursor, with managed automatic replies and explicit Codex conversation links.',
     // plugin.name is also the routed bin name: `dist/bin/gbot.mjs`.
     name: 'gbot',
   },
