@@ -1,5 +1,8 @@
 # Grok Bot ↔ Codex: managed-daemon messaging architecture
 
+> **Status as of 2026-09-15 (historical):** snapshot against grok-bot-cli 0.4.1 / PR #53. Current product contract on 0.6.x is honest fire-and-forget inject via the managed app-server control socket — not a live duplex session. Read this as design notes, not the live claim.
+
+
 **Recommendation date:** September 15, 2026  
 **Repository:** `ScriptedAlchemy/grok-bot-cli`, `e368ecf5fff848a789f332629a5e4290d07f5b4d`  
 **Verified local version:** grok-bot-cli 0.4.1; managed Codex CLI and app-server 0.154.0
