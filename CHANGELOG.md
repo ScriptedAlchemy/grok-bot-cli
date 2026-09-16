@@ -1,5 +1,12 @@
 # grok-bot-cli
 
+## 0.6.0
+
+### Minor Changes
+
+- 0f86d73: Add Codex conversation tools to generated plugins and MCP: bounded thread discovery, guarded sends, completion waits, and event watching. Add CLI wait/watch and send --wait while preserving immediate send receipts.
+- ae51078: Add managed Grok/Codex conversation delivery with native Codex reply routing, explicit durable links, scoped operator responses, background worker lifecycle controls, and packaged foreground service entry. Preserve manual sends when native identity is unavailable and distinguish accepted submissions from execution and return delivery.
+
 ## 0.5.0
 
 ### Minor Changes
