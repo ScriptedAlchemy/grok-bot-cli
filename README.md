@@ -85,7 +85,10 @@ status before resending. Caller-supplied `requestId` (CLI `--request-id`) permit
 replay of a tracked send without another submission; returned `controlRequestId` is
 that control identity, separate from the gateway's transcript `requestId`.
 Explicit chain `hop`/`correlationId` remain bounded. Automatic CLI routes own their
-envelope; omit the legacy `--envelope` and `--reply-to` flags.
+envelope; omit the legacy `--envelope` and `--reply-to` flags. Managed Codex return
+routes also reject explicit `expectedTurnId`/`--expected-turn-id`; use plain Codex
+send when a caller-selected turn guard is required. If a binding and an explicit
+Grok target are supplied together, the target must resolve to that binding's recipient.
 Paused gaps/capacity or unsupported interactions need attention; never guess a cursor
 or automatically approve. `gbot_codex_respond` / `gbot codex bridge respond` requires
 current `interactionId`, `generation`, `threadId`, `turnId` and binding/exchange scope.

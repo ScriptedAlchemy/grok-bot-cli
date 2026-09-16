@@ -564,3 +564,30 @@ test("invalid Codex correlation is rejected before an outbound Grok submission",
   );
   assert.equal(f.sent.length, 0);
 });
+
+for (const method of ["sendToGrok", "sendToCodex"])
+  test(`binding rejects conflicting explicit Grok target before ${method}`, async (t) => {
+    const f = await fixture(t);
+    const binding = await f.engine.startBinding({
+      grokTarget: "bound-target",
+      codexThreadId: "thread",
+      requestId: "binding",
+    });
+    await assert.rejects(
+      f.engine[method]({
+        bindingId: binding.id,
+        grokTarget: "different-target",
+        message: "do not send",
+        requestId: "conflicting-send",
+      }),
+      /Grok target.*binding/i,
+    );
+    assert.equal(f.sent.length, 0);
+    assert.equal(
+      f.fake.received.filter((x) =>
+        ["turn/start", "turn/steer"].includes(x.method),
+      ).length,
+      0,
+    );
+    assert.equal(f.engine.status().receiptCount, 0);
+  });

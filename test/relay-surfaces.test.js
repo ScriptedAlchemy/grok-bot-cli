@@ -20,7 +20,12 @@ export async function fixture({ active = false, interaction } = {}) {
     res.end(
       JSON.stringify(
         req.url.endsWith("listAgents")
-          ? { agents: [{ id: "bot-1", name: "General" }] }
+          ? {
+              agents: [
+                { id: "bot-1", name: "General" },
+                { id: "bot-2", name: "Alice" },
+              ],
+            }
           : req.url.endsWith("getAgentTranscriptTail")
             ? { entries }
             : req.url.endsWith("sendPrompt")
@@ -841,6 +846,278 @@ test(
         0,
       );
     } finally {
+      await f.close();
+    }
+  },
+);
+
+for (const surface of ["MCP", "CLI"])
+  for (const direction of ["grok", "codex"]) {
+    test(
+      `managed constraints: ${surface} ${direction} refuses a conflicting explicit Grok target`,
+      { timeout: 20000 },
+      async () => {
+        const f = await fixture();
+        let client;
+        try {
+          client = await mcp(
+            resolve(process.env.RELAY_ARTIFACT_ROOT ?? "artifact"),
+            f.env,
+          );
+          const { binding } = await client.call("gbot_bridge_start", {
+            grokTarget: "General",
+            codexThreadId: "thread-bound",
+          });
+          if (surface === "MCP") {
+            const args =
+              direction === "grok"
+                ? {
+                    target: "Alice",
+                    bindingId: binding.id,
+                    message: "must not reach General",
+                  }
+                : {
+                    threadId: "thread-bound",
+                    replyToGrok: "Alice",
+                    bindingId: binding.id,
+                    message: "must not return to General",
+                  };
+            const response = await client.rpc("tools/call", {
+              name: direction === "grok" ? "gbot_send" : "codex_send",
+              arguments: args,
+            });
+            assert.equal(
+              response.result.isError,
+              true,
+              JSON.stringify(response),
+            );
+            assert.match(JSON.stringify(response), /Grok target.*binding/i);
+          } else {
+            const args =
+              direction === "grok"
+                ? [
+                    "send",
+                    "--binding-id",
+                    binding.id,
+                    "Alice",
+                    "must not reach General",
+                  ]
+                : [
+                    "codex",
+                    "send",
+                    "--binding-id",
+                    binding.id,
+                    "--reply-to-grok",
+                    "Alice",
+                    "thread-bound",
+                    "must not return to General",
+                  ];
+            const response = await cli(f.env, ...args);
+            assert.notEqual(response.code, 0, response.out + response.err);
+            assert.match(response.out + response.err, /Grok target.*binding/i);
+          }
+          assert.equal(
+            f.calls.filter((x) => x.path.endsWith("sendPrompt")).length,
+            0,
+          );
+          assert.equal(
+            f.fake.received.filter((x) =>
+              ["turn/start", "turn/steer"].includes(x.method),
+            ).length,
+            0,
+          );
+        } finally {
+          await client?.close();
+          await f.close();
+        }
+      },
+    );
+  }
+
+for (const surface of ["MCP", "CLI"])
+  for (const option of ["expectedTurnId", "replyTo", "envelope"]) {
+    test(
+      `managed constraints: ${surface} codex refuses unsupported ${option} before submission`,
+      { timeout: 30000 },
+      async () => {
+        const f = await fixture({ active: true });
+        let client;
+        try {
+          client = await mcp(
+            resolve(process.env.RELAY_ARTIFACT_ROOT ?? "artifact"),
+            f.env,
+          );
+          const { binding } = await client.call("gbot_bridge_start", {
+            grokTarget: "General",
+            codexThreadId: "thread-active",
+          });
+          for (const route of [
+            { replyToGrok: "General" },
+            { bindingId: binding.id },
+          ]) {
+            const extra =
+              option === "expectedTurnId"
+                ? { whenBusy: "steer", expectedTurnId: "stale-turn" }
+                : option === "replyTo"
+                  ? { replyTo: "prior-message", correlationId: "chain" }
+                  : { envelope: true };
+            if (surface === "MCP") {
+              const response = await client.rpc("tools/call", {
+                name: "codex_send",
+                arguments: {
+                  threadId: "thread-active",
+                  message: "do not submit",
+                  ...route,
+                  ...extra,
+                },
+              });
+              assert.equal(
+                response.result.isError,
+                true,
+                JSON.stringify(response),
+              );
+              assert.match(JSON.stringify(response), new RegExp(option));
+            } else {
+              const routeArgs = route.bindingId
+                ? ["--binding-id", route.bindingId]
+                : ["--reply-to-grok", "General"];
+              const optionArgs =
+                option === "expectedTurnId"
+                  ? ["--when-busy", "steer", "--expected-turn-id", "stale-turn"]
+                  : option === "replyTo"
+                    ? [
+                        "--reply-to",
+                        "prior-message",
+                        "--correlation-id",
+                        "chain",
+                      ]
+                    : ["--envelope"];
+              const response = await cli(
+                f.env,
+                "codex",
+                "send",
+                ...routeArgs,
+                ...optionArgs,
+                "thread-active",
+                "do not submit",
+              );
+              assert.notEqual(response.code, 0, response.out + response.err);
+              assert.match(response.out + response.err, new RegExp(option));
+            }
+          }
+          assert.equal(
+            f.calls.filter((x) => x.path.endsWith("sendPrompt")).length,
+            0,
+          );
+          assert.equal(
+            f.fake.received.filter((x) =>
+              ["turn/start", "turn/steer"].includes(x.method),
+            ).length,
+            0,
+          );
+        } finally {
+          await client?.close();
+          await f.close();
+        }
+      },
+    );
+  }
+
+test(
+  "managed constraints: matching explicit Grok target and binding-only return remain supported",
+  { timeout: 20000 },
+  async () => {
+    const f = await fixture();
+    let client;
+    try {
+      client = await mcp(
+        resolve(process.env.RELAY_ARTIFACT_ROOT ?? "artifact"),
+        f.env,
+      );
+      const { binding } = await client.call("gbot_bridge_start", {
+        grokTarget: "General",
+        codexThreadId: "thread-bound",
+      });
+      const matched = await client.call("gbot_send", {
+        target: "General",
+        bindingId: binding.id,
+        message: "matching name",
+      });
+      assert.equal(matched.delivery, "accepted");
+      const returned = await client.call("codex_send", {
+        threadId: "thread-bound",
+        replyToGrok: "bot-1",
+        bindingId: binding.id,
+        message: "matching ID",
+      });
+      assert.equal(returned.delivery, "accepted");
+      const bindingOnly = await client.call("codex_send", {
+        threadId: "thread-bound",
+        bindingId: binding.id,
+        message: "binding-only return",
+      });
+      assert.equal(bindingOnly.delivery, "accepted");
+      assert.equal(
+        f.calls.filter((x) => x.path.endsWith("sendPrompt")).length,
+        1,
+      );
+      assert.equal(
+        f.fake.received.filter((x) => x.method === "turn/start").length,
+        2,
+      );
+    } finally {
+      await client?.close();
+      await f.close();
+    }
+  },
+);
+
+test(
+  "managed constraints: plain guarded sends retain legacy reply envelope options",
+  { timeout: 20000 },
+  async () => {
+    const f = await fixture({ active: true });
+    let client;
+    try {
+      client = await mcp(
+        resolve(process.env.RELAY_ARTIFACT_ROOT ?? "artifact"),
+        f.env,
+      );
+      const out = await client.call("codex_send", {
+        threadId: "thread-active",
+        message: "plain MCP",
+        whenBusy: "steer",
+        expectedTurnId: "turn-1",
+        replyTo: "prior",
+        correlationId: "plain-chain",
+        envelope: true,
+      });
+      assert.equal(out.delivery, "accepted");
+      const cliOut = await cli(
+        f.env,
+        "codex",
+        "send",
+        "--when-busy",
+        "steer",
+        "--expected-turn-id",
+        "turn-1",
+        "--reply-to",
+        "prior",
+        "--correlation-id",
+        "plain-chain",
+        "--envelope",
+        "thread-active",
+        "plain CLI",
+      );
+      assert.equal(cliOut.code, 0, cliOut.out + cliOut.err);
+      const sends = f.fake.received.filter((x) => x.method === "turn/steer");
+      assert.equal(sends.length, 2);
+      for (const send of sends) {
+        assert.equal(send.params.expectedTurnId, "turn-1");
+        assert.match(JSON.stringify(send.params), /reply-to=prior/);
+      }
+    } finally {
+      await client?.close();
       await f.close();
     }
   },

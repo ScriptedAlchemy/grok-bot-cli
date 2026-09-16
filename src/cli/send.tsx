@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import {
   grokSendOperation,
+  assertManagedSendOptions,
   routeFields,
   relayResultSchema,
 } from '../core/relay/routes.js';
@@ -146,10 +147,7 @@ export default async function send({
     z.infer<typeof receiptSchema> | z.infer<typeof failureDocumentSchema>;
   try {
     if (input.replyMode === 'auto' || input.codexThreadId || input.bindingId) {
-      if (input.envelope || input.replyTo)
-        throw Error(
-          'Automatic routes own their envelope; omit --envelope and --reply-to. Use --hop and --correlation-id for explicit chains.',
-        );
+      assertManagedSendOptions(input);
       if (input.files)
         throw Error('Automatic routes require the gateway backend');
       const out = await grokSendOperation(

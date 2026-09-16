@@ -92,3 +92,8 @@ The packaged `scripts/gbot-relay.mjs` is the unlimited foreground service entry.
 Grok participation is through its gateway conversation, not an assumed native Grok
 plugin loader or remote MCP tunnel. Never claim a host loaded a plugin from generated
 configuration alone.
+
+Managed Codex return routes reject `expectedTurnId` and legacy `replyTo`/`envelope`
+options before submission; use plain `codex_send` for a caller-selected turn guard.
+An explicit Grok target supplied with `bindingId` must resolve to the binding's
+recipient. A mismatch fails instead of selecting one destination silently.

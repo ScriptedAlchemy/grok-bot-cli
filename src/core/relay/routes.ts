@@ -184,6 +184,21 @@ export async function bridgeOperation(
     managedOperation(method, routed, options(context)),
   );
 }
+export function assertManagedSendOptions(input: {
+  expectedTurnId?: string;
+  replyTo?: string;
+  envelope?: boolean;
+}) {
+  if (input.expectedTurnId !== undefined)
+    throw Error(
+      "Managed relay does not support expectedTurnId; omit it to use managed guarded steering, or use a plain Codex send for an explicit turn guard",
+    );
+  if (input.replyTo !== undefined || input.envelope === true)
+    throw Error(
+      "Managed relay does not support legacy replyTo/envelope options; omit them or use a plain send. Use hop/correlationId for explicit managed chains",
+    );
+}
+
 export async function codexReturnOperation(
   input: {
     threadId: string;
@@ -193,11 +208,15 @@ export async function codexReturnOperation(
     expectedCwd?: string;
     requestId?: string;
     whenBusy?: string;
+    expectedTurnId?: string;
+    replyTo?: string;
+    envelope?: boolean;
     hop?: number;
     correlationId?: string;
   },
   context?: AgentRequest,
 ) {
+  assertManagedSendOptions(input);
   if (input.whenBusy === "queue")
     throw Error(
       "Managed relay supports steer or reject, not experimental queue",

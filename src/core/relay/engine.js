@@ -114,6 +114,11 @@ export async function openRelayEngine({
       const b = state.read().bindings[input.bindingId];
       if (!b || b.state !== "running")
         throw new Error("Unknown or stopped binding");
+      if (input.grokTarget !== undefined) {
+        const target = await gateway.resolve(input.grokTarget);
+        if (relayId.parse(target.id) !== b.targetId)
+          throw new Error("Explicit Grok target does not match binding");
+      }
       await codex.verify(b);
       return b;
     }
