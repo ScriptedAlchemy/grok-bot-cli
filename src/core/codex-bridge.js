@@ -1,10 +1,10 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { statSync } from "node:fs";
+import { statSync, realpathSync } from "node:fs";
 import { createConnection } from "node:net";
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
+import pkg from "../../package.json" with { type: "json" };
 
 import { outcomeFromError, outcomeFromReceipt, withStatusExitCode } from "./codex/contract.js";
 import { desktopShimStatus } from "./desktop-shim.js";
@@ -24,8 +24,10 @@ const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const WS_MAX_HEADER_BYTES = 16 * 1024;
 const WS_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 const WS_MAX_BUFFER_BYTES = 8 * 1024 * 1024;
+export const WS_MAX_WRITE_BYTES = 8 * 1024 * 1024;
+export const CODEX_MAX_REQUESTS = 128;
+export const CODEX_MAX_LISTENERS = 128;
 const textDecoder = new TextDecoder("utf-8", { fatal: true });
-const pkg = createRequire(import.meta.url)("../../package.json");
 
 export function codexSocketPath(env = process.env) {
   // Explicit socket wins so status/send/queue agree with a shim-installed or
@@ -200,7 +202,7 @@ class CodexSendError extends Error {
 function attachEnvelope(error, envelope) {
   if (!error || typeof error !== "object") return;
   for (const key of ["messageId", "correlationId", "hop"]) {
-    if (error[key] === undefined && envelope[key] !== undefined) error[key] = envelope[key];
+    if (envelope?.[key] !== undefined) error[key] = envelope[key];
   }
 }
 
@@ -261,15 +263,31 @@ function transportError(err) {
 
 /**
  * Open a JSON-RPC session to the app-server over its Unix socket (WebSocket framing).
- * Server-initiated requests (approvals, user input) are refused with a JSON-RPC error
- * and recorded in `refused`; gbot never approves on the user's behalf.
+ * Server requests are observed without answering by default. Legacy one-shot
+ * callers arm ownership-scoped refusals; persistent sessions respond explicitly.
  */
-export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
+export function connectCodexAppServer(path, { timeoutMs = 15000, signal, onNotification, onServerRequest, onClose } = {}) {
   return new Promise((resolve, reject) => {
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2147483647) {
+      throw new RangeError("timeoutMs must be an integer 1-2147483647");
+    }
+    for (const listener of [onNotification, onServerRequest, onClose]) {
+      if (listener !== undefined && typeof listener !== "function") throw new TypeError("Event listener must be a function");
+    }
+    if (signal !== undefined && !(signal instanceof AbortSignal)) throw new TypeError("signal must be an AbortSignal");
+    if (signal?.aborted) throw new Error("Codex connection aborted", { cause: signal.reason });
     const socket = createConnection({ path });
     const key = randomBytes(16).toString("base64");
     const pending = new Map();
     const refused = [];
+    const serverRequests = new Map();
+    const listeners = {
+      notification: new Set(onNotification ? [onNotification] : []),
+      serverRequest: new Set(onServerRequest ? [onServerRequest] : []),
+      close: new Set(onClose ? [onClose] : []),
+    };
+    let closeError;
+    let writeTimer;
     let nextId = 1;
     let buf = Buffer.alloc(0);
     let upgraded = false;
@@ -285,21 +303,100 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
     const failAll = (err) => {
       if (closed) return;
       closed = true;
+      closeError = err;
       clearTimeout(handshakeTimer);
+      clearTimeout(writeTimer);
+      signal?.removeEventListener("abort", abort);
       if (err && err.delivery == null) err.delivery = pending.size ? "unknown" : "rejected";
       for (const { reject: rej } of pending.values()) rej(err);
       pending.clear();
+      serverRequests.clear();
+      client.deferred.length = 0;
+      buf = Buffer.alloc(0);
+      fragParts = [];
+      fragBytes = 0;
+      const closeListeners = [...listeners.close];
+      for (const group of Object.values(listeners)) group.clear();
       try { socket.destroy(); } catch { /* already gone */ }
       reject(err);
+      for (const listener of closeListeners) invoke(listener, err, true);
     };
+    // Observers execute synchronously to preserve order, but failures never escape
+    // the socket callback. Rejected async callbacks use the same cleanup path.
+    const invoke = (listener, message, closing = false) => {
+      const failed = (cause) => {
+        if (!closing) failAll(new Error("Codex event listener failed", { cause }));
+      };
+      try {
+        const result = listener(message);
+        if (result && typeof result.then === "function") Promise.resolve(result).catch(failed);
+      } catch (err) { failed(err); }
+    };
+    const dispatch = (kind, message) => {
+      for (const listener of [...listeners[kind]]) {
+        if (closed) break;
+        if (listeners[kind].has(listener)) invoke(listener, message);
+      }
+    };
+    const subscribe = (kind, listener) => {
+      if (typeof listener !== "function") throw new TypeError("Event listener must be a function");
+      if (closed) {
+        if (kind === "close") invoke(listener, closeError, true);
+        return () => {};
+      }
+      const group = listeners[kind];
+      if (!group.has(listener) && group.size >= CODEX_MAX_LISTENERS) {
+        const err = new Error("Codex listener limit exceeds " + CODEX_MAX_LISTENERS);
+        failAll(err);
+        throw err;
+      }
+      group.add(listener);
+      return () => group.delete(listener);
+    };
+    const abort = () => failAll(new Error("Codex connection aborted", { cause: signal.reason }));
     const failProtocol = (detail) => failAll(new Error("Codex app-server violated the WebSocket protocol: " + detail));
     const write = (opcode, payload) => {
-      if (!socket.destroyed) socket.write(encodeFrame(opcode, payload, randomBytes(4)));
+      if (closed) throw closeError;
+      const encodedBytes = payload.length + (payload.length < 126 ? 6 : payload.length < 65536 ? 8 : 14);
+      if (socket.destroyed || encodedBytes + socket.writableLength > WS_MAX_WRITE_BYTES) {
+        const err = new Error(socket.destroyed ? "Codex socket closed" : "Codex outbound write budget exceeds " + WS_MAX_WRITE_BYTES + " bytes");
+        failAll(err);
+        throw err;
+      }
+      try {
+        if (!socket.write(encodeFrame(opcode, payload, randomBytes(4))) && !writeTimer) {
+          // One absolute deadline for the whole backpressured interval: more
+          // writes must not keep an unread socket alive indefinitely.
+          writeTimer = setTimeout(() => failAll(new Error("Codex outbound write did not drain within " + timeoutMs + "ms")), timeoutMs);
+          writeTimer.unref();
+        }
+      } catch (err) { failAll(err); throw err; }
     };
     const sendJson = (obj) => write(0x1, Buffer.from(JSON.stringify(obj)));
+    const respondToRequest = (id, payload) => {
+      if (closed) throw closeError;
+      if (!serverRequests.has(id)) throw new Error("Unknown or resolved server request: " + id);
+      // Consume ownership before JSON.stringify can invoke caller-owned getters
+      // or toJSON hooks. A failed serialization closes rather than restoring it.
+      serverRequests.delete(id);
+      client.deferred = client.deferred.filter(entry => entry.id !== id);
+      try { sendJson({ jsonrpc: "2.0", id, ...payload }); }
+      catch (cause) {
+        if (closed) throw closeError;
+        const err = new Error("Codex server response serialization failed", { cause });
+        failAll(err);
+        throw err;
+      }
+    };
 
     const client = {
       refused,
+      get closed() { return closed; },
+      onNotification: (listener) => subscribe("notification", listener),
+      onServerRequest: (listener) => subscribe("serverRequest", listener),
+      onClose: (listener) => subscribe("close", listener),
+      respond: (id, result) => respondToRequest(id, { result }),
+      rejectRequest: (id, error) => respondToRequest(id, { error }),
       // Server-initiated requests are only *answered* once our own turn/start
       // is in flight, and then only when they name our own thread/turn:
       // anything earlier — or naming another thread or Desktop turn — belongs
@@ -328,19 +425,21 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
           const namedTurnId = params
             ? (params.turnId ?? params.turn_id ?? (params.turn && params.turn.id))
             : null;
-          if (threadId === client.expectedThreadId && namedTurnId === turnId) {
+          if (threadId === client.expectedThreadId && namedTurnId === turnId && serverRequests.get(entry.id) === entry) {
+            client.rejectRequest(entry.id, { code: -32601, message: "gbot codex does not answer " + entry.method + "; configure approval_policy on the daemon" });
             entry.answered = true;
-            sendJson({
-              jsonrpc: "2.0",
-              id: entry.id,
-              error: { code: -32601, message: "gbot codex does not answer " + entry.method + "; configure approval_policy on the daemon" },
-            });
           }
         }
       },
       request(method, params) {
-        const id = nextId++;
         return new Promise((res, rej) => {
+          if (closed) return rej(closeError);
+          if (pending.size >= CODEX_MAX_REQUESTS) {
+            const err = new Error("Codex pending request limit exceeds " + CODEX_MAX_REQUESTS);
+            failAll(err);
+            return rej(err);
+          }
+          const id = nextId++;
           const timer = setTimeout(() => {
             pending.delete(id);
             rej(new Error("Codex app-server did not answer " + method + " within " + timeoutMs + "ms"));
@@ -350,7 +449,12 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
             resolve: (v) => { clearTimeout(timer); res(v); },
             reject: (e) => { clearTimeout(timer); rej(e); },
           });
-          sendJson({ jsonrpc: "2.0", id, method, params });
+          try { sendJson({ jsonrpc: "2.0", id, method, params }); }
+          catch (err) {
+            const entry = pending.get(id);
+            pending.delete(id);
+            entry?.reject(err);
+          }
         });
       },
       notify(method, params) {
@@ -358,26 +462,23 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
       },
       close() {
         if (closed) return;
-        closed = true;
-        clearTimeout(handshakeTimer);
-        const err = new Error("Codex client closed");
-        err.delivery = pending.size ? "unknown" : "rejected";
-        for (const { reject: rej } of pending.values()) rej(err);
-        pending.clear();
-        // Best-effort close frame, then guaranteed destruction so no path leaks the socket.
-        if (!socket.destroyed && upgraded) write(0x8, Buffer.from([0x03, 0xe8]));
-        if (socket.destroyed) return;
-        const forceDestroy = setTimeout(() => { try { socket.destroy(); } catch { /* already gone */ } }, 1000);
-        if (typeof forceDestroy.unref === "function") forceDestroy.unref();
-        socket.end(() => {
-          clearTimeout(forceDestroy);
-          try { socket.destroy(); } catch { /* already gone */ }
-        });
+        // Best effort protocol close; cleanup never depends on the peer reading it.
+        try { if (upgraded) write(0x8, Buffer.from([0x03, 0xe8])); } catch { /* write already closed the session */ }
+        failAll(new Error("Codex client closed"));
       },
     };
+    signal?.addEventListener("abort", abort, { once: true });
 
     const onMessage = (msg) => {
       if (msg.id != null && msg.method) {
+        if (serverRequests.has(msg.id)) return failProtocol("duplicate pending server request id");
+        if (serverRequests.size >= CODEX_MAX_REQUESTS || refused.length >= CODEX_MAX_REQUESTS || client.deferred.length >= CODEX_MAX_REQUESTS) {
+          return failAll(new Error("Codex remembered server request limit exceeds " + CODEX_MAX_REQUESTS));
+        }
+        const entry = { id: msg.id, method: msg.method, params: msg.params, answered: false };
+        serverRequests.set(msg.id, entry);
+        dispatch("serverRequest", msg);
+        if (closed) return;
         let answered = client.answerServerRequests;
         let defer = false;
         // Approval ownership: only answer requests for the turn gbot itself
@@ -395,18 +496,25 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
             else if (turnId !== client.expectedTurnId) answered = false;
           } else answered = false;
         }
-        const entry = { id: msg.id, method: msg.method, params: msg.params, answered };
+        answered = answered && serverRequests.has(msg.id);
+        defer = defer && serverRequests.has(msg.id);
+        entry.answered = answered;
         refused.push(entry);
         if (defer) {
           client.deferred.push(entry);
           return;
         }
         if (!answered) return;
-        sendJson({
-          jsonrpc: "2.0",
-          id: msg.id,
-          error: { code: -32601, message: "gbot codex does not answer " + msg.method + "; configure approval_policy on the daemon" },
-        });
+        client.rejectRequest(msg.id, { code: -32601, message: "gbot codex does not answer " + msg.method + "; configure approval_policy on the daemon" });
+        return;
+      }
+      if (msg.id == null && msg.method) {
+        if (msg.method === "serverRequest/resolved") {
+          const id = msg.params?.requestId;
+          serverRequests.delete(id);
+          client.deferred = client.deferred.filter(entry => entry.id !== id);
+        }
+        dispatch("notification", msg);
         return;
       }
       if (msg.id == null || !pending.has(msg.id)) return;
@@ -435,13 +543,18 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
         failAll(new Error("Codex app-server sent a malformed message"));
         return;
       }
-      onMessage(msg);
+      try { onMessage(msg); } catch (err) { failAll(err); }
     };
 
+    socket.on("drain", () => {
+      clearTimeout(writeTimer);
+      writeTimer = undefined;
+    });
     socket.once("error", (err) => failAll(new Error("Could not connect to Codex app-server at " + path + ": " + err.message)));
     socket.once("close", () => failAll(new Error("Codex app-server closed the connection")));
     socket.once("connect", () => socket.write(upgradeRequest(key)));
     socket.on("data", (chunk) => {
+      if (closed) return;
       buf = Buffer.concat([buf, chunk]);
       if (!upgraded) {
         const end = buf.indexOf("\r\n\r\n");
@@ -458,7 +571,7 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
         clearTimeout(handshakeTimer);
         resolve(client);
       }
-      for (;;) {
+      while (!closed) {
         const frame = decodeFrame(buf);
         if (!frame) {
           const claimed = peekFrameLength(buf);
@@ -474,10 +587,11 @@ export function connectCodexAppServer(path, { timeoutMs = 15000 } = {}) {
         if (frame.masked) return failProtocol("server frames must not be masked");
         if (frame.opcode >= 0x8) {
           if (!frame.fin || frame.payload.length > 125) return failProtocol("bad control frame");
-          if (frame.opcode === 0x9) write(0xa, frame.payload);
+          if (frame.opcode === 0x9) {
+            try { write(0xa, frame.payload); } catch { return; }
+          }
           else if (frame.opcode === 0x8) {
-            write(0x8, frame.payload);
-            socket.end();
+            try { write(0x8, frame.payload); } catch { return; }
             failAll(new Error("Codex app-server closed the connection"));
           }
           continue; // pong and other control frames carry nothing for us
@@ -536,12 +650,12 @@ function assertRoute(path) {
   throw new CodexRouteError(unreachableMessage(path), "socket-absent");
 }
 
-async function openSession(env = process.env, { experimental = false } = {}) {
+export async function openCodexSession(env = process.env, { experimental = false, ...options } = {}) {
   const path = codexSocketPath(env);
   assertRoute(path);
   let client;
   try {
-    client = await connectCodexAppServer(path);
+    client = await connectCodexAppServer(path, options);
   } catch (err) {
     throw connectError(err, path);
   }
@@ -559,9 +673,12 @@ async function openSession(env = process.env, { experimental = false } = {}) {
     client.close();
     throw new CodexProtocolError("initialize", "result is not an object");
   }
-  client.notify("initialized");
+  try { client.notify("initialized"); }
+  catch (err) { client.close(); throw handshakeError(err); }
   return { client, path, init };
 }
+
+const openSession = openCodexSession;
 
 const CODEX_VERSION_PROBE_TIMEOUT_MS = 3000;
 
@@ -817,7 +934,7 @@ export function withEnvelopeHeader(text, envelope, env = process.env) {
 }
 
 /** Operator-controlled destinations: GROK_BOT_CODEX_THREADS="id,id" restricts `codex send`. */
-function assertThreadAllowed(threadId, env = process.env) {
+export function assertThreadAllowed(threadId, env = process.env) {
   const raw = env.GROK_BOT_CODEX_THREADS;
   if (raw == null || raw.trim() === "") return;
   const allowed = raw.split(",").map((s) => s.trim()).filter(Boolean);
@@ -852,7 +969,7 @@ function threadState(resumed, threadId) {
     + PINNED_CODEX_VERSION + ") does not know; not sending.", { delivery: "rejected", reason: "unknown-status", threadId });
 }
 
-function experimentalEnabled(env = process.env) {
+export function experimentalEnabled(env = process.env) {
   return /^(1|true|on)$/i.test(env.GROK_BOT_CODEX_EXPERIMENTAL || "");
 }
 
@@ -863,14 +980,18 @@ function requireExperimental(env, what) {
     { delivery: "rejected", reason: "experimental-disabled" });
 }
 
-function unsupportedOrRpc(err, method, threadId, envelope) {
+function unsupportedOrRpc(err, method, threadId, envelope, turnId) {
+  const guarded = method === "turn/steer";
   if (err instanceof CodexRpcError && err.rpc && err.rpc.code === -32601) {
     return new CodexSendError("Codex app-server does not offer " + method + " (daemon predates it, or experimentalApi was not granted). "
-      + "Upgrade Codex or send without --when-busy queue.", { delivery: "rejected", reason: "unsupported", threadId, ...envelope });
+      + (guarded ? "Upgrade Codex before retrying guarded steering." : "Upgrade Codex or send without --when-busy queue."),
+      { delivery: "rejected", reason: "unsupported", threadId, turnId, ...envelope });
   }
-  if (err instanceof CodexRpcError) return new CodexSendError(err.message, { delivery: "rejected", reason: "rejected", threadId, ...envelope });
+  if (err instanceof CodexRpcError) return new CodexSendError(err.message, { delivery: "rejected", reason: "rejected", threadId, turnId, ...envelope });
   return new CodexSendError("Lost the Codex " + method + " response for thread " + threadId + ": " + ((err && err.message) || err)
-    + ". Delivery is unknown; list the queue before resending.", { delivery: (err && err.delivery) || "unknown", reason: "transport", threadId, ...envelope });
+    + (guarded ? ". Delivery is unknown; check thread " + threadId + " turn " + turnId + " before resending."
+      : ". Delivery is unknown; list the queue before resending."),
+    { delivery: (err && err.delivery) || "unknown", reason: "transport", threadId, turnId, ...envelope });
 }
 
 /** Read the daemon's queue for one thread (experimental `thread/queue/list`). */
@@ -902,30 +1023,47 @@ export async function listCodexQueue(threadId, { env = process.env, limit = 50, 
 /**
  * @param {string} threadId
  * @param {string} text
- * @param {{ env?: NodeJS.ProcessEnv, envelope?: object, whenBusy?: "reject"|"queue" }} [opts]
+ * @param {{ env?: NodeJS.ProcessEnv, envelope?: object, whenBusy?: "reject"|"queue"|"steer", session?: object, expectedTurnId?: string, expectedCwd?: string, signal?: AbortSignal }} [opts]
  */
-export async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({ env }), whenBusy = "reject" } = {}) {
+export async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({ env }), whenBusy = "reject", session, expectedTurnId, expectedCwd, signal } = {}) {
   try {
-    const receipt = await sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy });
+    const receipt = await sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, signal });
     return outcomeFromReceipt(receipt);
   } catch (err) {
     // Every receipt names the message, including refusals that never reached the daemon.
-    if (err instanceof CodexSendError || err instanceof CodexRouteError || err instanceof CodexProtocolError) attachEnvelope(err, envelope);
+    if (err && typeof err === "object") {
+      attachEnvelope(err, envelope);
+      if (err.threadId === undefined) err.threadId = threadId;
+    }
     return outcomeFromError(err);
   }
 }
 
-async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy }) {
-  if (whenBusy !== "reject" && whenBusy !== "queue") throw new RangeError("--when-busy must be reject or queue");
+async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, signal }) {
+  if (!["reject", "queue", ...(session ? ["steer"] : [])].includes(whenBusy)) throw new RangeError("--when-busy must be reject, queue, or persistent steer");
+  if (whenBusy === "steer" && (typeof expectedTurnId !== "string" || !ID_PATTERN.test(expectedTurnId))) throw new RangeError("steer requires expectedTurnId");
+  if (typeof threadId !== "string" || !ID_PATTERN.test(threadId)) throw new RangeError("Invalid threadId");
+  if (typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > WS_MAX_MESSAGE_BYTES) throw new RangeError("Message must contain text within 4 MiB");
+  if (!envelope || typeof envelope.messageId !== "string" || !ID_PATTERN.test(envelope.messageId)) throw new RangeError("Invalid envelope messageId");
+  const validated = buildEnvelope({ correlationId: envelope.correlationId, replyTo: envelope.replyTo, hop: envelope.hop, env });
+  envelope = { ...validated, messageId: envelope.messageId, header: Boolean(envelope.header) };
   assertThreadAllowed(threadId, env);
   if (whenBusy === "queue") requireExperimental(env, "--when-busy queue");
+  if (signal !== undefined && !(signal instanceof AbortSignal)) throw new TypeError("signal must be an AbortSignal");
+  const assertNotCancelled = () => {
+    if (signal?.aborted) throw new CodexSendError("Codex submission cancelled before delivery", {
+      delivery: "rejected", reason: "cancelled", threadId, turnId: whenBusy === "steer" ? expectedTurnId : undefined, ...envelope,
+    });
+  };
+  assertNotCancelled();
   const body = withEnvelopeHeader(text, envelope, env);
-  const { client } = await openSession(env, { experimental: whenBusy === "queue" });
+  const { client } = session ?? await openSession(env, { experimental: whenBusy === "queue", signal });
   try {
     let resumed;
     try {
       resumed = await client.request("thread/resume", { threadId, excludeTurns: true });
     } catch (err) {
+      assertNotCancelled();
       if (err instanceof CodexSendError) throw err;
       throw new CodexSendError(explainSendError(err, threadId).message, {
         delivery: err instanceof CodexRpcError ? "rejected" : (err && err.delivery) || "unknown",
@@ -935,9 +1073,14 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
         ...envelope,
       });
     }
+    // A shared session stays connected when this conversation is cancelled.
+    // Recheck after the last awaited preflight, before any submission request.
+    assertNotCancelled();
     if (!isObject(resumed) || !isObject(resumed.thread) || typeof resumed.thread.id !== "string") {
       throw new CodexProtocolError("thread/resume", "missing `thread.id`");
     }
+    if (resumed.thread.id !== threadId) throw new CodexSendError("thread/resume returned a different thread ID", { delivery: "rejected", reason: "bad-response", threadId, ...envelope });
+    if (expectedCwd !== undefined && realpathSync(resumed.cwd ?? resumed.thread.cwd) !== realpathSync(expectedCwd)) throw new CodexSendError("Codex thread cwd does not match expectedCwd", { delivery: "rejected", reason: "cwd-mismatch", threadId, ...envelope });
     const state = threadState(resumed, threadId);
     const receiptBase = {
       threadId: resumed.thread.id,
@@ -958,6 +1101,16 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
         + "Wait for it to go idle (`gbot codex list-threads`) and resend, or pass --when-busy queue.",
         { delivery: "rejected", reason: "busy", threadId, ...envelope },
       );
+    }
+    if (whenBusy === "steer") {
+      let steered;
+      try {
+        steered = await client.request("turn/steer", { threadId, expectedTurnId, clientUserMessageId: envelope.messageId, input: [{ type: "text", text: body }] });
+      } catch (err) { throw unsupportedOrRpc(err, "turn/steer", threadId, envelope, expectedTurnId); }
+      if (typeof steered?.turnId !== "string" || steered.turnId !== expectedTurnId) {
+        throw new CodexSendError("Malformed turn/steer acknowledgment", { delivery: "unknown", reason: "bad-response", threadId, turnId: expectedTurnId, ...envelope });
+      }
+      return { delivery: "accepted", ...receiptBase, turnId: steered.turnId };
     }
     if (state.busy) {
       let queued;
@@ -984,9 +1137,11 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
     // that arrives before the acknowledgment supplies our turn id wait in
     // client.deferred and are adopted only on a match. Requests missing
     // thread or turn IDs remain unanswered because ownership is unknown.
-    client.expectedThreadId = threadId;
-    client.expectedTurnId = null;
-    client.answerServerRequests = true;
+    if (!session) {
+      client.expectedThreadId = threadId;
+      client.expectedTurnId = null;
+      client.answerServerRequests = true;
+    }
     let turn;
     try {
       turn = await client.request("turn/start", {
@@ -1012,7 +1167,7 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
         { delivery: "unknown", reason: "bad-response", threadId, ...envelope },
       );
     }
-    client._adoptTurn(turnId);
+    if (!session) client._adoptTurn(turnId);
     const freshRefused = client.refused.slice(seenRefused)
       .filter((r) => {
         if (!r.answered) return false;
@@ -1034,6 +1189,6 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy 
     }
     return { delivery: "accepted", ...receiptBase, turnId, turnStatus: turn.turn.status };
   } finally {
-    client.close();
+    if (!session) client.close();
   }
 }

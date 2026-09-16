@@ -27,7 +27,7 @@ export async function openBackend(opts) {
       setGroupMembers: (group, members) => gw.setGroupMembers(session, group, members),
       addGroupMember: (group, bot) => gw.addGroupMember(session, group, bot),
       removeGroupMember: (group, bot) => gw.removeGroupMember(session, group, bot),
-      send: (ref, prompt) => gw.sendPrompt(session, ref, prompt),
+      send: (ref, prompt, extra) => gw.sendPrompt(session, ref, prompt, extra),
       transcript: (ref, limit) => gw.getTranscriptTail(session, ref, limit),
       thread: (ref, rootId) => gw.getThread(session, ref, rootId),
     };
