@@ -26,7 +26,7 @@ const files = readdirSync(dir)
   .sort()
   .map((name) => join("test", name))
   .filter((name) => {
-    if (process.platform === "win32" && skipOnWindows.has(name)) {
+    if (process.platform === "win32" && skipOnWindows.has(name.replaceAll("\\", "/"))) {
       console.error(`skip ${name}: Unix sockets and Codex routes are unsupported on win32`);
       return false;
     }
