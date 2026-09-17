@@ -1,5 +1,18 @@
 # grok-bot-cli
 
+## 0.7.0
+
+### Minor Changes
+
+- 8dd8d3d: Forward pending Grok auto-review and local-tool approval cards as Codex notices without treating chat replies as authorization. Add CLI and MCP commands to inspect requests and explicitly accept once or decline an exact current request.
+
+### Patch Changes
+
+- a31df6f: Allow automatic messaging to establish a checkpoint over older bot outputs without run IDs while continuing to reject new outputs without correlation IDs.
+- 27966e6: Pin the Agent Bundle compiler and runtime to the same immutable preview commit so rebuilds do not depend on mutable pull-request tarballs.
+- f2b08fb: Tighten Desktop private-stdio detection so probe-shell cmdlines that only mention ChatGPT.app + app-server + codex-app-tools no longer false-positive; keep the Resources/codex path match.
+- 1e68988: Isolate relay workers by their desktop keyring environment so headless MCP callers cannot replace the authenticated worker used by desktop CLI callers.
+
 ## 0.6.0
 
 ### Minor Changes
