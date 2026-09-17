@@ -27,6 +27,7 @@ console.log("bootstrap-policy-verified");
       const childEnv = { ...process.env, GROK_BOT_TEST: inherited, NODE_ENV: "production" };
       delete childEnv.NODE_TEST_CONTEXT;
       const result = spawnSync(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "test:unit"], {
+        shell: process.platform === "win32",
         cwd: fixture,
         env: childEnv,
         encoding: "utf8",

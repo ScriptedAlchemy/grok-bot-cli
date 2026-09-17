@@ -187,7 +187,9 @@ test("install then uninstall round-trips in a scratch Codex home (no live Deskto
   assert.equal(gone.installed, false);
 });
 
-test("darwin install writes the LaunchAgent and drives it through the runner", () => {
+test("darwin install writes the LaunchAgent and drives it through the runner", {
+  skip: process.platform === "win32" && "Unix executable bits are unsupported on Windows",
+}, () => {
   const home = mkdtempSync(join(tmpdir(), "gbot-shim-mac-home-"));
   const codexHome = mkdtempSync(join(tmpdir(), "gbot-shim-mac-codex-"));
   const env = { CODEX_HOME: codexHome, HOME: home };
@@ -1060,7 +1062,9 @@ test("uninstall reports only paths that existed before delete", () => {
   assert.deepEqual(empty.removed, [], "nothing installed, nothing reported removed");
 });
 
-test("linux status quotes the export path for spaces", () => {
+test("linux status quotes the export path for spaces", {
+  skip: process.platform === "win32" && "Unix executable bits are unsupported on Windows",
+}, () => {
   const home = mkdtempSync(join(tmpdir(), "gbot-shim-quote-home-"));
   const codexHome = mkdtempSync(join(tmpdir(), "gbot-shim-quote-codex-"));
   const installed = installDesktopShim({
