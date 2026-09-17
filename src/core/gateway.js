@@ -298,6 +298,63 @@ export async function deleteAgent(session, ref) {
   return rec;
 }
 
+function asSkill(skill) {
+  return {
+    id: String(skill.id),
+    name: skill.name || "",
+    description: skill.description || "",
+    source: skill.source || "user",
+    ...(skill.sourceRef ? { sourceRef: String(skill.sourceRef) } : {}),
+    ...(skill.pluginId ? { pluginId: String(skill.pluginId) } : {}),
+  };
+}
+
+function asSkills(data) {
+  const list = Array.isArray(data) ? data : Array.isArray(data.workflows) ? data.workflows : [];
+  return list.filter((s) => s && s.id).map(asSkill);
+}
+
+function requireBot(rec) {
+  if (rec.isGroup) throw new GatewayError(`Skills attach to one bot. "${rec.name}" is a group.`);
+  return rec;
+}
+
+const skillsOf = async (session, rec) => asSkills(await gatewayCall(session, "getAgentWorkflows", { id: rec.id }));
+
+export async function listAgentSkills(session, ref) {
+  return skillsOf(session, requireBot(await resolveRef(session, ref)));
+}
+
+export async function addAgentSkill(session, ref, markdown, name) {
+  if (!String(markdown).trim()) throw new GatewayError("Skill markdown is empty.");
+  const rec = requireBot(await resolveRef(session, ref));
+  const data = await gatewayCall(session, "importAgentWorkflowText", {
+    id: rec.id,
+    markdown: String(markdown),
+    ...(name ? { name: String(name) } : {}),
+  });
+  const imported = data.result?.imported?.[0];
+  if (!imported) {
+    const reason = data.result?.skipped?.[0]?.reason || "rejected";
+    throw new GatewayError(`Grok Bot did not import the skill (${reason}). It needs a name and a non-empty body.`);
+  }
+  return { bot: rec, skill: asSkills(data).find((s) => s.id === String(imported.id)) ?? asSkill(imported) };
+}
+
+export async function removeAgentSkill(session, ref, skillRef) {
+  const rec = requireBot(await resolveRef(session, ref));
+  const skills = await skillsOf(session, rec);
+  const needle = String(skillRef).trim().toLowerCase();
+  const matches = skills.filter((s) => s.id.toLowerCase() === needle || s.name.toLowerCase() === needle);
+  if (matches.length === 0) throw new GatewayError(`No skill "${skillRef}" on ${rec.name}.`);
+  if (matches.length > 1) throw new GatewayError(`Ambiguous skill name "${skillRef}" on ${rec.name}. Use the id.`);
+  if (matches[0].source !== "user") {
+    throw new GatewayError(`"${matches[0].name}" is a ${matches[0].source} skill. Manage it from its plugin or team.`);
+  }
+  await gatewayCall(session, "deleteAgentWorkflow", { id: rec.id, workflowId: matches[0].id });
+  return { bot: rec, skill: matches[0] };
+}
+
 function normalizeMemberIds(records, memberRefs) {
   const memberIds = new Set();
   for (const ref of memberRefs) {
