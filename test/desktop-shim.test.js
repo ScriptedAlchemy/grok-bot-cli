@@ -1161,7 +1161,6 @@ ${script}
 
 test("wrapper exits without fallback while Desktop leaves stdout unread", {
   skip: !canRunShellBridge && "needs bash + python3",
-  skip: !canRunShellBridge && "needs bash + python3",
 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "gbot-shim-backpressure-"));
   const payload = Buffer.from(JSON.stringify({ method: "notice", params: { text: "x".repeat(2_000_000) } }));
