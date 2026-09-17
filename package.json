@@ -1,6 +1,6 @@
 {
   "name": "grok-bot-cli",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "CLI and Agent Bundle plugin for Grok Bot agents and groups: create, update, message, inspect threads, and automate cleanup",
   "type": "module",
   "bin": {
