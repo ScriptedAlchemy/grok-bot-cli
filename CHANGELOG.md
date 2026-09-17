@@ -1,5 +1,11 @@
 # grok-bot-cli
 
+## 0.8.0
+
+### Minor Changes
+
+- e5b5c87: Expose cross-host MCP messaging tools: hide Codex tools in Codex and Grok tools in truthfully identified Grok Bot clients, while retaining shared bridge controls.
+
 ## 0.7.0
 
 ### Minor Changes
