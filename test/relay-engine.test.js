@@ -160,6 +160,26 @@ test("linked empty baseline forwards once, returns final and suppresses out-of-o
   );
   assert.equal(f.sent.length, 1);
 });
+test("Grok approval cards notify Codex once without returning its answer as authorization", async (t) => {
+  const f = await fixture(t);
+  await f.engine.startBinding({ grokTarget: "target", codexThreadId: "thread" });
+  f.page.push({
+    id: "approval-card", kind: "send-message", requestId: "run",
+    message: { type: "auto-review-approval", approval: {
+      requestId: "approval-request", status: "pending", command: "npm publish",
+    } },
+  });
+  await f.engine.tick();
+  await f.engine.tick();
+  assert.equal(f.engine.status().targets[0].state, "running");
+  const notices = f.fake.received.filter(r => r.method === "turn/start");
+  assert.equal(notices.length, 1);
+  const text = notices[0].params.input[0].text;
+  assert.match(text, /approval-request/);
+  assert.match(text, /gbot_grok_respond/);
+  assert.match(text, /explicit user decision/i);
+  assert.equal(f.sent.length, 0);
+});
 test("tracked request uses actual requestId and never forwards another thread reply", async (t) => {
   const f = await fixture(t);
   const r = await f.engine.sendToGrok({
