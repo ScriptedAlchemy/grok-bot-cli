@@ -2,35 +2,33 @@ import { Agent } from '@agent-bundle/runtime';
 import type { CliRouteConfig, CliRouteProps } from 'agent-bundle';
 import { z } from 'zod';
 
-import { agentSummarySchema, backendFlagsSchema, openBackendFromInput, skillSchema } from '../_shared.js';
-import { summarize } from '../../core/format.js';
+import { backendFlagsSchema, openBackendFromInput, skillSchema } from '../_shared.js';
 
 export const config = {
-  description: 'Detach a user skill from one bot by id or name.',
+  description: 'Remove a library skill by id or name. Every bot loses it.',
   inputJsonSchema: {
     additionalProperties: false,
     properties: {
       dir: { description: 'Agents directory for --files mode', type: 'string' },
       files: { description: 'Force the on-disk agents store', type: 'boolean' },
       gateway: { description: 'Force the live gateway', type: 'boolean' },
-      ref: { description: 'Bot id or name', type: 'string' },
       skill: { description: 'Skill id or name', type: 'string' },
     },
-    required: ['ref', 'skill'],
+    required: ['skill'],
     type: 'object',
   },
-  positionals: ['ref', 'skill'],
+  positionals: ['skill'],
 } satisfies CliRouteConfig;
 
-export const inputSchema = backendFlagsSchema.extend({ ref: z.string().min(1), skill: z.string().min(1) }).strict();
-export const resultSchema = z.object({ bot: agentSummarySchema, skill: skillSchema }).strict();
+export const inputSchema = backendFlagsSchema.extend({ skill: z.string().min(1) }).strict();
+export const resultSchema = skillSchema;
 
 export default async function skillsRemove({ input }: CliRouteProps<typeof inputSchema>) {
   const backend = await openBackendFromInput(input);
-  const { bot, skill } = await backend.removeSkill(input.ref, input.skill);
+  const skill = resultSchema.parse(await backend.removeSkill(input.skill));
   return (
-    <Agent.Result value={{ bot: summarize(bot), skill }}>
-      <Agent.Text>{`Detached skill ${skill.name} (${skill.id}) from ${bot.name} (${bot.id})`}</Agent.Text>
+    <Agent.Result value={skill}>
+      <Agent.Text>{`Removed skill ${skill.name} (${skill.id}) from the shared library`}</Agent.Text>
     </Agent.Result>
   );
 }

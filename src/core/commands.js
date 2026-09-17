@@ -30,9 +30,9 @@ export async function openBackend(opts) {
       send: (ref, prompt, extra) => gw.sendPrompt(session, ref, prompt, extra),
       transcript: (ref, limit) => gw.getTranscriptTail(session, ref, limit),
       thread: (ref, rootId) => gw.getThread(session, ref, rootId),
-      skills: (ref) => gw.listAgentSkills(session, ref),
-      addSkill: (ref, markdown, name) => gw.addAgentSkill(session, ref, markdown, name),
-      removeSkill: (ref, skillRef) => gw.removeAgentSkill(session, ref, skillRef),
+      skills: () => gw.listSkills(session),
+      addSkill: (markdown) => gw.addSkill(session, markdown),
+      removeSkill: (skillRef) => gw.removeSkill(session, skillRef),
     };
   }
   const root = files.resolveAgentsRoot(opts.root);
