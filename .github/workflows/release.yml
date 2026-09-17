@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: windows-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
       - name: Check out the repository
