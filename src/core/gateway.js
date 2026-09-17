@@ -335,9 +335,10 @@ export async function addSkill(session, markdown) {
   if (text.length > SKILL_MAX_BODY_LENGTH) {
     throw new GatewayError(`Skill markdown is ${text.length} characters. Grok Bot truncates bodies over ${SKILL_MAX_BODY_LENGTH}; shorten it.`);
   }
+  const id = await anyBotId(session);
   let data;
   try {
-    data = await gatewayCall(session, "importAgentWorkflowText", { id: await anyBotId(session), markdown: text });
+    data = await gatewayCall(session, "importAgentWorkflowText", { id, markdown: text });
   } catch (error) {
     if (error instanceof GatewayError && /response too large/.test(error.message)) {
       throw new GatewayError("Grok Bot echoed a skill list too large to read; the import may still have landed. Run gbot skills list.");
