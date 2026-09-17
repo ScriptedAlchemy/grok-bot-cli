@@ -29,12 +29,24 @@ gbot send Researcher "Summarize the launch status."
 gbot send Launch "Share your updates."
 gbot thread Researcher
 gbot thread Researcher --after <last-entry-id> --json
+gbot skills list
+gbot skills add ./skills/poteto-mode
+gbot skills remove poteto-mode
 gbot groups delete Launch
 gbot bots delete Researcher
 gbot bots delete Writer
 ```
 
 `update` fields: `--name` `--description` `--title` `--avatar-shape` `--avatar-color` `--notify on|off` `--hidden on|off`. `--description` is the UI Instructions field.
+
+`gbot skills` manages the skill library over the gateway. Grok Bot keeps one
+library per account; every bot reads the same list, and there is no per-bot
+attach. `add` posts a `SKILL.md` (or a directory holding one) and every bot sees
+it. `list` shows each entry's `source`: `workflow` is your library, `managed` is
+team-published, `plugin` comes from a marketplace install, `automation` is a
+scheduled routine. `remove` deletes a `workflow` skill by id or exact name, for
+every bot, and refuses the other sources. Adding the same file twice yields two
+same-named skills; remove by id then. There is no `--files` mode for skills.
 
 `gbot thread --after ID` filters the bounded tail locally and returns entries strictly
 after that opaque entry ID. Its JSON includes `cursor`, `entryCount`, and `gapReset`.

@@ -61,6 +61,15 @@ export const agentSummarySchema = z.object({
   title: z.string().optional(),
 }).strict();
 
+export const skillSchema = z.object({
+  description: z.string(),
+  id: z.string(),
+  name: z.string(),
+  pluginId: z.string().optional(),
+  source: z.string(),
+  sourceRef: z.string().optional(),
+}).strict();
+
 export const createFieldsSchema = z.object({
   avatarColor: avatarColorSchema.optional(),
   avatarShape: avatarShapeSchema.optional(),

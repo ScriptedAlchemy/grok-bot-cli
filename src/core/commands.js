@@ -30,6 +30,9 @@ export async function openBackend(opts) {
       send: (ref, prompt, extra) => gw.sendPrompt(session, ref, prompt, extra),
       transcript: (ref, limit) => gw.getTranscriptTail(session, ref, limit),
       thread: (ref, rootId) => gw.getThread(session, ref, rootId),
+      skills: () => gw.listSkills(session),
+      addSkill: (markdown) => gw.addSkill(session, markdown),
+      removeSkill: (skillRef) => gw.removeSkill(session, skillRef),
     };
   }
   const root = files.resolveAgentsRoot(opts.root);
@@ -48,5 +51,8 @@ export async function openBackend(opts) {
     send: async () => { throw new files.StoreError("send requires the live gateway"); },
     transcript: async () => { throw new files.StoreError("thread requires the live gateway"); },
     thread: async () => { throw new files.StoreError("thread requires the live gateway"); },
+    skills: async () => { throw new files.StoreError("skills requires the live gateway"); },
+    addSkill: async () => { throw new files.StoreError("skills requires the live gateway"); },
+    removeSkill: async () => { throw new files.StoreError("skills requires the live gateway"); },
   };
 }

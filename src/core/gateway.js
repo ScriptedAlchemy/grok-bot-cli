@@ -298,6 +298,76 @@ export async function deleteAgent(session, ref) {
   return rec;
 }
 
+// Grok Bot keeps one skill library per box. Every bot reads the same list, and the
+// workflow RPCs take any bot id only to say whose automations ride along.
+const SKILL_MAX_BODY_LENGTH = 100000;
+const SKILL_SOURCES = { workflow: "your library", managed: "team-managed", plugin: "a plugin", automation: "a scheduled automation" };
+
+function asSkill(skill) {
+  return {
+    id: String(skill.id),
+    name: skill.name || "",
+    description: skill.description || "",
+    source: String(skill.source || "workflow"),
+    ...(skill.sourceRef ? { sourceRef: String(skill.sourceRef) } : {}),
+    ...(skill.pluginId ? { pluginId: String(skill.pluginId) } : {}),
+  };
+}
+
+function asSkills(data) {
+  const list = Array.isArray(data) ? data : Array.isArray(data?.workflows) ? data.workflows : [];
+  return list.filter((s) => s && s.id).map(asSkill);
+}
+
+async function anyBotId(session) {
+  const bot = (await listAgents(session)).find((r) => !r.isGroup);
+  if (!bot) throw new GatewayError("Skills need at least one bot. Run gbot bots create first.");
+  return bot.id;
+}
+
+export async function listSkills(session) {
+  return asSkills(await gatewayCall(session, "getAgentWorkflows", { id: await anyBotId(session) }));
+}
+
+export async function addSkill(session, markdown) {
+  const text = String(markdown);
+  if (!text.trim()) throw new GatewayError("Skill markdown is empty.");
+  if (text.length > SKILL_MAX_BODY_LENGTH) {
+    throw new GatewayError(`Skill markdown is ${text.length} characters. Grok Bot truncates bodies over ${SKILL_MAX_BODY_LENGTH}; shorten it.`);
+  }
+  const id = await anyBotId(session);
+  let data;
+  try {
+    data = await gatewayCall(session, "importAgentWorkflowText", { id, markdown: text });
+  } catch (error) {
+    if (error instanceof GatewayError && /response too large/.test(error.message)) {
+      throw new GatewayError("Grok Bot echoed a skill list too large to read; the import may still have landed. Run gbot skills list.");
+    }
+    throw error;
+  }
+  const imported = data.result?.imported?.[0];
+  if (!imported) {
+    const reason = data.result?.skipped?.[0]?.reason || "rejected";
+    throw new GatewayError(`Grok Bot did not import the skill (${reason}). It needs a name, a non-empty body, and library room.`);
+  }
+  return asSkills(data).find((s) => s.id === String(imported.id)) ?? asSkill(imported);
+}
+
+export async function removeSkill(session, skillRef) {
+  const id = await anyBotId(session);
+  const skills = asSkills(await gatewayCall(session, "getAgentWorkflows", { id }));
+  const needle = String(skillRef).trim().toLowerCase();
+  const matches = skills.filter((s) => s.id.toLowerCase() === needle || s.name.toLowerCase() === needle);
+  if (matches.length === 0) throw new GatewayError(`No skill "${skillRef}".`);
+  if (matches.length > 1) throw new GatewayError(`Ambiguous skill name "${skillRef}". Use the id.`);
+  if (matches[0].source !== "workflow") {
+    const kind = SKILL_SOURCES[matches[0].source] || matches[0].source;
+    throw new GatewayError(`"${matches[0].name}" is ${kind}, not a library skill. Manage it where it came from.`);
+  }
+  await gatewayCall(session, "deleteAgentWorkflow", { id, workflowId: matches[0].id });
+  return matches[0];
+}
+
 function normalizeMemberIds(records, memberRefs) {
   const memberIds = new Set();
   for (const ref of memberRefs) {
