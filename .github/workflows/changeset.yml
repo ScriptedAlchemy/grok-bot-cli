@@ -17,7 +17,7 @@ concurrency:
 jobs:
   changeset:
     name: Changeset present
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       # `changeset status --since=origin/main` diffs against the merge-base.
