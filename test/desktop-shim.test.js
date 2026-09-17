@@ -947,7 +947,6 @@ test("bridge flushes EOF-tail data before the WS Close", {
           `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
           "latin1",
         ));
-        socket.write(wsServerFrame(0x1, Buffer.from('{"jsonrpc":"2.0","id":1,"result":{}}')));
         upgraded = true;
         return;
       }

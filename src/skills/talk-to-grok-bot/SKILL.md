@@ -109,3 +109,11 @@ Managed Codex return routes reject `expectedTurnId` and legacy `replyTo`/`envelo
 options before submission; use plain `codex_send` for a caller-selected turn guard.
 An explicit Grok target supplied with `bindingId` must resolve to the binding's
 recipient. A mismatch fails instead of selecting one destination silently.
+
+## Host tool inventory
+
+Codex MCP clients receive Grok messaging and approval tools; truthfully identified
+Grok Bot clients receive Codex messaging and approval tools. Bridge start/status/stop
+remain shared. Cursor and unknown clients retain both sets. Filtering uses negotiated
+client-name prefixes and does not provide authorization. A Grok runtime identifying
+itself as Cursor needs its native MCP identity corrected before this filter applies.

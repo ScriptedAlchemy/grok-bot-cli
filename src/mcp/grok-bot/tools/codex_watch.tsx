@@ -3,6 +3,7 @@ import { defineTool } from 'agent-bundle/routes';
 import { watchSchema as inputSchema, resultSchema, observeOperation, resultText } from '../../../core/codex/routes.js';
 export { inputSchema };
 export default defineTool({
+  excludeClients: ['codex'],
   description: 'Watch bounded Codex thread events for diagnostics without answering approvals.', title: 'Codex watch', annotations: { readOnlyHint: true },
   render: { maxElapsedMs: 660000 },
   inputSchema, resultSchema,

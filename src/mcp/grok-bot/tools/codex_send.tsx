@@ -20,6 +20,7 @@ export const inputSchema = sendSchema.extend({
 const resultSchema = z.union([plainResultSchema, relayResultSchema]);
 export default defineTool(
   {
+    excludeClients: ['codex'],
     description:
       'Send to Codex. With replyToGrok or bindingId, managed delivery returns the terminal answer to Grok automatically. Otherwise optional wait observes completion and explicit steer requires expectedTurnId. Acceptance is not completion.',
     title: 'Codex send',

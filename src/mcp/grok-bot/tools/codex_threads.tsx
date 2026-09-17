@@ -3,6 +3,7 @@ import { defineTool } from 'agent-bundle/routes';
 import { threadsSchema as inputSchema, resultSchema, threadsOperation, resultText } from '../../../core/codex/routes.js';
 export { inputSchema };
 export default defineTool({
+  excludeClients: ['codex'],
   description: 'Discover a bounded page of Codex daemon threads.', title: 'Codex threads', annotations: { readOnlyHint: true },
   render: { maxElapsedMs: 660000 },
   inputSchema, resultSchema,
