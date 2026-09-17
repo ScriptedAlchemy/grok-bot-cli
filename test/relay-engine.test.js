@@ -180,6 +180,35 @@ test("Grok approval cards notify Codex once without returning its answer as auth
   assert.match(text, /explicit user decision/i);
   assert.equal(f.sent.length, 0);
 });
+test("historical messages without requestId do not block a new tracked request", async (t) => {
+  const f = await fixture(t);
+  f.page.push({ id: "old", kind: "send-message", text: "Historical output" });
+  await f.engine.sendToGrok({ grokTarget: "target", codexThreadId: "thread", message: "Ask Grok", requestId: "ask" });
+  assert.equal(f.sent.length, 1);
+  f.page.push(
+    { id: "user", kind: "user", clientNonce: f.sent[0].clientNonce, requestId: "run" },
+    { id: "answer", kind: "send-message", requestId: "run", text: "New answer" },
+  );
+  await f.engine.tick();
+  await f.engine.tick();
+  const calls = f.fake.received.filter(r => r.method === "turn/start");
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].params.input[0].text, /New answer/);
+  assert.doesNotMatch(calls[0].params.input[0].text, /Historical output/);
+});
+
+test("new messages without requestId pause intake without forwarding or advancing the checkpoint", async (t) => {
+  const f = await fixture(t);
+  await f.engine.sendToGrok({ grokTarget: "target", codexThreadId: "thread", message: "Ask Grok", requestId: "ask" });
+  f.page.push({ id: "new", kind: "send-message", text: "Uncorrelated output" });
+  await f.engine.tick();
+  assert.equal(f.fake.received.filter(r => r.method === "turn/start").length, 0);
+  const status = await f.engine.status();
+  assert.equal(status.targets[0].state, "paused");
+  assert.equal(status.targets[0].reason, "invalid-coverage");
+  assert.equal(status.targets[0].cursor, null);
+});
+
 test("tracked request uses actual requestId and never forwards another thread reply", async (t) => {
   const f = await fixture(t);
   const r = await f.engine.sendToGrok({

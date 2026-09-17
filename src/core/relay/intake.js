@@ -70,6 +70,12 @@ export function createIntake({
       });
       return;
     }
+    const incoming = page.slice(index + 1);
+    if (incoming.some(entry => entry.kind === "send-message" &&
+      (typeof entry.requestId !== "string" || !entry.requestId))) {
+      await change("targets", { ...target, state: "paused", reason: "invalid-coverage" });
+      return;
+    }
     const local = { ...state.read().records },
       changes = [];
     // Gather every nonce before classifying bot outputs, even if its user row comes later.
@@ -139,7 +145,6 @@ export function createIntake({
         ["sending", "unknown", "accepted"].includes(r.submission) &&
         !r.requestId,
     );
-    const incoming = page.slice(index + 1);
     for (const entry of incoming) {
       if (entry.kind !== "send-message" || own.has(entry.requestId)) continue;
       const approvalNotice = grokApprovalNotice(entry, targetId);

@@ -35,11 +35,6 @@ export function pageEntries(payload) {
     if (ids.has(id) || typeof e.kind !== "string" || !e.kind)
       throw new Error("Invalid transcript coverage");
     ids.add(id);
-    if (
-      e.kind === "send-message" &&
-      (typeof e.requestId !== "string" || !e.requestId)
-    )
-      throw new Error("Message coverage lacks requestId");
   }
   return page;
 }
