@@ -25,6 +25,8 @@ test("profile shares hosts but isolates endpoint, auth overrides and caller rest
     { GROK_BOT_GATEWAY_HEADERS: '{"x-route":"secret"}' },
     { CODEX_APP_SERVER_SOCK: "/other.sock" },
     { GROK_BOT_TEST: "0" },
+    { DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/1000/bus" },
+    { DISPLAY: ":0" },
   ])
     assert.notEqual(base, relayProfile({ ...env, ...extra }));
   assert.ok(

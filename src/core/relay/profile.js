@@ -30,6 +30,9 @@ export function relayProfile(env = process.env) {
     "GROK_BOT_ALLOW_ANY_GATEWAY",
     "GROK_BOT_TEST",
     "NODE_ENV",
+    // Secret Service credentials depend on the caller's desktop session.
+    "DBUS_SESSION_BUS_ADDRESS",
+    "DISPLAY",
   ];
   return digest(
     JSON.stringify([
