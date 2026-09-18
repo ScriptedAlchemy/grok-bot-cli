@@ -1,5 +1,11 @@
 # grok-bot-cli
 
+## 0.9.1
+
+### Patch Changes
+
+- c49a0b8: Ship generated host marketplaces and the complete Agent Bundle artifact in the GitHub repository so Codex, Claude Code, and Cursor can install it without a local build.
+
 ## 0.9.0
 
 ### Minor Changes

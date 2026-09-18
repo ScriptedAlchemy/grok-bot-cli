@@ -107394,48 +107394,48 @@ __webpack_require__.r(__webpack_exports__);
 /* import */ var agent_bundle_mcp_server_runtime__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/mcp-server-runtime.js");
 /* import */ var _agent_bundle_runtime_lineage__rspack_import_16 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/lineage.js");
 /* import */ var agent_bundle_mcp_apps__rspack_import_2 = __webpack_require__("./.agent-bundle-virtual/mcp-grok-bot-b8c2461e-0.mjs");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3 = __webpack_require__("./src/mcp/grok-bot/tools/codex_send.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4 = __webpack_require__("./src/mcp/grok-bot/tools/codex_threads.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5 = __webpack_require__("./src/mcp/grok-bot/tools/codex_wait.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6 = __webpack_require__("./src/mcp/grok-bot/tools/codex_watch.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_start.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_status.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_stop.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_codex_respond.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_approvals.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_respond.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_send.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_thread.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3 = __webpack_require__("./src/mcp/grok-bot/tools/codex_send.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4 = __webpack_require__("./src/mcp/grok-bot/tools/codex_threads.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5 = __webpack_require__("./src/mcp/grok-bot/tools/codex_wait.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6 = __webpack_require__("./src/mcp/grok-bot/tools/codex_watch.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_start.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_status.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_stop.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_codex_respond.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_approvals.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_respond.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_send.tsx");
+/* import */ var _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_thread.tsx");
 
 
 
 
 
 
-const route0 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3);
+const route0 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3);
 
-const route1 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4);
+const route1 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4);
 
-const route2 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5);
+const route2 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5);
 
-const route3 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6);
+const route3 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6);
 
-const route4 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7);
+const route4 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7);
 
-const route5 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8);
+const route5 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8);
 
-const route6 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9);
+const route6 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9);
 
-const route7 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10);
+const route7 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10);
 
-const route8 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11);
+const route8 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11);
 
-const route9 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12);
+const route9 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12);
 
-const route10 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13);
+const route10 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13);
 
-const route11 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14);
-const ARTIFACT_EPOCH = "gbot@0.9.0";
+const route11 = Object.assign({}, Reflect.get(_home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14, 'default'), _home_runner_work_grok_bot_cli_grok_bot_cli_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14);
+const ARTIFACT_EPOCH = "gbot@0.9.1";
 const pluginRoot = (0,_agent_bundle_runtime__rspack_import_15/* .resolvePluginRoot */.E7)({
     fallback: (0,node_url__rspack_import_0.fileURLToPath)(new URL('..', import.meta.url)),
     stateAnchor: 'user-data'
@@ -107993,7 +107993,7 @@ const routes = Object.freeze({
         lineage: lineage.registry,
         plugin: {
             "name": "gbot",
-            "version": "0.9.0"
+            "version": "0.9.1"
         },
         pluginRoot: pluginRoot.identity,
         routes
@@ -112281,7 +112281,7 @@ __webpack_require__.d(__webpack_exports__, {
 
 },
 "./package.json"(module) {
-module.exports = {"rE":"0.9.0"}
+module.exports = {"rE":"0.9.1"}
 
 },
 
