@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
+
+import { inspect, readArtifactManifest } from "agent-bundle/api";
 
 const packageJson = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
@@ -10,7 +12,8 @@ const packageJson = JSON.parse(
 const readJson = (path) =>
   JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 
-const artifactManifest = readJson("../artifact/agent-bundle.manifest.json");
+const projectRoot = fileURLToPath(new URL("../", import.meta.url));
+const artifactRoot = fileURLToPath(new URL("../artifact/", import.meta.url));
 
 test("npm package metadata identifies the public source repository", () => {
   assert.deepEqual(packageJson.repository, {
@@ -39,14 +42,16 @@ test("repository marketplaces install the committed artifact", () => {
   assert.equal(cursor.plugins[0].source, "./artifact");
 });
 
-test("committed artifact matches every recorded source input", () => {
-  for (const input of artifactManifest.compiler.project.sourceInputs) {
-    const source = new URL(`../${input.path}`, import.meta.url);
-    assert.equal(
-      createHash("sha256").update(readFileSync(source)).digest("hex"),
-      input.sha256,
-      input.path,
-    );
-    assert.equal(Boolean(statSync(source).mode & 0o111), input.executable, input.path);
-  }
+test("committed artifact matches the complete source snapshot", async () => {
+  const [source, artifact] = await Promise.all([
+    inspect({ root: projectRoot }),
+    readArtifactManifest(artifactRoot),
+  ]);
+
+  assert.equal(source.state, "ready");
+  assert.equal(artifact.status, "ok");
+  assert.deepEqual(
+    artifact.manifest.compiler.project.sourceInputs,
+    source.projectContext.sourceInputs,
+  );
 });
