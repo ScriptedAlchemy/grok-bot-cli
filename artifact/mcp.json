@@ -1,0 +1,1 @@
+{"$schema":"https://agent-plugins.org/schemas/1.0.0/mcp.schema.json","mcpServers":{"grok-bot":{"args":["mcp/mcp-grok-bot-b8c2461e.mjs"],"command":"node","cwd":"${PLUGIN_ROOT}","env":{"AGENT_BUNDLE_PLUGIN_ROOT":"${PLUGIN_ROOT}"},"type":"stdio"}}}

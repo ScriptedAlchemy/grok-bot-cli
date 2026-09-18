@@ -1,0 +1,1 @@
+{"interface":{"displayName":"gbot"},"name":"gbot-marketplace","plugins":[{"category":"Productivity","name":"gbot","policy":{"authentication":"ON_INSTALL","installation":"AVAILABLE"},"source":{"path":"./artifact","source":"local"}}]}

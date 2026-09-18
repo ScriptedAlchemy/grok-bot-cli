@@ -26,6 +26,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate committed distribution
+        run: |
+          npm run validate:artifact
+          node --test test/release-config.test.js
+
       - name: Validate, build, typecheck, and test
         run: npm run check
 
