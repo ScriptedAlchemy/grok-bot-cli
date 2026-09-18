@@ -61032,7 +61032,7 @@ __webpack_require__.d(__webpack_exports__, {
 
 },
 "./package.json"(module) {
-module.exports = {"rE":"0.9.0"}
+module.exports = {"rE":"0.9.1"}
 
 },
 
