@@ -6,7 +6,7 @@ export default defineConfig({
   },
   lib: false,
   marketplace: true,
-  output: { distPath: 'artifact' },
+  output: { distPath: 'artifact', repositoryMarketplace: true },
   plugin: {
     description:
       'Message Grok Bot from Codex, Claude Code, and Cursor, with managed automatic replies and explicit Codex conversation links.',

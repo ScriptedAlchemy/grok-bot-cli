@@ -1,0 +1,1 @@
+{"mcpServers":{"grok-bot":{"args":["./mcp/mcp-grok-bot-b8c2461e.mjs"],"command":"node","cwd":"./","env":{"AGENT_BUNDLE_PLUGIN_ROOT":"./"},"type":"stdio"}}}

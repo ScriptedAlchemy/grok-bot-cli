@@ -217,6 +217,20 @@ Codex conversation, and managed bridge tools, plus a `talk-to-grok-bot` skill.
 The tools bundle this repository's gateway client and worker, so the installed
 plugin does not need `gbot` on `PATH`.
 
+Install the committed bundle directly from GitHub without cloning or building it:
+
+```sh
+codex plugin marketplace add ScriptedAlchemy/grok-bot-cli
+codex plugin add gbot@gbot-marketplace
+
+claude plugin marketplace add ScriptedAlchemy/grok-bot-cli
+claude plugin install gbot@gbot-marketplace
+```
+
+Cursor users can add `https://github.com/ScriptedAlchemy/grok-bot-cli` as a
+marketplace repository from Customize → Plugins. The repository-root host
+marketplaces all point at the committed `artifact/` bundle.
+
 Install the bundled host projections from the same npm package:
 
 ```sh

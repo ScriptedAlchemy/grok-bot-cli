@@ -1,0 +1,1 @@
+{"name":"gbot-marketplace","owner":{"name":"gbot"},"plugins":[{"description":"Message Grok Bot from Codex, Claude Code, and Cursor, with managed automatic replies and explicit Codex conversation links.","name":"gbot","source":"./"}]}
