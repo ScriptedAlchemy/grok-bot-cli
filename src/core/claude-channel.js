@@ -52,10 +52,10 @@ export async function openClaudeChannel({ name, notify, directory = defaultDirec
   const server = createServer(socket => {
     if (clients.size >= 32) { socket.destroy(); return; }
     clients.add(socket);
-    socket.setTimeout(125000, () => socket.destroy());
+    const lifetime = setTimeout(() => socket.destroy(), 125000);
     let id, timer = setTimeout(() => socket.destroy(), 5000);
     socket.on('error', () => {});
-    socket.on('close', () => { clearTimeout(timer); clients.delete(socket); if (id) pending.delete(id); });
+    socket.on('close', () => { clearTimeout(timer); clearTimeout(lifetime); clients.delete(socket); if (id) pending.delete(id); });
     readFrame(socket, input => {
       let message, wait;
       try { message = messageText(input.message); wait = timeout(input.timeoutMs); }
