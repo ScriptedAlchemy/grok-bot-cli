@@ -10986,6 +10986,55 @@ if (process.env.NODE_ENV === 'production') {
 
 
 },
+"./src/core/claude-routes.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+/* import */ var zod__rspack_import_1 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
+/* import */ var _claude_channel_js__rspack_import_0 = __webpack_require__("./src/core/claude-channel.js");
+
+
+const inputSchema = zod__rspack_import_1/* .object */.Ikc({
+    name: zod__rspack_import_1/* .string */.YjP().regex(/^[a-zA-Z0-9_-]{1,32}$/).describe('Explicit name of the live Claude channel.'),
+    message: zod__rspack_import_1/* .string */.YjP().min(1).max(65536),
+    timeoutMs: zod__rspack_import_1/* .number */.aig().int().min(1).max(120000).default(60000)
+}).strict();
+const resultSchema = zod__rspack_import_1/* .object */.Ikc({
+    delivery: zod__rspack_import_1/* ["enum"] */.k5n([
+        'replied',
+        'unknown',
+        'rejected'
+    ]),
+    requestId: zod__rspack_import_1/* .string */.YjP().optional(),
+    reply: zod__rspack_import_1/* .string */.YjP().optional(),
+    error: zod__rspack_import_1/* .string */.YjP().optional(),
+    exitCode: zod__rspack_import_1/* .union */.KCZ([
+        zod__rspack_import_1/* .literal */.euz(0),
+        zod__rspack_import_1/* .literal */.euz(1)
+    ])
+}).strict();
+async function sendOperation(input) {
+    try {
+        const result = await (0,_claude_channel_js__rspack_import_0/* .sendToClaude */.s)(input);
+        return {
+            ...result,
+            exitCode: result.delivery === 'replied' ? 0 : 1
+        };
+    } catch (error) {
+        return {
+            delivery: 'rejected',
+            error: error instanceof Error ? error.message : String(error),
+            exitCode: 1
+        };
+    }
+}
+
+__webpack_require__.d(__webpack_exports__, {
+  UP: () => (sendOperation)
+}, {
+  FD: resultSchema,
+  is: inputSchema
+});
+
+
+},
 "./src/core/codex/routes.ts"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
 /* import */ var zod__rspack_import_3 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
 /* import */ var _codex_bridge_js__rspack_import_0 = __webpack_require__("./src/core/codex-bridge.js");
@@ -11536,6 +11585,65 @@ __webpack_require__.d(__webpack_exports__, {
   rW: summarizeTarget,
   xw: transcriptEntries,
   yF: withRedactedErrors
+});
+
+
+},
+"./src/mcp/grok-bot/tools/claude_send.tsx"(__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+__webpack_require__.r(__webpack_exports__);
+/* import */ var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.js");
+/* import */ var _agent_bundle_runtime__rspack_import_3 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
+/* import */ var agent_bundle_routes__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/routes.js");
+/* import */ var _core_claude_routes_js__rspack_import_2 = __webpack_require__("./src/core/claude-routes.ts");
+
+
+
+
+
+/* export default */ const __rspack_default_export = ((0,agent_bundle_routes__rspack_import_1/* .defineTool */.uO)({
+    title: 'Message Claude Code',
+    description: 'Send to a named, opted-in live Claude Code channel and wait for its reply. Unknown delivery must not be retried automatically.',
+    annotations: {
+        readOnlyHint: false
+    },
+    inputSchema: _core_claude_routes_js__rspack_import_2/* .inputSchema */.is,
+    resultSchema: _core_claude_routes_js__rspack_import_2/* .resultSchema */.FD,
+    inputJsonSchema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+            name: {
+                type: 'string'
+            },
+            message: {
+                type: 'string'
+            },
+            timeoutMs: {
+                type: 'number'
+            }
+        },
+        required: [
+            'name',
+            'message'
+        ]
+    },
+    render: {
+        maxElapsedMs: 130000
+    }
+}, async (input)=>{
+    const result = await (0,_core_claude_routes_js__rspack_import_2/* .sendOperation */.UP)(input);
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
+        value: result,
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
+            children: result.reply ?? result.error ?? result.delivery
+        })
+    });
+}));
+
+__webpack_require__.d(__webpack_exports__, {
+  inputSchema: () => (/* reexport safe */ _core_claude_routes_js__rspack_import_2.is)
+}, {
+  "default": __rspack_default_export
 });
 
 
@@ -107973,61 +108081,99 @@ __webpack_require__.d(__webpack_exports__, {
 "./.agent-bundle-virtual/mcp-grok-bot-b8c2461e-1.mjs"(__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
 /* import */ var node_url__rspack_import_0 = __webpack_require__("node:url");
-/* import */ var _agent_bundle_runtime__rspack_import_15 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
+/* import */ var _agent_bundle_runtime__rspack_import_16 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
 /* import */ var agent_bundle_mcp_server_runtime__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/mcp-server-runtime.js");
-/* import */ var _agent_bundle_runtime_lineage__rspack_import_16 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/lineage.js");
+/* import */ var _agent_bundle_runtime_lineage__rspack_import_17 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/lineage.js");
 /* import */ var agent_bundle_mcp_apps__rspack_import_2 = __webpack_require__("./.agent-bundle-virtual/mcp-grok-bot-b8c2461e-0.mjs");
-/* import */ var _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3 = __webpack_require__("./src/mcp/grok-bot/tools/codex_send.tsx");
-/* import */ var _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4 = __webpack_require__("./src/mcp/grok-bot/tools/codex_threads.tsx");
-/* import */ var _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5 = __webpack_require__("./src/mcp/grok-bot/tools/codex_wait.tsx");
-/* import */ var _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6 = __webpack_require__("./src/mcp/grok-bot/tools/codex_watch.tsx");
-/* import */ var _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_start.tsx");
-/* import */ var _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_status.tsx");
-/* import */ var _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_stop.tsx");
-/* import */ var _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_codex_respond.tsx");
-/* import */ var _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_approvals.tsx");
-/* import */ var _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_respond.tsx");
-/* import */ var _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_send.tsx");
-/* import */ var _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_thread.tsx");
+/* import */ var _src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_3 = __webpack_require__("./src/mcp/grok-bot/tools/claude_send.tsx");
+/* import */ var _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_4 = __webpack_require__("./src/mcp/grok-bot/tools/codex_send.tsx");
+/* import */ var _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_5 = __webpack_require__("./src/mcp/grok-bot/tools/codex_threads.tsx");
+/* import */ var _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_6 = __webpack_require__("./src/mcp/grok-bot/tools/codex_wait.tsx");
+/* import */ var _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_7 = __webpack_require__("./src/mcp/grok-bot/tools/codex_watch.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_8 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_start.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_9 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_status.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_10 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_stop.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_11 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_codex_respond.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_12 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_approvals.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_13 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_respond.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_14 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_send.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_15 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_thread.tsx");
 
 
 
 
 
 
-const route0 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3, 'default'), _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3);
+const route0 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_3, 'default'), _src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_3);
 
-const route1 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4, 'default'), _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4);
+const route1 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_4, 'default'), _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_4);
 
-const route2 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5, 'default'), _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5);
+const route2 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_5, 'default'), _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_5);
 
-const route3 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6, 'default'), _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6);
+const route3 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_6, 'default'), _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_6);
 
-const route4 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7);
+const route4 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_7, 'default'), _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_7);
 
-const route5 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8);
+const route5 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_8, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_8);
 
-const route6 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9);
+const route6 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_9, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_9);
 
-const route7 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10, 'default'), _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10);
+const route7 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_10, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_10);
 
-const route8 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11, 'default'), _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11);
+const route8 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_11, 'default'), _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_11);
 
-const route9 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12, 'default'), _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12);
+const route9 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_12, 'default'), _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_12);
 
-const route10 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13, 'default'), _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13);
+const route10 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_13, 'default'), _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_13);
 
-const route11 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14, 'default'), _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14);
+const route11 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_14, 'default'), _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_14);
+
+const route12 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_15, 'default'), _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_15);
 const ARTIFACT_EPOCH = "gbot@0.9.1";
-const pluginRoot = (0,_agent_bundle_runtime__rspack_import_15/* .resolvePluginRoot */.E7)({
+const pluginRoot = (0,_agent_bundle_runtime__rspack_import_16/* .resolvePluginRoot */.E7)({
     fallback: (0,node_url__rspack_import_0.fileURLToPath)(new URL('..', import.meta.url)),
     stateAnchor: 'user-data'
 });
 const openLineage = async ()=>({
         dispose: async ()=>undefined,
-        registry: (0,_agent_bundle_runtime_lineage__rspack_import_16/* .createAgentLineageRegistry */.Q5)()
+        registry: (0,_agent_bundle_runtime_lineage__rspack_import_17/* .createAgentLineageRegistry */.Q5)()
     });
 const routes = Object.freeze({
+    "tool:grok-bot/claude_send": Object.freeze({
+        config: {
+            "annotations": {
+                "readOnlyHint": false
+            },
+            "description": "Send to a named, opted-in live Claude Code channel and wait for its reply. Unknown delivery must not be retried automatically.",
+            "inputJsonSchema": {
+                "additionalProperties": false,
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "timeoutMs": {
+                        "type": "number"
+                    }
+                },
+                "required": [
+                    "name",
+                    "message"
+                ],
+                "type": "object"
+            },
+            "render": {
+                "maxElapsedMs": 130000
+            },
+            "title": "Message Claude Code"
+        },
+        id: "tool:grok-bot/claude_send",
+        kind: "tool",
+        module: route0,
+        name: "claude_send"
+    }),
     "tool:grok-bot/codex_send": Object.freeze({
         config: {
             "annotations": {
@@ -108105,7 +108251,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/codex_send",
         kind: "tool",
-        module: route0,
+        module: route1,
         name: "codex_send"
     }),
     "tool:grok-bot/codex_threads": Object.freeze({
@@ -108138,7 +108284,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/codex_threads",
         kind: "tool",
-        module: route1,
+        module: route2,
         name: "codex_threads"
     }),
     "tool:grok-bot/codex_wait": Object.freeze({
@@ -108187,7 +108333,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/codex_wait",
         kind: "tool",
-        module: route2,
+        module: route3,
         name: "codex_wait"
     }),
     "tool:grok-bot/codex_watch": Object.freeze({
@@ -108229,7 +108375,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/codex_watch",
         kind: "tool",
-        module: route3,
+        module: route4,
         name: "codex_watch"
     }),
     "tool:grok-bot/gbot_bridge_start": Object.freeze({
@@ -108270,7 +108416,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/gbot_bridge_start",
         kind: "tool",
-        module: route4,
+        module: route5,
         name: "gbot_bridge_start"
     }),
     "tool:grok-bot/gbot_bridge_status": Object.freeze({
@@ -108295,7 +108441,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/gbot_bridge_status",
         kind: "tool",
-        module: route5,
+        module: route6,
         name: "gbot_bridge_status"
     }),
     "tool:grok-bot/gbot_bridge_stop": Object.freeze({
@@ -108323,7 +108469,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/gbot_bridge_stop",
         kind: "tool",
-        module: route6,
+        module: route7,
         name: "gbot_bridge_stop"
     }),
     "tool:grok-bot/gbot_codex_respond": Object.freeze({
@@ -108381,7 +108527,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/gbot_codex_respond",
         kind: "tool",
-        module: route7,
+        module: route8,
         name: "gbot_codex_respond"
     }),
     "tool:grok-bot/gbot_grok_approvals": Object.freeze({
@@ -108411,7 +108557,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/gbot_grok_approvals",
         kind: "tool",
-        module: route8,
+        module: route9,
         name: "gbot_grok_approvals"
     }),
     "tool:grok-bot/gbot_grok_respond": Object.freeze({
@@ -108457,7 +108603,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/gbot_grok_respond",
         kind: "tool",
-        module: route9,
+        module: route10,
         name: "gbot_grok_respond"
     }),
     "tool:grok-bot/gbot_send": Object.freeze({
@@ -108517,7 +108663,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/gbot_send",
         kind: "tool",
-        module: route10,
+        module: route11,
         name: "gbot_send"
     }),
     "tool:grok-bot/gbot_thread": Object.freeze({
@@ -108562,7 +108708,7 @@ const routes = Object.freeze({
         },
         id: "tool:grok-bot/gbot_thread",
         kind: "tool",
-        module: route11,
+        module: route12,
         name: "gbot_thread"
     })
 });
@@ -108831,6 +108977,204 @@ function inspectGrokBotGatewaySession(options = {}) {
 __webpack_require__.d(__webpack_exports__, {
   Z2: () => (loadGrokBotGatewaySession),
   dQ: () => (grokBotGatewayDescriptorPath)
+});
+
+
+},
+"./src/core/claude-channel.js"(__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+/* import */ var node_crypto__rspack_import_0 = __webpack_require__("node:crypto");
+/* import */ var node_fs_promises__rspack_import_1 = __webpack_require__("node:fs/promises");
+/* import */ var node_net__rspack_import_2 = __webpack_require__("node:net");
+/* import */ var node_os__rspack_import_3 = __webpack_require__("node:os");
+/* import */ var node_path__rspack_import_4 = __webpack_require__("node:path");
+
+
+
+
+
+const MAX_BYTES = 65536;
+const FRAME_BYTES = MAX_BYTES * 6 + 1024;
+const defaultDirectory = ()=>(0,node_path__rspack_import_4.join)((0,node_os__rspack_import_3.homedir)(), '.grok-bot-cli', 'claude');
+function socketPath(name, directory) {
+    if (!/^[a-zA-Z0-9_-]{1,32}$/.test(name ?? '')) throw Error('Invalid Claude channel name');
+    if (process.platform === 'win32') throw Error('Claude channels currently require Unix sockets');
+    const path = (0,node_path__rspack_import_4.join)(directory, `${name}.sock`);
+    if (Buffer.byteLength(path) >= 104) throw Error('Claude channel socket path is too long');
+    return path;
+}
+function messageText(message) {
+    if (typeof message !== 'string' || !message.trim() || Buffer.byteLength(message) > MAX_BYTES) throw Error('Message must contain text within 64 KiB');
+    return message;
+}
+function timeout(value) {
+    if (!Number.isInteger(value) || value < 1 || value > 120000) throw Error('timeoutMs must be 1..120000');
+    return value;
+}
+async function privateDirectory(directory) {
+    const info = await (0,node_fs_promises__rspack_import_1.lstat)(directory);
+    if (!info.isDirectory() || info.uid !== process.getuid() || info.mode & 63) throw Error('Claude channel directory must be owned by this user with mode 0700');
+}
+function readFrame(socket, receive) {
+    let chunks = [], bytes = 0, finished = false;
+    socket.on('data', (chunk)=>{
+        if (finished) return;
+        bytes += chunk.length;
+        if (bytes > FRAME_BYTES) {
+            finished = true;
+            socket.destroy();
+            return;
+        }
+        chunks.push(chunk);
+        if (!chunk.includes(10)) return;
+        finished = true;
+        try {
+            receive(JSON.parse(Buffer.concat(chunks).toString('utf8').split('\n')[0]));
+        } catch  {
+            socket.destroy();
+        }
+        chunks = [];
+    });
+}
+/** One explicitly enabled live session, with the user's filesystem permissions as its sender gate. */ async function openClaudeChannel({ name, notify, directory = defaultDirectory() }) {
+    const path = socketPath(name, directory);
+    await mkdir(directory, {
+        recursive: true,
+        mode: 448
+    });
+    await privateDirectory(directory);
+    const pending = new Map(), clients = new Set();
+    const server = createServer((socket)=>{
+        if (clients.size >= 32) {
+            socket.destroy();
+            return;
+        }
+        clients.add(socket);
+        const lifetime = setTimeout(()=>socket.destroy(), 125000);
+        let id, timer = setTimeout(()=>socket.destroy(), 5000);
+        socket.on('error', ()=>{});
+        socket.on('close', ()=>{
+            clearTimeout(timer);
+            clearTimeout(lifetime);
+            clients.delete(socket);
+            if (id) pending.delete(id);
+        });
+        readFrame(socket, (input)=>{
+            let message, wait;
+            try {
+                message = messageText(input.message);
+                wait = timeout(input.timeoutMs);
+            } catch (error) {
+                socket.end(JSON.stringify({
+                    delivery: 'rejected',
+                    error: error.message
+                }) + '\n');
+                return;
+            }
+            clearTimeout(timer);
+            id = randomUUID();
+            const finish = (result)=>{
+                if (!pending.has(id)) return;
+                clearTimeout(timer);
+                pending.delete(id);
+                socket.end(JSON.stringify({
+                    requestId: id,
+                    ...result
+                }) + '\n');
+            };
+            pending.set(id, finish);
+            timer = setTimeout(()=>finish({
+                    delivery: 'unknown',
+                    error: 'No Claude reply before deadline; do not automatically resend.'
+                }), wait);
+            Promise.resolve().then(()=>notify({
+                    content: message,
+                    meta: {
+                        request_id: id
+                    }
+                })).catch(()=>finish({
+                    delivery: 'unknown',
+                    error: 'Channel notification failed; delivery is uncertain.'
+                }));
+        });
+    });
+    await new Promise((resolve, reject)=>{
+        server.once('error', reject);
+        server.listen(path, resolve);
+    });
+    try {
+        await chmod(path, 384);
+    } catch (error) {
+        await new Promise((resolve)=>server.close(resolve));
+        await unlink(path).catch(()=>{});
+        throw error;
+    }
+    let closed = false;
+    return {
+        socketPath: path,
+        reply (requestId, text) {
+            messageText(text);
+            const finish = pending.get(requestId);
+            if (!finish) throw Error('No pending request with that ID (expired or already replied)');
+            finish({
+                delivery: 'replied',
+                reply: text
+            });
+        },
+        async close () {
+            if (closed) return;
+            closed = true;
+            for (const client of clients)client.destroy();
+            await new Promise((resolve)=>server.close(resolve));
+            await unlink(path).catch((error)=>{
+                if (error.code !== 'ENOENT') throw error;
+            });
+        }
+    };
+}
+async function sendToClaude({ name, message, timeoutMs = 60000, directory = defaultDirectory() }) {
+    const path = socketPath(name, directory);
+    messageText(message);
+    timeout(timeoutMs);
+    await privateDirectory(directory);
+    const info = await (0,node_fs_promises__rspack_import_1.lstat)(path);
+    if (!info.isSocket() || info.uid !== process.getuid() || info.mode & 63) throw Error('Claude channel socket is not private to this user');
+    return new Promise((resolve, reject)=>{
+        const socket = (0,node_net__rspack_import_2.connect)(path);
+        let sent = false, settled = false;
+        const finish = (error, result)=>{
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            socket.destroy();
+            error ? reject(error) : resolve(result);
+        };
+        const lost = (error)=>sent ? finish(null, {
+                delivery: 'unknown',
+                error: 'Claude channel connection lost; do not automatically resend.'
+            }) : finish(error);
+        const timer = setTimeout(()=>lost(Error('Claude channel connection timed out')), timeoutMs + 1000);
+        socket.once('error', lost);
+        socket.once('close', ()=>lost(Error('Claude channel closed')));
+        socket.once('connect', ()=>{
+            sent = true;
+            socket.write(JSON.stringify({
+                message,
+                timeoutMs
+            }) + '\n');
+        });
+        readFrame(socket, (result)=>{
+            if (![
+                'replied',
+                'unknown',
+                'rejected'
+            ].includes(result?.delivery) || result.delivery === 'replied' && (typeof result.reply !== 'string' || typeof result.requestId !== 'string')) return lost(Error('Invalid Claude channel reply'));
+            finish(null, result);
+        });
+    });
+}
+
+__webpack_require__.d(__webpack_exports__, {
+  s: () => (sendToClaude)
 });
 
 
