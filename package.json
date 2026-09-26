@@ -55,13 +55,13 @@
     "LICENSE"
   ],
   "devDependencies": {
-    "@agent-bundle/runtime": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/@agent-bundle/runtime@b4e38409f4",
+    "@agent-bundle/runtime": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/@agent-bundle/runtime@899755dc6d",
     "@changesets/cli": "3.0.3",
     "@modelcontextprotocol/server": "2.0.0",
     "@rstest/core": "0.11.12",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.18",
-    "agent-bundle": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/agent-bundle@b4e38409f4",
+    "agent-bundle": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/agent-bundle@899755dc6d",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "typescript": "7.0.2",
