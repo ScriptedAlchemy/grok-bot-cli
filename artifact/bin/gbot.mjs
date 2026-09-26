@@ -87325,7 +87325,7 @@ if (import.meta.main) {
         execute,
         name: "gbot",
         render,
-        version: "0.9.0"
+        version: "0.9.1"
     });
 }
 
@@ -92001,7 +92001,7 @@ __webpack_require__.d(__webpack_exports__, {
 
 },
 "./package.json"(module) {
-module.exports = {"rE":"0.9.0"}
+module.exports = {"rE":"0.9.1"}
 
 },
 
