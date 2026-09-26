@@ -1,5 +1,16 @@
 # grok-bot-cli
 
+## 0.10.0
+
+### Minor Changes
+
+- a619538: Add an opt-in native Claude Code channel, with private local messaging and correlated replies through `gbot claude send` and `claude_send`.
+
+### Patch Changes
+
+- 75521df: Update agent-bundle to the 0.3.1 release preview (899755dc6d) and rebuild the plugin artifact.
+- 3f64ac2: Update agent-bundle to b4e38409f4 so generated executables no longer ship bundled dependencies' comments.
+
 ## 0.9.1
 
 ### Patch Changes
