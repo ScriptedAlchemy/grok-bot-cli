@@ -108018,7 +108018,7 @@ const route9 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_r
 const route10 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13, 'default'), _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13);
 
 const route11 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14, 'default'), _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14);
-const ARTIFACT_EPOCH = "gbot@0.9.0";
+const ARTIFACT_EPOCH = "gbot@0.9.1";
 const pluginRoot = (0,_agent_bundle_runtime__rspack_import_15/* .resolvePluginRoot */.E7)({
     fallback: (0,node_url__rspack_import_0.fileURLToPath)(new URL('..', import.meta.url)),
     stateAnchor: 'user-data'
@@ -108576,7 +108576,7 @@ const routes = Object.freeze({
         lineage: lineage.registry,
         plugin: {
             "name": "gbot",
-            "version": "0.9.0"
+            "version": "0.9.1"
         },
         pluginRoot: pluginRoot.identity,
         routes
@@ -112864,7 +112864,7 @@ __webpack_require__.d(__webpack_exports__, {
 
 },
 "./package.json"(module) {
-module.exports = {"rE":"0.9.0"}
+module.exports = {"rE":"0.9.1"}
 
 },
 
