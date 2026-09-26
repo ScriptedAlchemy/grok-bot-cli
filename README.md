@@ -59,6 +59,45 @@ Options are command-local (for example, `gbot send --history-dir DIR ...`);
 a JSON document on stdout with `exitCode` (see below), every other command
 prints the failure message on stderr and exits 1.
 
+## Messaging a live Claude Code session
+
+Claude Code has a native [Channels API](https://code.claude.com/docs/en/channels-reference),
+so this integration needs no desktop shim. The Claude plugin includes an opt-in
+`claude-channel` MCP server; Codex and Grok callers can use `claude_send`, or the
+local CLI, to send a message and receive Claude's explicit reply.
+
+After installing this version of the Claude plugin, launch a named session:
+
+```sh
+GROK_BOT_CLAUDE_CHANNEL=review claude --dangerously-load-development-channels plugin:gbot@gbot-marketplace
+# From another terminal on the same machine and user account:
+gbot claude send review "Reply with GBOT_CLAUDE_OK" --json
+```
+
+Accept Claude's development-channel prompt. Custom channels are a research preview
+and require session opt-in and any applicable organization policy. Claude must be
+signed in. The development flag permits this channel; it does not bypass tool
+approvals. `claude_send` takes `name`, `message`, and optional `timeoutMs` (default
+60000, maximum 120000). Claude uses `claude_reply` with the incoming `request_id`.
+Only that explicit reply completes the call; a notification alone is not proof
+Claude received or processed the message. Timeout/disconnect returns `unknown`;
+do not automatically resend.
+
+Each name selects one live session. Sockets live under `~/.grok-bot-cli/claude/`
+in a user-owned 0700 directory, with mode 0600 sockets. Access grants messaging
+to local processes running as the same user. No TCP listener, automatic permission
+approval, conversation-history scraping, or background daemon is installed.
+Without `GROK_BOT_CLAUDE_CHANNEL`, the channel is disabled. Shut down the owning
+Claude session to close it. A crashed process may leave a socket: confirm the
+named session is stopped before removing that socket and restarting. A second
+session with the same name fails rather than taking over the first.
+
+This targets opted-in Claude Code sessions, not arbitrary existing sessions or
+ordinary Claude Desktop chats. Remote Grok runtimes need local tool execution to
+reach the socket; installing an MCP artifact does not establish that connection.
+Claude can use the existing `gbot_send`/`gbot_thread` and `codex_send` tools for
+outgoing messages; its own tool permissions still apply.
+
 ## Automatic Grok ↔ Codex replies
 
 In a native Codex invocation, `gbot_send` sends once and returns a durable exchange

@@ -5,6 +5,8 @@ export default defineConfig({
     'gbot-install': './src/gbot-install.ts',
   },
   lib: false,
+  mcp: { servers: { 'claude-channel': { targets: ['claude'] } } },
+  claude: { channels: [{ server: 'claude-channel' }] },
   marketplace: true,
   output: { distPath: 'artifact', repositoryMarketplace: true },
   plugin: {
