@@ -10,6 +10,7 @@ const dir = join(root, "test");
 // also assume Unix sockets, /tmp, shebang binaries, or process.getuid().
 // Portable suites still run so Package CI can pass on windows-latest.
 const skipOnWindows = new Set([
+  "test/claude-channel.test.js",
   "test/codex-bridge.test.js",
   "test/codex-conversation.test.js",
   "test/codex-session.test.js",

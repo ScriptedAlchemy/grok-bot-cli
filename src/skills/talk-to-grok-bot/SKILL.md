@@ -110,6 +110,17 @@ options before submission; use plain `codex_send` for a caller-selected turn gua
 An explicit Grok target supplied with `bindingId` must resolve to the binding's
 recipient. A mismatch fails instead of selecting one destination silently.
 
+## Claude Code channel
+
+`claude_send` sends to a named live Claude Code session on this machine and waits
+for its explicit `claude_reply`. The destination must enable the native
+`claude-channel` with `GROK_BOT_CLAUDE_CHANNEL=NAME` and Claude's development-channel
+opt-in. Supply `name`, `message`, and optional `timeoutMs` (1..120000). `replied`
+means the reply tool ran; `unknown` is not rejection and must not be automatically
+retried. Normal Claude tool approvals remain in its session. This does not attach
+to arbitrary Claude Desktop chats or connect a remote Grok runtime to local tools.
+CLI: `gbot claude send NAME "message" --json`.
+
 ## Host tool inventory
 
 Codex MCP clients receive Grok messaging and approval tools; truthfully identified
