@@ -1,5 +1,12 @@
 # grok-bot-cli
 
+## 0.9.1
+
+### Patch Changes
+
+- f2482eb: Build the plugin with the agent-bundle 0.3.0 pkg.pr.new preview (4f62216f30).
+- c49a0b8: Ship generated host marketplaces and the complete Agent Bundle artifact in the GitHub repository so Codex, Claude Code, and Cursor can install it without a local build.
+
 ## 0.9.0
 
 ### Minor Changes
