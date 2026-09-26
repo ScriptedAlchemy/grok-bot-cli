@@ -1,1 +1,1 @@
-{"author":{"name":"gbot"},"channels":[{"server":"claude-channel"}],"description":"Message Grok Bot from Codex, Claude Code, and Cursor, with managed automatic replies and explicit Codex conversation links.","name":"gbot","version":"0.9.1"}
+{"author":{"name":"gbot"},"channels":[{"server":"claude-channel"}],"description":"Message Grok Bot from Codex, Claude Code, and Cursor, with managed automatic replies and explicit Codex conversation links.","name":"gbot","version":"0.10.0"}
