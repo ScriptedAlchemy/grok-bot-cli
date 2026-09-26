@@ -13564,9 +13564,9 @@ const config = {
 };
 async function route({ input }) {
     const out = await (0,_core_grok_approval_routes_js__rspack_import_1/* .listOperation */.gi)(input);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -13624,9 +13624,9 @@ const config = {
 };
 async function route({ input }) {
     const out = await (0,_core_grok_approval_routes_js__rspack_import_1/* .respondOperation */.lr)(input);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -13698,9 +13698,9 @@ async function botsCreate({ input }) {
     const { dir: _d, files: _f, gateway: _g, ...fields } = input;
     const rec = await backend.createAgent((0,_shared_js__rspack_import_1/* .toCreateInput */.cp)(fields));
     if (rec == null) throw new Error('createAgent returned no record');
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_3/* .summarize */.eh)(rec),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_2/* .Agent.Text */.g.Text, {
             children: `Created bot ${rec.name} (${rec.id})`
         })
     });
@@ -13766,9 +13766,9 @@ const resultSchema = _shared_js__rspack_import_1/* .agentSummarySchema */.t_;
 async function botsDelete({ input }) {
     const backend = await (0,_shared_js__rspack_import_1/* .openBackendFromInput */.FS)(input);
     const rec = await backend.deleteAgent(input.ref);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_4/* .summarize */.eh)(rec),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: `Deleted ${rec.isGroup ? 'group' : 'bot'} ${rec.name} (${rec.id})`
         })
     });
@@ -13835,9 +13835,9 @@ async function botsGet({ input }) {
     const backend = await (0,_shared_js__rspack_import_1/* .openBackendFromInput */.FS)(input);
     const rec = await backend.resolve(input.ref);
     const all = await backend.list();
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_4/* .summarize */.eh)(rec),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: (0,_core_format_js__rspack_import_4/* .formatRecord */.bM)(rec, all)
         })
     });
@@ -13894,9 +13894,9 @@ async function botsList({ input }) {
     const rows = all.filter((r)=>!r.isGroup);
     const bots = rows.map(_core_format_js__rspack_import_3/* .summarize */.eh);
     const text = rows.length === 0 ? 'No bots.' : rows.map((r)=>(0,_core_format_js__rspack_import_3/* .formatRecord */.bM)(r, all)).join('\n\n');
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: bots,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: text
         })
     });
@@ -13984,9 +13984,9 @@ async function botsUpdate({ input }) {
     const backend = await (0,_shared_js__rspack_import_1/* .openBackendFromInput */.FS)(input);
     const { dir: _d, files: _f, gateway: _g, ref, ...fields } = input;
     const rec = await backend.updateAgent(ref, (0,_shared_js__rspack_import_1/* .toUpdatePatch */.li)(fields));
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_4/* .summarize */.eh)(rec),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: `Updated ${rec.isGroup ? 'group' : 'bot'} ${rec.name} (${rec.id})`
         })
     });
@@ -14070,9 +14070,9 @@ async function route({ input }) {
     } catch (error) {
         out = (0,_core_codex_contract_js__rspack_import_2/* .outcomeFromError */.DG)(error);
     }
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -14161,12 +14161,12 @@ async function route({ signal, input }) {
     } finally{
         signal.removeEventListener('abort', stop);
     }
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g.Result, {
         value: {
             state: 'stopped',
             exitCode
         },
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g.Text, {
             children: "Relay worker stopped."
         })
     });
@@ -14239,9 +14239,9 @@ async function route({ input }) {
     } catch (error) {
         out = (0,_core_codex_contract_js__rspack_import_2/* .outcomeFromError */.DG)(error);
     }
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -14295,9 +14295,9 @@ async function route({ input }) {
     } catch (error) {
         out = (0,_core_codex_contract_js__rspack_import_2/* .outcomeFromError */.DG)(error);
     }
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -14354,9 +14354,9 @@ async function route({ input }) {
     } catch (error) {
         out = (0,_core_codex_contract_js__rspack_import_2/* .outcomeFromError */.DG)(error);
     }
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -14432,21 +14432,21 @@ async function codexDesktopShim({ input }) {
                     out = (0,_core_desktop_shim_js__rspack_import_1/* .installDesktopShim */.B0)();
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
-                    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+                    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
                         value: {
                             action: 'install',
                             error: message,
                             exitCode: 1
                         },
-                        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+                        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
                             children: `Desktop shim install failed: ${message}`
                         })
                     });
                 }
                 const text = `Installed ChatGPT Desktop shim:\n` + `  wrapper: ${out.wrapperPath}\n` + `  bridge: ${out.bridgePath}\n` + `  login env: ${out.envScriptPath}` + (out.plistPath ? `\n  LaunchAgent: ${out.plistPath}` : '\n  LaunchAgent: n/a (macOS-only)') + `\nFully quit and relaunch ChatGPT.app so it inherits CODEX_CLI_PATH; ` + `Desktop falls back to stock Codex if the shim is ever removed.` + formatWarnings(out.warnings);
-                return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+                return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
                     value: out,
-                    children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+                    children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
                         children: text
                     })
                 });
@@ -14458,22 +14458,22 @@ async function codexDesktopShim({ input }) {
                     out = (0,_core_desktop_shim_js__rspack_import_1/* .uninstallDesktopShim */.gM)();
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
-                    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+                    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
                         value: {
                             action: 'uninstall',
                             error: message,
                             exitCode: 1
                         },
-                        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+                        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
                             children: `Desktop shim uninstall failed: ${message}`
                         })
                     });
                 }
                 const removed = out.removed.length === 0 ? '(nothing installed)' : out.removed.join(', ');
                 const text = `Removed ChatGPT Desktop shim: ${removed}. ` + `Desktop and Codex fall back to stock behavior; relaunch ChatGPT.app to pick it up.` + formatWarnings(out.warnings);
-                return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+                return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
                     value: out,
-                    children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+                    children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
                         children: text
                     })
                 });
@@ -14481,9 +14481,9 @@ async function codexDesktopShim({ input }) {
         case 'status':
             {
                 const out = (0,_core_desktop_shim_js__rspack_import_1/* .desktopShimStatus */.em)();
-                return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+                return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
                     value: out,
-                    children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+                    children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
                         children: (0,_core_format_js__rspack_import_4/* .formatDesktopShimStatus */.fX)(out)
                     })
                 });
@@ -14563,21 +14563,21 @@ async function codexListThreads({ input }) {
         });
     } catch (error) {
         const failure = (0,_core_codex_contract_js__rspack_import_2/* .outcomeFromError */.DG)(error);
-        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g6.Result, {
+        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g.Result, {
             value: failure,
-            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g6.Text, {
+            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g.Text, {
                 children: failure.error
             })
         });
     }
     const more = out.nextCursor ? `\n\nmore: --cursor ${JSON.stringify((0,_core_codex_bridge_js__rspack_import_1/* .singleLine */.pF)(out.nextCursor))}` : '';
     const text = out.threads.length === 0 ? 'No Codex threads.' : out.threads.map(_core_format_js__rspack_import_6/* .formatCodexThread */.nz).join('\n\n') + more;
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g.Result, {
         value: {
             ...out,
             exitCode: 0
         },
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g.Text, {
             children: text
         })
     });
@@ -14650,19 +14650,19 @@ async function codexQueue({ input }) {
         out = await (0,_core_codex_bridge_js__rspack_import_1/* .listCodexQueue */.Bt)(input.threadId);
     } catch (error) {
         const failure = (0,_core_codex_contract_js__rspack_import_2/* .outcomeFromError */.DG)(error);
-        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g6.Result, {
+        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g.Result, {
             value: failure,
-            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g6.Text, {
+            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g.Text, {
                 children: failure.error
             })
         });
     }
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g.Result, {
         value: {
             ...out,
             exitCode: 0
         },
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g.Text, {
             children: (0,_core_format_js__rspack_import_6/* .formatCodexQueue */.e_)(out)
         })
     });
@@ -14793,12 +14793,12 @@ async function route({ input, signal }) {
             ...input,
             message: input.message.join(' ').trim()
         }, context);
-        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g6.Result, {
+        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g.Result, {
             value: {
                 ...out,
                 exitCode: out.delivery === 'rejected' ? 1 : 0
             },
-            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g6.Text, {
+            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g.Text, {
                 children: `Delivery ${out.delivery}; terminal answer returns to Grok automatically.`
             })
         });
@@ -14810,9 +14810,9 @@ async function route({ input, signal }) {
     }, signal, (message)=>context.progress.report({
             message
         }), true);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g.Text, {
             children: (0,_core_codex_routes_js__rspack_import_1/* .resultText */.D6)(out)
         })
     });
@@ -14858,9 +14858,9 @@ const resultSchema = zod__rspack_import_2/* .object */.Ikc({
 }).passthrough();
 async function codexStatusCmd(_props) {
     const status = await (0,_core_codex_bridge_js__rspack_import_1/* .codexStatus */.MU)();
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: status,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: (0,_core_format_js__rspack_import_4/* .formatCodexStatus */.P2)(status)
         })
     });
@@ -14932,9 +14932,9 @@ async function route({ input, signal }) {
     const out = await (0,_core_codex_routes_js__rspack_import_1/* .observeOperation */.gT)('wait', input, signal, (message)=>context.progress.report({
             message
         }));
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: (0,_core_codex_routes_js__rspack_import_1/* .resultText */.D6)(out)
         })
     });
@@ -14998,9 +14998,9 @@ async function route({ input, signal }) {
     const out = await (0,_core_codex_routes_js__rspack_import_1/* .observeOperation */.gT)('watch', input, signal, (message)=>context.progress.report({
             message
         }));
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: (0,_core_codex_routes_js__rspack_import_1/* .resultText */.D6)(out)
         })
     });
@@ -15103,9 +15103,9 @@ async function doctor({ input }) {
         ...candidates.map((c)=>`  ${c}`),
         note
     ].join('\n');
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Result */.g.Result, {
         value: value,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Text */.g.Text, {
             children: text
         })
     });
@@ -15176,9 +15176,9 @@ const resultSchema = _shared_js__rspack_import_1/* .agentSummarySchema */.t_;
 async function groupsAdd({ input }) {
     const backend = await (0,_shared_js__rspack_import_1/* .openBackendFromInput */.FS)(input);
     const rec = await backend.addGroupMember(input.group, input.bot);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_4/* .summarize */.eh)(rec),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: `Added to ${rec.name}. Members: ${rec.memberIds.length}`
         })
     });
@@ -15264,9 +15264,9 @@ async function groupsCreate({ input }) {
         ...(0,_shared_js__rspack_import_1/* .toCreateInput */.cp)(fields),
         memberIds: member
     });
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_4/* .summarize */.eh)(rec),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: `Created group ${rec.name} (${rec.id}) with ${rec.memberIds.length} members`
         })
     });
@@ -15334,9 +15334,9 @@ async function groupsDelete({ input }) {
     const rec = await backend.resolve(input.ref);
     if (!rec.isGroup) throw new Error(`"${rec.name}" is a bot, not a group. Use bots delete.`);
     const deleted = await backend.deleteAgent(input.ref);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_4/* .summarize */.eh)(deleted),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: `Deleted group ${deleted.name} (${deleted.id})`
         })
     });
@@ -15404,9 +15404,9 @@ async function groupsGet({ input }) {
     const rec = await backend.resolve(input.ref);
     if (!rec.isGroup) throw new Error(`"${rec.name}" is a bot, not a group.`);
     const all = await backend.list();
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_4/* .summarize */.eh)(rec),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: (0,_core_format_js__rspack_import_4/* .formatRecord */.bM)(rec, all)
         })
     });
@@ -15463,9 +15463,9 @@ async function groupsList({ input }) {
     const rows = all.filter((r)=>r.isGroup);
     const groups = rows.map(_core_format_js__rspack_import_3/* .summarize */.eh);
     const text = rows.length === 0 ? 'No groups.' : rows.map((r)=>(0,_core_format_js__rspack_import_3/* .formatRecord */.bM)(r, all)).join('\n\n');
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: groups,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: text
         })
     });
@@ -15533,9 +15533,9 @@ async function groupsMembers({ input }) {
     const rec = await backend.resolve(input.ref);
     if (!rec.isGroup) throw new Error(`"${rec.name}" is a bot, not a group.`);
     const all = await backend.list();
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_4/* .summarize */.eh)(rec),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: (0,_core_format_js__rspack_import_4/* .formatRecord */.bM)(rec, all)
         })
     });
@@ -15606,9 +15606,9 @@ const resultSchema = _shared_js__rspack_import_1/* .agentSummarySchema */.t_;
 async function groupsRemove({ input }) {
     const backend = await (0,_shared_js__rspack_import_1/* .openBackendFromInput */.FS)(input);
     const rec = await backend.removeGroupMember(input.group, input.bot);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_4/* .summarize */.eh)(rec),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: `Removed from ${rec.name}. Members: ${rec.memberIds.length}`
         })
     });
@@ -15682,9 +15682,9 @@ const resultSchema = _shared_js__rspack_import_1/* .agentSummarySchema */.t_;
 async function groupsSet({ input }) {
     const backend = await (0,_shared_js__rspack_import_1/* .openBackendFromInput */.FS)(input);
     const rec = await backend.setGroupMembers(input.group, input.member);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_4/* .summarize */.eh)(rec),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: `Updated ${rec.name}. Members: ${rec.memberIds.length}`
         })
     });
@@ -15774,9 +15774,9 @@ async function groupsUpdate({ input }) {
     if (!current.isGroup) throw new Error(`"${current.name}" is a bot, not a group. Use bots update.`);
     const { dir: _d, files: _f, gateway: _g, ref, ...fields } = input;
     const rec = await backend.updateAgent(ref, (0,_shared_js__rspack_import_1/* .toUpdatePatch */.li)(fields));
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: (0,_core_format_js__rspack_import_4/* .summarize */.eh)(rec),
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: `Updated group ${rec.name} (${rec.id})`
         })
     });
@@ -15852,11 +15852,11 @@ const resultSchema = zod__rspack_import_2/* .union */.KCZ([
 async function history({ input }) {
     const file = (0,_core_history_js__rspack_import_1/* .historyPath */.ae)(input.historyDir);
     if (input.path) {
-        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
             value: {
                 path: file
             },
-            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
                 children: file
             })
         });
@@ -15867,9 +15867,9 @@ async function history({ input }) {
         search: input.search
     });
     const text = rows.length ? rows.map((row)=>`[${row.recordedAt}] ${row.target.name} (${row.target.id}) [${row.role}] ${row.text}`).join('\n') : 'No local history.';
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: rows,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: text
         })
     });
@@ -16079,12 +16079,12 @@ async function send({ input }) {
                 hop: input.hop,
                 correlationId: input.correlationId
             }, await (0,_agent_bundle_runtime__rspack_import_7/* .agent */.MA)());
-            return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_8/* .Agent.Result */.g6.Result, {
+            return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_8/* .Agent.Result */.g.Result, {
                 value: {
                     ...out,
                     exitCode: out.delivery === 'rejected' ? 1 : 0
                 },
-                children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_8/* .Agent.Text */.g6.Text, {
+                children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_8/* .Agent.Text */.g.Text, {
                     children: `Delivery ${out.delivery}; inspect codex bridge status for automatic reply delivery.`
                 })
             });
@@ -16094,9 +16094,9 @@ async function send({ input }) {
         value = (0,_core_codex_contract_js__rspack_import_3/* .outcomeFromError */.DG)(error);
     }
     const text = value.exitCode === 0 ? `Sent to ${value.kind} ${value.name} (${value.id})${value.messageId ? ` message ${value.messageId}` : ''}; envelope ${value.envelopeId}` : value.error;
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_8/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_8/* .Agent.Result */.g.Result, {
         value: value,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_8/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_8/* .Agent.Text */.g.Text, {
             children: text
         })
     });
@@ -16169,9 +16169,9 @@ async function skillsAdd({ input }) {
     const markdown = await (0,node_fs_promises__rspack_import_1.readFile)(await skillFile(input.path), 'utf8');
     const backend = await (0,_shared_js__rspack_import_3/* .openBackendFromInput */.FS)(input);
     const skill = resultSchema.parse(await backend.addSkill(markdown));
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Result */.g.Result, {
         value: skill,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5/* .Agent.Text */.g.Text, {
             children: `Added skill ${skill.name} (${skill.id}) to the shared library`
         })
     });
@@ -16224,9 +16224,9 @@ async function skillsList({ input }) {
     const backend = await (0,_shared_js__rspack_import_1/* .openBackendFromInput */.FS)(input);
     const skills = resultSchema.parse(await backend.skills());
     const lines = skills.map((s)=>`${s.id}  ${s.name}  [${s.source}]${s.description ? `  ${s.description}` : ''}`);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: skills,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: lines.length > 0 ? lines.join('\n') : 'No skills.'
         })
     });
@@ -16290,9 +16290,9 @@ const resultSchema = _shared_js__rspack_import_1/* .skillSchema */.b7;
 async function skillsRemove({ input }) {
     const backend = await (0,_shared_js__rspack_import_1/* .openBackendFromInput */.FS)(input);
     const skill = resultSchema.parse(await backend.removeSkill(input.skill));
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: skill,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: `Removed skill ${skill.name} (${skill.id}) from the shared library`
         })
     });
@@ -16399,9 +16399,9 @@ async function thread({ input }) {
             event: 'thread',
             rootId: input.root
         });
-        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
             value: rooted,
-            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
                 children: (0,_core_format_js__rspack_import_5/* .formatTranscript */.oZ)(rooted, {
                     full: input.full
                 })
@@ -16431,9 +16431,9 @@ async function thread({ input }) {
         const text = (0,_core_format_js__rspack_import_5/* .formatTranscript */.oZ)(selected, {
             full: input.full
         });
-        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
             value: selected,
-            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
                 children: `${text}\n\ncursor: ${delta.cursor}${delta.gapReset ? ' (gap reset)' : ''}`
             })
         });
@@ -16443,9 +16443,9 @@ async function thread({ input }) {
         disabled: input.noHistory,
         event: 'thread'
     });
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: (0,_core_format_js__rspack_import_5/* .formatTranscript */.oZ)(out, {
                 full: input.full
             })
@@ -17415,50 +17415,11 @@ const Agent = Object.freeze({
     Result: AgentResult,
     Text: AgentText
 });
-const Result = ({ children })=>createElement('agent-hook-result', null, children);
-const AdditionalContext = ({ children })=>createElement('agent-hook-additional-context', null, children);
-const Hook = (/* unused pure expression or super */ null && ({
-    AdditionalContext: AdditionalContext,
-    Result: Result
-}));
-const McpResult = ({ _meta, children, isError, structuredContent })=>createElement('mcp-result', {
-        _meta,
-        isError,
-        structuredContent
-    }, children);
-const McpText = ({ children })=>createElement('mcp-text', null, children);
-const McpImage = ({ data, mimeType })=>createElement('mcp-image', {
-        data,
-        mimeType
-    });
-const McpAudio = ({ data, mimeType })=>createElement('mcp-audio', {
-        data,
-        mimeType
-    });
-const McpResourceLink = ({ mimeType, name, uri })=>createElement('mcp-resource-link', {
-        mimeType,
-        name,
-        uri
-    });
-const McpEmbeddedResource = ({ blob, children, mimeType, text, uri })=>createElement('mcp-embedded-resource', {
-        blob,
-        mimeType,
-        text,
-        uri
-    }, children);
-const Mcp = (/* unused pure expression or super */ null && ({
-    Audio: McpAudio,
-    EmbeddedResource: McpEmbeddedResource,
-    Image: McpImage,
-    ResourceLink: McpResourceLink,
-    Result: McpResult,
-    Text: McpText
-}));
 
 
 __webpack_require__.d(__webpack_exports__, {
 }, {
-  g6: Agent
+  g: Agent
 });
 
 
@@ -32455,116 +32416,116 @@ var __webpack_exports__ = {};
 /* import */ var _agent_bundle_runtime__rspack_import_38 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
 /* import */ var _agent_bundle_runtime__rspack_import_39 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
 /* import */ var node_url__rspack_import_2 = __webpack_require__("node:url");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_approvals_list_tsx__rspack_import_3 = __webpack_require__("./src/cli/approvals/list.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_approvals_respond_tsx__rspack_import_4 = __webpack_require__("./src/cli/approvals/respond.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_bots_create_tsx__rspack_import_5 = __webpack_require__("./src/cli/bots/create.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_bots_delete_tsx__rspack_import_6 = __webpack_require__("./src/cli/bots/delete.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_bots_get_tsx__rspack_import_7 = __webpack_require__("./src/cli/bots/get.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_bots_list_tsx__rspack_import_8 = __webpack_require__("./src/cli/bots/list.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_bots_update_tsx__rspack_import_9 = __webpack_require__("./src/cli/bots/update.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_bridge_respond_tsx__rspack_import_10 = __webpack_require__("./src/cli/codex/bridge/respond.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_bridge_run_tsx__rspack_import_11 = __webpack_require__("./src/cli/codex/bridge/run.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_bridge_start_tsx__rspack_import_12 = __webpack_require__("./src/cli/codex/bridge/start.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_bridge_status_tsx__rspack_import_13 = __webpack_require__("./src/cli/codex/bridge/status.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_bridge_stop_tsx__rspack_import_14 = __webpack_require__("./src/cli/codex/bridge/stop.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_desktop_shim_tsx__rspack_import_15 = __webpack_require__("./src/cli/codex/desktop-shim.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_list_threads_tsx__rspack_import_16 = __webpack_require__("./src/cli/codex/list-threads.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_queue_tsx__rspack_import_17 = __webpack_require__("./src/cli/codex/queue.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_send_tsx__rspack_import_18 = __webpack_require__("./src/cli/codex/send.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_status_tsx__rspack_import_19 = __webpack_require__("./src/cli/codex/status.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_wait_tsx__rspack_import_20 = __webpack_require__("./src/cli/codex/wait.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_codex_watch_tsx__rspack_import_21 = __webpack_require__("./src/cli/codex/watch.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_doctor_tsx__rspack_import_22 = __webpack_require__("./src/cli/doctor.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_groups_add_tsx__rspack_import_23 = __webpack_require__("./src/cli/groups/add.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_groups_create_tsx__rspack_import_24 = __webpack_require__("./src/cli/groups/create.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_groups_delete_tsx__rspack_import_25 = __webpack_require__("./src/cli/groups/delete.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_groups_get_tsx__rspack_import_26 = __webpack_require__("./src/cli/groups/get.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_groups_list_tsx__rspack_import_27 = __webpack_require__("./src/cli/groups/list.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_groups_members_tsx__rspack_import_28 = __webpack_require__("./src/cli/groups/members.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_groups_remove_tsx__rspack_import_29 = __webpack_require__("./src/cli/groups/remove.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_groups_set_tsx__rspack_import_30 = __webpack_require__("./src/cli/groups/set.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_groups_update_tsx__rspack_import_31 = __webpack_require__("./src/cli/groups/update.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_history_tsx__rspack_import_32 = __webpack_require__("./src/cli/history.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_send_tsx__rspack_import_33 = __webpack_require__("./src/cli/send.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_skills_add_tsx__rspack_import_34 = __webpack_require__("./src/cli/skills/add.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_skills_list_tsx__rspack_import_35 = __webpack_require__("./src/cli/skills/list.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_skills_remove_tsx__rspack_import_36 = __webpack_require__("./src/cli/skills/remove.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_cli_thread_tsx__rspack_import_37 = __webpack_require__("./src/cli/thread.tsx");
+/* import */ var _src_cli_approvals_list_tsx__rspack_import_3 = __webpack_require__("./src/cli/approvals/list.tsx");
+/* import */ var _src_cli_approvals_respond_tsx__rspack_import_4 = __webpack_require__("./src/cli/approvals/respond.tsx");
+/* import */ var _src_cli_bots_create_tsx__rspack_import_5 = __webpack_require__("./src/cli/bots/create.tsx");
+/* import */ var _src_cli_bots_delete_tsx__rspack_import_6 = __webpack_require__("./src/cli/bots/delete.tsx");
+/* import */ var _src_cli_bots_get_tsx__rspack_import_7 = __webpack_require__("./src/cli/bots/get.tsx");
+/* import */ var _src_cli_bots_list_tsx__rspack_import_8 = __webpack_require__("./src/cli/bots/list.tsx");
+/* import */ var _src_cli_bots_update_tsx__rspack_import_9 = __webpack_require__("./src/cli/bots/update.tsx");
+/* import */ var _src_cli_codex_bridge_respond_tsx__rspack_import_10 = __webpack_require__("./src/cli/codex/bridge/respond.tsx");
+/* import */ var _src_cli_codex_bridge_run_tsx__rspack_import_11 = __webpack_require__("./src/cli/codex/bridge/run.tsx");
+/* import */ var _src_cli_codex_bridge_start_tsx__rspack_import_12 = __webpack_require__("./src/cli/codex/bridge/start.tsx");
+/* import */ var _src_cli_codex_bridge_status_tsx__rspack_import_13 = __webpack_require__("./src/cli/codex/bridge/status.tsx");
+/* import */ var _src_cli_codex_bridge_stop_tsx__rspack_import_14 = __webpack_require__("./src/cli/codex/bridge/stop.tsx");
+/* import */ var _src_cli_codex_desktop_shim_tsx__rspack_import_15 = __webpack_require__("./src/cli/codex/desktop-shim.tsx");
+/* import */ var _src_cli_codex_list_threads_tsx__rspack_import_16 = __webpack_require__("./src/cli/codex/list-threads.tsx");
+/* import */ var _src_cli_codex_queue_tsx__rspack_import_17 = __webpack_require__("./src/cli/codex/queue.tsx");
+/* import */ var _src_cli_codex_send_tsx__rspack_import_18 = __webpack_require__("./src/cli/codex/send.tsx");
+/* import */ var _src_cli_codex_status_tsx__rspack_import_19 = __webpack_require__("./src/cli/codex/status.tsx");
+/* import */ var _src_cli_codex_wait_tsx__rspack_import_20 = __webpack_require__("./src/cli/codex/wait.tsx");
+/* import */ var _src_cli_codex_watch_tsx__rspack_import_21 = __webpack_require__("./src/cli/codex/watch.tsx");
+/* import */ var _src_cli_doctor_tsx__rspack_import_22 = __webpack_require__("./src/cli/doctor.tsx");
+/* import */ var _src_cli_groups_add_tsx__rspack_import_23 = __webpack_require__("./src/cli/groups/add.tsx");
+/* import */ var _src_cli_groups_create_tsx__rspack_import_24 = __webpack_require__("./src/cli/groups/create.tsx");
+/* import */ var _src_cli_groups_delete_tsx__rspack_import_25 = __webpack_require__("./src/cli/groups/delete.tsx");
+/* import */ var _src_cli_groups_get_tsx__rspack_import_26 = __webpack_require__("./src/cli/groups/get.tsx");
+/* import */ var _src_cli_groups_list_tsx__rspack_import_27 = __webpack_require__("./src/cli/groups/list.tsx");
+/* import */ var _src_cli_groups_members_tsx__rspack_import_28 = __webpack_require__("./src/cli/groups/members.tsx");
+/* import */ var _src_cli_groups_remove_tsx__rspack_import_29 = __webpack_require__("./src/cli/groups/remove.tsx");
+/* import */ var _src_cli_groups_set_tsx__rspack_import_30 = __webpack_require__("./src/cli/groups/set.tsx");
+/* import */ var _src_cli_groups_update_tsx__rspack_import_31 = __webpack_require__("./src/cli/groups/update.tsx");
+/* import */ var _src_cli_history_tsx__rspack_import_32 = __webpack_require__("./src/cli/history.tsx");
+/* import */ var _src_cli_send_tsx__rspack_import_33 = __webpack_require__("./src/cli/send.tsx");
+/* import */ var _src_cli_skills_add_tsx__rspack_import_34 = __webpack_require__("./src/cli/skills/add.tsx");
+/* import */ var _src_cli_skills_list_tsx__rspack_import_35 = __webpack_require__("./src/cli/skills/list.tsx");
+/* import */ var _src_cli_skills_remove_tsx__rspack_import_36 = __webpack_require__("./src/cli/skills/remove.tsx");
+/* import */ var _src_cli_thread_tsx__rspack_import_37 = __webpack_require__("./src/cli/thread.tsx");
 
 
 
 
 
 
-const route0 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_approvals_list_tsx__rspack_import_3, 'default'), _tmp_gbot_agent_bundle_native_src_cli_approvals_list_tsx__rspack_import_3);
+const route0 = Object.assign({}, Reflect.get(_src_cli_approvals_list_tsx__rspack_import_3, 'default'), _src_cli_approvals_list_tsx__rspack_import_3);
 
-const route1 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_approvals_respond_tsx__rspack_import_4, 'default'), _tmp_gbot_agent_bundle_native_src_cli_approvals_respond_tsx__rspack_import_4);
+const route1 = Object.assign({}, Reflect.get(_src_cli_approvals_respond_tsx__rspack_import_4, 'default'), _src_cli_approvals_respond_tsx__rspack_import_4);
 
-const route2 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_bots_create_tsx__rspack_import_5, 'default'), _tmp_gbot_agent_bundle_native_src_cli_bots_create_tsx__rspack_import_5);
+const route2 = Object.assign({}, Reflect.get(_src_cli_bots_create_tsx__rspack_import_5, 'default'), _src_cli_bots_create_tsx__rspack_import_5);
 
-const route3 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_bots_delete_tsx__rspack_import_6, 'default'), _tmp_gbot_agent_bundle_native_src_cli_bots_delete_tsx__rspack_import_6);
+const route3 = Object.assign({}, Reflect.get(_src_cli_bots_delete_tsx__rspack_import_6, 'default'), _src_cli_bots_delete_tsx__rspack_import_6);
 
-const route4 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_bots_get_tsx__rspack_import_7, 'default'), _tmp_gbot_agent_bundle_native_src_cli_bots_get_tsx__rspack_import_7);
+const route4 = Object.assign({}, Reflect.get(_src_cli_bots_get_tsx__rspack_import_7, 'default'), _src_cli_bots_get_tsx__rspack_import_7);
 
-const route5 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_bots_list_tsx__rspack_import_8, 'default'), _tmp_gbot_agent_bundle_native_src_cli_bots_list_tsx__rspack_import_8);
+const route5 = Object.assign({}, Reflect.get(_src_cli_bots_list_tsx__rspack_import_8, 'default'), _src_cli_bots_list_tsx__rspack_import_8);
 
-const route6 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_bots_update_tsx__rspack_import_9, 'default'), _tmp_gbot_agent_bundle_native_src_cli_bots_update_tsx__rspack_import_9);
+const route6 = Object.assign({}, Reflect.get(_src_cli_bots_update_tsx__rspack_import_9, 'default'), _src_cli_bots_update_tsx__rspack_import_9);
 
-const route7 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_bridge_respond_tsx__rspack_import_10, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_bridge_respond_tsx__rspack_import_10);
+const route7 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_respond_tsx__rspack_import_10, 'default'), _src_cli_codex_bridge_respond_tsx__rspack_import_10);
 
-const route8 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_bridge_run_tsx__rspack_import_11, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_bridge_run_tsx__rspack_import_11);
+const route8 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_run_tsx__rspack_import_11, 'default'), _src_cli_codex_bridge_run_tsx__rspack_import_11);
 
-const route9 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_bridge_start_tsx__rspack_import_12, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_bridge_start_tsx__rspack_import_12);
+const route9 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_start_tsx__rspack_import_12, 'default'), _src_cli_codex_bridge_start_tsx__rspack_import_12);
 
-const route10 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_bridge_status_tsx__rspack_import_13, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_bridge_status_tsx__rspack_import_13);
+const route10 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_status_tsx__rspack_import_13, 'default'), _src_cli_codex_bridge_status_tsx__rspack_import_13);
 
-const route11 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_bridge_stop_tsx__rspack_import_14, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_bridge_stop_tsx__rspack_import_14);
+const route11 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_stop_tsx__rspack_import_14, 'default'), _src_cli_codex_bridge_stop_tsx__rspack_import_14);
 
-const route12 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_desktop_shim_tsx__rspack_import_15, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_desktop_shim_tsx__rspack_import_15);
+const route12 = Object.assign({}, Reflect.get(_src_cli_codex_desktop_shim_tsx__rspack_import_15, 'default'), _src_cli_codex_desktop_shim_tsx__rspack_import_15);
 
-const route13 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_list_threads_tsx__rspack_import_16, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_list_threads_tsx__rspack_import_16);
+const route13 = Object.assign({}, Reflect.get(_src_cli_codex_list_threads_tsx__rspack_import_16, 'default'), _src_cli_codex_list_threads_tsx__rspack_import_16);
 
-const route14 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_queue_tsx__rspack_import_17, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_queue_tsx__rspack_import_17);
+const route14 = Object.assign({}, Reflect.get(_src_cli_codex_queue_tsx__rspack_import_17, 'default'), _src_cli_codex_queue_tsx__rspack_import_17);
 
-const route15 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_send_tsx__rspack_import_18, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_send_tsx__rspack_import_18);
+const route15 = Object.assign({}, Reflect.get(_src_cli_codex_send_tsx__rspack_import_18, 'default'), _src_cli_codex_send_tsx__rspack_import_18);
 
-const route16 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_status_tsx__rspack_import_19, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_status_tsx__rspack_import_19);
+const route16 = Object.assign({}, Reflect.get(_src_cli_codex_status_tsx__rspack_import_19, 'default'), _src_cli_codex_status_tsx__rspack_import_19);
 
-const route17 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_wait_tsx__rspack_import_20, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_wait_tsx__rspack_import_20);
+const route17 = Object.assign({}, Reflect.get(_src_cli_codex_wait_tsx__rspack_import_20, 'default'), _src_cli_codex_wait_tsx__rspack_import_20);
 
-const route18 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_codex_watch_tsx__rspack_import_21, 'default'), _tmp_gbot_agent_bundle_native_src_cli_codex_watch_tsx__rspack_import_21);
+const route18 = Object.assign({}, Reflect.get(_src_cli_codex_watch_tsx__rspack_import_21, 'default'), _src_cli_codex_watch_tsx__rspack_import_21);
 
-const route19 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_doctor_tsx__rspack_import_22, 'default'), _tmp_gbot_agent_bundle_native_src_cli_doctor_tsx__rspack_import_22);
+const route19 = Object.assign({}, Reflect.get(_src_cli_doctor_tsx__rspack_import_22, 'default'), _src_cli_doctor_tsx__rspack_import_22);
 
-const route20 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_groups_add_tsx__rspack_import_23, 'default'), _tmp_gbot_agent_bundle_native_src_cli_groups_add_tsx__rspack_import_23);
+const route20 = Object.assign({}, Reflect.get(_src_cli_groups_add_tsx__rspack_import_23, 'default'), _src_cli_groups_add_tsx__rspack_import_23);
 
-const route21 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_groups_create_tsx__rspack_import_24, 'default'), _tmp_gbot_agent_bundle_native_src_cli_groups_create_tsx__rspack_import_24);
+const route21 = Object.assign({}, Reflect.get(_src_cli_groups_create_tsx__rspack_import_24, 'default'), _src_cli_groups_create_tsx__rspack_import_24);
 
-const route22 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_groups_delete_tsx__rspack_import_25, 'default'), _tmp_gbot_agent_bundle_native_src_cli_groups_delete_tsx__rspack_import_25);
+const route22 = Object.assign({}, Reflect.get(_src_cli_groups_delete_tsx__rspack_import_25, 'default'), _src_cli_groups_delete_tsx__rspack_import_25);
 
-const route23 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_groups_get_tsx__rspack_import_26, 'default'), _tmp_gbot_agent_bundle_native_src_cli_groups_get_tsx__rspack_import_26);
+const route23 = Object.assign({}, Reflect.get(_src_cli_groups_get_tsx__rspack_import_26, 'default'), _src_cli_groups_get_tsx__rspack_import_26);
 
-const route24 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_groups_list_tsx__rspack_import_27, 'default'), _tmp_gbot_agent_bundle_native_src_cli_groups_list_tsx__rspack_import_27);
+const route24 = Object.assign({}, Reflect.get(_src_cli_groups_list_tsx__rspack_import_27, 'default'), _src_cli_groups_list_tsx__rspack_import_27);
 
-const route25 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_groups_members_tsx__rspack_import_28, 'default'), _tmp_gbot_agent_bundle_native_src_cli_groups_members_tsx__rspack_import_28);
+const route25 = Object.assign({}, Reflect.get(_src_cli_groups_members_tsx__rspack_import_28, 'default'), _src_cli_groups_members_tsx__rspack_import_28);
 
-const route26 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_groups_remove_tsx__rspack_import_29, 'default'), _tmp_gbot_agent_bundle_native_src_cli_groups_remove_tsx__rspack_import_29);
+const route26 = Object.assign({}, Reflect.get(_src_cli_groups_remove_tsx__rspack_import_29, 'default'), _src_cli_groups_remove_tsx__rspack_import_29);
 
-const route27 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_groups_set_tsx__rspack_import_30, 'default'), _tmp_gbot_agent_bundle_native_src_cli_groups_set_tsx__rspack_import_30);
+const route27 = Object.assign({}, Reflect.get(_src_cli_groups_set_tsx__rspack_import_30, 'default'), _src_cli_groups_set_tsx__rspack_import_30);
 
-const route28 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_groups_update_tsx__rspack_import_31, 'default'), _tmp_gbot_agent_bundle_native_src_cli_groups_update_tsx__rspack_import_31);
+const route28 = Object.assign({}, Reflect.get(_src_cli_groups_update_tsx__rspack_import_31, 'default'), _src_cli_groups_update_tsx__rspack_import_31);
 
-const route29 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_history_tsx__rspack_import_32, 'default'), _tmp_gbot_agent_bundle_native_src_cli_history_tsx__rspack_import_32);
+const route29 = Object.assign({}, Reflect.get(_src_cli_history_tsx__rspack_import_32, 'default'), _src_cli_history_tsx__rspack_import_32);
 
-const route30 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_send_tsx__rspack_import_33, 'default'), _tmp_gbot_agent_bundle_native_src_cli_send_tsx__rspack_import_33);
+const route30 = Object.assign({}, Reflect.get(_src_cli_send_tsx__rspack_import_33, 'default'), _src_cli_send_tsx__rspack_import_33);
 
-const route31 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_skills_add_tsx__rspack_import_34, 'default'), _tmp_gbot_agent_bundle_native_src_cli_skills_add_tsx__rspack_import_34);
+const route31 = Object.assign({}, Reflect.get(_src_cli_skills_add_tsx__rspack_import_34, 'default'), _src_cli_skills_add_tsx__rspack_import_34);
 
-const route32 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_skills_list_tsx__rspack_import_35, 'default'), _tmp_gbot_agent_bundle_native_src_cli_skills_list_tsx__rspack_import_35);
+const route32 = Object.assign({}, Reflect.get(_src_cli_skills_list_tsx__rspack_import_35, 'default'), _src_cli_skills_list_tsx__rspack_import_35);
 
-const route33 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_skills_remove_tsx__rspack_import_36, 'default'), _tmp_gbot_agent_bundle_native_src_cli_skills_remove_tsx__rspack_import_36);
+const route33 = Object.assign({}, Reflect.get(_src_cli_skills_remove_tsx__rspack_import_36, 'default'), _src_cli_skills_remove_tsx__rspack_import_36);
 
-const route34 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_cli_thread_tsx__rspack_import_37, 'default'), _tmp_gbot_agent_bundle_native_src_cli_thread_tsx__rspack_import_37);
+const route34 = Object.assign({}, Reflect.get(_src_cli_thread_tsx__rspack_import_37, 'default'), _src_cli_thread_tsx__rspack_import_37);
 const pluginRoot = (0,_agent_bundle_runtime__rspack_import_38/* .resolvePluginRoot */.E7)({
     fallback: (0,node_url__rspack_import_2.fileURLToPath)(new URL('..', import.meta.url)),
     stateAnchor: 'user-data'

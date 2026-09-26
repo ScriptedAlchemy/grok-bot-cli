@@ -10,11 +10,9 @@ const pluginName = "gbot";
 const pluginVersion = "0.9.0";
 const receiptFile = ".agent-bundle-install.json";
 const receiptFormat = "agent-bundle-install-receipt/2";
-const legacyReceiptFormat = "agent-bundle-install-receipt/1";
 const preservedEntries = ["state"];
 // Runtime roots match case-insensitively: on case-insensitive filesystems State/ is state/.
 const isPreservedRoot = (name) => preservedEntries.includes(String(name).toLowerCase());
-const markerFiles = ["INSTALL.md","install.mjs"];
 const source = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const artifactManifest = await (async () => {
   try {
@@ -39,7 +37,7 @@ const marketplacePlugin = join(marketplaceRepo, 'plugins', pluginName);
 const pluginData = join(cursorRoot, 'agent-bundle', 'plugin-data', pluginName);
 const receiptsRoot = join(cursorRoot, 'agent-bundle', 'receipts');
 const marketplaceReceipt = join(receiptsRoot, `${pluginName}.marketplace.json`);
-const usage = 'Usage: node install.mjs [--mode local|marketplace] [--replace|--force] [--help]\n       node install.mjs --uninstall [--mode local|marketplace] [--keep-data | --purge-data --confirm-purge] [--force] [--plan]';
+const usage = 'Usage: node install.mjs [--mode local|marketplace] [--replace] [--help]\n       node install.mjs --uninstall [--mode local|marketplace] [--keep-data | --purge-data --confirm-purge] [--force] [--plan]';
 
 let replace = false;
 let force = false;
@@ -52,7 +50,8 @@ let mode = 'local';
 const argv = process.argv.slice(2);
 for (let index = 0; index < argv.length; index += 1) {
   const argument = argv[index];
-  if (argument === '--replace' || argument === '--force') { replace = true; force = argument === '--force'; continue; }
+  if (argument === '--replace') { replace = true; continue; }
+  if (argument === '--force') { force = true; continue; }
   if (argument === '--uninstall') { uninstall = true; continue; }
   if (argument === '--plan') { plan = true; continue; }
   if (argument === '--keep-data') { keepData = true; continue; }
@@ -68,6 +67,8 @@ for (let index = 0; index < argv.length; index += 1) {
   console.error(`Unknown installer argument ${JSON.stringify(argument)}.\n${usage}`);
   process.exit(2);
 }
+if (!uninstall && force) { console.error(`--force applies to --uninstall only. Use --replace to replace an install.\n${usage}`); process.exit(2); }
+if (uninstall && replace) { console.error(`--replace applies to installation only. Use --force to override uninstall ownership checks.\n${usage}`); process.exit(2); }
 if (!uninstall && (plan || keepData || purgeData || confirmPurge)) {
   console.error(`--plan, --keep-data, --purge-data, and --confirm-purge apply to --uninstall only.\n${usage}`);
   process.exit(2);
@@ -252,9 +253,7 @@ const isReceiptState = (value) => value !== null && typeof value === 'object' &&
     typeof root.root === 'string' && isAbsolute(root.root) && typeof root.canonicalRoot === 'string' && isAbsolute(root.canonicalRoot) &&
     ['declared', 'derived'].includes(root.source) && Array.isArray(root.servers) && root.servers.every((server) => typeof server === 'string') &&
     isStateOwnership(root.ownership));
-// Same shape check as the core reader: a receipt missing any field reads as absent. A format/1 receipt (#420)
-// is read with its lifecycle fields synthesized (local mode, user scope, one cursor-local-plugin registration,
-// no host directories) and `migratedFrom` set; the next replacement rewrites it as the current format.
+// Same shape check as the core reader: a receipt missing any field, or of any other format, reads as absent.
 const readReceiptFile = async (path) => {
   let value;
   try {
@@ -262,18 +261,13 @@ const readReceiptFile = async (path) => {
     value = JSON.parse(await readFile(path, 'utf8'));
   } catch (error) { if (error?.code === 'ENOENT' || error instanceof SyntaxError) return undefined; throw error; }
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
-  if ((value.format !== receiptFormat && value.format !== legacyReceiptFormat) ||
+  if (value.format !== receiptFormat ||
     typeof value.plugin !== 'string' || typeof value.version !== 'string' ||
     typeof value.host !== 'string' || typeof value.contentHash !== 'string' || typeof value.installedAt !== 'string' ||
     !Array.isArray(value.files) || !value.files.every(safeRelative) ||
     !Array.isArray(value.directories) || !value.directories.every(safeRelative) ||
     (value.state !== undefined && !isReceiptState(value.state)) ||
-    (value.stateRoot !== undefined && (value.stateRoot === null || typeof value.stateRoot !== 'object' || Array.isArray(value.stateRoot) || typeof value.stateRoot.root !== 'string' || !['derived', 'native'].includes(value.stateRoot.source))) ||
     (value.webDataRoot !== undefined && typeof value.webDataRoot !== 'string')) return undefined;
-  if (value.format === legacyReceiptFormat) {
-    return { ...value, format: receiptFormat, hostDirectories: [], migratedFrom: legacyReceiptFormat, mode: 'local',
-      registrations: [{ kind: 'cursor-local-plugin' }], scope: 'user', updatedAt: value.installedAt };
-  }
   if (!['host-cli', 'local', 'marketplace'].includes(value.mode) || !isScope(value.scope) || typeof value.updatedAt !== 'string' ||
     !Array.isArray(value.hostDirectories) || !value.hostDirectories.every(safeRelative) ||
     !Array.isArray(value.registrations) || !value.registrations.every(isRegistration)) return undefined;
@@ -310,11 +304,6 @@ const readManifest = async (root) => {
     } catch (error) { if (error?.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error; }
   }
   return undefined;
-};
-
-const hasMarkers = async (root) => {
-  for (const marker of markerFiles) if (!(await exists(join(root, marker)))) return false;
-  return true;
 };
 
 // Agent Plugins packs (root plugin.json with an agent-plugins.org $schema, no .cursor-plugin/plugin.json).
@@ -408,7 +397,6 @@ const receiptFor = (tree, options = {}) => {
     registrations: options.registrations ?? [{ kind: 'cursor-local-plugin' }],
     scope: 'user',
     ...(options.state === undefined ? {} : { state: options.state }),
-    ...(options.stateRoot === undefined ? {} : { stateRoot: options.stateRoot }),
     updatedAt: now,
     version: pluginVersion,
     ...(options.webDataRoot === undefined ? {} : { webDataRoot: options.webDataRoot }),
@@ -585,8 +573,8 @@ const ensureAncestors = async (file, created) => {
   }
 };
 
-// Unowned entries under root that survive the uninstall, POSIX-relative: files that are neither owned nor runtime state
-// (symlinks listed, never followed) plus unowned directories holding nothing retained (`name/`), which the prune never touches.
+// Unowned entries under root that survive the uninstall, POSIX-relative: files that are not owned (symlinks listed,
+// never followed) plus unowned directories holding nothing retained (`name/`), which the prune never touches.
 const listRetained = async (root, owned, ownedDirectories) => {
   const retained = [];
   const visit = async (relativePath) => {
@@ -596,7 +584,7 @@ const listRetained = async (root, owned, ownedDirectories) => {
     let kept = 0;
     for (const name of entries) {
       const child = relativePath === '' ? name : `${relativePath}/${name}`;
-      if (relativePath === '' && (name === receiptFile || isPreservedRoot(name))) continue;
+      if (relativePath === '' && name === receiptFile) continue;
       const metadata = await lstat(join(root, child));
       if (metadata.isDirectory() && !metadata.isSymbolicLink()) {
         const below = await visit(child);
@@ -659,7 +647,7 @@ const runtimeStateRoots = async () => {
   const webCanonical = resolve(destination);
   const webDigest = createHash('sha256').update(webCanonical).digest('hex').slice(0, 16);
   const webName = /^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$/u.test(basename(webCanonical)) ? basename(webCanonical) : 'plugin';
-  return [explicitStateRoot ?? join(stateHome, segment), join(canonical, 'state'), join(homedir(), '.agent-bundle', 'web-data', `${webName}-${webDigest}`), explicitStateRoot === undefined ? 'derived' : 'native'];
+  return [explicitStateRoot ?? join(stateHome, segment), join(homedir(), '.agent-bundle', 'web-data', `${webName}-${webDigest}`)];
 };
 
 if (uninstall && mode === 'local') {
@@ -668,48 +656,29 @@ if (uninstall && mode === 'local') {
   const destinationMetadata = await lstat(destination);
   if (destinationMetadata.isSymbolicLink() || !destinationMetadata.isDirectory()) throw unsupported('.');
   const receipt = await readReceipt(destination);
-  let owned;
-  let ownedDirectories;
-  let hostDirectories;
-  let receiptStatus;
   if (receipt === undefined) {
-    // No receipt: only a legacy layout (emitted install surface + manifest naming this plugin) may go, under --force.
     const manifest = await readManifest(destination);
-    const legacy = manifest?.name === pluginName && await hasMarkers(destination);
-    if (!legacy) {
-      throw new Error(`Refusing to uninstall foreign directory ${destination}: it carries no install receipt and is not a ` +
-        `recognizable agent-bundle install of ${pluginName}${manifest === undefined ? " (no loader manifest)" : ` (manifest names ${JSON.stringify(manifest.name)})`}. ` +
-        'Remove it manually if it is stale; --force does not apply to foreign directories.');
-    }
-    if (!force) {
-      throw new Error(`Refusing to uninstall ${destination} without an install receipt: this copy predates install receipts, so ownership ` +
-        'cannot be proven. Re-run with --force to remove its inventoried plugin files (runtime state under state/ is kept unless ' +
-        '--purge-data --confirm-purge is passed), or reinstall with --replace first to adopt it.');
-    }
-    const tree = await inventory(destination);
-    owned = tree.files;
-    ownedDirectories = directoriesOf(tree.files);
-    hostDirectories = [];
-    receiptStatus = 'forced-legacy';
-  } else {
-    if (receipt.plugin !== pluginName) {
-      throw new Error(`Refusing to uninstall ${destination}: its install receipt names plugin ${JSON.stringify(receipt.plugin)}, not ` +
-        `${JSON.stringify(pluginName)}. Uninstall that plugin from its own bundle instead; --force does not apply.`);
-    }
-    const installedHash = await hashOwned(destination, receipt.files);
-    receiptStatus = receipt.migratedFrom === undefined ? 'consumed' : 'migrated';
-    if (installedHash !== receipt.contentHash) {
-      if (!force) {
-        throw new Error(`Refusing to uninstall ${destination}: the owned files hash ${short(installedHash)} but the receipt recorded ` +
-          `${short(receipt.contentHash)}, so the installed copy was modified after installation. Re-run with --force to remove the ` +
-          'receipt-owned files anyway (unowned entries are never removed).');
-      }
-      receiptStatus = 'forced-mismatch';
-    }
-    owned = receipt.files;
-    ownedDirectories = receipt.directories;
-    hostDirectories = receipt.hostDirectories;
+    throw new Error(`Refusing to uninstall foreign directory ${destination}: it carries no install receipt naming ${pluginName}` +
+      `${manifest === undefined ? " (no loader manifest)" : ` (manifest names ${JSON.stringify(manifest.name)})`}. ` +
+      'Remove it manually if it is stale; --force does not apply to foreign directories.');
   }
+  if (receipt.plugin !== pluginName) {
+    throw new Error(`Refusing to uninstall ${destination}: its install receipt names plugin ${JSON.stringify(receipt.plugin)}, not ` +
+      `${JSON.stringify(pluginName)}. Uninstall that plugin from its own bundle instead; --force does not apply.`);
+  }
+  const installedHash = await hashOwned(destination, receipt.files);
+  let receiptStatus = 'consumed';
+  if (installedHash !== receipt.contentHash) {
+    if (!force) {
+      throw new Error(`Refusing to uninstall ${destination}: the owned files hash ${short(installedHash)} but the receipt recorded ` +
+        `${short(receipt.contentHash)}, so the installed copy was modified after installation. Re-run with --force to remove the ` +
+        'receipt-owned files anyway (unowned entries are never removed).');
+    }
+    receiptStatus = 'forced-mismatch';
+  }
+  const owned = receipt.files;
+  const ownedDirectories = receipt.directories;
+  const hostDirectories = receipt.hostDirectories;
   // A symlinked ancestor would let a leaf-only delete reach outside the plugin root: refused before any change.
   await assertRealAncestors(destination, owned);
   const files = [];
@@ -720,13 +689,13 @@ if (uninstall && mode === 'local') {
     if (metadata.isSymbolicLink() || !metadata.isFile()) throw unsupported(file);
     files.push(path);
   }
-  if (await exists(join(destination, receiptFile))) files.push(join(destination, receiptFile));
-  const [resolvedStateDirectory, stateDirectory, resolvedWebDataDirectory, resolvedStateSource] = await runtimeStateRoots();
+  files.push(join(destination, receiptFile));
+  const [resolvedStateDirectory, resolvedWebDataDirectory] = await runtimeStateRoots();
   const retainedState = [];
   const ownedStatePaths = [];
   const emptyOwnedStateFiles = [];
   const emptyOwnedStateRoots = [];
-  if (receipt?.state !== undefined) {
+  if (receipt.state !== undefined) {
     for (const root of receipt.state.roots) {
       let metadata;
       try { metadata = await lstat(root.root); } catch (error) { if (error?.code === 'ENOENT') continue; throw error; }
@@ -751,35 +720,25 @@ if (uninstall && mode === 'local') {
       ownedStatePaths.push(root.root);
     }
   } else {
-    const fallbackStateDirectory = receipt?.stateRoot?.root ?? resolvedStateDirectory;
-    const fallbackStateSource = receipt?.stateRoot?.source ?? resolvedStateSource;
+    // A receipt without a state block was written between the two receipt writes of an install: the observed root
+    // is real but unproven, so it is retained until a reinstall records ownership.
     let metadata;
-    try { metadata = await lstat(fallbackStateDirectory); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
-    if (metadata?.isDirectory()) {
-      if (receipt?.stateRoot?.root === fallbackStateDirectory && fallbackStateSource === 'derived') ownedStatePaths.push(fallbackStateDirectory);
-      else retainedState.push({ path: fallbackStateDirectory, reason: 'unproven' });
-    }
+    try { metadata = await lstat(resolvedStateDirectory); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
+    if (metadata?.isDirectory()) retainedState.push({ path: resolvedStateDirectory, reason: 'unproven' });
   }
-  const webDataDirectory = receipt?.webDataRoot ?? resolvedWebDataDirectory;
-  const externalDataPaths = [...ownedStatePaths];
-  for (const path of [webDataDirectory]) {
-    if (path === stateDirectory) continue;
-    let metadata;
-    try { metadata = await lstat(path); } catch (error) { if (error?.code === 'ENOENT') continue; throw error; }
-    if (metadata.isSymbolicLink() || !metadata.isDirectory()) throw unsupported(path);
-    externalDataPaths.push(path);
+  const webDataDirectory = receipt.webDataRoot ?? resolvedWebDataDirectory;
+  const dataPaths = [...ownedStatePaths];
+  let webDataMetadata;
+  try { webDataMetadata = await lstat(webDataDirectory); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
+  if (webDataMetadata !== undefined) {
+    if (webDataMetadata.isSymbolicLink() || !webDataMetadata.isDirectory()) throw unsupported(webDataDirectory);
+    dataPaths.push(webDataDirectory);
   }
-  let stateMetadata;
-  try { stateMetadata = await lstat(stateDirectory); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
-  if (stateMetadata !== undefined && (stateMetadata.isSymbolicLink() || !stateMetadata.isDirectory())) throw unsupported('state');
-  // A state/ holding nothing is not durable state: pruned like an installer-created directory instead of kept as a remnant.
-  const emptyState = stateMetadata !== undefined && (await readdir(stateDirectory)).length === 0 ? stateDirectory : undefined;
-  const dataPaths = [...externalDataPaths, ...(stateMetadata === undefined || emptyState !== undefined ? [] : [stateDirectory])];
-  const dataKinds = [...externalDataPaths.map((path) => ownedStatePaths.includes(path) ? `owned framework state root ${path}` : `web-data directory ${path}`), ...(stateMetadata === undefined || emptyState !== undefined ? [] : ['legacy state/ (state kernel, notices journal)'])];
+  const dataKinds = dataPaths.map((path) => ownedStatePaths.includes(path) ? `owned framework state root ${path}` : `web-data directory ${path}`);
   // The receipt's cursorExpansion records the PLUGIN_DATA directory this installer created for the copy (spec 9.1). Only
   // the directory at this home's own plugin-data location is receipt-owned; a written one is durable state (kept or
-  // purged like state/), an empty one is an installer-created directory that is pruned, a recorded path elsewhere is left alone.
-  const recordedPluginData = receipt?.cursorExpansion?.pluginData;
+  // purged like an owned state root), an empty one is an installer-created directory that is pruned, a recorded path elsewhere is left alone.
+  const recordedPluginData = receipt.cursorExpansion?.pluginData;
   const pluginDataRecorded = recordedPluginData === pluginData;
   let emptyPluginData;
   let foreignNote = "";
@@ -803,30 +762,29 @@ if (uninstall && mode === 'local') {
   const retainedStateNote = retainedState.length === 0 ? '' : ` Retained ${retainedState.map((entry) => `${entry.path} (${entry.reason})`).join(', ')} because the receipt does not prove exclusive ownership.`;
   const dataOutcome = dataPaths.length === 0 ? retainedState.length === 0 ? 'absent' : 'kept' : purgeData ? 'purged' : 'kept';
   const dataDetail = dataPaths.length === 0 && retainedState.length === 0
-    ? `No durable runtime state exists (${emptyState === undefined ? 'no state/ under the installed plugin root' : 'state/ under the installed plugin root is empty and is pruned'}${emptyPluginData === undefined ? '' : `; the installer-created PLUGIN_DATA directory ${emptyPluginData} is empty and is pruned`}).${foreignNote}`
+    ? `No durable runtime state exists${emptyPluginData === undefined ? '' : ` (the installer-created PLUGIN_DATA directory ${emptyPluginData} is empty and is pruned)`}.${foreignNote}`
     : purgeData
       ? `${dataPaths.length === 0 ? 'No owned durable runtime state is removed.' : `Durable runtime state — ${dataKinds.join(' and ')} — is removed (--purge-data --confirm-purge).`}${retainedStateNote}${foreignNote}`
       : `Durable runtime state${dataKinds.length === 0 ? '' : ` — ${dataKinds.join(' and ')}`} — is kept; pass --purge-data --confirm-purge to remove owned roots.${retainedStateNote}${foreignNote}`;
   // External state kept by --keep-data needs the remnant receipt and recorded ownership so a later purge
   // removes the same root even though no plugin content remains.
-  const keepRoot = !purgeData && [...dataPaths, ...retainedState.map((entry) => entry.path)].some((path) => path !== stateDirectory);
+  const keepRoot = !purgeData && (dataPaths.length > 0 || retainedState.length > 0);
   const directories = [
     ...ownedDirectories.map((directory) => join(destination, directory)),
     ...(keepRoot ? [] : [destination]),
     ...hostDirectories.map((directory) => join(cursorRoot, directory)),
     ...(emptyPluginData === undefined ? [] : [emptyPluginData]),
-    ...(emptyState === undefined ? [] : [emptyState]),
     ...(pluginDataRecorded ? [join(cursorRoot, 'agent-bundle', 'plugin-data'), join(cursorRoot, 'agent-bundle')] : []),
     ...emptyOwnedStateRoots,
   ].sort((left, right) => right.length - left.length || left.localeCompare(right));
   files.push(...emptyOwnedStateFiles);
   const ownedSet = new Set(owned);
   const ownedDirectorySet = new Set(ownedDirectories);
-  const remnantOnly = receipt !== undefined && receipt.files.length === 0 && receipt.registrations.length === 0;
+  const remnantOnly = receipt.files.length === 0 && receipt.registrations.length === 0;
   const purging = purgeData && dataPaths.length > 0;
   // A keep-data rerun over a remnant whose preserved data (or retained unowned entries) are still there is the documented
-  // no-op. Once state/ and the PLUGIN_DATA directory are gone or emptied by hand the remnant guards nothing, and the rerun
-  // consumes it (receipt, empty plugin root, the host and plugin-data directories it recorded) like an explicit purge would.
+  // no-op. Once the recorded roots and the PLUGIN_DATA directory are gone or emptied by hand the remnant guards nothing, and
+  // the rerun consumes it (receipt, empty plugin root, the host and plugin-data directories it recorded) like an explicit purge would.
   const remnantGuards = dataPaths.length > 0 || retainedState.length > 0 || (await listRetained(destination, ownedSet, ownedDirectorySet)).length > 0;
   if (remnantOnly && !purgeData && remnantGuards && files.length === 1 && files[0] === join(destination, receiptFile)) {
     // A rerun over what an earlier --keep-data uninstall left behind, still keeping the data: nothing to remove, so the
@@ -879,9 +837,9 @@ if (uninstall && mode === 'local') {
     // created host directories receipt-owned for a later purge and lets Doctor explain the directory; a reinstall fills it in.
     await writeReceiptFile(join(destination, receiptFile), receiptFor({ files: [], hash: createHash('sha256').digest('hex') }, {
       // A kept PLUGIN_DATA directory stays receipt-owned through the remnant's expansion record.
-      ...(keepRoot && receipt?.cursorExpansion !== undefined ? { cursorExpansion: receipt.cursorExpansion } : {}),
-      directories: [], hostDirectories, installedAt: receipt?.installedAt, registrations: [],
-      ...(receipt?.state === undefined ? {} : { state: receipt.state }),
+      ...(keepRoot && receipt.cursorExpansion !== undefined ? { cursorExpansion: receipt.cursorExpansion } : {}),
+      directories: [], hostDirectories, installedAt: receipt.installedAt, registrations: [],
+      ...(receipt.state === undefined ? {} : { state: receipt.state }),
       ...(keepRoot ? { webDataRoot: webDataDirectory } : {}),
     }));
     console.log(`Remnant receipt: ${join(destination, receiptFile)} — owns no files; keeps the created host directories receipt-owned for a later purge.`);
@@ -900,7 +858,7 @@ if (uninstall && mode === 'marketplace') {
     console.log(`Not installed ${pluginName}@${pluginVersion} for cursor (marketplace mode) at ${marketplaceRepo}`);
     process.exit(0);
   }
-  let receiptStatus = receipt === undefined ? 'forced-missing' : receipt.migratedFrom === undefined ? 'consumed' : 'migrated';
+  let receiptStatus = receipt === undefined ? 'forced-missing' : 'consumed';
   const recorded = receipt?.registrations.find((registration) => registration.kind === 'cursor-marketplace-staging');
   if (repoExists) {
     if (receipt === undefined) {
@@ -1191,18 +1149,15 @@ const receipt = await readReceipt(destination);
 const manifest = await readManifest(destination);
 let ownership;
 let installedHash;
-// --uninstall --keep-data leaves a shell holding only state/: a reinstall fills it back in around the preserved
-// durable state instead of refusing it as foreign (nothing in it is anyone's plugin content).
-const remnantEntries = (await readdir(destination)).filter((name) => name !== receiptFile);
-const stateOnlyRemnant = receipt === undefined
-  ? remnantEntries.length > 0 && remnantEntries.every(isPreservedRoot)
-  : receipt.plugin === pluginName && receipt.files.length === 0 && receipt.registrations.length === 0; // remnant receipt from --uninstall --keep-data
+// --uninstall --keep-data leaves a remnant receipt owning no files around the preserved durable state: a reinstall
+// fills the shell back in instead of refusing it.
+const remnant = receipt !== undefined && receipt.plugin === pluginName && receipt.files.length === 0 && receipt.registrations.length === 0;
 if (receipt !== undefined && receipt.plugin === pluginName) {
   ownership = 'receipt';
   installedHash = await hashOwned(destination, receipt.files);
 } else {
   installedHash = (await inventory(destination)).hash;
-  ownership = stateOnlyRemnant || (receipt === undefined && manifest?.name === pluginName && await hasMarkers(destination)) ? 'legacy' : 'foreign';
+  ownership = 'foreign';
 }
 const installedVersion = manifest?.version ?? (ownership === 'receipt' ? receipt.version : undefined);
 const installedName = manifest?.name ?? (ownership === 'receipt' ? receipt.plugin : pluginName);
@@ -1223,52 +1178,22 @@ if (ownership === 'foreign') {
 const inventoryMatches = ownership !== 'receipt' ||
   (receipt.files.length === artifact.files.length && receipt.files.every((file, index) => file === artifact.files[index]));
 if (installedHash === artifact.hash && inventoryMatches) {
-  if (ownership === 'legacy' && replace) {
-    // Byte-identical pre-receipt copy: adoption only writes the receipt (adoption created no directories),
-    // through an exclusively created random sibling so no existing file or link is followed or overwritten.
-    await writeReceiptFile(join(destination, receiptFile), receiptFor(artifact, { directories: [], hostDirectories: [] }));
-    await attachStateOwnership();
-    console.log(`Adopted ${pluginName}@${pluginVersion} at ${destination} (content ${short(artifact.hash)})`);
-    reportExpansion();
-    process.exit(0);
-  }
-  if (ownership === 'receipt' && receipt.migratedFrom !== undefined) {
-    // An identical receipt-managed copy whose receipt predates the current format is upgraded in place:
-    // lifecycle fields exactly as the reader synthesized them, and nothing else changes.
-    await writeReceiptFile(join(destination, receiptFile), receiptFor(artifact, {
-      directories: receipt.directories, hostDirectories: receipt.hostDirectories, installedAt: receipt.installedAt,
-    }));
-  }
-  if (ownership === 'receipt' && receipt.state === undefined) await attachStateOwnership();
+  if (receipt.state === undefined) await attachStateOwnership();
   console.log(`Already installed ${pluginName}@${pluginVersion} at ${destination} (content ${short(artifact.hash)})`);
   process.exit(0);
 }
 if (installedVersion !== undefined && installedVersion !== pluginVersion && !replace) {
   throw new Error(`Refusing version collision at ${destination}: ${detail}. Re-run with --replace to replace this agent-bundle install.`);
 }
-if (ownership === 'legacy' && !replace && !stateOnlyRemnant) {
-  throw new Error(`Refusing content collision at ${destination}: ${detail}; this copy predates install receipts. ` +
-    'Re-run with --replace once to adopt it; later same-version rebuilds replace automatically.');
-}
 
 // Owned-files-only replacement: stale owned files leave first, staged files rename over their
 // predecessors, and the receipt lands last as the commit marker. Unowned entries (runtime state) stay.
 const staged = await stage(artifact);
 try {
-  // A legacy copy has no inventory: only files the new artifact also ships count as owned; everything
-  // else (operator files, stale artifact files, runtime state) stays in place and remains unowned.
   const incoming = new Set(staged.inventory.files);
-  let owned;
-  if (ownership === 'receipt') {
-    owned = receipt.files;
-  } else {
-    owned = [];
-    for (const file of (await inventory(destination)).files) {
-      if (await isOwnedEntry(destination, incoming, file)) owned.push(file);
-    }
-  }
+  const owned = receipt.files;
   const ownedSet = new Set(owned);
-  const ownedDirectories = new Set(ownership === 'receipt' ? receipt.directories : []);
+  const ownedDirectories = new Set(receipt.directories);
   await assertRealAncestors(destination, owned);
   await assertRealAncestors(destination, staged.inventory.files, ownedSet);
   // An existing directory at an incoming file path is fine only when it is wholly owned: it and every
@@ -1318,13 +1243,12 @@ try {
   // ones this replacement created; the first install time and the host directories it created carry
   // over. Finalised in the private staging copy, then committed by rename.
   const directories = sortNames(new Set([...[...ownedDirectories].filter((directory) => !pruned.has(directory)), ...created]));
-  const previous = ownership === 'receipt' ? receipt : undefined;
   await writeFile(join(staged.root, receiptFile), receiptFor(staged.inventory, {
-    directories, hostDirectories: previous?.hostDirectories ?? [], installedAt: previous?.installedAt,
+    directories, hostDirectories: receipt.hostDirectories, installedAt: receipt.installedAt,
   }), 'utf8');
   await rename(join(staged.root, receiptFile), join(destination, receiptFile));
-  await attachStateOwnership(previous?.state);
-  if (stateOnlyRemnant) console.log(`Installed ${pluginName}@${pluginVersion} at ${destination} (content ${short(artifact.hash)})`);
+  await attachStateOwnership(receipt.state);
+  if (remnant) console.log(`Installed ${pluginName}@${pluginVersion} at ${destination} (content ${short(artifact.hash)})`);
   else console.log(`Replaced ${pluginName}@${pluginVersion} at ${destination} (content ${short(installedHash)} -> ${short(artifact.hash)})`);
   reportExpansion();
 } finally {
