@@ -14077,9 +14077,9 @@ const resultSchema = zod__rspack_import_4/* .union */.KCZ([
     const context = await (0,_agent_bundle_runtime__rspack_import_5/* .agent */.MA)();
     if (input.replyToGrok || input.bindingId) {
         const out = await (0,_core_relay_routes_js__rspack_import_3/* .codexReturnOperation */.lt)(input, context);
-        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Result */.g6.Result, {
+        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Result */.g.Result, {
             value: out,
-            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Text */.g6.Text, {
+            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Text */.g.Text, {
                 children: `Delivery ${out.delivery}; terminal answer returns to Grok automatically.`
             })
         });
@@ -14090,9 +14090,9 @@ const resultSchema = zod__rspack_import_4/* .union */.KCZ([
     }, context.signal, (message)=>context.progress.report({
             message
         }));
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6/* .Agent.Text */.g.Text, {
             children: (0,_core_codex_routes_js__rspack_import_2/* .resultText */.D6)(out)
         })
     });
@@ -14149,9 +14149,9 @@ __webpack_require__.r(__webpack_exports__);
 }, async (input)=>{
     const context = await (0,_agent_bundle_runtime__rspack_import_3/* .agent */.MA)();
     const out = await (0,_core_codex_routes_js__rspack_import_2/* .threadsOperation */.$c)(input);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: (0,_core_codex_routes_js__rspack_import_2/* .resultText */.D6)(out)
         })
     });
@@ -14226,9 +14226,9 @@ __webpack_require__.r(__webpack_exports__);
     const out = await (0,_core_codex_routes_js__rspack_import_2/* .observeOperation */.gT)('wait', input, context.signal, (message)=>context.progress.report({
             message
         }));
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: (0,_core_codex_routes_js__rspack_import_2/* .resultText */.D6)(out)
         })
     });
@@ -14296,9 +14296,9 @@ __webpack_require__.r(__webpack_exports__);
     const out = await (0,_core_codex_routes_js__rspack_import_2/* .observeOperation */.gT)('watch', input, context.signal, (message)=>context.progress.report({
             message
         }));
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: (0,_core_codex_routes_js__rspack_import_2/* .resultText */.D6)(out)
         })
     });
@@ -14362,9 +14362,9 @@ __webpack_require__.r(__webpack_exports__);
     }
 }, async (input)=>{
     const out = await (0,_core_relay_routes_js__rspack_import_2/* .bridgeOperation */.n1)('startBinding', input, await (0,_agent_bundle_runtime__rspack_import_3/* .agent */.MA)());
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -14412,9 +14412,9 @@ __webpack_require__.r(__webpack_exports__);
     }
 }, async (input)=>{
     const out = await (0,_core_relay_routes_js__rspack_import_2/* .bridgeOperation */.n1)('status', input, await (0,_agent_bundle_runtime__rspack_import_3/* .agent */.MA)());
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -14465,9 +14465,9 @@ __webpack_require__.r(__webpack_exports__);
     }
 }, async (input)=>{
     const out = await (0,_core_relay_routes_js__rspack_import_2/* .bridgeOperation */.n1)('stop', input, await (0,_agent_bundle_runtime__rspack_import_3/* .agent */.MA)());
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -14548,9 +14548,9 @@ __webpack_require__.r(__webpack_exports__);
     }
 }, async (input)=>{
     const out = await (0,_core_relay_routes_js__rspack_import_2/* .bridgeOperation */.n1)('respond', input, await (0,_agent_bundle_runtime__rspack_import_3/* .agent */.MA)());
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -14602,9 +14602,9 @@ __webpack_require__.r(__webpack_exports__);
     }
 }, async (input)=>{
     const out = await (0,_core_grok_approval_routes_js__rspack_import_2/* .listOperation */.gi)(input);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -14672,9 +14672,9 @@ __webpack_require__.r(__webpack_exports__);
     }
 }, async (input)=>{
     const out = await (0,_core_grok_approval_routes_js__rspack_import_2/* .respondOperation */.lr)(input);
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3/* .Agent.Text */.g.Text, {
             children: JSON.stringify(out)
         })
     });
@@ -14757,9 +14757,9 @@ __webpack_require__.r(__webpack_exports__);
     }
 }, async (input)=>{
     const out = await (0,_core_relay_routes_js__rspack_import_2/* .grokSendOperation */.bv)(input, await (0,_agent_bundle_runtime__rspack_import_3/* .agent */.MA)());
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: out,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: out.replyRoute.mode === 'auto' ? `Delivery ${out.delivery}; replies will arrive in Codex thread ${out.replyRoute.threadId}. Continue work; no polling needed.` : `Delivery ${out.delivery}${out.delivery === 'unknown' ? ' (no receipt; check the thread before resending)' : ''}; read the reply with gbot_thread.`
         })
     });
@@ -14856,9 +14856,9 @@ const inputSchema = zod__rspack_import_3/* .object */.Ikc({
         summary
     };
     if (!full) {
-        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+        return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
             value: receipt,
-            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+            children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
                 children: summary
             })
         });
@@ -14867,9 +14867,9 @@ const inputSchema = zod__rspack_import_3/* .object */.Ikc({
         ...receipt,
         entries
     };
-    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g6.Result, {
+    return /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Result */.g.Result, {
         value: value,
-        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g6.Text, {
+        children: /*#__PURE__*/ (0,react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_4/* .Agent.Text */.g.Text, {
             children: summary
         })
     });
@@ -15281,50 +15281,11 @@ const Agent = Object.freeze({
     Result: AgentResult,
     Text: AgentText
 });
-const Result = ({ children })=>createElement('agent-hook-result', null, children);
-const AdditionalContext = ({ children })=>createElement('agent-hook-additional-context', null, children);
-const Hook = (/* unused pure expression or super */ null && ({
-    AdditionalContext: AdditionalContext,
-    Result: Result
-}));
-const McpResult = ({ _meta, children, isError, structuredContent })=>createElement('mcp-result', {
-        _meta,
-        isError,
-        structuredContent
-    }, children);
-const McpText = ({ children })=>createElement('mcp-text', null, children);
-const McpImage = ({ data, mimeType })=>createElement('mcp-image', {
-        data,
-        mimeType
-    });
-const McpAudio = ({ data, mimeType })=>createElement('mcp-audio', {
-        data,
-        mimeType
-    });
-const McpResourceLink = ({ mimeType, name, uri })=>createElement('mcp-resource-link', {
-        mimeType,
-        name,
-        uri
-    });
-const McpEmbeddedResource = ({ blob, children, mimeType, text, uri })=>createElement('mcp-embedded-resource', {
-        blob,
-        mimeType,
-        text,
-        uri
-    }, children);
-const Mcp = (/* unused pure expression or super */ null && ({
-    Audio: McpAudio,
-    EmbeddedResource: McpEmbeddedResource,
-    Image: McpImage,
-    ResourceLink: McpResourceLink,
-    Result: McpResult,
-    Text: McpText
-}));
 
 
 __webpack_require__.d(__webpack_exports__, {
 }, {
-  g6: Agent
+  g: Agent
 });
 
 
@@ -30548,47 +30509,47 @@ var __webpack_exports__ = {};
 /* import */ var _agent_bundle_runtime__rspack_import_16 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
 /* import */ var _agent_bundle_runtime__rspack_import_17 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
 /* import */ var node_url__rspack_import_2 = __webpack_require__("node:url");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3 = __webpack_require__("./src/mcp/grok-bot/tools/codex_send.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4 = __webpack_require__("./src/mcp/grok-bot/tools/codex_threads.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5 = __webpack_require__("./src/mcp/grok-bot/tools/codex_wait.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6 = __webpack_require__("./src/mcp/grok-bot/tools/codex_watch.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_start.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_status.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_stop.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_codex_respond.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_approvals.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_respond.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_send.tsx");
-/* import */ var _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_thread.tsx");
+/* import */ var _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3 = __webpack_require__("./src/mcp/grok-bot/tools/codex_send.tsx");
+/* import */ var _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4 = __webpack_require__("./src/mcp/grok-bot/tools/codex_threads.tsx");
+/* import */ var _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5 = __webpack_require__("./src/mcp/grok-bot/tools/codex_wait.tsx");
+/* import */ var _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6 = __webpack_require__("./src/mcp/grok-bot/tools/codex_watch.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_start.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_status.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_stop.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_codex_respond.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_approvals.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_respond.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_send.tsx");
+/* import */ var _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_thread.tsx");
 
 
 
 
 
 
-const route0 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3);
+const route0 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3, 'default'), _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_3);
 
-const route1 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4);
+const route1 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4, 'default'), _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_4);
 
-const route2 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5);
+const route2 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5, 'default'), _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_5);
 
-const route3 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6);
+const route3 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6, 'default'), _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_6);
 
-const route4 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7);
+const route4 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_7);
 
-const route5 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8);
+const route5 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_8);
 
-const route6 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9);
+const route6 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_9);
 
-const route7 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10);
+const route7 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10, 'default'), _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_10);
 
-const route8 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11);
+const route8 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11, 'default'), _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_11);
 
-const route9 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12);
+const route9 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12, 'default'), _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_12);
 
-const route10 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13);
+const route10 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13, 'default'), _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_13);
 
-const route11 = Object.assign({}, Reflect.get(_tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14, 'default'), _tmp_gbot_agent_bundle_native_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14);
+const route11 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14, 'default'), _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_14);
 // Generated routes contain only intrinsic Agent protocol elements, so no client references exist.
 globalThis.__rspack_rsc_manifest__ ??= Object.freeze({
     clientManifest: Object.freeze({})
@@ -31265,7 +31226,7 @@ const render = async (message)=>{
                 type: 'observed-render-start'
             });
             const renderStartedAt = performance.now();
-            const element = validationError === undefined ? composeLayouts(observedRoute, props, controller.signal) : /*#__PURE__*/ (0,react__rspack_import_1.createElement)(_agent_bundle_runtime__rspack_import_17/* .Agent.Result */.g6.Result, null, /*#__PURE__*/ (0,react__rspack_import_1.createElement)(_agent_bundle_runtime__rspack_import_17/* .Agent.Error */.g6.Error, {
+            const element = validationError === undefined ? composeLayouts(observedRoute, props, controller.signal) : /*#__PURE__*/ (0,react__rspack_import_1.createElement)(_agent_bundle_runtime__rspack_import_17/* .Agent.Result */.g.Result, null, /*#__PURE__*/ (0,react__rspack_import_1.createElement)(_agent_bundle_runtime__rspack_import_17/* .Agent.Error */.g.Error, {
                 code: 'invalid-input'
             }, `Input validation error: ${validationError instanceof Error ? validationError.message : String(validationError)}`));
             const flight = (0,_agent_bundle_runtime_flight_server__rspack_import_18/* .renderAgentFlight */.y)(element, {

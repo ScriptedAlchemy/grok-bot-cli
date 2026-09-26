@@ -10,1922 +10,6 @@ import * as __rspack_external_node_path_806ed179 from "node:path";
 import * as __rspack_external_node_sqlite_cecf0237 from "node:sqlite";
 import * as __rspack_external_node_string_decoder_69b9bd04 from "node:string_decoder";
 var __webpack_modules__ = ({
-"./node_modules/react/cjs/react.development.js"(module, exports, __webpack_require__) {
-/* module decorator */ module = __webpack_require__.nmd(module);
-/**
- * @license React
- * react.development.js
- *
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
-
-"production" !== process.env.NODE_ENV &&
-  (function () {
-    function defineDeprecationWarning(methodName, info) {
-      Object.defineProperty(Component.prototype, methodName, {
-        get: function () {
-          console.warn(
-            "%s(...) is deprecated in plain JavaScript React classes. %s",
-            info[0],
-            info[1]
-          );
-        }
-      });
-    }
-    function getIteratorFn(maybeIterable) {
-      if (null === maybeIterable || "object" !== typeof maybeIterable)
-        return null;
-      maybeIterable =
-        (MAYBE_ITERATOR_SYMBOL && maybeIterable[MAYBE_ITERATOR_SYMBOL]) ||
-        maybeIterable["@@iterator"];
-      return "function" === typeof maybeIterable ? maybeIterable : null;
-    }
-    function warnNoop(publicInstance, callerName) {
-      publicInstance =
-        ((publicInstance = publicInstance.constructor) &&
-          (publicInstance.displayName || publicInstance.name)) ||
-        "ReactClass";
-      var warningKey = publicInstance + "." + callerName;
-      didWarnStateUpdateForUnmountedComponent[warningKey] ||
-        (console.error(
-          "Can't call %s on a component that is not yet mounted. This is a no-op, but it might indicate a bug in your application. Instead, assign to `this.state` directly or define a `state = {};` class property with the desired state in the %s component.",
-          callerName,
-          publicInstance
-        ),
-        (didWarnStateUpdateForUnmountedComponent[warningKey] = !0));
-    }
-    function Component(props, context, updater) {
-      this.props = props;
-      this.context = context;
-      this.refs = emptyObject;
-      this.updater = updater || ReactNoopUpdateQueue;
-    }
-    function ComponentDummy() {}
-    function PureComponent(props, context, updater) {
-      this.props = props;
-      this.context = context;
-      this.refs = emptyObject;
-      this.updater = updater || ReactNoopUpdateQueue;
-    }
-    function noop() {}
-    function testStringCoercion(value) {
-      return "" + value;
-    }
-    function checkKeyStringCoercion(value) {
-      try {
-        testStringCoercion(value);
-        var JSCompiler_inline_result = !1;
-      } catch (e) {
-        JSCompiler_inline_result = !0;
-      }
-      if (JSCompiler_inline_result) {
-        JSCompiler_inline_result = console;
-        var JSCompiler_temp_const = JSCompiler_inline_result.error;
-        var JSCompiler_inline_result$jscomp$0 =
-          ("function" === typeof Symbol &&
-            Symbol.toStringTag &&
-            value[Symbol.toStringTag]) ||
-          value.constructor.name ||
-          "Object";
-        JSCompiler_temp_const.call(
-          JSCompiler_inline_result,
-          "The provided key is an unsupported type %s. This value must be coerced to a string before using it here.",
-          JSCompiler_inline_result$jscomp$0
-        );
-        return testStringCoercion(value);
-      }
-    }
-    function getComponentNameFromType(type) {
-      if (null == type) return null;
-      if ("function" === typeof type)
-        return type.$$typeof === REACT_CLIENT_REFERENCE
-          ? null
-          : type.displayName || type.name || null;
-      if ("string" === typeof type) return type;
-      switch (type) {
-        case REACT_FRAGMENT_TYPE:
-          return "Fragment";
-        case REACT_PROFILER_TYPE:
-          return "Profiler";
-        case REACT_STRICT_MODE_TYPE:
-          return "StrictMode";
-        case REACT_SUSPENSE_TYPE:
-          return "Suspense";
-        case REACT_SUSPENSE_LIST_TYPE:
-          return "SuspenseList";
-        case REACT_ACTIVITY_TYPE:
-          return "Activity";
-        case REACT_VIEW_TRANSITION_TYPE:
-          return "ViewTransition";
-      }
-      if ("object" === typeof type)
-        switch (
-          ("number" === typeof type.tag &&
-            console.error(
-              "Received an unexpected object in getComponentNameFromType(). This is likely a bug in React. Please file an issue."
-            ),
-          type.$$typeof)
-        ) {
-          case REACT_PORTAL_TYPE:
-            return "Portal";
-          case REACT_CONTEXT_TYPE:
-            return type.displayName || "Context";
-          case REACT_CONSUMER_TYPE:
-            return (type._context.displayName || "Context") + ".Consumer";
-          case REACT_FORWARD_REF_TYPE:
-            var innerType = type.render;
-            type = type.displayName;
-            type ||
-              ((type = innerType.displayName || innerType.name || ""),
-              (type = "" !== type ? "ForwardRef(" + type + ")" : "ForwardRef"));
-            return type;
-          case REACT_MEMO_TYPE:
-            return (
-              (innerType = type.displayName || null),
-              null !== innerType
-                ? innerType
-                : getComponentNameFromType(type.type) || "Memo"
-            );
-          case REACT_LAZY_TYPE:
-            innerType = type._payload;
-            type = type._init;
-            try {
-              return getComponentNameFromType(type(innerType));
-            } catch (x) {}
-        }
-      return null;
-    }
-    function getTaskName(type) {
-      if (type === REACT_FRAGMENT_TYPE) return "<>";
-      if (
-        "object" === typeof type &&
-        null !== type &&
-        type.$$typeof === REACT_LAZY_TYPE
-      )
-        return "<...>";
-      try {
-        var name = getComponentNameFromType(type);
-        return name ? "<" + name + ">" : "<...>";
-      } catch (x) {
-        return "<...>";
-      }
-    }
-    function getOwner() {
-      var dispatcher = ReactSharedInternals.A;
-      return null === dispatcher ? null : dispatcher.getOwner();
-    }
-    function UnknownOwner() {
-      return Error("react-stack-top-frame");
-    }
-    function hasValidKey(config) {
-      if (hasOwnProperty.call(config, "key")) {
-        var getter = Object.getOwnPropertyDescriptor(config, "key").get;
-        if (getter && getter.isReactWarning) return !1;
-      }
-      return void 0 !== config.key;
-    }
-    function defineKeyPropWarningGetter(props, displayName) {
-      function warnAboutAccessingKey() {
-        specialPropKeyWarningShown ||
-          ((specialPropKeyWarningShown = !0),
-          console.error(
-            "%s: `key` is not a prop. Trying to access it will result in `undefined` being returned. If you need to access the same value within the child component, you should pass it as a different prop. (https://react.dev/link/special-props)",
-            displayName
-          ));
-      }
-      warnAboutAccessingKey.isReactWarning = !0;
-      Object.defineProperty(props, "key", {
-        get: warnAboutAccessingKey,
-        configurable: !0
-      });
-    }
-    function elementRefGetterWithDeprecationWarning() {
-      var componentName = getComponentNameFromType(this.type);
-      didWarnAboutElementRef[componentName] ||
-        ((didWarnAboutElementRef[componentName] = !0),
-        console.error(
-          "Accessing element.ref was removed in React 19. ref is now a regular prop. It will be removed from the JSX Element type in a future release."
-        ));
-      componentName = this.props.ref;
-      return void 0 !== componentName ? componentName : null;
-    }
-    function ReactElement(type, key, props, owner, debugStack, debugTask) {
-      var refProp = props.ref;
-      type = {
-        $$typeof: REACT_ELEMENT_TYPE,
-        type: type,
-        key: key,
-        props: props,
-        _owner: owner
-      };
-      null !== (void 0 !== refProp ? refProp : null)
-        ? Object.defineProperty(type, "ref", {
-            enumerable: !1,
-            get: elementRefGetterWithDeprecationWarning
-          })
-        : Object.defineProperty(type, "ref", { enumerable: !1, value: null });
-      type._store = {};
-      Object.defineProperty(type._store, "validated", {
-        configurable: !1,
-        enumerable: !1,
-        writable: !0,
-        value: 0
-      });
-      Object.defineProperty(type, "_debugInfo", {
-        configurable: !1,
-        enumerable: !1,
-        writable: !0,
-        value: null
-      });
-      Object.defineProperty(type, "_debugStack", {
-        configurable: !1,
-        enumerable: !1,
-        writable: !0,
-        value: debugStack
-      });
-      Object.defineProperty(type, "_debugTask", {
-        configurable: !1,
-        enumerable: !1,
-        writable: !0,
-        value: debugTask
-      });
-      Object.freeze && (Object.freeze(type.props), Object.freeze(type));
-      return type;
-    }
-    function cloneAndReplaceKey(oldElement, newKey) {
-      newKey = ReactElement(
-        oldElement.type,
-        newKey,
-        oldElement.props,
-        oldElement._owner,
-        oldElement._debugStack,
-        oldElement._debugTask
-      );
-      oldElement._store &&
-        (newKey._store.validated = oldElement._store.validated);
-      return newKey;
-    }
-    function validateChildKeys(node) {
-      isValidElement(node)
-        ? node._store && (node._store.validated = 1)
-        : "object" === typeof node &&
-          null !== node &&
-          node.$$typeof === REACT_LAZY_TYPE &&
-          ("fulfilled" === node._payload.status
-            ? isValidElement(node._payload.value) &&
-              node._payload.value._store &&
-              (node._payload.value._store.validated = 1)
-            : node._store && (node._store.validated = 1));
-    }
-    function isValidElement(object) {
-      return (
-        "object" === typeof object &&
-        null !== object &&
-        object.$$typeof === REACT_ELEMENT_TYPE
-      );
-    }
-    function escape(key) {
-      var escaperLookup = { "=": "=0", ":": "=2" };
-      return (
-        "$" +
-        key.replace(/[=:]/g, function (match) {
-          return escaperLookup[match];
-        })
-      );
-    }
-    function getElementKey(element, index) {
-      return "object" === typeof element &&
-        null !== element &&
-        null != element.key
-        ? (checkKeyStringCoercion(element.key), escape("" + element.key))
-        : index.toString(36);
-    }
-    function resolveThenable(thenable) {
-      switch (thenable.status) {
-        case "fulfilled":
-          return thenable.value;
-        case "rejected":
-          throw thenable.reason;
-        default:
-          switch (
-            ("string" === typeof thenable.status
-              ? thenable.then(noop, noop)
-              : ((thenable.status = "pending"),
-                thenable.then(
-                  function (fulfilledValue) {
-                    "pending" === thenable.status &&
-                      ((thenable.status = "fulfilled"),
-                      (thenable.value = fulfilledValue));
-                  },
-                  function (error) {
-                    "pending" === thenable.status &&
-                      ((thenable.status = "rejected"),
-                      (thenable.reason = error));
-                  }
-                )),
-            thenable.status)
-          ) {
-            case "fulfilled":
-              return thenable.value;
-            case "rejected":
-              throw thenable.reason;
-          }
-      }
-      throw thenable;
-    }
-    function mapIntoArray(children, array, escapedPrefix, nameSoFar, callback) {
-      var type = typeof children;
-      if ("undefined" === type || "boolean" === type) children = null;
-      var invokeCallback = !1;
-      if (null === children) invokeCallback = !0;
-      else
-        switch (type) {
-          case "bigint":
-          case "string":
-          case "number":
-            invokeCallback = !0;
-            break;
-          case "object":
-            switch (children.$$typeof) {
-              case REACT_ELEMENT_TYPE:
-              case REACT_PORTAL_TYPE:
-                invokeCallback = !0;
-                break;
-              case REACT_LAZY_TYPE:
-                return (
-                  (invokeCallback = children._init),
-                  mapIntoArray(
-                    invokeCallback(children._payload),
-                    array,
-                    escapedPrefix,
-                    nameSoFar,
-                    callback
-                  )
-                );
-            }
-        }
-      if (invokeCallback) {
-        invokeCallback = children;
-        callback = callback(invokeCallback);
-        var childKey =
-          "" === nameSoFar ? "." + getElementKey(invokeCallback, 0) : nameSoFar;
-        isArrayImpl(callback)
-          ? ((escapedPrefix = ""),
-            null != childKey &&
-              (escapedPrefix =
-                childKey.replace(userProvidedKeyEscapeRegex, "$&/") + "/"),
-            mapIntoArray(callback, array, escapedPrefix, "", function (c) {
-              return c;
-            }))
-          : null != callback &&
-            (isValidElement(callback) &&
-              (null != callback.key &&
-                ((invokeCallback && invokeCallback.key === callback.key) ||
-                  checkKeyStringCoercion(callback.key)),
-              (escapedPrefix = cloneAndReplaceKey(
-                callback,
-                escapedPrefix +
-                  (null == callback.key ||
-                  (invokeCallback && invokeCallback.key === callback.key)
-                    ? ""
-                    : ("" + callback.key).replace(
-                        userProvidedKeyEscapeRegex,
-                        "$&/"
-                      ) + "/") +
-                  childKey
-              )),
-              "" !== nameSoFar &&
-                null != invokeCallback &&
-                isValidElement(invokeCallback) &&
-                null == invokeCallback.key &&
-                invokeCallback._store &&
-                !invokeCallback._store.validated &&
-                (escapedPrefix._store.validated = 2),
-              (callback = escapedPrefix)),
-            array.push(callback));
-        return 1;
-      }
-      invokeCallback = 0;
-      childKey = "" === nameSoFar ? "." : nameSoFar + ":";
-      if (isArrayImpl(children))
-        for (var i = 0; i < children.length; i++)
-          (nameSoFar = children[i]),
-            (type = childKey + getElementKey(nameSoFar, i)),
-            (invokeCallback += mapIntoArray(
-              nameSoFar,
-              array,
-              escapedPrefix,
-              type,
-              callback
-            ));
-      else if (((i = getIteratorFn(children)), "function" === typeof i))
-        for (
-          i === children.entries &&
-            (didWarnAboutMaps ||
-              console.warn(
-                "Using Maps as children is not supported. Use an array of keyed ReactElements instead."
-              ),
-            (didWarnAboutMaps = !0)),
-            children = i.call(children),
-            i = 0;
-          !(nameSoFar = children.next()).done;
-
-        )
-          (nameSoFar = nameSoFar.value),
-            (type = childKey + getElementKey(nameSoFar, i++)),
-            (invokeCallback += mapIntoArray(
-              nameSoFar,
-              array,
-              escapedPrefix,
-              type,
-              callback
-            ));
-      else if ("object" === type) {
-        if ("function" === typeof children.then)
-          return mapIntoArray(
-            resolveThenable(children),
-            array,
-            escapedPrefix,
-            nameSoFar,
-            callback
-          );
-        array = String(children);
-        throw Error(
-          "Objects are not valid as a React child (found: " +
-            ("[object Object]" === array
-              ? "object with keys {" + Object.keys(children).join(", ") + "}"
-              : array) +
-            "). If you meant to render a collection of children, use an array instead."
-        );
-      }
-      return invokeCallback;
-    }
-    function mapChildren(children, func, context) {
-      if (null == children) return children;
-      var result = [],
-        count = 0;
-      mapIntoArray(children, result, "", "", function (child) {
-        return func.call(context, child, count++);
-      });
-      return result;
-    }
-    function lazyInitializer(payload) {
-      if (-1 === payload._status) {
-        var resolveDebugValue = null,
-          rejectDebugValue = null,
-          ioInfo = payload._ioInfo;
-        null != ioInfo &&
-          ((ioInfo.start = ioInfo.end = performance.now()),
-          (ioInfo.value = new Promise(function (resolve, reject) {
-            resolveDebugValue = resolve;
-            rejectDebugValue = reject;
-          })));
-        ioInfo = payload._result;
-        var thenable = ioInfo();
-        thenable.then(
-          function (moduleObject) {
-            if (0 === payload._status || -1 === payload._status) {
-              payload._status = 1;
-              payload._result = moduleObject;
-              var _ioInfo = payload._ioInfo;
-              if (null != _ioInfo) {
-                _ioInfo.end = performance.now();
-                var debugValue =
-                  null == moduleObject ? void 0 : moduleObject.default;
-                resolveDebugValue(debugValue);
-                _ioInfo.value.status = "fulfilled";
-                _ioInfo.value.value = debugValue;
-              }
-              void 0 === thenable.status &&
-                ((thenable.status = "fulfilled"),
-                (thenable.value = moduleObject));
-            }
-          },
-          function (error) {
-            if (0 === payload._status || -1 === payload._status) {
-              payload._status = 2;
-              payload._result = error;
-              var _ioInfo2 = payload._ioInfo;
-              null != _ioInfo2 &&
-                ((_ioInfo2.end = performance.now()),
-                _ioInfo2.value.then(noop, noop),
-                rejectDebugValue(error),
-                (_ioInfo2.value.status = "rejected"),
-                (_ioInfo2.value.reason = error));
-              void 0 === thenable.status &&
-                ((thenable.status = "rejected"), (thenable.reason = error));
-            }
-          }
-        );
-        ioInfo = payload._ioInfo;
-        if (null != ioInfo) {
-          var displayName = thenable.displayName;
-          "string" === typeof displayName && (ioInfo.name = displayName);
-        }
-        -1 === payload._status &&
-          ((payload._status = 0), (payload._result = thenable));
-      }
-      if (1 === payload._status)
-        return (
-          (ioInfo = payload._result),
-          void 0 === ioInfo &&
-            console.error(
-              "lazy: Expected the result of a dynamic import() call. Instead received: %s\n\nYour code should look like: \n  const MyComponent = lazy(() => import('./MyComponent'))\n\nDid you accidentally put curly braces around the import?",
-              ioInfo
-            ),
-          "default" in ioInfo ||
-            console.error(
-              "lazy: Expected the result of a dynamic import() call. Instead received: %s\n\nYour code should look like: \n  const MyComponent = lazy(() => import('./MyComponent'))",
-              ioInfo
-            ),
-          ioInfo.default
-        );
-      throw payload._result;
-    }
-    function resolveDispatcher() {
-      var dispatcher = ReactSharedInternals.H;
-      null === dispatcher &&
-        console.error(
-          "Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:\n1. You might have mismatching versions of React and the renderer (such as React DOM)\n2. You might be breaking the Rules of Hooks\n3. You might have more than one copy of React in the same app\nSee https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem."
-        );
-      return dispatcher;
-    }
-    function releaseAsyncTransition() {
-      ReactSharedInternals.asyncTransitions--;
-    }
-    function startTransition(scope) {
-      var prevTransition = ReactSharedInternals.T,
-        currentTransition = {};
-      currentTransition.types =
-        null !== prevTransition ? prevTransition.types : null;
-      currentTransition._updatedFibers = new Set();
-      ReactSharedInternals.T = currentTransition;
-      try {
-        var returnValue = scope(),
-          onStartTransitionFinish = ReactSharedInternals.S;
-        null !== onStartTransitionFinish &&
-          onStartTransitionFinish(currentTransition, returnValue);
-        "object" === typeof returnValue &&
-          null !== returnValue &&
-          "function" === typeof returnValue.then &&
-          (ReactSharedInternals.asyncTransitions++,
-          returnValue.then(releaseAsyncTransition, releaseAsyncTransition),
-          returnValue.then(noop, reportGlobalError));
-      } catch (error) {
-        reportGlobalError(error);
-      } finally {
-        null === prevTransition &&
-          currentTransition._updatedFibers &&
-          ((scope = currentTransition._updatedFibers.size),
-          currentTransition._updatedFibers.clear(),
-          10 < scope &&
-            console.warn(
-              "Detected a large number of updates inside startTransition. If this is due to a subscription please re-write it to use React provided hooks. Otherwise concurrent mode guarantees are off the table."
-            )),
-          null !== prevTransition &&
-            null !== currentTransition.types &&
-            (null !== prevTransition.types &&
-              prevTransition.types !== currentTransition.types &&
-              console.error(
-                "We expected inner Transitions to have transferred the outer types set and that you cannot add to the outer Transition while inside the inner.This is a bug in React."
-              ),
-            (prevTransition.types = currentTransition.types)),
-          (ReactSharedInternals.T = prevTransition);
-      }
-    }
-    function addTransitionType(type) {
-      var transition = ReactSharedInternals.T;
-      if (null !== transition) {
-        var transitionTypes = transition.types;
-        null === transitionTypes
-          ? (transition.types = [type])
-          : -1 === transitionTypes.indexOf(type) && transitionTypes.push(type);
-      } else
-        0 === ReactSharedInternals.asyncTransitions &&
-          console.error(
-            "addTransitionType can only be called inside a `startTransition()` callback. It must be associated with a specific Transition."
-          ),
-          startTransition(addTransitionType.bind(null, type));
-    }
-    function enqueueTask(task) {
-      if (null === enqueueTaskImpl)
-        try {
-          var requireString = ("require" + Math.random()).slice(0, 7);
-          enqueueTaskImpl = (module && module[requireString]).call(
-            module,
-            "timers"
-          ).setImmediate;
-        } catch (_err) {
-          enqueueTaskImpl = function (callback) {
-            !1 === didWarnAboutMessageChannel &&
-              ((didWarnAboutMessageChannel = !0),
-              "undefined" === typeof MessageChannel &&
-                console.error(
-                  "This browser does not have a MessageChannel implementation, so enqueuing tasks via await act(async () => ...) will fail. Please file an issue at https://github.com/facebook/react/issues if you encounter this warning."
-                ));
-            var channel = new MessageChannel();
-            channel.port1.onmessage = callback;
-            channel.port2.postMessage(void 0);
-          };
-        }
-      return enqueueTaskImpl(task);
-    }
-    function aggregateErrors(errors) {
-      return 1 < errors.length && "function" === typeof AggregateError
-        ? new AggregateError(errors)
-        : errors[0];
-    }
-    function popActScope(prevActQueue, prevActScopeDepth) {
-      prevActScopeDepth !== actScopeDepth - 1 &&
-        console.error(
-          "You seem to have overlapping act() calls, this is not supported. Be sure to await previous act() calls before making a new one. "
-        );
-      actScopeDepth = prevActScopeDepth;
-    }
-    function recursivelyFlushAsyncActWork(returnValue, resolve, reject) {
-      var queue = ReactSharedInternals.actQueue;
-      if (null !== queue)
-        if (0 !== queue.length)
-          try {
-            flushActQueue(queue);
-            enqueueTask(function () {
-              return recursivelyFlushAsyncActWork(returnValue, resolve, reject);
-            });
-            return;
-          } catch (error) {
-            ReactSharedInternals.thrownErrors.push(error);
-          }
-        else ReactSharedInternals.actQueue = null;
-      0 < ReactSharedInternals.thrownErrors.length
-        ? ((queue = aggregateErrors(ReactSharedInternals.thrownErrors)),
-          (ReactSharedInternals.thrownErrors.length = 0),
-          reject(queue))
-        : resolve(returnValue);
-    }
-    function flushActQueue(queue) {
-      if (!isFlushing) {
-        isFlushing = !0;
-        var i = 0;
-        try {
-          for (; i < queue.length; i++) {
-            var callback = queue[i];
-            do {
-              ReactSharedInternals.didUsePromise = !1;
-              var continuation = callback(!1);
-              if (null !== continuation) {
-                if (ReactSharedInternals.didUsePromise) {
-                  queue[i] = callback;
-                  queue.splice(0, i);
-                  return;
-                }
-                callback = continuation;
-              } else break;
-            } while (1);
-          }
-          queue.length = 0;
-        } catch (error) {
-          queue.splice(0, i + 1), ReactSharedInternals.thrownErrors.push(error);
-        } finally {
-          isFlushing = !1;
-        }
-      }
-    }
-    "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ &&
-      "function" ===
-        typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart &&
-      __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(Error());
-    var REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"),
-      REACT_PORTAL_TYPE = Symbol.for("react.portal"),
-      REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"),
-      REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"),
-      REACT_PROFILER_TYPE = Symbol.for("react.profiler"),
-      REACT_CONSUMER_TYPE = Symbol.for("react.consumer"),
-      REACT_CONTEXT_TYPE = Symbol.for("react.context"),
-      REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"),
-      REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"),
-      REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"),
-      REACT_MEMO_TYPE = Symbol.for("react.memo"),
-      REACT_LAZY_TYPE = Symbol.for("react.lazy"),
-      REACT_ACTIVITY_TYPE = Symbol.for("react.activity"),
-      REACT_VIEW_TRANSITION_TYPE = Symbol.for("react.view_transition"),
-      MAYBE_ITERATOR_SYMBOL = Symbol.iterator,
-      didWarnStateUpdateForUnmountedComponent = {},
-      ReactNoopUpdateQueue = {
-        isMounted: function () {
-          return !1;
-        },
-        enqueueForceUpdate: function (publicInstance) {
-          warnNoop(publicInstance, "forceUpdate");
-        },
-        enqueueReplaceState: function (publicInstance) {
-          warnNoop(publicInstance, "replaceState");
-        },
-        enqueueSetState: function (publicInstance) {
-          warnNoop(publicInstance, "setState");
-        }
-      },
-      assign = Object.assign,
-      emptyObject = {};
-    Object.freeze(emptyObject);
-    Component.prototype.isReactComponent = {};
-    Component.prototype.setState = function (partialState, callback) {
-      if (
-        "object" !== typeof partialState &&
-        "function" !== typeof partialState &&
-        null != partialState
-      )
-        throw Error(
-          "takes an object of state variables to update or a function which returns an object of state variables."
-        );
-      this.updater.enqueueSetState(this, partialState, callback, "setState");
-    };
-    Component.prototype.forceUpdate = function (callback) {
-      this.updater.enqueueForceUpdate(this, callback, "forceUpdate");
-    };
-    var deprecatedAPIs = {
-      isMounted: [
-        "isMounted",
-        "Instead, make sure to clean up subscriptions and pending requests in componentWillUnmount to prevent memory leaks."
-      ],
-      replaceState: [
-        "replaceState",
-        "Refactor your code to use setState instead (see https://github.com/facebook/react/issues/3236)."
-      ]
-    };
-    for (fnName in deprecatedAPIs)
-      deprecatedAPIs.hasOwnProperty(fnName) &&
-        defineDeprecationWarning(fnName, deprecatedAPIs[fnName]);
-    ComponentDummy.prototype = Component.prototype;
-    deprecatedAPIs = PureComponent.prototype = new ComponentDummy();
-    deprecatedAPIs.constructor = PureComponent;
-    assign(deprecatedAPIs, Component.prototype);
-    deprecatedAPIs.isPureReactComponent = !0;
-    var isArrayImpl = Array.isArray,
-      REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"),
-      ReactSharedInternals = {
-        H: null,
-        A: null,
-        T: null,
-        S: null,
-        actQueue: null,
-        asyncTransitions: 0,
-        isBatchingLegacy: !1,
-        didScheduleLegacyUpdate: !1,
-        didUsePromise: !1,
-        thrownErrors: [],
-        getCurrentStack: null,
-        recentlyCreatedOwnerStacks: 0
-      },
-      hasOwnProperty = Object.prototype.hasOwnProperty,
-      createTask = console.createTask
-        ? console.createTask
-        : function () {
-            return null;
-          };
-    deprecatedAPIs = {
-      react_stack_bottom_frame: function (callStackForError) {
-        return callStackForError();
-      }
-    };
-    var specialPropKeyWarningShown, didWarnAboutOldJSXRuntime;
-    var didWarnAboutElementRef = {};
-    var unknownOwnerDebugStack = deprecatedAPIs.react_stack_bottom_frame.bind(
-      deprecatedAPIs,
-      UnknownOwner
-    )();
-    var unknownOwnerDebugTask = createTask(getTaskName(UnknownOwner));
-    var didWarnAboutMaps = !1,
-      userProvidedKeyEscapeRegex = /\/+/g,
-      reportGlobalError =
-        "function" === typeof reportError
-          ? reportError
-          : function (error) {
-              if (
-                "object" === typeof window &&
-                "function" === typeof window.ErrorEvent
-              ) {
-                var event = new window.ErrorEvent("error", {
-                  bubbles: !0,
-                  cancelable: !0,
-                  message:
-                    "object" === typeof error &&
-                    null !== error &&
-                    "string" === typeof error.message
-                      ? String(error.message)
-                      : String(error),
-                  error: error
-                });
-                if (!window.dispatchEvent(event)) return;
-              } else if (
-                "object" === typeof process &&
-                "function" === typeof process.emit
-              ) {
-                process.emit("uncaughtException", error);
-                return;
-              }
-              console.error(error);
-            },
-      didWarnAboutMessageChannel = !1,
-      enqueueTaskImpl = null,
-      actScopeDepth = 0,
-      didWarnNoAwaitAct = !1,
-      isFlushing = !1,
-      queueSeveralMicrotasks =
-        "function" === typeof queueMicrotask
-          ? function (callback) {
-              queueMicrotask(function () {
-                return queueMicrotask(callback);
-              });
-            }
-          : enqueueTask;
-    deprecatedAPIs = Object.freeze({
-      __proto__: null,
-      c: function (size) {
-        return resolveDispatcher().useMemoCache(size);
-      }
-    });
-    var fnName = {
-      map: mapChildren,
-      forEach: function (children, forEachFunc, forEachContext) {
-        mapChildren(
-          children,
-          function () {
-            forEachFunc.apply(this, arguments);
-          },
-          forEachContext
-        );
-      },
-      count: function (children) {
-        var n = 0;
-        mapChildren(children, function () {
-          n++;
-        });
-        return n;
-      },
-      toArray: function (children) {
-        return (
-          mapChildren(children, function (child) {
-            return child;
-          }) || []
-        );
-      },
-      only: function (children) {
-        if (!isValidElement(children))
-          throw Error(
-            "React.Children.only expected to receive a single React element child."
-          );
-        return children;
-      }
-    };
-    exports.Activity = REACT_ACTIVITY_TYPE;
-    exports.Children = fnName;
-    exports.Component = Component;
-    exports.Fragment = REACT_FRAGMENT_TYPE;
-    exports.Profiler = REACT_PROFILER_TYPE;
-    exports.PureComponent = PureComponent;
-    exports.StrictMode = REACT_STRICT_MODE_TYPE;
-    exports.Suspense = REACT_SUSPENSE_TYPE;
-    exports.ViewTransition = REACT_VIEW_TRANSITION_TYPE;
-    exports.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE =
-      ReactSharedInternals;
-    exports.__COMPILER_RUNTIME = deprecatedAPIs;
-    exports.act = function (callback) {
-      var prevActQueue = ReactSharedInternals.actQueue,
-        prevActScopeDepth = actScopeDepth;
-      actScopeDepth++;
-      var queue = (ReactSharedInternals.actQueue =
-          null !== prevActQueue ? prevActQueue : []),
-        didAwaitActCall = !1;
-      try {
-        var result = callback();
-      } catch (error) {
-        ReactSharedInternals.thrownErrors.push(error);
-      }
-      if (0 < ReactSharedInternals.thrownErrors.length)
-        throw (
-          (popActScope(prevActQueue, prevActScopeDepth),
-          (callback = aggregateErrors(ReactSharedInternals.thrownErrors)),
-          (ReactSharedInternals.thrownErrors.length = 0),
-          callback)
-        );
-      if (
-        null !== result &&
-        "object" === typeof result &&
-        "function" === typeof result.then
-      ) {
-        var thenable = result;
-        queueSeveralMicrotasks(function () {
-          didAwaitActCall ||
-            didWarnNoAwaitAct ||
-            ((didWarnNoAwaitAct = !0),
-            console.error(
-              "You called act(async () => ...) without await. This could lead to unexpected testing behaviour, interleaving multiple act calls and mixing their scopes. You should - await act(async () => ...);"
-            ));
-        });
-        return {
-          then: function (resolve, reject) {
-            didAwaitActCall = !0;
-            thenable.then(
-              function (returnValue) {
-                popActScope(prevActQueue, prevActScopeDepth);
-                if (0 === prevActScopeDepth) {
-                  try {
-                    flushActQueue(queue),
-                      enqueueTask(function () {
-                        return recursivelyFlushAsyncActWork(
-                          returnValue,
-                          resolve,
-                          reject
-                        );
-                      });
-                  } catch (error$0) {
-                    ReactSharedInternals.thrownErrors.push(error$0);
-                  }
-                  if (0 < ReactSharedInternals.thrownErrors.length) {
-                    var _thrownError = aggregateErrors(
-                      ReactSharedInternals.thrownErrors
-                    );
-                    ReactSharedInternals.thrownErrors.length = 0;
-                    reject(_thrownError);
-                  }
-                } else resolve(returnValue);
-              },
-              function (error) {
-                popActScope(prevActQueue, prevActScopeDepth);
-                0 < ReactSharedInternals.thrownErrors.length
-                  ? ((error = aggregateErrors(
-                      ReactSharedInternals.thrownErrors
-                    )),
-                    (ReactSharedInternals.thrownErrors.length = 0),
-                    reject(error))
-                  : reject(error);
-              }
-            );
-          }
-        };
-      }
-      var returnValue$jscomp$0 = result;
-      popActScope(prevActQueue, prevActScopeDepth);
-      0 === prevActScopeDepth &&
-        (flushActQueue(queue),
-        0 !== queue.length &&
-          queueSeveralMicrotasks(function () {
-            didAwaitActCall ||
-              didWarnNoAwaitAct ||
-              ((didWarnNoAwaitAct = !0),
-              console.error(
-                "A component suspended inside an `act` scope, but the `act` call was not awaited. When testing React components that depend on asynchronous data, you must await the result:\n\nawait act(() => ...)"
-              ));
-          }),
-        (ReactSharedInternals.actQueue = null));
-      if (0 < ReactSharedInternals.thrownErrors.length)
-        throw (
-          ((callback = aggregateErrors(ReactSharedInternals.thrownErrors)),
-          (ReactSharedInternals.thrownErrors.length = 0),
-          callback)
-        );
-      return {
-        then: function (resolve, reject) {
-          didAwaitActCall = !0;
-          0 === prevActScopeDepth
-            ? ((ReactSharedInternals.actQueue = queue),
-              enqueueTask(function () {
-                return recursivelyFlushAsyncActWork(
-                  returnValue$jscomp$0,
-                  resolve,
-                  reject
-                );
-              }))
-            : resolve(returnValue$jscomp$0);
-        }
-      };
-    };
-    exports.addTransitionType = addTransitionType;
-    exports.cache = function (fn) {
-      return function () {
-        return fn.apply(null, arguments);
-      };
-    };
-    exports.cacheSignal = function () {
-      return null;
-    };
-    exports.captureOwnerStack = function () {
-      var getCurrentStack = ReactSharedInternals.getCurrentStack;
-      return null === getCurrentStack ? null : getCurrentStack();
-    };
-    exports.cloneElement = function (element, config, children) {
-      if (null === element || void 0 === element)
-        throw Error(
-          "The argument must be a React element, but you passed " +
-            element +
-            "."
-        );
-      var props = assign({}, element.props),
-        key = element.key,
-        owner = element._owner;
-      if (null != config) {
-        var JSCompiler_inline_result;
-        a: {
-          if (
-            hasOwnProperty.call(config, "ref") &&
-            (JSCompiler_inline_result = Object.getOwnPropertyDescriptor(
-              config,
-              "ref"
-            ).get) &&
-            JSCompiler_inline_result.isReactWarning
-          ) {
-            JSCompiler_inline_result = !1;
-            break a;
-          }
-          JSCompiler_inline_result = void 0 !== config.ref;
-        }
-        JSCompiler_inline_result && (owner = getOwner());
-        hasValidKey(config) &&
-          (checkKeyStringCoercion(config.key), (key = "" + config.key));
-        for (propName in config)
-          !hasOwnProperty.call(config, propName) ||
-            "key" === propName ||
-            "__self" === propName ||
-            "__source" === propName ||
-            ("ref" === propName && void 0 === config.ref) ||
-            (props[propName] = config[propName]);
-      }
-      var propName = arguments.length - 2;
-      if (1 === propName) props.children = children;
-      else if (1 < propName) {
-        JSCompiler_inline_result = Array(propName);
-        for (var i = 0; i < propName; i++)
-          JSCompiler_inline_result[i] = arguments[i + 2];
-        props.children = JSCompiler_inline_result;
-      }
-      props = ReactElement(
-        element.type,
-        key,
-        props,
-        owner,
-        element._debugStack,
-        element._debugTask
-      );
-      for (key = 2; key < arguments.length; key++)
-        validateChildKeys(arguments[key]);
-      return props;
-    };
-    exports.createContext = function (defaultValue) {
-      defaultValue = {
-        $$typeof: REACT_CONTEXT_TYPE,
-        _currentValue: defaultValue,
-        _currentValue2: defaultValue,
-        _threadCount: 0,
-        Provider: null,
-        Consumer: null
-      };
-      defaultValue.Provider = defaultValue;
-      defaultValue.Consumer = {
-        $$typeof: REACT_CONSUMER_TYPE,
-        _context: defaultValue
-      };
-      defaultValue._currentRenderer = null;
-      defaultValue._currentRenderer2 = null;
-      return defaultValue;
-    };
-    exports.createElement = function (type, config, children) {
-      for (var i = 2; i < arguments.length; i++)
-        validateChildKeys(arguments[i]);
-      var propName;
-      i = {};
-      var key = null;
-      if (null != config)
-        for (propName in (didWarnAboutOldJSXRuntime ||
-          !("__self" in config) ||
-          "key" in config ||
-          ((didWarnAboutOldJSXRuntime = !0),
-          console.warn(
-            "Your app (or one of its dependencies) is using an outdated JSX transform. Update to the modern JSX transform for faster performance: https://react.dev/link/new-jsx-transform"
-          )),
-        hasValidKey(config) &&
-          (checkKeyStringCoercion(config.key), (key = "" + config.key)),
-        config))
-          hasOwnProperty.call(config, propName) &&
-            "key" !== propName &&
-            "__self" !== propName &&
-            "__source" !== propName &&
-            (i[propName] = config[propName]);
-      var childrenLength = arguments.length - 2;
-      if (1 === childrenLength) i.children = children;
-      else if (1 < childrenLength) {
-        for (
-          var childArray = Array(childrenLength), _i = 0;
-          _i < childrenLength;
-          _i++
-        )
-          childArray[_i] = arguments[_i + 2];
-        Object.freeze && Object.freeze(childArray);
-        i.children = childArray;
-      }
-      if (type && type.defaultProps)
-        for (propName in ((childrenLength = type.defaultProps), childrenLength))
-          void 0 === i[propName] && (i[propName] = childrenLength[propName]);
-      key &&
-        defineKeyPropWarningGetter(
-          i,
-          "function" === typeof type
-            ? type.displayName || type.name || "Unknown"
-            : type
-        );
-      (propName = 1e4 > ReactSharedInternals.recentlyCreatedOwnerStacks++)
-        ? ((childArray = Error.stackTraceLimit),
-          (Error.stackTraceLimit = 10),
-          (childrenLength = Error("react-stack-top-frame")),
-          (Error.stackTraceLimit = childArray))
-        : (childrenLength = unknownOwnerDebugStack);
-      return ReactElement(
-        type,
-        key,
-        i,
-        getOwner(),
-        childrenLength,
-        propName ? createTask(getTaskName(type)) : unknownOwnerDebugTask
-      );
-    };
-    exports.createRef = function () {
-      var refObject = { current: null };
-      Object.seal(refObject);
-      return refObject;
-    };
-    exports.forwardRef = function (render) {
-      null != render && render.$$typeof === REACT_MEMO_TYPE
-        ? console.error(
-            "forwardRef requires a render function but received a `memo` component. Instead of forwardRef(memo(...)), use memo(forwardRef(...))."
-          )
-        : "function" !== typeof render
-          ? console.error(
-              "forwardRef requires a render function but was given %s.",
-              null === render ? "null" : typeof render
-            )
-          : 0 !== render.length &&
-            2 !== render.length &&
-            console.error(
-              "forwardRef render functions accept exactly two parameters: props and ref. %s",
-              1 === render.length
-                ? "Did you forget to use the ref parameter?"
-                : "Any additional parameter will be undefined."
-            );
-      null != render &&
-        null != render.defaultProps &&
-        console.error(
-          "forwardRef render functions do not support defaultProps. Did you accidentally pass a React component?"
-        );
-      var elementType = { $$typeof: REACT_FORWARD_REF_TYPE, render: render },
-        ownName;
-      Object.defineProperty(elementType, "displayName", {
-        enumerable: !1,
-        configurable: !0,
-        get: function () {
-          return ownName;
-        },
-        set: function (name) {
-          ownName = name;
-          render.name ||
-            render.displayName ||
-            (Object.defineProperty(render, "name", { value: name }),
-            (render.displayName = name));
-        }
-      });
-      return elementType;
-    };
-    exports.isValidElement = isValidElement;
-    exports.lazy = function (ctor) {
-      ctor = { _status: -1, _result: ctor };
-      var lazyType = {
-          $$typeof: REACT_LAZY_TYPE,
-          _payload: ctor,
-          _init: lazyInitializer
-        },
-        ioInfo = {
-          name: "lazy",
-          start: -1,
-          end: -1,
-          value: null,
-          owner: null,
-          debugStack: Error("react-stack-top-frame"),
-          debugTask: console.createTask ? console.createTask("lazy()") : null
-        };
-      ctor._ioInfo = ioInfo;
-      lazyType._debugInfo = [{ awaited: ioInfo }];
-      return lazyType;
-    };
-    exports.memo = function (type, compare) {
-      null == type &&
-        console.error(
-          "memo: The first argument must be a component. Instead received: %s",
-          null === type ? "null" : typeof type
-        );
-      compare = {
-        $$typeof: REACT_MEMO_TYPE,
-        type: type,
-        compare: void 0 === compare ? null : compare
-      };
-      var ownName;
-      Object.defineProperty(compare, "displayName", {
-        enumerable: !1,
-        configurable: !0,
-        get: function () {
-          return ownName;
-        },
-        set: function (name) {
-          ownName = name;
-          type.name ||
-            type.displayName ||
-            (Object.defineProperty(type, "name", { value: name }),
-            (type.displayName = name));
-        }
-      });
-      return compare;
-    };
-    exports.startTransition = startTransition;
-    exports.unstable_useCacheRefresh = function () {
-      return resolveDispatcher().useCacheRefresh();
-    };
-    exports.use = function (usable) {
-      return resolveDispatcher().use(usable);
-    };
-    exports.useActionState = function (action, initialState, permalink) {
-      return resolveDispatcher().useActionState(
-        action,
-        initialState,
-        permalink
-      );
-    };
-    exports.useCallback = function (callback, deps) {
-      return resolveDispatcher().useCallback(callback, deps);
-    };
-    exports.useContext = function (Context) {
-      var dispatcher = resolveDispatcher();
-      Context.$$typeof === REACT_CONSUMER_TYPE &&
-        console.error(
-          "Calling useContext(Context.Consumer) is not supported and will cause bugs. Did you mean to call useContext(Context) instead?"
-        );
-      return dispatcher.useContext(Context);
-    };
-    exports.useDebugValue = function (value, formatterFn) {
-      return resolveDispatcher().useDebugValue(value, formatterFn);
-    };
-    exports.useDeferredValue = function (value, initialValue) {
-      return resolveDispatcher().useDeferredValue(value, initialValue);
-    };
-    exports.useEffect = function (create, deps) {
-      null == create &&
-        console.warn(
-          "React Hook useEffect requires an effect callback. Did you forget to pass a callback to the hook?"
-        );
-      return resolveDispatcher().useEffect(create, deps);
-    };
-    exports.useEffectEvent = function (callback) {
-      return resolveDispatcher().useEffectEvent(callback);
-    };
-    exports.useId = function () {
-      return resolveDispatcher().useId();
-    };
-    exports.useImperativeHandle = function (ref, create, deps) {
-      return resolveDispatcher().useImperativeHandle(ref, create, deps);
-    };
-    exports.useInsertionEffect = function (create, deps) {
-      null == create &&
-        console.warn(
-          "React Hook useInsertionEffect requires an effect callback. Did you forget to pass a callback to the hook?"
-        );
-      return resolveDispatcher().useInsertionEffect(create, deps);
-    };
-    exports.useLayoutEffect = function (create, deps) {
-      null == create &&
-        console.warn(
-          "React Hook useLayoutEffect requires an effect callback. Did you forget to pass a callback to the hook?"
-        );
-      return resolveDispatcher().useLayoutEffect(create, deps);
-    };
-    exports.useMemo = function (create, deps) {
-      return resolveDispatcher().useMemo(create, deps);
-    };
-    exports.useOptimistic = function (passthrough, reducer) {
-      return resolveDispatcher().useOptimistic(passthrough, reducer);
-    };
-    exports.useReducer = function (reducer, initialArg, init) {
-      return resolveDispatcher().useReducer(reducer, initialArg, init);
-    };
-    exports.useRef = function (initialValue) {
-      return resolveDispatcher().useRef(initialValue);
-    };
-    exports.useState = function (initialState) {
-      return resolveDispatcher().useState(initialState);
-    };
-    exports.useSyncExternalStore = function (
-      subscribe,
-      getSnapshot,
-      getServerSnapshot
-    ) {
-      return resolveDispatcher().useSyncExternalStore(
-        subscribe,
-        getSnapshot,
-        getServerSnapshot
-      );
-    };
-    exports.useTransition = function () {
-      return resolveDispatcher().useTransition();
-    };
-    exports.version = "19.3.0";
-    "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ &&
-      "function" ===
-        typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop &&
-      __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop(Error());
-  })();
-
-
-},
-"./node_modules/react/cjs/react.production.js"(__unused_rspack_module, exports) {
-var __rspack_unused_export;
-/**
- * @license React
- * react.production.js
- *
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
-
-var REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"),
-  REACT_PORTAL_TYPE = Symbol.for("react.portal"),
-  REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"),
-  REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"),
-  REACT_PROFILER_TYPE = Symbol.for("react.profiler"),
-  REACT_CONSUMER_TYPE = Symbol.for("react.consumer"),
-  REACT_CONTEXT_TYPE = Symbol.for("react.context"),
-  REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"),
-  REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"),
-  REACT_MEMO_TYPE = Symbol.for("react.memo"),
-  REACT_LAZY_TYPE = Symbol.for("react.lazy"),
-  REACT_ACTIVITY_TYPE = Symbol.for("react.activity"),
-  REACT_VIEW_TRANSITION_TYPE = Symbol.for("react.view_transition"),
-  MAYBE_ITERATOR_SYMBOL = Symbol.iterator;
-function getIteratorFn(maybeIterable) {
-  if (null === maybeIterable || "object" !== typeof maybeIterable) return null;
-  maybeIterable =
-    (MAYBE_ITERATOR_SYMBOL && maybeIterable[MAYBE_ITERATOR_SYMBOL]) ||
-    maybeIterable["@@iterator"];
-  return "function" === typeof maybeIterable ? maybeIterable : null;
-}
-var ReactNoopUpdateQueue = {
-    isMounted: function () {
-      return !1;
-    },
-    enqueueForceUpdate: function () {},
-    enqueueReplaceState: function () {},
-    enqueueSetState: function () {}
-  },
-  assign = Object.assign,
-  emptyObject = {};
-function Component(props, context, updater) {
-  this.props = props;
-  this.context = context;
-  this.refs = emptyObject;
-  this.updater = updater || ReactNoopUpdateQueue;
-}
-Component.prototype.isReactComponent = {};
-Component.prototype.setState = function (partialState, callback) {
-  if (
-    "object" !== typeof partialState &&
-    "function" !== typeof partialState &&
-    null != partialState
-  )
-    throw Error(
-      "takes an object of state variables to update or a function which returns an object of state variables."
-    );
-  this.updater.enqueueSetState(this, partialState, callback, "setState");
-};
-Component.prototype.forceUpdate = function (callback) {
-  this.updater.enqueueForceUpdate(this, callback, "forceUpdate");
-};
-function ComponentDummy() {}
-ComponentDummy.prototype = Component.prototype;
-function PureComponent(props, context, updater) {
-  this.props = props;
-  this.context = context;
-  this.refs = emptyObject;
-  this.updater = updater || ReactNoopUpdateQueue;
-}
-var pureComponentPrototype = (PureComponent.prototype = new ComponentDummy());
-pureComponentPrototype.constructor = PureComponent;
-assign(pureComponentPrototype, Component.prototype);
-pureComponentPrototype.isPureReactComponent = !0;
-var isArrayImpl = Array.isArray;
-function noop() {}
-var ReactSharedInternals = { H: null, A: null, T: null, S: null },
-  hasOwnProperty = Object.prototype.hasOwnProperty;
-function ReactElement(type, key, props) {
-  var refProp = props.ref;
-  return {
-    $$typeof: REACT_ELEMENT_TYPE,
-    type: type,
-    key: key,
-    ref: void 0 !== refProp ? refProp : null,
-    props: props
-  };
-}
-function cloneAndReplaceKey(oldElement, newKey) {
-  return ReactElement(oldElement.type, newKey, oldElement.props);
-}
-function isValidElement(object) {
-  return (
-    "object" === typeof object &&
-    null !== object &&
-    object.$$typeof === REACT_ELEMENT_TYPE
-  );
-}
-function escape(key) {
-  var escaperLookup = { "=": "=0", ":": "=2" };
-  return (
-    "$" +
-    key.replace(/[=:]/g, function (match) {
-      return escaperLookup[match];
-    })
-  );
-}
-var userProvidedKeyEscapeRegex = /\/+/g;
-function getElementKey(element, index) {
-  return "object" === typeof element && null !== element && null != element.key
-    ? escape("" + element.key)
-    : index.toString(36);
-}
-function resolveThenable(thenable) {
-  switch (thenable.status) {
-    case "fulfilled":
-      return thenable.value;
-    case "rejected":
-      throw thenable.reason;
-    default:
-      switch (
-        ("string" === typeof thenable.status
-          ? thenable.then(noop, noop)
-          : ((thenable.status = "pending"),
-            thenable.then(
-              function (fulfilledValue) {
-                "pending" === thenable.status &&
-                  ((thenable.status = "fulfilled"),
-                  (thenable.value = fulfilledValue));
-              },
-              function (error) {
-                "pending" === thenable.status &&
-                  ((thenable.status = "rejected"), (thenable.reason = error));
-              }
-            )),
-        thenable.status)
-      ) {
-        case "fulfilled":
-          return thenable.value;
-        case "rejected":
-          throw thenable.reason;
-      }
-  }
-  throw thenable;
-}
-function mapIntoArray(children, array, escapedPrefix, nameSoFar, callback) {
-  var type = typeof children;
-  if ("undefined" === type || "boolean" === type) children = null;
-  var invokeCallback = !1;
-  if (null === children) invokeCallback = !0;
-  else
-    switch (type) {
-      case "bigint":
-      case "string":
-      case "number":
-        invokeCallback = !0;
-        break;
-      case "object":
-        switch (children.$$typeof) {
-          case REACT_ELEMENT_TYPE:
-          case REACT_PORTAL_TYPE:
-            invokeCallback = !0;
-            break;
-          case REACT_LAZY_TYPE:
-            return (
-              (invokeCallback = children._init),
-              mapIntoArray(
-                invokeCallback(children._payload),
-                array,
-                escapedPrefix,
-                nameSoFar,
-                callback
-              )
-            );
-        }
-    }
-  if (invokeCallback)
-    return (
-      (callback = callback(children)),
-      (invokeCallback =
-        "" === nameSoFar ? "." + getElementKey(children, 0) : nameSoFar),
-      isArrayImpl(callback)
-        ? ((escapedPrefix = ""),
-          null != invokeCallback &&
-            (escapedPrefix =
-              invokeCallback.replace(userProvidedKeyEscapeRegex, "$&/") + "/"),
-          mapIntoArray(callback, array, escapedPrefix, "", function (c) {
-            return c;
-          }))
-        : null != callback &&
-          (isValidElement(callback) &&
-            (callback = cloneAndReplaceKey(
-              callback,
-              escapedPrefix +
-                (null == callback.key ||
-                (children && children.key === callback.key)
-                  ? ""
-                  : ("" + callback.key).replace(
-                      userProvidedKeyEscapeRegex,
-                      "$&/"
-                    ) + "/") +
-                invokeCallback
-            )),
-          array.push(callback)),
-      1
-    );
-  invokeCallback = 0;
-  var nextNamePrefix = "" === nameSoFar ? "." : nameSoFar + ":";
-  if (isArrayImpl(children))
-    for (var i = 0; i < children.length; i++)
-      (nameSoFar = children[i]),
-        (type = nextNamePrefix + getElementKey(nameSoFar, i)),
-        (invokeCallback += mapIntoArray(
-          nameSoFar,
-          array,
-          escapedPrefix,
-          type,
-          callback
-        ));
-  else if (((i = getIteratorFn(children)), "function" === typeof i))
-    for (
-      children = i.call(children), i = 0;
-      !(nameSoFar = children.next()).done;
-
-    )
-      (nameSoFar = nameSoFar.value),
-        (type = nextNamePrefix + getElementKey(nameSoFar, i++)),
-        (invokeCallback += mapIntoArray(
-          nameSoFar,
-          array,
-          escapedPrefix,
-          type,
-          callback
-        ));
-  else if ("object" === type) {
-    if ("function" === typeof children.then)
-      return mapIntoArray(
-        resolveThenable(children),
-        array,
-        escapedPrefix,
-        nameSoFar,
-        callback
-      );
-    array = String(children);
-    throw Error(
-      "Objects are not valid as a React child (found: " +
-        ("[object Object]" === array
-          ? "object with keys {" + Object.keys(children).join(", ") + "}"
-          : array) +
-        "). If you meant to render a collection of children, use an array instead."
-    );
-  }
-  return invokeCallback;
-}
-function mapChildren(children, func, context) {
-  if (null == children) return children;
-  var result = [],
-    count = 0;
-  mapIntoArray(children, result, "", "", function (child) {
-    return func.call(context, child, count++);
-  });
-  return result;
-}
-function lazyInitializer(payload) {
-  if (-1 === payload._status) {
-    var ctor = payload._result,
-      thenable = ctor();
-    thenable.then(
-      function (moduleObject) {
-        if (0 === payload._status || -1 === payload._status)
-          (payload._status = 1),
-            (payload._result = moduleObject),
-            void 0 === thenable.status &&
-              ((thenable.status = "fulfilled"),
-              (thenable.value = moduleObject));
-      },
-      function (error) {
-        if (0 === payload._status || -1 === payload._status)
-          (payload._status = 2),
-            (payload._result = error),
-            void 0 === thenable.status &&
-              ((thenable.status = "rejected"), (thenable.reason = error));
-      }
-    );
-    -1 === payload._status &&
-      ((payload._status = 0), (payload._result = thenable));
-  }
-  if (1 === payload._status) return payload._result.default;
-  throw payload._result;
-}
-var reportGlobalError =
-  "function" === typeof reportError
-    ? reportError
-    : function (error) {
-        if (
-          "object" === typeof window &&
-          "function" === typeof window.ErrorEvent
-        ) {
-          var event = new window.ErrorEvent("error", {
-            bubbles: !0,
-            cancelable: !0,
-            message:
-              "object" === typeof error &&
-              null !== error &&
-              "string" === typeof error.message
-                ? String(error.message)
-                : String(error),
-            error: error
-          });
-          if (!window.dispatchEvent(event)) return;
-        } else if (
-          "object" === typeof process &&
-          "function" === typeof process.emit
-        ) {
-          process.emit("uncaughtException", error);
-          return;
-        }
-        console.error(error);
-      };
-function startTransition(scope) {
-  var prevTransition = ReactSharedInternals.T,
-    currentTransition = {};
-  currentTransition.types =
-    null !== prevTransition ? prevTransition.types : null;
-  ReactSharedInternals.T = currentTransition;
-  try {
-    var returnValue = scope(),
-      onStartTransitionFinish = ReactSharedInternals.S;
-    null !== onStartTransitionFinish &&
-      onStartTransitionFinish(currentTransition, returnValue);
-    "object" === typeof returnValue &&
-      null !== returnValue &&
-      "function" === typeof returnValue.then &&
-      returnValue.then(noop, reportGlobalError);
-  } catch (error) {
-    reportGlobalError(error);
-  } finally {
-    null !== prevTransition &&
-      null !== currentTransition.types &&
-      (prevTransition.types = currentTransition.types),
-      (ReactSharedInternals.T = prevTransition);
-  }
-}
-function addTransitionType(type) {
-  var transition = ReactSharedInternals.T;
-  if (null !== transition) {
-    var transitionTypes = transition.types;
-    null === transitionTypes
-      ? (transition.types = [type])
-      : -1 === transitionTypes.indexOf(type) && transitionTypes.push(type);
-  } else startTransition(addTransitionType.bind(null, type));
-}
-var Children = {
-  map: mapChildren,
-  forEach: function (children, forEachFunc, forEachContext) {
-    mapChildren(
-      children,
-      function () {
-        forEachFunc.apply(this, arguments);
-      },
-      forEachContext
-    );
-  },
-  count: function (children) {
-    var n = 0;
-    mapChildren(children, function () {
-      n++;
-    });
-    return n;
-  },
-  toArray: function (children) {
-    return (
-      mapChildren(children, function (child) {
-        return child;
-      }) || []
-    );
-  },
-  only: function (children) {
-    if (!isValidElement(children))
-      throw Error(
-        "React.Children.only expected to receive a single React element child."
-      );
-    return children;
-  }
-};
-__rspack_unused_export = REACT_ACTIVITY_TYPE;
-__rspack_unused_export = Children;
-__rspack_unused_export = Component;
-__rspack_unused_export = REACT_FRAGMENT_TYPE;
-__rspack_unused_export = REACT_PROFILER_TYPE;
-__rspack_unused_export = PureComponent;
-__rspack_unused_export = REACT_STRICT_MODE_TYPE;
-__rspack_unused_export = REACT_SUSPENSE_TYPE;
-__rspack_unused_export = REACT_VIEW_TRANSITION_TYPE;
-__rspack_unused_export =
-  ReactSharedInternals;
-__rspack_unused_export = {
-  __proto__: null,
-  c: function (size) {
-    return ReactSharedInternals.H.useMemoCache(size);
-  }
-};
-__rspack_unused_export = addTransitionType;
-__rspack_unused_export = function (fn) {
-  return function () {
-    return fn.apply(null, arguments);
-  };
-};
-__rspack_unused_export = function () {
-  return null;
-};
-__rspack_unused_export = function (element, config, children) {
-  if (null === element || void 0 === element)
-    throw Error(
-      "The argument must be a React element, but you passed " + element + "."
-    );
-  var props = assign({}, element.props),
-    key = element.key;
-  if (null != config)
-    for (propName in (void 0 !== config.key && (key = "" + config.key), config))
-      !hasOwnProperty.call(config, propName) ||
-        "key" === propName ||
-        "__self" === propName ||
-        "__source" === propName ||
-        ("ref" === propName && void 0 === config.ref) ||
-        (props[propName] = config[propName]);
-  var propName = arguments.length - 2;
-  if (1 === propName) props.children = children;
-  else if (1 < propName) {
-    for (var childArray = Array(propName), i = 0; i < propName; i++)
-      childArray[i] = arguments[i + 2];
-    props.children = childArray;
-  }
-  return ReactElement(element.type, key, props);
-};
-__rspack_unused_export = function (defaultValue) {
-  defaultValue = {
-    $$typeof: REACT_CONTEXT_TYPE,
-    _currentValue: defaultValue,
-    _currentValue2: defaultValue,
-    _threadCount: 0,
-    Provider: null,
-    Consumer: null
-  };
-  defaultValue.Provider = defaultValue;
-  defaultValue.Consumer = {
-    $$typeof: REACT_CONSUMER_TYPE,
-    _context: defaultValue
-  };
-  return defaultValue;
-};
-__rspack_unused_export = function (type, config, children) {
-  var propName,
-    props = {},
-    key = null;
-  if (null != config)
-    for (propName in (void 0 !== config.key && (key = "" + config.key), config))
-      hasOwnProperty.call(config, propName) &&
-        "key" !== propName &&
-        "__self" !== propName &&
-        "__source" !== propName &&
-        (props[propName] = config[propName]);
-  var childrenLength = arguments.length - 2;
-  if (1 === childrenLength) props.children = children;
-  else if (1 < childrenLength) {
-    for (var childArray = Array(childrenLength), i = 0; i < childrenLength; i++)
-      childArray[i] = arguments[i + 2];
-    props.children = childArray;
-  }
-  if (type && type.defaultProps)
-    for (propName in ((childrenLength = type.defaultProps), childrenLength))
-      void 0 === props[propName] &&
-        (props[propName] = childrenLength[propName]);
-  return ReactElement(type, key, props);
-};
-__rspack_unused_export = function () {
-  return { current: null };
-};
-__rspack_unused_export = function (render) {
-  return { $$typeof: REACT_FORWARD_REF_TYPE, render: render };
-};
-__rspack_unused_export = isValidElement;
-__rspack_unused_export = function (ctor) {
-  return {
-    $$typeof: REACT_LAZY_TYPE,
-    _payload: { _status: -1, _result: ctor },
-    _init: lazyInitializer
-  };
-};
-__rspack_unused_export = function (type, compare) {
-  return {
-    $$typeof: REACT_MEMO_TYPE,
-    type: type,
-    compare: void 0 === compare ? null : compare
-  };
-};
-__rspack_unused_export = startTransition;
-__rspack_unused_export = function () {
-  return ReactSharedInternals.H.useCacheRefresh();
-};
-__rspack_unused_export = function (usable) {
-  return ReactSharedInternals.H.use(usable);
-};
-__rspack_unused_export = function (action, initialState, permalink) {
-  return ReactSharedInternals.H.useActionState(action, initialState, permalink);
-};
-__rspack_unused_export = function (callback, deps) {
-  return ReactSharedInternals.H.useCallback(callback, deps);
-};
-__rspack_unused_export = function (Context) {
-  return ReactSharedInternals.H.useContext(Context);
-};
-__rspack_unused_export = function () {};
-__rspack_unused_export = function (value, initialValue) {
-  return ReactSharedInternals.H.useDeferredValue(value, initialValue);
-};
-__rspack_unused_export = function (create, deps) {
-  return ReactSharedInternals.H.useEffect(create, deps);
-};
-__rspack_unused_export = function (callback) {
-  return ReactSharedInternals.H.useEffectEvent(callback);
-};
-__rspack_unused_export = function () {
-  return ReactSharedInternals.H.useId();
-};
-__rspack_unused_export = function (ref, create, deps) {
-  return ReactSharedInternals.H.useImperativeHandle(ref, create, deps);
-};
-__rspack_unused_export = function (create, deps) {
-  return ReactSharedInternals.H.useInsertionEffect(create, deps);
-};
-__rspack_unused_export = function (create, deps) {
-  return ReactSharedInternals.H.useLayoutEffect(create, deps);
-};
-__rspack_unused_export = function (create, deps) {
-  return ReactSharedInternals.H.useMemo(create, deps);
-};
-__rspack_unused_export = function (passthrough, reducer) {
-  return ReactSharedInternals.H.useOptimistic(passthrough, reducer);
-};
-__rspack_unused_export = function (reducer, initialArg, init) {
-  return ReactSharedInternals.H.useReducer(reducer, initialArg, init);
-};
-__rspack_unused_export = function (initialValue) {
-  return ReactSharedInternals.H.useRef(initialValue);
-};
-__rspack_unused_export = function (initialState) {
-  return ReactSharedInternals.H.useState(initialState);
-};
-__rspack_unused_export = function (
-  subscribe,
-  getSnapshot,
-  getServerSnapshot
-) {
-  return ReactSharedInternals.H.useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot
-  );
-};
-__rspack_unused_export = function () {
-  return ReactSharedInternals.H.useTransition();
-};
-__rspack_unused_export = "19.3.0";
-
-
-},
-"./node_modules/react/index.js"(module, __unused_rspack_exports, __webpack_require__) {
-
-
-if (process.env.NODE_ENV === 'production') {
-  /* unused reexport */ __webpack_require__("./node_modules/react/cjs/react.production.js");
-} else {
-  /* unused reexport */ __webpack_require__("./node_modules/react/cjs/react.development.js");
-}
-
-
-},
 "./src/scripts/gbot-relay.ts"(module, __unused_rspack___webpack_exports__, __webpack_require__) {
 __webpack_require__.a(module, async function (__rspack_load_async_deps, __rspack_async_done) { try {
 /* import */ var _core_relay_worker_js__rspack_import_0 = __webpack_require__("./src/core/relay/worker.js");
@@ -2298,28 +382,7 @@ __webpack_require__.d(__webpack_exports__, {
 },
 "./node_modules/@agent-bundle/runtime/dist/302.js"(__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
 /* import */ var node_buffer__rspack_import_0 = __webpack_require__("node:buffer");
-/* import */ var react__rspack_import_1 = __webpack_require__("./node_modules/react/index.js");
 
-
-const isServerComponent = (value)=>'function' == typeof value;
-const asMcpElement = (node)=>{
-    let element = node;
-    while(isValidElement(element) && isServerComponent(element.type))element = element.type(element.props);
-    if (!isValidElement(element) || 'string' != typeof element.type || !element.type.startsWith('mcp-')) throw new Error('Expected an MCP result element');
-    return {
-        props: element.props,
-        type: element.type
-    };
-};
-const requiredString = (value, message)=>{
-    if ('string' != typeof value || '' === value.trim()) throw new Error(message);
-    return value;
-};
-const textChild = (children, message)=>{
-    const values = Children.toArray(children);
-    if (1 !== values.length || 'string' != typeof values[0]) throw new Error(message);
-    return values[0];
-};
 const jsonLeafBytes = (value)=>Buffer.byteLength(JSON.stringify(value), 'utf8');
 const isArrayIndex = (key, length)=>{
     if ('0' === key) return length > 0;
@@ -2381,16 +444,6 @@ const cloneJsonValue = (value, ancestors, path, depth = 0, budget)=>{
         ancestors.delete(value);
     }
 };
-const jsonRecord = (value, message)=>{
-    try {
-        if (null === value || 'object' != typeof value || Array.isArray(value)) throw new Error('not a plain object');
-        return cloneJsonValue(value, new Set(), '');
-    } catch (error) {
-        throw new Error(`${message} (${error instanceof Error ? error.message : String(error)})`, {
-            cause: error
-        });
-    }
-};
 const deepFreezeJson = (value)=>{
     if ('object' == typeof value && null !== value) {
         for (const child of Object.values(value))deepFreezeJson(child);
@@ -2407,89 +460,6 @@ const snapshotJsonValue = (value, message, budget)=>{
             cause: error
         });
     }
-};
-const lowerContent = (node)=>{
-    const element = asMcpElement(node);
-    const { props } = element;
-    switch(element.type){
-        case 'mcp-text':
-            return {
-                text: textChild(props.children, 'mcp-text requires one text child'),
-                type: 'text'
-            };
-        case 'mcp-image':
-            return {
-                data: requiredString(props.data, 'mcp-image requires non-empty data and mimeType'),
-                mimeType: requiredString(props.mimeType, 'mcp-image requires non-empty data and mimeType'),
-                type: 'image'
-            };
-        case 'mcp-audio':
-            return {
-                data: requiredString(props.data, 'mcp-audio requires non-empty data and mimeType'),
-                mimeType: requiredString(props.mimeType, 'mcp-audio requires non-empty data and mimeType'),
-                type: 'audio'
-            };
-        case 'mcp-resource-link':
-            {
-                const mimeType = props.mimeType;
-                if (void 0 !== mimeType && 'string' != typeof mimeType) throw new Error('mcp-resource-link mimeType must be a string');
-                return {
-                    ...void 0 === mimeType ? {} : {
-                        mimeType
-                    },
-                    name: requiredString(props.name, 'mcp-resource-link requires non-empty uri and name'),
-                    type: 'resource_link',
-                    uri: requiredString(props.uri, 'mcp-resource-link requires non-empty uri and name')
-                };
-            }
-        case 'mcp-embedded-resource':
-            {
-                const hasText = void 0 !== props.text;
-                const hasTextChild = void 0 !== props.children;
-                const hasBlob = void 0 !== props.blob;
-                if (Number(hasText) + Number(hasTextChild) + Number(hasBlob) !== 1) throw new Error('mcp-embedded-resource accepts exactly one text or blob value');
-                const mimeType = props.mimeType;
-                if (void 0 !== mimeType && 'string' != typeof mimeType) throw new Error('mcp-embedded-resource mimeType must be a string');
-                const resource = {
-                    ...void 0 === mimeType ? {} : {
-                        mimeType
-                    },
-                    uri: requiredString(props.uri, 'mcp-embedded-resource requires a non-empty uri'),
-                    ...hasBlob ? {
-                        blob: requiredString(props.blob, 'mcp-embedded-resource blob must be non-empty')
-                    } : {
-                        text: hasTextChild ? textChild(props.children, 'mcp-embedded-resource requires one text child') : requiredString(props.text, 'mcp-embedded-resource text must be non-empty')
-                    }
-                };
-                return {
-                    resource,
-                    type: 'resource'
-                };
-            }
-        case 'mcp-result':
-            throw new Error('mcp-result may not be nested');
-        default:
-            throw new Error(`Unsupported MCP result element: ${element.type}`);
-    }
-};
-const lowerMcpResult = (node)=>{
-    const root = asMcpElement(node);
-    if ('mcp-result' !== root.type) throw new Error('Expected mcp-result as the root element');
-    if (void 0 !== root.props.isError && 'boolean' != typeof root.props.isError) throw new Error('mcp-result isError must be a boolean');
-    const structuredContent = root.props.structuredContent;
-    const metadata = root.props._meta;
-    return {
-        content: Children.toArray(root.props.children).map(lowerContent),
-        ...void 0 === metadata ? {} : {
-            _meta: jsonRecord(metadata, 'mcp-result _meta must be JSON-serializable')
-        },
-        ...void 0 === structuredContent ? {} : {
-            structuredContent: jsonRecord(structuredContent, 'mcp-result structuredContent must be JSON-serializable')
-        },
-        ...void 0 === root.props.isError ? {} : {
-            isError: root.props.isError
-        }
-    };
 };
 const AGENT_DOCUMENT_VERSION = 1;
 const agentRenderAbortError = ()=>new DOMException('Agent render was aborted', 'AbortError');
@@ -2518,7 +488,7 @@ const resolveAgentRenderLimits = (overrides = {})=>{
     for (const [name, value] of Object.entries(limits))if (!Number.isSafeInteger(value) || value <= 0) throw new AgentContractError('invalid-document', `${name} must be a positive safe integer`);
     return Object.freeze(limits);
 };
-const agent_document_requiredString = (value, field)=>{
+const requiredString = (value, field)=>{
     if ('string' != typeof value || '' === value.trim()) throw new AgentContractError('invalid-document', `${field} must be a non-empty string`);
     return value;
 };
@@ -2526,7 +496,7 @@ const agent_document_text = (value, field)=>{
     if ('string' != typeof value) throw new AgentContractError('invalid-document', `${field} must be a string`);
     return value;
 };
-const optionalString = (value, field)=>void 0 === value ? void 0 : agent_document_requiredString(value, field);
+const optionalString = (value, field)=>void 0 === value ? void 0 : requiredString(value, field);
 const elapsedTimeExceeded = (maxElapsedMs)=>new AgentContractError('elapsed-time-exceeded', `Agent render elapsed time exceeds ${String(maxElapsedMs)}ms`);
 const expectDocumentDepth = (depth, limits)=>{
     if (depth > limits.maxDocumentDepth) throw new AgentContractError('document-depth-exceeded', `Agent Document depth exceeds ${String(limits.maxDocumentDepth)}`);
@@ -2624,15 +594,15 @@ const snapshotNode = (node, depth, state)=>{
                 }
             case 'image':
                 return Object.freeze({
-                    data: agent_document_requiredString(node.data, 'Agent image data'),
+                    data: requiredString(node.data, 'Agent image data'),
                     kind: 'image',
-                    mimeType: agent_document_requiredString(node.mimeType, 'Agent image mimeType')
+                    mimeType: requiredString(node.mimeType, 'Agent image mimeType')
                 });
             case 'audio':
                 return Object.freeze({
-                    data: agent_document_requiredString(node.data, 'Agent audio data'),
+                    data: requiredString(node.data, 'Agent audio data'),
                     kind: 'audio',
-                    mimeType: agent_document_requiredString(node.mimeType, 'Agent audio mimeType')
+                    mimeType: requiredString(node.mimeType, 'Agent audio mimeType')
                 });
             case 'resource':
                 {
@@ -2642,13 +612,13 @@ const snapshotNode = (node, depth, state)=>{
                         ...void 0 === mimeType ? {} : {
                             mimeType
                         },
-                        name: agent_document_requiredString(node.name, 'Agent resource name'),
-                        uri: agent_document_requiredString(node.uri, 'Agent resource uri')
+                        name: requiredString(node.name, 'Agent resource name'),
+                        uri: requiredString(node.uri, 'Agent resource uri')
                     });
                 }
             case 'error':
                 return Object.freeze({
-                    code: agent_document_requiredString(node.code, 'Agent error code'),
+                    code: requiredString(node.code, 'Agent error code'),
                     kind: 'error',
                     message: agent_document_text(node.message, 'Agent error message')
                 });
@@ -2706,7 +676,7 @@ const snapshotRenderError = (error, limits)=>{
         nodes: 0
     });
     return Object.freeze({
-        code: agent_document_requiredString(error.code, 'Agent render error code'),
+        code: requiredString(error.code, 'Agent render error code'),
         ...void 0 === data ? {} : {
             data
         },
@@ -2741,7 +711,7 @@ const snapshotEvent = (input, sequence, limits)=>{
             }
         case 'replace':
             return Object.freeze({
-                boundaryId: agent_document_requiredString(input.boundaryId, 'Agent render boundaryId'),
+                boundaryId: requiredString(input.boundaryId, 'Agent render boundaryId'),
                 document: createAgentDocument(input.document, limits),
                 sequence,
                 type: 'replace'
@@ -3448,6 +1418,36 @@ const READABLE_KERNEL_FORMATS = Object.freeze([
     KERNEL_FORMAT,
     COMPACTED_KERNEL_FORMAT
 ]);
+const TABLE_COLUMNS = Object.freeze({
+    agent_state_head: [
+        'id',
+        'revision NOT NULL',
+        'state NOT NULL'
+    ],
+    agent_state_journal: [
+        'revision',
+        'kind NOT NULL',
+        'name',
+        'payload',
+        'state',
+        'result_state NOT NULL',
+        'to_version',
+        'idempotency_key NOT NULL',
+        'committed_at NOT NULL'
+    ],
+    agent_state_meta: [
+        'id',
+        'definition_id NOT NULL',
+        'schema_version NOT NULL',
+        'kernel_format NOT NULL'
+    ],
+    agent_state_pruned_keys: [
+        'idempotency_key',
+        'revision NOT NULL',
+        'canonical_input NOT NULL'
+    ]
+});
+const columnSignature = (column)=>0 === column.notnull ? column.name : `${column.name} NOT NULL`;
 const SQLITE_CORRUPT = 11;
 const SQLITE_NOTADB = 26;
 const SQLITE_BUSY = 5;
@@ -3525,7 +1525,7 @@ const recordFromRow = (definitionId, row)=>{
     throw new _65_js__rspack_import_6/* .AgentStateError */.nk('corrupt', `State '${definitionId}' journal row at revision ${String(row.revision)} has an invalid shape`);
 };
 const sanitizedFileName = (definitionId)=>`${definitionId.replace(/[^a-zA-Z0-9._-]+/gu, '-')}-${(0,node_crypto__rspack_import_0.createHash)('sha256').update(definitionId, 'utf8').digest('hex').slice(0, 16)}.sqlite`;
-const legacySanitizedFileName = (definitionId)=>`${definitionId.replace(/[^a-zA-Z0-9._-]+/gu, '-')}-${Buffer.from(definitionId, 'utf8').toString('hex').slice(0, 12)}.sqlite`;
+const pre201FileName = (definitionId)=>`${definitionId.replace(/[^a-zA-Z0-9._-]+/gu, '-')}-${Buffer.from(definitionId, 'utf8').toString('hex').slice(0, 12)}.sqlite`;
 class SqliteConnection extends effect__rspack_import_9/* .Service */.kl()('@agent-bundle/runtime/state/SqliteConnection') {
 }
 class SqliteStore {
@@ -3605,7 +1605,7 @@ class SqliteStore {
         if (void 0 !== row) return {
             kind: 'committed',
             record: recordFromRow(this.#definition.id, row),
-            resultStateText: row.result_state ?? row.state
+            resultStateText: row.result_state
         };
         const pruned = this.#prepare(db, 'SELECT revision, canonical_input FROM agent_state_pruned_keys WHERE idempotency_key = ?').get(key);
         return void 0 === pruned ? void 0 : {
@@ -3614,8 +1614,8 @@ class SqliteStore {
             revision: pruned.revision
         };
     }
-    #committedState(db, committed) {
-        const raw = null !== committed.resultStateText ? parseStoredJson(this.#definition.id, 'result state', committed.record.revision, committed.resultStateText) : this.#replayTo(db, committed.record.revision);
+    #committedState(committed) {
+        const raw = parseStoredJson(this.#definition.id, 'result state', committed.record.revision, committed.resultStateText);
         const parsed = this.#definition.schema.safeParse(raw);
         if (!parsed.success) throw new _65_js__rspack_import_6/* .AgentStateError */.nk('corrupt', `State '${this.#definition.id}' committed result at revision ${String(committed.record.revision)} no longer satisfies the schema: ${(0,_65_js__rspack_import_6/* .describeSchemaIssues */.D2)(parsed.error)}`);
         return (0,_65_js__rspack_import_6/* .deepFreezeJson */.GX)(parsed.data);
@@ -3696,7 +1696,7 @@ class SqliteStore {
                     return Object.freeze({
                         replayed: true,
                         revision: committed.record.revision,
-                        state: this.#committedState(db, committed)
+                        state: this.#committedState(committed)
                     });
                 }
                 const head = this.#headState(db, 'commit');
@@ -3873,7 +1873,7 @@ class SqliteStore {
           name TEXT,
           payload TEXT,
           state TEXT,
-          result_state TEXT,
+          result_state TEXT NOT NULL,
           to_version INTEGER,
           idempotency_key TEXT NOT NULL UNIQUE,
           committed_at TEXT NOT NULL
@@ -3889,9 +1889,11 @@ class SqliteStore {
           canonical_input TEXT NOT NULL
         );
       `);
-            const journalColumns = transactionDb.prepare('PRAGMA table_info(agent_state_journal)').all();
-            if (!journalColumns.some((column)=>'result_state' === column.name)) transactionDb.exec('ALTER TABLE agent_state_journal ADD COLUMN result_state TEXT');
             const definition = this.#definition;
+            for (const [table, columns] of Object.entries(TABLE_COLUMNS)){
+                const actual = transactionDb.prepare(`PRAGMA table_info(${table})`).all().map(columnSignature);
+                if (actual.join(',') !== columns.join(',')) throw new _65_js__rspack_import_6/* .AgentStateError */.nk('corrupt', `State '${definition.id}' table ${table} at '${this.location}' does not match the current schema (has ${actual.join(', ')}; expected ${columns.join(', ')})`);
+            }
             const meta = transactionDb.prepare('SELECT definition_id, schema_version, kernel_format FROM agent_state_meta WHERE id = 1').get();
             if (void 0 === meta) {
                 transactionDb.prepare('INSERT INTO agent_state_meta (id, definition_id, schema_version, kernel_format) VALUES (1, ?, ?, ?)').run(definition.id, definition.version, KERNEL_FORMAT);
@@ -3912,9 +1914,9 @@ class SqliteStore {
                 if ((0,_65_js__rspack_import_6/* .canonicalJson */.dj)(replayed) !== (0,_65_js__rspack_import_6/* .canonicalJson */.dj)(rawHead)) throw new _65_js__rspack_import_6/* .AgentStateError */.nk('corrupt', `State '${definition.id}' head state at revision ${String(head.revision)} disagrees with journal replay`);
                 return;
             }
-            const lastStateText = 0 === rows.length ? null : rows[rows.length - 1].state;
-            if (null !== lastStateText) {
-                const lastState = parseStoredJson(definition.id, 'state', journalHead, lastStateText);
+            const lastRow = rows[rows.length - 1];
+            if (void 0 !== lastRow) {
+                const lastState = parseStoredJson(definition.id, 'result state', journalHead, lastRow.result_state);
                 if ((0,_65_js__rspack_import_6/* .canonicalJson */.dj)(lastState) !== (0,_65_js__rspack_import_6/* .canonicalJson */.dj)(rawHead)) throw new _65_js__rspack_import_6/* .AgentStateError */.nk('corrupt', `State '${definition.id}' head state at revision ${String(head.revision)} disagrees with the journal`);
             }
             const migrated = (0,_158_js__rspack_import_8/* .runStateMigrations */.AC)(definition, meta.schema_version, rawHead);
@@ -3922,14 +1924,8 @@ class SqliteStore {
             (0,_158_js__rspack_import_8/* .expectMigrationWithinStateBudget */.Lh)(definition, migratedStateText);
             const updateResult = transactionDb.prepare('UPDATE agent_state_journal SET result_state = ? WHERE revision = ?');
             for (const row of rows){
-                const storedResultText = row.result_state ?? row.state;
-                let migratedResult;
-                if (null !== storedResultText) {
-                    const storedResult = parseStoredJson(definition.id, 'result state', row.revision, storedResultText);
-                    migratedResult = (0,_158_js__rspack_import_8/* .runStateMigrations */.AC)(definition, meta.schema_version, storedResult);
-                } else if (row.revision === journalHead) migratedResult = migrated;
-                else throw new _65_js__rspack_import_6/* .AgentStateError */.nk('migration-failure', `State '${definition.id}' legacy journal row at revision ${String(row.revision)} has no recoverable committed result; restore a compatible backup or materialize the result with the version ${String(meta.schema_version)} definition before migrating to version ${String(definition.version)}`);
-                updateResult.run((0,_65_js__rspack_import_6/* .canonicalJson */.dj)(migratedResult), row.revision);
+                const storedResult = parseStoredJson(definition.id, 'result state', row.revision, row.result_state);
+                updateResult.run((0,_65_js__rspack_import_6/* .canonicalJson */.dj)((0,_158_js__rspack_import_8/* .runStateMigrations */.AC)(definition, meta.schema_version, storedResult)), row.revision);
             }
             const record = {
                 committedAt: this.#now().toISOString(),
@@ -3997,31 +1993,10 @@ const createSqliteStateDriver = (options)=>{
                     if (closed) throw new _65_js__rspack_import_6/* .AgentStateError */.nk('store-closed', `State '${definition.id}' cannot open on a closed driver`);
                     if ('workspace-durable' !== definition.lifetime) throw new _65_js__rspack_import_6/* .AgentStateError */.nk('lifetime-mismatch', `State '${definition.id}' declares lifetime '${definition.lifetime}' but this driver provides 'workspace-durable'`);
                     if (void 0 !== options.file) return (0,node_path__rspack_import_2.resolve)(options.file);
-                    const root = options.root;
-                    const currentFile = (0,node_path__rspack_import_2.resolve)((0,node_path__rspack_import_2.join)(root, sanitizedFileName(definition.id)));
-                    const legacyFile = (0,node_path__rspack_import_2.resolve)((0,node_path__rspack_import_2.join)(root, legacySanitizedFileName(definition.id)));
-                    (0,node_fs__rspack_import_1.mkdirSync)((0,node_path__rspack_import_2.dirname)(currentFile), {
-                        recursive: true
-                    });
-                    if (!(0,node_fs__rspack_import_1.existsSync)(currentFile) && (0,node_fs__rspack_import_1.existsSync)(legacyFile)) {
-                        for (const suffix of [
-                            '-wal',
-                            '-shm'
-                        ]){
-                            const legacySidecar = `${legacyFile}${suffix}`;
-                            if ((0,node_fs__rspack_import_1.existsSync)(legacySidecar)) try {
-                                (0,node_fs__rspack_import_1.renameSync)(legacySidecar, `${currentFile}${suffix}`);
-                            } catch (error) {
-                                if ('ENOENT' !== error.code) throw error;
-                            }
-                        }
-                        try {
-                            (0,node_fs__rspack_import_1.renameSync)(legacyFile, currentFile);
-                        } catch (error) {
-                            if (!(0,node_fs__rspack_import_1.existsSync)(currentFile)) throw error;
-                        }
-                    }
-                    return currentFile;
+                    const current = (0,node_path__rspack_import_2.resolve)((0,node_path__rspack_import_2.join)(options.root, sanitizedFileName(definition.id)));
+                    const pre201 = (0,node_path__rspack_import_2.resolve)((0,node_path__rspack_import_2.join)(options.root, pre201FileName(definition.id)));
+                    if (!(0,node_fs__rspack_import_1.existsSync)(current) && (0,node_fs__rspack_import_1.existsSync)(pre201)) throw new _65_js__rspack_import_6/* .AgentStateError */.nk('corrupt', `State '${definition.id}' found a store at '${pre201}' under the pre-#201 file name, which this runtime no longer reads, and none at '${current}'. Move that file and its -wal/-shm sidecars out of the state root to keep a copy, or delete them; the next open then creates a fresh, empty store. It is not adopted or migrated.`);
+                    return current;
                 }, true));
                 const connection = effect__rspack_import_7/* .acquireRelease */.Q56(sqliteEffect(definition.id, 'open database', ()=>{
                     (0,node_fs__rspack_import_1.mkdirSync)((0,node_path__rspack_import_2.dirname)(file), {
@@ -4065,16 +2040,14 @@ __webpack_require__.d(__webpack_exports__, {
 
 },
 "./node_modules/effect/dist/Array.js"(__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-/* import */ var _Equal_js__rspack_import_6 = __webpack_require__("./node_modules/effect/dist/Equal.js");
-/* import */ var _Equivalence_js__rspack_import_9 = __webpack_require__("./node_modules/effect/dist/Equivalence.js");
-/* import */ var _Function_js__rspack_import_2 = __webpack_require__("./node_modules/effect/dist/Function.js");
-/* import */ var _Hash_js__rspack_import_5 = __webpack_require__("./node_modules/effect/dist/Hash.js");
-/* import */ var _internal_array_js__rspack_import_3 = __webpack_require__("./node_modules/effect/dist/internal/array.js");
-/* import */ var _Iterable_js__rspack_import_4 = __webpack_require__("./node_modules/effect/dist/Iterable.js");
+/* import */ var _Equivalence_js__rspack_import_7 = __webpack_require__("./node_modules/effect/dist/Equivalence.js");
+/* import */ var _Function_js__rspack_import_4 = __webpack_require__("./node_modules/effect/dist/Function.js");
+/* import */ var _internal_array_js__rspack_import_2 = __webpack_require__("./node_modules/effect/dist/internal/array.js");
+/* import */ var _Iterable_js__rspack_import_3 = __webpack_require__("./node_modules/effect/dist/Iterable.js");
 /* import */ var _Option_js__rspack_import_1 = __webpack_require__("./node_modules/effect/dist/Option.js");
-/* import */ var _Order_js__rspack_import_8 = __webpack_require__("./node_modules/effect/dist/Order.js");
+/* import */ var _Order_js__rspack_import_6 = __webpack_require__("./node_modules/effect/dist/Order.js");
 /* import */ var _Record_js__rspack_import_0 = __webpack_require__("./node_modules/effect/dist/Record.js");
-/* import */ var _Result_js__rspack_import_7 = __webpack_require__("./node_modules/effect/dist/Result.js");
+/* import */ var _Result_js__rspack_import_5 = __webpack_require__("./node_modules/effect/dist/Result.js");
 /**
  * Works with JavaScript arrays, readonly arrays, and non-empty arrays.
  *
@@ -4086,6 +2059,7 @@ __webpack_require__.d(__webpack_exports__, {
  *
  * @since 2.0.0
  */
+
 
 
 
@@ -4156,6 +2130,7 @@ const make = (...elements) => elements;
  *
  * **Details**
  *
+ * `n` is rounded down. `NaN` and non-positive values are treated as `0`.
  * Elements are typed as `A | undefined` because the slots are empty.
  *
  * **Example** (Allocating a fixed-size array)
@@ -4171,7 +2146,7 @@ const make = (...elements) => elements;
  * @category constructors
  * @since 2.0.0
  */
-const allocate = n => new Array(n);
+const allocate = n => new Array(Count.normalize(n));
 /**
  * Creates a `NonEmptyArray` of length `n` where element `i` is computed by `f(i)`.
  *
@@ -4181,9 +2156,9 @@ const allocate = n => new Array(n);
  *
  * **Details**
  *
- * `n` is normalized to an integer greater than or equal to 1, so this function
- * always returns at least one element. Supports both data-first and data-last
- * usage.
+ * `n` is rounded down and normalized to an integer greater than or equal to 1.
+ * `NaN` is treated as `1`, so this function always returns at least one
+ * element. Supports both data-first and data-last usage.
  *
  * **Example** (Generating values from indices)
  *
@@ -4200,7 +2175,7 @@ const allocate = n => new Array(n);
  * @since 2.0.0
  */
 const makeBy = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (n, f) => {
-  const max = Math.max(1, Math.floor(n));
+  const max = Count.normalizeNonEmpty(n);
   const out = new Array(max);
   for (let i = 0; i < max; i++) {
     out[i] = f(i);
@@ -4576,7 +2551,7 @@ const append = /*#__PURE__*/(/* unused pure expression or super */ null && (dual
  * @category combining
  * @since 2.0.0
  */
-const appendAll = /*#__PURE__*/(0,_Function_js__rspack_import_2/* .dual */.XY)(2, (self, that) => fromIterable(self).concat(fromIterable(that)));
+const appendAll = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, that) => fromIterable(self).concat(fromIterable(that)))));
 /**
  * Folds left-to-right while keeping every intermediate accumulator value.
  *
@@ -4739,7 +2714,7 @@ const isReadonlyArrayEmpty = (/* unused pure expression or super */ null && (isA
  * @category guards
  * @since 4.0.0
  */
-const isArrayNonEmpty = _internal_array_js__rspack_import_3/* .isArrayNonEmpty */.C;
+const isArrayNonEmpty = _internal_array_js__rspack_import_2/* .isArrayNonEmpty */.C;
 /**
  * Checks whether a `ReadonlyArray` is non-empty, narrowing the type to
  * `NonEmptyReadonlyArray`.
@@ -4764,7 +2739,7 @@ const isArrayNonEmpty = _internal_array_js__rspack_import_3/* .isArrayNonEmpty *
  * @category guards
  * @since 4.0.0
  */
-const isReadonlyArrayNonEmpty = _internal_array_js__rspack_import_3/* .isArrayNonEmpty */.C;
+const isReadonlyArrayNonEmpty = _internal_array_js__rspack_import_2/* .isArrayNonEmpty */.C;
 /**
  * Returns the number of elements in a `ReadonlyArray`.
  *
@@ -4784,11 +2759,21 @@ const isReadonlyArrayNonEmpty = _internal_array_js__rspack_import_3/* .isArrayNo
  * @since 2.0.0
  */
 const length = self => self.length;
+/**
+ * Checks whether a string represents a JavaScript array index: a non-negative
+ * integer below `2 ** 32 - 1`, written without leading zeroes, a sign, or
+ * exponent notation.
+ *
+ * @internal
+ */
+function isCanonicalArrayIndex(key) {
+  const index = Number(key);
+  return String(index) === key && Number.isInteger(index) && index >= 0 && index < 2 ** 32 - 1;
+}
 /** @internal */
 function isOutOfBounds(i, as) {
   return !Number.isFinite(i) || i < 0 || i >= as.length;
 }
-const clamp = (i, as) => Math.floor(Math.min(Math.max(0, i), as.length));
 /**
  * Reads an element at the given index safely, returning `Option.some` or
  * `Option.none` if the index is out of bounds.
@@ -5112,6 +3097,7 @@ function init(self) {
  * @since 2.0.0
  */
 const initNonEmpty = self => self.slice(0, -1);
+const clampCount = (n, length) => Math.min(Count.normalize(n), length);
 /**
  * Keeps the first `n` elements, creating a new array.
  *
@@ -5121,7 +3107,8 @@ const initNonEmpty = self => self.slice(0, -1);
  *
  * **Details**
  *
- * `n` is clamped to `[0, length]`. Returns an empty array when `n <= 0`.
+ * `n` is rounded down and clamped to `[0, length]`. `NaN` is treated as `0`.
+ * Returns an empty array when `n <= 0`.
  *
  * **Example** (Taking from the start)
  *
@@ -5140,7 +3127,7 @@ const initNonEmpty = self => self.slice(0, -1);
  */
 const take = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => {
   const input = fromIterable(self);
-  return input.slice(0, clamp(n, input));
+  return input.slice(0, clampCount(n, input.length));
 })));
 /**
  * Keeps the last `n` elements, creating a new array.
@@ -5151,7 +3138,8 @@ const take = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2
  *
  * **Details**
  *
- * `n` is clamped to `[0, length]`. Returns an empty array when `n <= 0`.
+ * `n` is rounded down and clamped to `[0, length]`. `NaN` is treated as `0`.
+ * Returns an empty array when `n <= 0`.
  *
  * **Example** (Taking from the end)
  *
@@ -5169,7 +3157,7 @@ const take = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2
  */
 const takeRight = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => {
   const input = fromIterable(self);
-  const i = clamp(n, input);
+  const i = clampCount(n, input.length);
   return i === 0 ? [] : input.slice(-i);
 })));
 /**
@@ -5299,8 +3287,8 @@ const span = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2
  *
  * **Details**
  *
- * `n` is clamped to `[0, length]`. When `n <= 0`, this returns a copy of the
- * full array.
+ * `n` is rounded down and clamped to `[0, length]`. `NaN` is treated as `0`.
+ * When `n <= 0`, this returns a copy of the full array.
  *
  * **Example** (Dropping from the start)
  *
@@ -5319,7 +3307,7 @@ const span = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2
  */
 const drop = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => {
   const input = fromIterable(self);
-  return input.slice(clamp(n, input), input.length);
+  return input.slice(clampCount(n, input.length), input.length);
 })));
 /**
  * Removes the last `n` elements, creating a new array.
@@ -5330,7 +3318,7 @@ const drop = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2
  *
  * **Details**
  *
- * `n` is clamped to `[0, length]`.
+ * `n` is rounded down and clamped to `[0, length]`. `NaN` is treated as `0`.
  *
  * **Example** (Dropping from the end)
  *
@@ -5348,7 +3336,7 @@ const drop = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2
  */
 const dropRight = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => {
   const input = fromIterable(self);
-  return input.slice(0, input.length - clamp(n, input));
+  return input.slice(0, input.length - clampCount(n, input.length));
 })));
 /**
  * Drops elements from the start while the predicate holds, returning the rest.
@@ -5510,7 +3498,7 @@ const findLastIndex = /*#__PURE__*/(/* unused pure expression or super */ null &
  * @category searching
  * @since 2.0.0
  */
-const findFirst = _Iterable_js__rspack_import_4/* .findFirst */.i8;
+const findFirst = _Iterable_js__rspack_import_3/* .findFirst */.i8;
 /**
  * Returns the first selected value together with its index, wrapped in an
  * `Option`.
@@ -6249,8 +4237,8 @@ const chop = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2
  *
  * **Details**
  *
- * `n` can be `0`, in which case all elements are placed in the second array.
- * The index is floored to an integer.
+ * `n` is rounded down and clamped to `[0, length]`. `NaN` is treated as `0`,
+ * which places all elements in the second array.
  *
  * **Example** (Splitting at an index)
  *
@@ -6268,7 +4256,7 @@ const chop = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2
  */
 const splitAt = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => {
   const input = Array.from(self);
-  const _n = Math.floor(n);
+  const _n = Count.normalize(n);
   if (isReadonlyArrayNonEmpty(input)) {
     if (_n >= 1) {
       return splitAtNonEmpty(input, _n);
@@ -6286,6 +4274,10 @@ const splitAt = /*#__PURE__*/(/* unused pure expression or super */ null && (dua
  * Use when downstream code requires the left side of the split to contain at
  * least one element.
  *
+ * **Details**
+ *
+ * `n` is rounded down and clamped to `[1, length]`. `NaN` is treated as `1`.
+ *
  * **Example** (Splitting a non-empty array)
  *
  * ```ts import.meta.vitest
@@ -6300,7 +4292,7 @@ const splitAt = /*#__PURE__*/(/* unused pure expression or super */ null && (dua
  * @since 4.0.0
  */
 const splitAtNonEmpty = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => {
-  const _n = Math.max(1, Math.floor(n));
+  const _n = Count.normalizeNonEmpty(n);
   return _n >= self.length ? [copy(self), []] : [prepend(self.slice(1, _n), headNonEmpty(self)), self.slice(_n)];
 })));
 /**
@@ -6312,7 +4304,8 @@ const splitAtNonEmpty = /*#__PURE__*/(/* unused pure expression or super */ null
  *
  * **Details**
  *
- * Uses `chunksOf(ceil(length / n))` internally. The last chunk may be shorter.
+ * `n` is rounded down and normalized to at least `1`, with `NaN` treated as
+ * `1`. The last chunk may be shorter.
  *
  * **Example** (Splitting into groups)
  *
@@ -6329,7 +4322,7 @@ const splitAtNonEmpty = /*#__PURE__*/(/* unused pure expression or super */ null
  */
 const split = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => {
   const input = fromIterable(self);
-  return chunksOf(input, Math.ceil(input.length / Math.floor(n)));
+  return chunksOf(input, Math.ceil(input.length / Count.normalizeNonEmpty(n)));
 })));
 /**
  * Splits an iterable at the first element matching the predicate. The matching
@@ -6396,7 +4389,8 @@ const copy = self => self.slice();
  *
  * **Details**
  *
- * Returns an empty array when `n <= 0`.
+ * `n` is rounded down. `NaN` and non-positive values are treated as `0`, which
+ * returns an empty array.
  *
  * **Example** (Padding an array)
  *
@@ -6413,10 +4407,11 @@ const copy = self => self.slice();
  * @since 3.8.4
  */
 const pad = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(3, (self, n, fill) => {
-  if (self.length >= n) {
-    return take(self, n);
+  const length = Count.normalize(n);
+  if (self.length >= length) {
+    return take(self, length);
   }
-  return appendAll(self, makeBy(n - self.length, () => fill));
+  return appendAll(self, makeBy(length - self.length, () => fill));
 })));
 /**
  * Splits an iterable into chunks of length `n`. The last chunk may be shorter
@@ -6429,8 +4424,10 @@ const pad = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(3,
  *
  * **Details**
  *
- * `chunksOf(n)([])` is `[]`, not `[[]]`. Each chunk is a `NonEmptyArray`, and
- * the outer return type preserves `NonEmptyArray`.
+ * `n` is rounded down and normalized to at least `1`; `NaN` and non-positive
+ * values therefore produce singleton chunks. `chunksOf(n)([])` is `[]`, not
+ * `[[]]`. Each chunk is a `NonEmptyArray`, and the outer return type preserves
+ * `NonEmptyArray`.
  *
  * **Example** (Chunking an array)
  *
@@ -6462,8 +4459,9 @@ const chunksOf = /*#__PURE__*/(/* unused pure expression or super */ null && (du
  *
  * **Details**
  *
- * Returns an empty array if `n <= 0` or the array has fewer than `n` elements.
- * Each window is a tuple of exactly `n` elements.
+ * `n` is rounded down, with `NaN` and non-positive values treated as `0`.
+ * Returns an empty array if the normalized size is `0` or exceeds the array
+ * length. Each window is a tuple of exactly the normalized size.
  *
  * **Example** (Creating sliding windows)
  *
@@ -6483,10 +4481,11 @@ const chunksOf = /*#__PURE__*/(/* unused pure expression or super */ null && (du
  */
 const window = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => {
   const input = fromIterable(self);
-  if (n > 0 && isReadonlyArrayNonEmpty(input)) {
+  const size = Count.normalize(n);
+  if (size > 0 && size <= input.length && isReadonlyArrayNonEmpty(input)) {
     return Array.from({
-      length: input.length - (n - 1)
-    }, (_, index) => input.slice(index, index + n));
+      length: input.length - (size - 1)
+    }, (_, index) => input.slice(index, index + size));
   }
   return [];
 })));
@@ -6614,7 +4613,7 @@ const groupBy = /*#__PURE__*/(/* unused pure expression or super */ null && (dua
   return out;
 })));
 const hashBucketsAdd = (buckets, value) => {
-  const hash = _Hash_js__rspack_import_5/* .hash */.tW(value);
+  const hash = Hash.hash(value);
   const bucket = buckets.get(hash);
   if (bucket === undefined) {
     buckets.set(hash, [value]);
@@ -6622,7 +4621,7 @@ const hashBucketsAdd = (buckets, value) => {
   }
   // Hash collisions still require an Effect equality check.
   for (const previous of bucket) {
-    if (_Equal_js__rspack_import_6/* .equals */.aI(previous, value)) {
+    if (Equal.equals(previous, value)) {
       return false;
     }
   }
@@ -6703,14 +4702,14 @@ const unionWith = /*#__PURE__*/(/* unused pure expression or super */ null && (d
  * @category set operations
  * @since 2.0.0
  */
-const union = /*#__PURE__*/(0,_Function_js__rspack_import_2/* .dual */.XY)(2, (self, that) => {
+const union = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, that) => {
   const a = fromIterable(self);
   const b = fromIterable(that);
   if (isReadonlyArrayNonEmpty(a)) {
     return isReadonlyArrayNonEmpty(b) ? dedupe(appendAll(a, b)) : a;
   }
   return b;
-});
+})));
 /**
  * Computes the intersection of two arrays using a custom equivalence. Order is
  * determined by the first array.
@@ -7172,13 +5171,13 @@ const filter = /*#__PURE__*/(/* unused pure expression or super */ null && (dual
  * @category filtering
  * @since 2.0.0
  */
-const partition = /*#__PURE__*/(0,_Function_js__rspack_import_2/* .dual */.XY)(2, (self, f) => {
+const partition = /*#__PURE__*/(0,_Function_js__rspack_import_4/* .dual */.XY)(2, (self, f) => {
   const excluded = [];
   const satisfying = [];
   let i = 0;
   for (const a of self) {
     const result = f(a, i++);
-    if (_Result_js__rspack_import_7/* .isSuccess */.oJ(result)) {
+    if (_Result_js__rspack_import_5/* .isSuccess */.oJ(result)) {
       satisfying.push(result.success);
     } else {
       excluded.push(result.failure);
@@ -7588,7 +5587,7 @@ const unfold = (b, f) => {
  * @category instances
  * @since 4.0.0
  */
-const makeOrder = _Order_js__rspack_import_8/* .Array */.O3;
+const makeOrder = _Order_js__rspack_import_6/* .Array */.O3;
 /**
  * Creates an `Equivalence` for arrays based on an element `Equivalence`. Two
  * arrays are equivalent when they have the same length and all elements are
@@ -7609,7 +5608,7 @@ const makeOrder = _Order_js__rspack_import_8/* .Array */.O3;
  * @category instances
  * @since 4.0.0
  */
-const makeEquivalence = _Equivalence_js__rspack_import_9/* .Array */.O3;
+const makeEquivalence = _Equivalence_js__rspack_import_7/* .Array */.O3;
 /**
  * Runs a side-effect for each element. The callback receives `(element, index)`.
  *
@@ -8050,7 +6049,6 @@ __webpack_require__.d(__webpack_exports__, {
 }, {
   CZ: isArrayNonEmpty,
   Ie: empty,
-  KC: union,
   Ts: fromIterable,
   jB: partition
 });
@@ -9702,7 +7700,7 @@ const Service = function () {
 };
 const ServiceProto = {
   [ServiceTypeId]: ServiceTypeId,
-  ... /*#__PURE__*/_Effectable_js__rspack_import_0/* .Prototype */.b({
+  ... /*#__PURE__*/_Effectable_js__rspack_import_0/* .Prototype */.bp({
     label: "Service",
     evaluate(fiber) {
       return (0,_internal_core_js__rspack_import_1/* .exitSucceed */.xt)(get(fiber.context, this));
@@ -10504,6 +8502,11 @@ const DeferredProto = {
     return (0,_Pipeable_js__rspack_import_1/* .pipeArguments */.tT)(this, arguments);
   }
 };
+const DeferredImpl = function () {
+  this.resumes = undefined;
+  this.effect = undefined;
+};
+DeferredImpl.prototype = DeferredProto;
 /**
  * Creates an empty `Deferred` synchronously outside the `Effect` runtime.
  *
@@ -10524,12 +8527,7 @@ const DeferredProto = {
  * @category unsafe
  * @since 4.0.0
  */
-const makeUnsafe = () => {
-  const self = Object.create(DeferredProto);
-  self.resumes = undefined;
-  self.effect = undefined;
-  return self;
-};
+const makeUnsafe = () => new DeferredImpl();
 /**
  * Creates a new `Deferred`.
  *
@@ -11205,15 +9203,15 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 
-const TypeId = "~effect/time/Duration";
+const TypeId = "~effect/Duration";
 const bigint0 = /*#__PURE__*/BigInt(0);
 const bigint1 = /*#__PURE__*/BigInt(1);
 const bigint2 = /*#__PURE__*/BigInt(2);
 const bigint10 = /*#__PURE__*/BigInt(10);
-const bigint24 = /*#__PURE__*/(/* unused pure expression or super */ null && (BigInt(24)));
-const bigint60 = /*#__PURE__*/(/* unused pure expression or super */ null && (BigInt(60)));
+const bigint24 = /*#__PURE__*/BigInt(24);
+const bigint60 = /*#__PURE__*/BigInt(60);
 const bigint1e3 = /*#__PURE__*/BigInt(1_000);
-const bigint1e6 = /*#__PURE__*/(/* unused pure expression or super */ null && (BigInt(1_000_000)));
+const bigint1e6 = /*#__PURE__*/BigInt(1_000_000);
 const bigint1e9 = /*#__PURE__*/(/* unused pure expression or super */ null && (BigInt(1_000_000_000)));
 const roundTiesAwayFromZero = input => BigInt(input < 0 ? Math.ceil(input - 0.5) : Math.floor(input + 0.5));
 const roundMillisToNanos = millis => roundTiesAwayFromZero(millis * 1_000_000);
@@ -12650,7 +10648,7 @@ const CombinerMin = /*#__PURE__*/(/* unused pure expression or super */ null && 
 //# sourceMappingURL=Duration.js.map
 __webpack_require__.d(__webpack_exports__, {
 }, {
-  Tn: infinity,
+  GP: format,
   bN: fromInputUnsafe,
   cF: nanos,
   kE: toMillis,
@@ -12813,7 +10811,7 @@ const isEffect = _internal_core_js__rspack_import_0/* .isEffect */.yw;
  * ```
  *
  * @see {@link forEach} for iterating over elements and applying an effect.
- * @category combining
+ * @category collecting
  * @since 2.0.0
  */
 const all = _internal_effect_js__rspack_import_1/* .all */.Q7R;
@@ -12841,7 +10839,7 @@ const all = _internal_effect_js__rspack_import_1/* .all */.Q7R;
  * await Effect.runPromise(program) // => [['0 is even', '2 is even'], [1, 3]]
  * ```
  *
- * @category filtering
+ * @category collecting
  * @since 2.0.0
  */
 const partition = _internal_effect_js__rspack_import_1/* .partition */.jBG;
@@ -12879,7 +10877,7 @@ const partition = _internal_effect_js__rspack_import_1/* .partition */.jBG;
  * output // => ["Adding 1 at index 0", "Adding 2 at index 1", "Adding 3 at index 2", 6]
  * ```
  *
- * @category folding
+ * @category collecting
  * @since 2.0.0
  */
 const reduce = _internal_effect_js__rspack_import_1/* .reduce */.TSs;
@@ -12907,7 +10905,7 @@ const reduce = _internal_effect_js__rspack_import_1/* .reduce */.TSs;
  * await Effect.runPromiseExit(program) // => Exit.fail(["0 is even", "2 is even"])
  * ```
  *
- * @category validation
+ * @category collecting
  * @since 2.0.0
  */
 const validate = _internal_effect_js__rspack_import_1/* .validate */.tfT;
@@ -12929,7 +10927,7 @@ const validate = _internal_effect_js__rspack_import_1/* .validate */.tfT;
  * await Effect.runPromise(program) // => Option.some(3)
  * ```
  *
- * @category searching
+ * @category collecting
  * @since 2.0.0
  */
 const findFirst = _internal_effect_js__rspack_import_1/* .findFirst */.i8i;
@@ -12948,7 +10946,7 @@ const findFirst = _internal_effect_js__rspack_import_1/* .findFirst */.i8i;
  *
  * @see {@link findFirst} for the simpler effectful predicate-based variant
  *
- * @category searching
+ * @category collecting
  * @since 4.0.0
  */
 const findFirstFilter = _internal_effect_js__rspack_import_1/* .findFirstFilter */.kAe;
@@ -13013,7 +11011,7 @@ const findFirstFilter = _internal_effect_js__rspack_import_1/* .findFirstFilter 
  * ```
  *
  * @see {@link all} for combining multiple effects into one.
- * @category sequencing
+ * @category collecting
  * @since 2.0.0
  */
 const forEach = _internal_effect_js__rspack_import_1/* .forEach */.jJl;
@@ -13038,7 +11036,7 @@ const forEach = _internal_effect_js__rspack_import_1/* .forEach */.jJl;
  * await Effect.runPromise(empty) // => Option.none()
  * ```
  *
- * @category getters
+ * @category collecting
  * @since 2.0.0
  */
 const head = _internal_effect_js__rspack_import_1/* .head */.d5f;
@@ -13449,7 +11447,7 @@ const never = _internal_effect_js__rspack_import_1/* .never */.ZmZ;
  * Effect.runSync(program) // => { x: 2, y: 3, sum: 5 }
  * ```
  *
- * @category constructors
+ * @category do notation
  * @since 2.0.0
  */
 const Do = _internal_effect_js__rspack_import_1.Do;
@@ -13465,7 +11463,7 @@ const Do = _internal_effect_js__rspack_import_1.Do;
  * @see {@link Do} for starting from an empty accumulated record
  * @see {@link bind} for adding fields produced by effects
  *
- * @category mapping
+ * @category do notation
  * @since 2.0.0
  */
 const bindTo = _internal_effect_js__rspack_import_1/* .bindTo */.JrD;
@@ -13495,7 +11493,7 @@ const let_ = _internal_effect_js__rspack_import_1/* ["let"] */.uVU;
  * @see {@link bindTo} for naming the success value of an existing effect
  * @see {@link gen} for generator-based sequencing without accumulating a record
  *
- * @category sequencing
+ * @category do notation
  * @since 2.0.0
  */
 const bind = _internal_effect_js__rspack_import_1/* .bind */.oIE;
@@ -13772,6 +11770,23 @@ const yieldNowWith = _internal_effect_js__rspack_import_1/* .yieldNowWith */.KN3
  * @since 4.0.0
  */
 const withFiber = _internal_core_js__rspack_import_0/* .withFiber */.R6;
+/**
+ * Accesses the current fiber to compute a successful value.
+ *
+ * **Example** (Computing a value from the current fiber)
+ *
+ * ```ts import.meta.vitest
+ * import { Effect } from "effect"
+ *
+ * const program = Effect.withFiberSucceed((fiber) => typeof fiber.id)
+ *
+ * Effect.runSync(program) // => "number"
+ * ```
+ *
+ * @category constructors
+ * @since 4.0.0
+ */
+const withFiberSucceed = _internal_core_js__rspack_import_0/* .withFiberSucceed */.Hq;
 // -----------------------------------------------------------------------------
 // Conversions
 // -----------------------------------------------------------------------------
@@ -15149,7 +13164,7 @@ const orDie = _internal_effect_js__rspack_import_1/* .orDie */.QgK;
  * output // => ["expected error: NetworkError", Exit.fail("NetworkError")]
  * ```
  *
- * @category sequencing
+ * @category error handling
  * @since 2.0.0
  */
 const tapError = _internal_effect_js__rspack_import_1/* .tapError */.sFT;
@@ -15187,7 +13202,7 @@ const tapError = _internal_effect_js__rspack_import_1/* .tapError */.sFT;
  * output // => ["expected error: 504", Exit.fail(new NetworkError({ statusCode: 504 }))]
  * ```
  *
- * @category sequencing
+ * @category error handling
  * @since 2.0.0
  */
 const tapErrorTag = _internal_effect_js__rspack_import_1/* .tapErrorTag */.k$L;
@@ -15223,7 +13238,7 @@ const tapErrorTag = _internal_effect_js__rspack_import_1/* .tapErrorTag */.k$L;
  * output // => ["Logging cause: Something went wrong", Exit.fail("Something went wrong")]
  * ```
  *
- * @category sequencing
+ * @category error handling
  * @since 4.0.0
  */
 const tapCause = _internal_effect_js__rspack_import_1/* .tapCause */.dGm;
@@ -15255,7 +13270,7 @@ const tapCause = _internal_effect_js__rspack_import_1/* .tapCause */.dGm;
  * output // => ["Logging failure cause: Network timeout", Exit.fail("Network timeout")]
  * ```
  *
- * @category sequencing
+ * @category error handling
  * @since 4.0.0
  */
 const tapCauseIf = _internal_effect_js__rspack_import_1/* .tapCauseIf */.cA6;
@@ -15278,7 +13293,7 @@ const tapCauseIf = _internal_effect_js__rspack_import_1/* .tapCauseIf */.cA6;
  * @see {@link tapCause} for observing every failure cause
  * @see {@link catchCauseFilter} for recovering from selected causes instead of only observing them
  *
- * @category sequencing
+ * @category error handling
  * @since 4.0.0
  */
 const tapCauseFilter = _internal_effect_js__rspack_import_1/* .tapCauseFilter */.bKC;
@@ -15313,7 +13328,7 @@ const tapCauseFilter = _internal_effect_js__rspack_import_1/* .tapCauseFilter */
  * output // => ["defect: Something went wrong", Exit.die("Something went wrong")]
  * ```
  *
- * @category sequencing
+ * @category error handling
  * @since 2.0.0
  */
 const tapDefect = _internal_effect_js__rspack_import_1/* .tapDefect */.nAi;
@@ -15654,8 +13669,9 @@ const withErrorReporting = _internal_effect_js__rspack_import_1/* .withErrorRepo
  * **Details**
  *
  * If the source effect succeeds, its value is preserved. If it fails in the
- * error channel, `orElseSucceed` evaluates the fallback and succeeds with that
- * value, removing the typed error from the returned effect.
+ * error channel, `orElseSucceed` evaluates the fallback with that error and
+ * succeeds with the returned value, removing the typed error from the returned
+ * effect.
  *
  * Defects and interruptions are not recovered by this operator.
  *
@@ -15674,9 +13690,9 @@ const withErrorReporting = _internal_effect_js__rspack_import_1/* .withErrorRepo
  *   }
  * }
  *
- * const program = Effect.orElseSucceed(validate(-1), () => 18)
+ * const program = Effect.orElseSucceed(validate(-1), (error) => error === "IllegalAgeError" ? 18 : 0)
  *
- * Effect.runSyncExit(program) // => Exit.succeed(18)
+ * Effect.runSyncExit(program) // => Exit.succeed(0)
  * ```
  *
  * @category error handling
@@ -15800,21 +13816,8 @@ const timeout = _internal_effect_js__rspack_import_1/* .timeout */.wRz;
  */
 const timeoutOption = _internal_effect_js__rspack_import_1/* .timeoutOption */.D52;
 /**
- * Applies a timeout to an effect, with a fallback effect executed if the timeout is reached.
- *
- * **When to use**
- *
- * Use when a timeout of an `Effect` should switch to a fallback effect.
- *
- * **Details**
- *
- * The fallback effect is created lazily by `orElse` and may introduce its own
- * success, failure, and requirement types.
- *
- * **Gotchas**
- *
- * If the timeout wins, the source effect is interrupted before the fallback is
- * run.
+ * Applies a timeout to an effect, lazily evaluating `orElse` after interrupting
+ * the source if the timeout is reached.
  *
  * **Example** (Falling back on timeout)
  *
@@ -16062,7 +14065,7 @@ const raceFirst = _internal_effect_js__rspack_import_1/* .raceFirst */.KT6;
  * output // => [[2, 4], [2, 3]]
  * ```
  *
- * @category filtering
+ * @category collecting
  * @since 2.0.0
  */
 const filter = _internal_effect_js__rspack_import_1/* .filter */.pbD;
@@ -16082,7 +14085,7 @@ const filter = _internal_effect_js__rspack_import_1/* .filter */.pbD;
  * @see {@link filter} for keeping original elements with a boolean predicate, refinement, or effectful predicate
  * @see {@link filterMapEffect} for using an effectful `Filter`
  *
- * @category filtering
+ * @category collecting
  * @since 2.0.0
  */
 const filterMap = _internal_effect_js__rspack_import_1/* .filterMap */.x1Q;
@@ -16107,7 +14110,7 @@ const filterMap = _internal_effect_js__rspack_import_1/* .filterMap */.x1Q;
  * @see {@link filterMap} for using a synchronous `Filter`
  * @see {@link filter} for keeping original elements with a predicate
  *
- * @category filtering
+ * @category collecting
  * @since 4.0.0
  */
 const filterMapEffect = _internal_effect_js__rspack_import_1/* .filterMapEffect */.E8K;
@@ -17648,6 +15651,8 @@ const onExitPrimitive = _internal_effect_js__rspack_import_1/* .onExitPrimitive 
  * Ensures that a cleanup function runs whether this effect succeeds, fails, or
  * is interrupted.
  *
+ * **Details**
+ *
  * If both the effect and the cleanup function fail, the two causes are merged.
  *
  * **Example** (Observing every exit)
@@ -17777,8 +15782,8 @@ const onExitFilter = _internal_effect_js__rspack_import_1/* .onExitFilter */.uRq
  */
 const cached = _internal_effect_js__rspack_import_1/* .cached */.PO3;
 /**
- * Returns an effect that caches its result for a specified `Duration`,
- * known as "timeToLive" (TTL).
+ * Returns an effect that caches its result for a fixed duration or a duration
+ * computed from its `Exit`, known as "timeToLive" (TTL).
  *
  * **When to use**
  *
@@ -17796,6 +15801,17 @@ const cached = _internal_effect_js__rspack_import_1/* .cached */.PO3;
  *
  * After the specified duration has passed, the cache expires, and the effect
  * will be recomputed upon the next evaluation.
+ *
+ * `timeToLive` accepts a `Duration.Input` or a function from `Exit<A, E>` to
+ * `Duration.Input`. The function runs once after each fresh computation,
+ * including failures, so successes and failures can have different TTLs. It
+ * does not run when the cache is created or when a cached result is reused.
+ * The callback also receives interruption exits, which are cached for the
+ * returned duration.
+ *
+ * The TTL starts when the computation completes. Concurrent callers share the
+ * pending computation. A zero TTL expires immediately, and an infinite TTL
+ * keeps the result indefinitely.
  *
  * **Example** (Memoizing an effect with TTL)
  *
@@ -17819,6 +15835,26 @@ const cached = _internal_effect_js__rspack_import_1/* .cached */.PO3;
  *
  * Effect.runSync(program)
  * output // => ["expensive task...", "result 1", "result 1", "result 1"]
+ * ```
+ *
+ * **Example** (Caching successes while retrying failures)
+ *
+ * ```ts import.meta.vitest
+ * import { Effect, Exit } from "effect"
+ *
+ * let attempts = 0
+ * const task = Effect.suspend(() =>
+ *   ++attempts === 1 ? Effect.fail("temporary failure") : Effect.succeed(42)
+ * )
+ * const program = Effect.gen(function*() {
+ *   const cached = yield* task.pipe(
+ *     Effect.cachedWithTTL((exit) => Exit.isSuccess(exit) ? "1 hour" : 0)
+ *   )
+ *   yield* Effect.exit(cached)
+ *   return yield* cached
+ * })
+ *
+ * Effect.runSync(program) // => 42
  * ```
  *
  * @see {@link cached} for a similar function that caches the result
@@ -18200,10 +16236,10 @@ const repeat = _internal_schedule_js__rspack_import_2/* .repeat */.ux;
  * const program = Effect.repeatOrElse(
  *   task,
  *   Schedule.recurs(3),
- *   (error, attempts) =>
+ *   (error, previous) =>
  *     Effect.sync(() => { output.push(
  *       `Final failure: ${error}, after ${
- *         Option.getOrElse(attempts, () => 0)
+ *         Option.isSome(previous) ? previous.value.attempt : 0
  *       } attempts`
  *     ) }).pipe(Effect.map(() => 0))
  * )
@@ -18991,7 +17027,7 @@ const forkDetach = _internal_effect_js__rspack_import_1/* .forkDetach */.yxg;
  * @see {@link forkIn} for forking into an explicit scope
  * @see {@link forkScoped} for forking fibers tied to the current scope
  *
- * @category sequencing
+ * @category forking
  * @since 2.0.0
  */
 const awaitAllChildren = _internal_effect_js__rspack_import_1/* .awaitAllChildren */.PCg;
@@ -20145,14 +18181,10 @@ const withLogSpan = /*#__PURE__*/(/* unused pure expression or super */ null && 
 // Metrics
 // -----------------------------------------------------------------------------
 /**
- * Updates the `Metric` every time the `Effect` is executed.
+ * Updates a metric after each effect execution, optionally mapping its `Exit` to
+ * the metric's input.
  *
- * **Details**
- *
- * Also accepts an optional function which can be used to map the `Exit` value
- * of the `Effect` into a valid `Input` for the `Metric`.
- *
- * **Example** (Incrementing a metric for each execution)
+ * **Example** (Counting executions)
  *
  * ```ts import.meta.vitest
  * import { Effect, Metric } from "effect"
@@ -20169,12 +18201,11 @@ const withLogSpan = /*#__PURE__*/(/* unused pure expression or super */ null && 
  * Effect.runSync(Metric.value(counter)).count // => 1
  * ```
  *
- * **Example** (Mapping exits before updating a metric)
+ * **Example** (Mapping exits)
  *
  * ```ts import.meta.vitest
  * import { Effect, Exit, Metric } from "effect"
  *
- * // Track different exit types with custom mapping
  * const exitTracker = Metric.frequency("exit_types", {
  *   description: "Tracks success/failure/defect counts"
  * })
@@ -20434,7 +18465,7 @@ const trackDuration = /*#__PURE__*/(/* unused pure expression or super */ null &
  * Effect.runSync(runnable) // => "Transaction complete"
  * ```
  *
- * @category services
+ * @category transactions
  * @since 4.0.0
  */
 class Transaction extends /*#__PURE__*/(/* unused pure expression or super */ null && (Context.Service()("effect/Effect/Transaction"))) {}
@@ -21050,6 +19081,7 @@ __webpack_require__.d(__webpack_exports__, {
  * When the effect is evaluated, it calls `evaluate` with the current fiber.
  *
  * @see {@link Class} for a class-based approach to defining custom Effect values
+ * @see {@link Mixin} for wrapping an existing class constructor
  *
  * @category prototypes
  * @since 4.0.0
@@ -21058,14 +19090,15 @@ const Prototype = options => (0,_internal_core_js__rspack_import_0/* .makePrimit
   op: options.label,
   [_internal_core_js__rspack_import_0/* .evaluate */._3]: options.evaluate
 });
+const proto = /*#__PURE__*/(/* unused pure expression or super */ null && (Prototype({
+  label: "Effectable",
+  evaluate(_) {
+    return this.asEffect();
+  }
+})));
 const Base = /*#__PURE__*/(/* unused pure expression or super */ null && ((() => {
   const Base = function () {};
-  Base.prototype = /*#__PURE__*/Prototype({
-    label: "Effectable",
-    evaluate(_) {
-      return this;
-    }
-  });
+  Base.prototype = proto;
   return Base;
 })()));
 /**
@@ -21077,14 +19110,64 @@ const Base = /*#__PURE__*/(/* unused pure expression or super */ null && ((() =>
  * as `Effect` values.
  *
  * @see {@link Prototype} for a lower-level primitive approach to creating custom Effect-like values without a class
+ * @see {@link Mixin} for wrapping an existing class constructor
  * @category constructors
  * @since 2.0.0
  */
 class Class extends (/* unused pure expression or super */ null && (Base)) {}
+/**
+ * Returns a subclass of the provided class that inserts the Effect prototype
+ * into the inheritance chain.
+ *
+ * **When to use**
+ *
+ * Use to make instances of an existing class behave as `Effect` values without
+ * extending {@link Class} or modifying the original prototype.
+ *
+ * **Details**
+ *
+ * Pass the class to wrap, then implement `asEffect` on the final class. The
+ * returned class is abstract, and the success, error, and service types are
+ * inferred from the concrete `asEffect` return type. Concrete and abstract base
+ * classes are supported. Constructor parameters and instance members are
+ * preserved, except that Effect's prototype members shadow base prototype
+ * members with the same name: `pipe`, `toString`, `toJSON`, `[Symbol.iterator]`,
+ * and `[Symbol.for("nodejs.util.inspect.custom")]`.
+ *
+ * **Example** (Evaluating a mixed-in class)
+ *
+ * ```ts import.meta.vitest
+ * import { Effect, Effectable } from "effect"
+ *
+ * class Box {
+ *   constructor(readonly value: number) {}
+ * }
+ *
+ * class EffectBox extends Effectable.Mixin(Box) {
+ *   asEffect() {
+ *     return Effect.succeed(this.value)
+ *   }
+ * }
+ *
+ * const box = new EffectBox(2)
+ * Effect.isEffect(box) // => true
+ * await Effect.runPromise(box) // => 2
+ * ```
+ *
+ * @see {@link Prototype} for a lower-level primitive approach to creating custom Effect-like values without a class
+ * @see {@link Class} for a base constructor to extend
+ * @category constructors
+ * @since 4.0.0
+ */
+const Mixin = klass => {
+  class Mixed extends klass {}
+  Object.defineProperties(Mixed.prototype, Object.getOwnPropertyDescriptors(proto));
+  return Mixed;
+};
 //# sourceMappingURL=Effectable.js.map
 __webpack_require__.d(__webpack_exports__, {
 }, {
-  b: Prototype
+  bp: Prototype
 });
 
 
@@ -21124,7 +19207,7 @@ __webpack_require__.d(__webpack_exports__, {
  * @category type IDs
  * @since 4.0.0
  */
-const EncodingErrorTypeId = "~effect/encoding/EncodingError";
+const EncodingErrorTypeId = "~effect/Encoding/EncodingError";
 /**
  * Error returned when an encoding or decoding operation cannot process its
  * input.
@@ -21446,6 +19529,8 @@ const encodeHex = input => typeof input === "string" ? hexEncodeUint8Array(encod
  * Generates a random lowercase hexadecimal string, optimized for lengths that
  * are multiples of 8.
  *
+ * **Details**
+ *
  * `length` is not validated. The function generates `length >>> 3` random
  * 8-character words, so non-negative lengths below `2 ** 32` are rounded down
  * to a multiple of 8 and other values follow JavaScript's unsigned 32-bit
@@ -21459,12 +19544,41 @@ const encodeHex = input => typeof input === "string" ? hexEncodeUint8Array(encod
  * @since 4.0.0
  */
 const randomHex = length => {
-  let result = "";
-  for (let i = length >>> 3; i > 0; i--) {
-    const word = Math.random() * 0x100000000 >>> 0;
-    result += byteToHex[word >>> 24] + byteToHex[word >>> 16 & 0xff] + byteToHex[word >>> 8 & 0xff] + byteToHex[word & 0xff];
+  switch (length) {
+    case 16:
+      return randomHex16();
+    case 32:
+      return randomHex32();
+    default:
+      {
+        let result = "";
+        for (let i = length >>> 3; i > 0; i--) {
+          result += randomHex8();
+        }
+        return result;
+      }
   }
-  return result;
+};
+const hexCharCodes = /*#__PURE__*/Uint8Array.from("0123456789abcdef", c => c.charCodeAt(0));
+const randomWord = () => Math.random() * 0x100000000 >>> 0;
+// Trace and span identifiers are the common lengths. A single
+// String.fromCharCode call produces a flat string, which avoids rope
+// flattening when the identifier is later serialized.
+const randomHex8 = () => {
+  const a = randomWord();
+  return String.fromCharCode(hexCharCodes[a >>> 28], hexCharCodes[a >>> 24 & 15], hexCharCodes[a >>> 20 & 15], hexCharCodes[a >>> 16 & 15], hexCharCodes[a >>> 12 & 15], hexCharCodes[a >>> 8 & 15], hexCharCodes[a >>> 4 & 15], hexCharCodes[a & 15]);
+};
+const randomHex16 = () => {
+  const a = randomWord();
+  const b = randomWord();
+  return String.fromCharCode(hexCharCodes[a >>> 28], hexCharCodes[a >>> 24 & 15], hexCharCodes[a >>> 20 & 15], hexCharCodes[a >>> 16 & 15], hexCharCodes[a >>> 12 & 15], hexCharCodes[a >>> 8 & 15], hexCharCodes[a >>> 4 & 15], hexCharCodes[a & 15], hexCharCodes[b >>> 28], hexCharCodes[b >>> 24 & 15], hexCharCodes[b >>> 20 & 15], hexCharCodes[b >>> 16 & 15], hexCharCodes[b >>> 12 & 15], hexCharCodes[b >>> 8 & 15], hexCharCodes[b >>> 4 & 15], hexCharCodes[b & 15]);
+};
+const randomHex32 = () => {
+  const a = randomWord();
+  const b = randomWord();
+  const c = randomWord();
+  const d = randomWord();
+  return String.fromCharCode(hexCharCodes[a >>> 28], hexCharCodes[a >>> 24 & 15], hexCharCodes[a >>> 20 & 15], hexCharCodes[a >>> 16 & 15], hexCharCodes[a >>> 12 & 15], hexCharCodes[a >>> 8 & 15], hexCharCodes[a >>> 4 & 15], hexCharCodes[a & 15], hexCharCodes[b >>> 28], hexCharCodes[b >>> 24 & 15], hexCharCodes[b >>> 20 & 15], hexCharCodes[b >>> 16 & 15], hexCharCodes[b >>> 12 & 15], hexCharCodes[b >>> 8 & 15], hexCharCodes[b >>> 4 & 15], hexCharCodes[b & 15], hexCharCodes[c >>> 28], hexCharCodes[c >>> 24 & 15], hexCharCodes[c >>> 20 & 15], hexCharCodes[c >>> 16 & 15], hexCharCodes[c >>> 12 & 15], hexCharCodes[c >>> 8 & 15], hexCharCodes[c >>> 4 & 15], hexCharCodes[c & 15], hexCharCodes[d >>> 28], hexCharCodes[d >>> 24 & 15], hexCharCodes[d >>> 20 & 15], hexCharCodes[d >>> 16 & 15], hexCharCodes[d >>> 12 & 15], hexCharCodes[d >>> 8 & 15], hexCharCodes[d >>> 4 & 15], hexCharCodes[d & 15]);
 };
 /**
  * Decodes a hexadecimal string into bytes safely.
@@ -21588,10 +19702,9 @@ const base64codes = (/* unused pure expression or super */ null && ([255, 255, 2
 // Base64Url internals
 const base64UrlEncodeUint8Array = data => base64EncodeUint8Array(data).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 // Hex internals
-const byteToHex = [];
-for (let i = 0; i < 256; i++) {
-  byteToHex.push(i.toString(16).padStart(2, "0"));
-}
+const byteToHex = /*#__PURE__*/(/* unused pure expression or super */ null && (Array.from({
+  length: 256
+}, (_, i) => i.toString(16).padStart(2, "0"))));
 const hexEncodeUint8Array = bytes => {
   let result = "";
   for (let i = 0; i < bytes.length; i++) {
@@ -21664,7 +19777,7 @@ __webpack_require__.d(__webpack_exports__, {
  * @category symbols
  * @since 2.0.0
  */
-const symbol = "~effect/interfaces/Equal";
+const symbol = "~effect/Equal";
 function equals() {
   if (arguments.length === 1) {
     return self => compareBoth(self, arguments[0]);
@@ -22810,6 +20923,7 @@ const Proto = (/* unused pure expression or super */ null && ({
     const self = this;
     return effect.contextWith(context => effect.succeed(makeProto(self.steps.map(step => ({
       ...step,
+      while: step.while ? input => effect.provideContext(step.while(input), context) : undefined,
       provide: Layer.isLayer(step.provide) ? Layer.provide(step.provide, Layer.succeedContext(context)) : step.provide
     })))));
   },
@@ -24643,6 +22757,7 @@ __webpack_require__.d(__webpack_exports__, {
  * - Handles `BigInt`, `Symbol`, `Set`, `Map`, `Date`, `RegExp`, and class
  *   instances that `JSON.stringify` cannot represent.
  * - Circular references are shown as `"[Circular]"` instead of throwing.
+ * - Failures while inspecting a value are rendered as diagnostic placeholders instead of throwing.
  * - Primitives: stringified naturally (`null`, `undefined`, `123`, `true`).
  *   Strings are JSON-quoted.
  * - Objects with a custom `toString` (not `Object.prototype.toString`):
@@ -24707,6 +22822,14 @@ function format(input, options) {
     }
   };
   function recur(v, d = 0) {
+    try {
+      return recurUnsafe(v, d);
+    } catch {
+      if (typeof v === "object" && v !== null || typeof v === "function") ancestors.delete(v);
+      return "[inspection threw]";
+    }
+  }
+  function recurUnsafe(v, d = 0) {
     if (typeof v === "string") return JSON.stringify(v);
     if (typeof v === "number" || v == null || typeof v === "boolean" || typeof v === "symbol") return String(v);
     if (typeof v === "bigint") return String(v) + "n";
@@ -24722,16 +22845,16 @@ function format(input, options) {
         output = formatDate(v);
       } else if (!options?.ignoreToString && _Predicate_js__rspack_import_1/* .hasProperty */.i5(v, "toString") && typeof v["toString"] === "function" && v["toString"] !== Object.prototype.toString && v["toString"] !== Array.prototype.toString) {
         const s = safeToString(v);
-        output = v instanceof Error && v.cause ? `${s} (cause: ${recur(v.cause, d)})` : s;
+        output = v instanceof Error && v.cause !== undefined ? `${s} (cause: ${recur(v.cause, d)})` : s;
       } else if (Symbol.iterator in v) {
         output = `${v.constructor.name}(${recur(Array.from(v), d)})`;
       } else {
         const keys = ownKeys(v);
         if (!gap || keys.length <= 1) {
-          const body = `{${keys.map(k => `${formatPropertyKey(k)}:${recur(v[k], d)}`).join(",")}}`;
+          const body = `{${keys.map(k => `${formatPropertyKey(k)}:${recur(safeGet(v, k), d)}`).join(",")}}`;
           output = wrap(v, body);
         } else {
-          const body = `{\n${keys.map(k => `${ind(d + 1)}${formatPropertyKey(k)}: ${recur(v[k], d + 1)}`).join(",\n")}\n${ind(d)}}`;
+          const body = `{\n${keys.map(k => `${ind(d + 1)}${formatPropertyKey(k)}: ${recur(safeGet(v, k), d + 1)}`).join(",\n")}\n${ind(d)}}`;
           output = wrap(v, body);
         }
       }
@@ -24776,6 +22899,13 @@ function safeToString(input) {
     return typeof s === "string" ? s : String(s);
   } catch {
     return "[toString threw]";
+  }
+}
+function safeGet(input, key) {
+  try {
+    return input[key];
+  } catch {
+    return "[property access threw]";
   }
 }
 /**
@@ -25514,7 +23644,7 @@ __webpack_require__.d(__webpack_exports__, {
  * @category symbols
  * @since 2.0.0
  */
-const symbol = "~effect/interfaces/Hash";
+const symbol = "~effect/Hash";
 /**
  * Computes a hash value for any given value.
  *
@@ -25556,10 +23686,6 @@ const hash = self => {
       return number(self);
     case "bigint":
       return string(self.toString(10));
-    case "boolean":
-      return string(String(self));
-    case "symbol":
-      return string(String(self));
     case "string":
       return string(self);
     case "undefined":
@@ -25604,7 +23730,8 @@ const hash = self => {
         }
       }
     default:
-      throw new Error(`BUG: unhandled typeof ${typeof self} - please report an issue at https://github.com/Effect-TS/effect/issues`);
+      // The remaining primitive types are boolean and symbol.
+      return string(String(self));
   }
 };
 /**
@@ -25759,14 +23886,8 @@ const isHash = u => (0,_Predicate_js__rspack_import_2/* .hasProperty */.i5)(u, s
  * @since 2.0.0
  */
 const number = n => {
-  if (n !== n) {
-    return string("NaN");
-  }
-  if (n === Infinity) {
-    return string("Infinity");
-  }
-  if (n === -Infinity) {
-    return string("-Infinity");
+  if (n !== n || n === Infinity || n === -Infinity) {
+    return string(String(n));
   }
   let h = n | 0;
   if (h !== n) {
@@ -26226,14 +24347,15 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 
+
 /**
  * Creates an iterable by applying a function to consecutive integers.
  *
  * **Details**
  *
- * The function is called with each index starting from `0`. If no length is
- * specified, the iterable is infinite. This is useful for generating
- * sequences, patterns, or any indexed data.
+ * The function is called with each index starting from `0`. If a length is
+ * provided, it is rounded down and normalized to at least `1`, with `NaN`
+ * treated as `1`. If no length is specified, the iterable is infinite.
  *
  * **Example** (Generating values by index)
  *
@@ -26258,7 +24380,7 @@ __webpack_require__.d(__webpack_exports__, {
  * @since 2.0.0
  */
 const makeBy = (f, options) => {
-  const max = options?.length !== undefined ? Math.max(1, Math.floor(options.length)) : Infinity;
+  const max = options?.length !== undefined ? Count.normalizeNonEmpty(options.length) : Infinity;
   return {
     [Symbol.iterator]() {
       let i = 0;
@@ -26312,7 +24434,8 @@ const range = (start, end) => {
  *
  * **Details**
  *
- * `n` is normalized to an integer greater than or equal to `1`.
+ * `n` is rounded down and normalized to an integer greater than or equal to
+ * `1`. `NaN` is treated as `1`.
  *
  * **Example** (Repeating a value)
  *
@@ -26338,7 +24461,8 @@ const replicate = /*#__PURE__*/(/* unused pure expression or super */ null && (d
  *
  * **Details**
  *
- * The result is lazy. Each repetition obtains a new iterator from `self`.
+ * The result is lazy. `n` is rounded down and normalized to at least `1`, with
+ * `NaN` treated as `1`. Each repetition obtains a new iterator from `self`.
  *
  * @see {@link forever} for repeating without an upper bound
  * @see {@link replicate} for repeating a single value
@@ -26711,7 +24835,8 @@ const headUnsafe = self => {
  *
  * **Details**
  *
- * `n` is normalized to a non-negative integer.
+ * `n` is rounded down and normalized to a non-negative integer. `NaN` is
+ * treated as `0`.
  *
  * **Example** (Taking from the start)
  *
@@ -26739,24 +24864,27 @@ const headUnsafe = self => {
  * @category getters
  * @since 2.0.0
  */
-const take = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => ({
-  [Symbol.iterator]() {
-    let i = 0;
-    const iterator = self[Symbol.iterator]();
-    return {
-      next() {
-        if (i < n) {
-          i++;
-          return iterator.next();
+const take = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => {
+  const count = Count.normalize(n);
+  return {
+    [Symbol.iterator]() {
+      let i = 0;
+      const iterator = self[Symbol.iterator]();
+      return {
+        next() {
+          if (i < count) {
+            i++;
+            return iterator.next();
+          }
+          return {
+            done: true,
+            value: undefined
+          };
         }
-        return {
-          done: true,
-          value: undefined
-        };
-      }
-    };
-  }
-}))));
+      };
+    }
+  };
+})));
 /**
  * Takes the longest initial `Iterable` prefix for which all elements satisfy the
  * specified predicate.
@@ -26815,7 +24943,8 @@ const takeWhile = /*#__PURE__*/(/* unused pure expression or super */ null && (d
  *
  * **Details**
  *
- * `n` is normalized to a non-negative integer.
+ * `n` is rounded down and normalized to a non-negative integer. `NaN` is
+ * treated as `0`.
  *
  * **Example** (Dropping from the start)
  *
@@ -26842,27 +24971,30 @@ const takeWhile = /*#__PURE__*/(/* unused pure expression or super */ null && (d
  * @category getters
  * @since 2.0.0
  */
-const drop = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => ({
-  [Symbol.iterator]() {
-    const iterator = self[Symbol.iterator]();
-    let i = 0;
-    return {
-      next() {
-        while (i < n) {
-          const result = iterator.next();
-          if (result.done) {
-            return {
-              done: true,
-              value: undefined
-            };
+const drop = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => {
+  const count = Count.normalize(n);
+  return {
+    [Symbol.iterator]() {
+      const iterator = self[Symbol.iterator]();
+      let i = 0;
+      return {
+        next() {
+          while (i < count) {
+            const result = iterator.next();
+            if (result.done) {
+              return {
+                done: true,
+                value: undefined
+              };
+            }
+            i++;
           }
-          i++;
+          return iterator.next();
         }
-        return iterator.next();
-      }
-    };
-  }
-}))));
+      };
+    }
+  };
+})));
 /**
  * Returns the first element that satisfies the specified
  * predicate, or `None` if no such element exists.
@@ -27229,6 +25361,8 @@ const contains = /*#__PURE__*/(/* unused pure expression or super */ null && (co
 /**
  * Splits an `Iterable` into length-`n` pieces. The last piece will be shorter if `n` does not evenly divide the length of
  * the `Iterable`.
+ * `n` is rounded down and normalized to at least `1`; `NaN` and non-positive
+ * values therefore produce singleton pieces.
  *
  * **Example** (Chunking an iterable)
  *
@@ -27263,7 +25397,7 @@ const contains = /*#__PURE__*/(/* unused pure expression or super */ null && (co
  * @since 2.0.0
  */
 const chunksOf = /*#__PURE__*/(/* unused pure expression or super */ null && (dual(2, (self, n) => {
-  const safeN = Math.max(1, Math.floor(n));
+  const safeN = Count.normalizeNonEmpty(n);
   return {
     [Symbol.iterator]() {
       let iterator = self[Symbol.iterator]();
@@ -29339,6 +27473,7 @@ const effectDiscard = effect => effectContext(internalEffect.as(effect, Context.
  * @since 2.0.0
  */
 const suspend = evaluate => fromBuildMemo((memoMap, scope) => internalEffect.suspend(() => evaluate().build(memoMap, scope)));
+const unwrapKey = /*#__PURE__*/(/* unused pure expression or super */ null && (Context.Service("effect/Layer/unwrap")));
 /**
  * Unwraps a `Layer` from an `Effect`, flattening the nested structure.
  *
@@ -29373,10 +27508,7 @@ const suspend = evaluate => fromBuildMemo((memoMap, scope) => internalEffect.sus
  * @category converting
  * @since 4.0.0
  */
-const unwrap = self => {
-  const service = Context.Service("effect/Layer/unwrap");
-  return flatMap(effect(service)(self), Context.get(service));
-};
+const unwrap = self => flatMap(effect(unwrapKey)(self), Context.get(unwrapKey));
 const mergeAllEffect = (layers, memoMap, scope) => {
   const parentScope = _Scope_js__rspack_import_3/* .forkUnsafe */.Fp(scope, "parallel");
   return _internal_effect_js__rspack_import_0/* .forEach */.jJl(layers, layer => layer.build(memoMap, _Scope_js__rspack_import_3/* .forkUnsafe */.Fp(parentScope, "sequential")), {
@@ -30418,9 +28550,9 @@ const withSpan = function () {
   const options = internalTracer.addSpanStackTrace(dataFirst ? arguments[2] : arguments[1]);
   if (dataFirst) {
     const self = arguments[0];
-    return unwrap(internalEffect.map(options?.onEnd !== undefined ? internalEffect.tap(internalEffect.makeSpanScoped(name, options), span => internalEffect.addFinalizer(exit => options.onEnd(span, exit))) : internalEffect.makeSpanScoped(name, options), span => withParentSpan(self, span)));
+    return unwrap(internalEffect.map(options?.onEnd !== undefined ? internalEffect.tap(internalEffect.makeSpanScoped(name, options), span => internalEffect.addFinalizer(exit => options.onEnd(span, exit))) : internalEffect.makeSpanScoped(name, options), span => withParentSpan(self, span, options)));
   }
-  return self => unwrap(internalEffect.map(options?.onEnd !== undefined ? internalEffect.tap(internalEffect.makeSpanScoped(name, options), span => internalEffect.addFinalizer(exit => options.onEnd(span, exit))) : internalEffect.makeSpanScoped(name, options), span => withParentSpan(self, span)));
+  return self => unwrap(internalEffect.map(options?.onEnd !== undefined ? internalEffect.tap(internalEffect.makeSpanScoped(name, options), span => internalEffect.addFinalizer(exit => options.onEnd(span, exit))) : internalEffect.makeSpanScoped(name, options), span => withParentSpan(self, span, options)));
 };
 /**
  * Wraps a layer so spans created during its construction use the supplied span
@@ -30635,7 +28767,7 @@ const make = (layer, options) => {
         self.cachedContext = context;
       })), {
         ...defaultRunOptions,
-        scheduler: fiber.currentScheduler
+        scheduler: fiber.cache.scheduler
       });
     }
     return _Effect_js__rspack_import_3/* .flatten */.Bqz(_Fiber_js__rspack_import_2/* ["await"] */.Tx(buildFiber));
@@ -30729,7 +28861,7 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-const TypeId = "~effect/data/Option";
+const TypeId = "~effect/Option";
 /**
  * Creates an `Option` representing the absence of a value.
  *
@@ -33035,6 +31167,7 @@ function alwaysEqual() {
  *
  * Applies orders in iteration order and short-circuits on the first non-zero
  * result. It returns `0` only if all orders return `0`.
+ * The collection is materialized when the order is created, so it must be finite.
  *
  * **Example** (Combining multiple Orders)
  *
@@ -33064,9 +31197,10 @@ function alwaysEqual() {
  * @since 2.0.0
  */
 function combineAll(collection) {
+  const orders = Array.from(collection);
   return make((a1, a2) => {
     let out = 0;
-    for (const O of collection) {
+    for (const O of orders) {
       out = O(a1, a2);
       if (out !== 0) {
         return out;
@@ -37015,7 +35149,7 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 
-const TypeId = "~effect/data/Result";
+const TypeId = "~effect/Result";
 /**
  * Creates a `Result` holding a `Success` value.
  *
@@ -39369,15 +37503,6 @@ const Scheduler = /*#__PURE__*/_Context_js__rspack_import_0/* .Reference */.Or("
   fiberCached: true,
   defaultValue: () => new MixedScheduler()
 });
-const setImmediate = "setImmediate" in globalThis ? f => {
-  // @ts-ignore
-  const timer = globalThis.setImmediate(f);
-  // @ts-ignore
-  return () => globalThis.clearImmediate(timer);
-} : f => {
-  const timer = setTimeout(f, 0);
-  return () => clearTimeout(timer);
-};
 const setMicrotask = f => {
   let cancelled = false;
   Promise.resolve().then(() => {
@@ -39386,6 +37511,24 @@ const setMicrotask = f => {
   return () => {
     cancelled = true;
   };
+};
+const setTimer = "setImmediate" in globalThis ? f => {
+  // @ts-ignore
+  const timer = globalThis.setImmediate(f);
+  // @ts-ignore
+  return () => globalThis.clearImmediate(timer);
+} : f => {
+  const timer = setTimeout(f, 0);
+  return () => clearTimeout(timer);
+};
+// Some runtimes (e.g. Cloudflare Workers) throw when a timer is set in global
+// scope. Fall back to a microtask so effects can still yield at module load.
+const setImmediate = f => {
+  try {
+    return setTimer(f);
+  } catch {
+    return setMicrotask(f);
+  }
 };
 class PriorityBuckets {
   buckets = [];
@@ -39449,7 +37592,7 @@ class MixedScheduler {
    * @since 2.0.0
    */
   shouldYield(fiber) {
-    return fiber.currentOpCount >= fiber.maxOpsBeforeYield;
+    return fiber.currentOpCount >= fiber.cache.maxOpsBeforeYield;
   }
   /**
    * Creates a dispatcher that schedules work through this scheduler.
@@ -40185,9 +38328,23 @@ const TracerKey = "effect/Tracer";
  */
 const Tracer = /*#__PURE__*/_Context_js__rspack_import_0/* .Reference */.Or(TracerKey, {
   fiberCached: true,
-  defaultValue: () => make({
-    span: options => new NativeSpan(options)
-  })
+  defaultValue: () => nativeTracer
+});
+/**
+ * The default `Tracer` implementation backing the `Tracer` reference. It
+ * creates in-memory `NativeSpan` instances and does not export them anywhere.
+ *
+ * **Details**
+ *
+ * Runtime code can compare the active tracer against `nativeTracer` to detect
+ * that no tracing backend is installed and skip work that only a backend could
+ * observe, such as recording span attributes.
+ *
+ * @category references
+ * @since 4.0.0
+ */
+const nativeTracer = /*#__PURE__*/make({
+  span: options => new NativeSpan(options)
 });
 /**
  * Default in-memory `Span` implementation used by the native tracer. It
@@ -40196,9 +38353,11 @@ const Tracer = /*#__PURE__*/_Context_js__rspack_import_0/* .Reference */.Or(Trac
  *
  * **Details**
  *
- * The constructor initializes the span with `Started` status, inherits the
- * parent trace id or generates a new one, and always generates a new span id.
- * Attributes, events, links, and status are then mutated through `Span` methods.
+ * The constructor initializes the span with `Started` status. Trace and span
+ * identifiers, the attribute map, and the event list are created lazily on
+ * first access, so spans that are never inspected allocate as little as
+ * possible. Attributes, events, links, and status are mutated through `Span`
+ * methods.
  *
  * @see {@link Span} for the interface implemented by native spans
  *
@@ -40207,8 +38366,6 @@ const Tracer = /*#__PURE__*/_Context_js__rspack_import_0/* .Reference */.Or(Trac
  */
 class NativeSpan {
   _tag = "Span";
-  spanId;
-  traceId = "native";
   sampled;
   name;
   parent;
@@ -40217,8 +38374,10 @@ class NativeSpan {
   startTime;
   kind;
   status;
-  attributes;
-  events = [];
+  _traceId = undefined;
+  _spanId = undefined;
+  _attributes = undefined;
+  _events = undefined;
   constructor(options) {
     this.name = options.name;
     this.parent = options.parent;
@@ -40231,9 +38390,18 @@ class NativeSpan {
       _tag: "Started",
       startTime: options.startTime
     };
-    this.attributes = new Map();
-    this.traceId = _Option_js__rspack_import_2.getOrUndefined(options.parent)?.traceId ?? _Encoding_js__rspack_import_3/* .randomHex */.nw(32);
-    this.spanId = _Encoding_js__rspack_import_3/* .randomHex */.nw(16);
+  }
+  get traceId() {
+    return this._traceId ??= _Option_js__rspack_import_2.getOrUndefined(this.parent)?.traceId ?? _Encoding_js__rspack_import_3/* .randomHex */.nw(32);
+  }
+  get spanId() {
+    return this._spanId ??= _Encoding_js__rspack_import_3/* .randomHex */.nw(16);
+  }
+  get attributes() {
+    return this._attributes ??= new Map();
+  }
+  get events() {
+    return this._events ??= [];
   }
   end(endTime, exit) {
     this.status = {
@@ -40269,6 +38437,8 @@ __webpack_require__.d(__webpack_exports__, {
 
 },
 "./node_modules/effect/dist/Utils.js"(__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+/* import */ var _internal_stackTraceLimit_js__rspack_import_0 = __webpack_require__("./node_modules/effect/dist/internal/stackTraceLimit.js");
+
 /**
  * Yields its wrapped value exactly once through an `IterableIterator`.
  *
@@ -40359,7 +38529,7 @@ const pickInternalCall = () => {
       }
     }
   };
-  const isNotOptimizedAway = standard[InternalTypeId](() => new Error().stack)?.includes(InternalTypeId) === true;
+  const isNotOptimizedAway = (0,_internal_stackTraceLimit_js__rspack_import_0/* .getStackTraceLimit */.jt)() !== 0 && standard[InternalTypeId](() => new Error().stack)?.includes(InternalTypeId) === true;
   return isNotOptimizedAway ? standard[InternalTypeId] : forced[InternalTypeId];
 };
 /** @internal */
@@ -40379,6 +38549,12 @@ __webpack_require__.d(__webpack_exports__, {
  */
 /** @internal */
 const isArrayNonEmpty = self => self.length > 0;
+/** @internal */
+function replaceAt(self, index, value) {
+  const out = self.slice();
+  out[index] = value;
+  return out;
+}
 //# sourceMappingURL=array.js.map
 __webpack_require__.d(__webpack_exports__, {
 }, {
@@ -40500,8 +38676,6 @@ const isCause = self => (0,_Predicate_js__rspack_import_7/* .hasProperty */.i5)(
 const isCauseReason = self => (0,_Predicate_js__rspack_import_7/* .hasProperty */.i5)(self, CauseReasonTypeId);
 /** @internal */
 class CauseImpl {
-  [CauseTypeId];
-  reasons;
   constructor(failures) {
     this[CauseTypeId] = CauseTypeId;
     this.reasons = failures;
@@ -40571,7 +38745,6 @@ class ReasonBase {
 const constEmptyAnnotations = /*#__PURE__*/new Map();
 /** @internal */
 class Fail extends ReasonBase {
-  error;
   constructor(error, annotations = constEmptyAnnotations) {
     super("Fail", annotations, error);
     this.error = error;
@@ -40600,7 +38773,6 @@ const causeEmpty = /*#__PURE__*/new CauseImpl([]);
 const causeFail = error => new CauseImpl([new Fail(error)]);
 /** @internal */
 class Die extends ReasonBase {
-  defect;
   constructor(defect, annotations = constEmptyAnnotations) {
     super("Die", annotations, defect);
     this.defect = defect;
@@ -40649,10 +38821,12 @@ const makePrimitiveProto = options => ({
 /** @internal */
 const makePrimitive = options => {
   const Proto = makePrimitiveProto(options);
-  return function () {
-    const self = Object.create(Proto);
-    self[args] = options.single === false ? arguments : arguments[0];
-    return self;
+  const PrimitiveImpl = function (value) {
+    this[args] = value;
+  };
+  PrimitiveImpl.prototype = Proto;
+  return function (value) {
+    return new PrimitiveImpl(value);
   };
 };
 /** @internal */
@@ -40681,10 +38855,12 @@ const makeExit = options => {
       return _Hash_js__rspack_import_4/* .combine */.kg(_Hash_js__rspack_import_4/* .string */.Yj(options.op), _Hash_js__rspack_import_4/* .hash */.tW(this[args]));
     }
   };
+  const ExitPrimitive = function (value) {
+    this[args] = value;
+  };
+  ExitPrimitive.prototype = Proto;
   return function (value) {
-    const self = Object.create(Proto);
-    self[args] = value;
-    return self;
+    return new ExitPrimitive(value);
   };
 };
 /** @internal */
@@ -40711,9 +38887,9 @@ const exitFailCause = /*#__PURE__*/makeExit({
   [evaluate](fiber) {
     let cause = this[args];
     let annotated = false;
-    if (fiber.currentStackFrame) {
+    if (fiber.cache.stackFrame) {
       cause = causeAnnotate(cause, {
-        mapUnsafe: new Map([[StackTraceKey.key, fiber.currentStackFrame]])
+        mapUnsafe: new Map([[StackTraceKey.key, fiber.cache.stackFrame]])
       });
       annotated = true;
     }
@@ -40733,6 +38909,20 @@ const withFiber = /*#__PURE__*/makePrimitive({
   op: "WithFiber",
   [evaluate](fiber) {
     return this[args](fiber);
+  }
+});
+/**
+ * Accesses the current fiber to compute a value without a separate `succeed`
+ * operation.
+ *
+ * @internal
+ */
+const withFiberSucceed = /*#__PURE__*/makePrimitive({
+  op: "WithFiberSucceed",
+  [evaluate](fiber) {
+    const value = this[args](fiber);
+    const cont = fiber.getCont(contA);
+    return cont ? cont[contA](value, fiber) : fiber.yieldWith(exitSucceed(value));
   }
 });
 /** @internal */
@@ -40833,6 +39023,7 @@ __webpack_require__.d(__webpack_exports__, {
   DH: causeEmpty,
   Eh: causeAnnotate,
   GN: Yield,
+  Hq: withFiberSucceed,
   IH: ExitTypeId,
   In: StructuralProto,
   Iu: causeDie,
@@ -40899,31 +39090,31 @@ __webpack_require__.d(__webpack_exports__, {
 
 },
 "./node_modules/effect/dist/internal/effect.js"(__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-/* import */ var _Array_js__rspack_import_7 = __webpack_require__("./node_modules/effect/dist/Array.js");
+/* import */ var _Array_js__rspack_import_16 = __webpack_require__("./node_modules/effect/dist/Array.js");
 /* import */ var _Context_js__rspack_import_5 = __webpack_require__("./node_modules/effect/dist/Context.js");
 /* import */ var _Duration_js__rspack_import_20 = __webpack_require__("./node_modules/effect/dist/Duration.js");
 /* import */ var _Equal_js__rspack_import_1 = __webpack_require__("./node_modules/effect/dist/Equal.js");
 /* import */ var _Filter_js__rspack_import_4 = __webpack_require__("./node_modules/effect/dist/Filter.js");
-/* import */ var _Formatter_js__rspack_import_9 = __webpack_require__("./node_modules/effect/dist/Formatter.js");
+/* import */ var _Formatter_js__rspack_import_8 = __webpack_require__("./node_modules/effect/dist/Formatter.js");
 /* import */ var _Function_js__rspack_import_6 = __webpack_require__("./node_modules/effect/dist/Function.js");
 /* import */ var _Hash_js__rspack_import_2 = __webpack_require__("./node_modules/effect/dist/Hash.js");
 /* import */ var _Inspectable_js__rspack_import_25 = __webpack_require__("./node_modules/effect/dist/Inspectable.js");
 /* import */ var _Iterable_js__rspack_import_23 = __webpack_require__("./node_modules/effect/dist/Iterable.js");
 /* import */ var _Option_js__rspack_import_17 = __webpack_require__("./node_modules/effect/dist/Option.js");
 /* import */ var _Order_js__rspack_import_24 = __webpack_require__("./node_modules/effect/dist/Order.js");
-/* import */ var _Pipeable_js__rspack_import_12 = __webpack_require__("./node_modules/effect/dist/Pipeable.js");
-/* import */ var _Predicate_js__rspack_import_11 = __webpack_require__("./node_modules/effect/dist/Predicate.js");
-/* import */ var _Redactable_js__rspack_import_10 = __webpack_require__("./node_modules/effect/dist/Redactable.js");
+/* import */ var _Pipeable_js__rspack_import_11 = __webpack_require__("./node_modules/effect/dist/Pipeable.js");
+/* import */ var _Predicate_js__rspack_import_10 = __webpack_require__("./node_modules/effect/dist/Predicate.js");
+/* import */ var _Redactable_js__rspack_import_9 = __webpack_require__("./node_modules/effect/dist/Redactable.js");
 /* import */ var _Result_js__rspack_import_3 = __webpack_require__("./node_modules/effect/dist/Result.js");
 /* import */ var _Scheduler_js__rspack_import_13 = __webpack_require__("./node_modules/effect/dist/Scheduler.js");
-/* import */ var _Tracer_js__rspack_import_14 = __webpack_require__("./node_modules/effect/dist/Tracer.js");
+/* import */ var _Tracer_js__rspack_import_12 = __webpack_require__("./node_modules/effect/dist/Tracer.js");
 /* import */ var _Utils_js__rspack_import_18 = __webpack_require__("./node_modules/effect/dist/Utils.js");
 /* import */ var _core_js__rspack_import_0 = __webpack_require__("./node_modules/effect/dist/internal/core.js");
 /* import */ var _doNotation_js__rspack_import_22 = __webpack_require__("./node_modules/effect/dist/internal/doNotation.js");
-/* import */ var _metric_js__rspack_import_16 = __webpack_require__("./node_modules/effect/dist/internal/metric.js");
+/* import */ var _metric_js__rspack_import_15 = __webpack_require__("./node_modules/effect/dist/internal/metric.js");
 /* import */ var _record_js__rspack_import_21 = __webpack_require__("./node_modules/effect/dist/internal/record.js");
-/* import */ var _references_js__rspack_import_15 = __webpack_require__("./node_modules/effect/dist/internal/references.js");
-/* import */ var _stackTraceLimit_js__rspack_import_8 = __webpack_require__("./node_modules/effect/dist/internal/stackTraceLimit.js");
+/* import */ var _references_js__rspack_import_14 = __webpack_require__("./node_modules/effect/dist/internal/references.js");
+/* import */ var _stackTraceLimit_js__rspack_import_7 = __webpack_require__("./node_modules/effect/dist/internal/stackTraceLimit.js");
 /* import */ var _tracer_js__rspack_import_19 = __webpack_require__("./node_modules/effect/dist/internal/tracer.js");
 
 
@@ -40956,7 +39147,6 @@ __webpack_require__.d(__webpack_exports__, {
 // ----------------------------------------------------------------------------
 /** @internal */
 class Interrupt extends _core_js__rspack_import_0/* .ReasonBase */.ET {
-  fiberId;
   constructor(fiberId, annotations = _core_js__rspack_import_0/* .constEmptyAnnotations */.dO) {
     super("Interrupt", annotations, "Interrupted");
     this.fiberId = fiberId;
@@ -41054,6 +39244,25 @@ const causeAnnotations = self => {
   }
   return _Context_js__rspack_import_5/* .makeUnsafe */.LZ(map);
 };
+const dedupeReasons = (self, that) => {
+  // Keep deduplication local so causeCombine does not retain Array.ts in the core bundle.
+  // Snapshot both arrays before invoking user-defined hash or equality methods.
+  const buckets = new Map();
+  const out = [];
+  for (const reason of self.concat(that)) {
+    const hash = _Hash_js__rspack_import_2/* .hash */.tW(reason);
+    const bucket = buckets.get(hash);
+    if (bucket === undefined) {
+      buckets.set(hash, [reason]);
+    } else if (bucket.some(previous => _Equal_js__rspack_import_1/* .equals */.aI(previous, reason))) {
+      continue;
+    } else {
+      bucket.push(reason);
+    }
+    out.push(reason);
+  }
+  return out;
+};
 /** @internal */
 const causeCombine = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, that) => {
   if (self.reasons.length === 0) {
@@ -41061,7 +39270,7 @@ const causeCombine = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY
   } else if (that.reasons.length === 0) {
     return self;
   }
-  const newCause = new _core_js__rspack_import_0/* .CauseImpl */.s0(_Array_js__rspack_import_7/* .union */.KC(self.reasons, that.reasons));
+  const newCause = new _core_js__rspack_import_0/* .CauseImpl */.s0(dedupeReasons(self.reasons, that.reasons));
   return _Equal_js__rspack_import_1/* .equals */.aI(self, newCause) ? self : newCause;
 });
 /** @internal */
@@ -41105,8 +39314,8 @@ const causePrettyErrors = (self, options) => {
   const errors = [];
   const interrupts = [];
   if (self.reasons.length === 0) return errors;
-  const prevStackLimit = (0,_stackTraceLimit_js__rspack_import_8/* .getStackTraceLimit */.jt)();
-  (0,_stackTraceLimit_js__rspack_import_8/* .setStackTraceLimit */.ft)(1);
+  const prevStackLimit = (0,_stackTraceLimit_js__rspack_import_7/* .getStackTraceLimit */.jt)();
+  if (prevStackLimit !== 0) (0,_stackTraceLimit_js__rspack_import_7/* .setStackTraceLimit */.ft)(1);
   for (const failure of self.reasons) {
     if (failure._tag === "Interrupt") {
       interrupts.push(failure);
@@ -41125,7 +39334,7 @@ const causePrettyErrors = (self, options) => {
     error.stack = `${error.name}: ${error.message}`;
     errors.push(causePrettyError(error, interrupts[0].annotations, options));
   }
-  (0,_stackTraceLimit_js__rspack_import_8/* .setStackTraceLimit */.ft)(prevStackLimit);
+  if (prevStackLimit !== 0) (0,_stackTraceLimit_js__rspack_import_7/* .setStackTraceLimit */.ft)(prevStackLimit);
   return errors;
 };
 /** @internal */
@@ -41155,7 +39364,7 @@ const causePrettyError = (original, annotations, options) => {
       }
     }
   } else {
-    error = new globalThis.Error(!original ? `Unknown error: ${original}` : kind === "string" ? original : (0,_Formatter_js__rspack_import_9/* .formatJson */.IB)(original));
+    error = new globalThis.Error(!original ? `Unknown error: ${original}` : kind === "string" ? original : (0,_Formatter_js__rspack_import_8/* .formatJson */.IB)(original));
   }
   return error;
 };
@@ -41169,7 +39378,7 @@ const causePrettyMessage = u => {
       // something's off, rollback to json
     }
   }
-  return (0,_Formatter_js__rspack_import_9/* .formatJson */.IB)(u);
+  return (0,_Formatter_js__rspack_import_8/* .formatJson */.IB)(u);
 };
 const locationRegExp = /\((.*)\)/g;
 const cleanErrorStack = (stack, error, annotations) => {
@@ -41252,7 +39461,7 @@ const fiberIdStore = {
   id: 0
 };
 /** @internal */
-const getCurrentFiber = () => globalThis[_Redactable_js__rspack_import_10/* .currentFiberTypeId */.fL];
+const getCurrentFiber = () => globalThis[_Redactable_js__rspack_import_9/* .currentFiberTypeId */.fL];
 /** @internal */
 class FiberImpl {
   constructor(context, interruptible = true) {
@@ -41262,14 +39471,15 @@ class FiberImpl {
     this.currentOpCount = 0;
     this.interruptible = interruptible;
     this._stack = [];
-    this._observers = [];
+    this._observers = undefined;
     this._exit = undefined;
     this._children = undefined;
     this._interruptedCause = undefined;
     this._yielded = undefined;
     this._running = false;
     this._deferredInterrupt = false;
-    this.runtimeMetrics?.recordFiberStart(this.context);
+    this._parent = undefined;
+    this.cache.runtimeMetrics?.recordFiberStart(this.context);
   }
   [FiberTypeId];
   id;
@@ -41283,20 +39493,13 @@ class FiberImpl {
   _yielded;
   _running;
   _deferredInterrupt;
+  _parent;
   // set in setContext
   context;
-  currentScheduler;
-  currentTracerContext;
-  currentSpan;
-  currentLogLevel;
-  minimumLogLevel;
-  currentStackFrame;
-  runtimeMetrics;
-  maxOpsBeforeYield;
-  currentPreventYield;
+  cache;
   _dispatcher = undefined;
   get currentDispatcher() {
-    return this._dispatcher ??= this.currentScheduler.makeDispatcher();
+    return this._dispatcher ??= this.cache.scheduler.makeDispatcher();
   }
   getRef(ref) {
     return _Context_js__rspack_import_5/* .get */.Jt(this.context, ref);
@@ -41306,9 +39509,13 @@ class FiberImpl {
       cb(this._exit);
       return _Function_js__rspack_import_6/* .constVoid */.Yi;
     }
-    this._observers.push(cb);
+    if (this._observers === undefined) {
+      this._observers = [cb];
+    } else {
+      this._observers.push(cb);
+    }
     return () => {
-      if (this._exit) return;
+      if (this._exit || this._observers === undefined) return;
       const index = this._observers.indexOf(cb);
       if (index >= 0) {
         this._observers.splice(index, 1);
@@ -41320,8 +39527,8 @@ class FiberImpl {
       return;
     }
     let cause = causeInterrupt(fiberId);
-    if (this.currentStackFrame) {
-      cause = (0,_core_js__rspack_import_0/* .causeAnnotate */.Eh)(cause, _Context_js__rspack_import_5/* .make */.L8(_core_js__rspack_import_0/* .StackTraceKey */.z8, this.currentStackFrame));
+    if (this.cache.stackFrame) {
+      cause = (0,_core_js__rspack_import_0/* .causeAnnotate */.Eh)(cause, _Context_js__rspack_import_5/* .make */.L8(_core_js__rspack_import_0/* .StackTraceKey */.z8, this.cache.stackFrame));
     }
     if (annotations) {
       cause = (0,_core_js__rspack_import_0/* .causeAnnotate */.Eh)(cause, annotations);
@@ -41357,18 +39564,25 @@ class FiberImpl {
       return this.evaluate(flatMap(interruptChildren, () => exit));
     }
     this._exit = exit;
-    this.runtimeMetrics?.recordFiberEnd(this.context, this._exit);
-    for (let i = 0; i < this._observers.length; i++) {
-      this._observers[i](exit);
+    this.cache.runtimeMetrics?.recordFiberEnd(this.context, this._exit);
+    if (this._parent) {
+      this._parent._children?.delete(this);
+      this._parent = undefined;
     }
-    this._observers.length = 0;
+    if (this._observers !== undefined) {
+      const observers = this._observers;
+      this._observers = undefined;
+      for (let i = 0; i < observers.length; i++) {
+        observers[i](exit);
+      }
+    }
     this._stack.length = 0;
     this._children = undefined;
     this.context = _Context_js__rspack_import_5/* .empty */.Ie();
   }
   runLoop(effect) {
-    const prevFiber = globalThis[_Redactable_js__rspack_import_10/* .currentFiberTypeId */.fL];
-    globalThis[_Redactable_js__rspack_import_10/* .currentFiberTypeId */.fL] = this;
+    const prevFiber = globalThis[_Redactable_js__rspack_import_9/* .currentFiberTypeId */.fL];
+    globalThis[_Redactable_js__rspack_import_9/* .currentFiberTypeId */.fL] = this;
     const prevRunning = this._running;
     this._running = true;
     let yielding = false;
@@ -41381,12 +39595,14 @@ class FiberImpl {
           current = failCause(this._interruptedCause);
         }
         this.currentOpCount++;
-        if (!yielding && !this.currentPreventYield && this.currentScheduler.shouldYield(this)) {
+        // Refresh the cache because a primitive can replace the fiber context.
+        const cache = this.cache;
+        if (!yielding && !cache.preventYield && cache.scheduler.shouldYield(this)) {
           yielding = true;
           const prev = current;
           current = flatMap(yieldNow, () => prev);
         }
-        current = this.currentTracerContext ? this.currentTracerContext(current, this) : current[_core_js__rspack_import_0/* .evaluate */._3](this);
+        current = cache.tracerContext ? cache.tracerContext(current, this) : current[_core_js__rspack_import_0/* .evaluate */._3](this);
         if (current === _core_js__rspack_import_0/* .Yield */.GN) {
           const yielded = this._yielded;
           if (_core_js__rspack_import_0/* .ExitTypeId */.IH in yielded) {
@@ -41402,13 +39618,13 @@ class FiberImpl {
         }
       }
     } catch (error) {
-      if (!(0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(current, _core_js__rspack_import_0/* .evaluate */._3)) {
+      if (!(0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(current, _core_js__rspack_import_0/* .evaluate */._3)) {
         return (0,_core_js__rspack_import_0/* .exitDie */.V2)(`Fiber.runLoop: Not a valid effect: ${String(current)}`);
       }
       return this.runLoop((0,_core_js__rspack_import_0/* .exitDie */.V2)(error));
     } finally {
       this._running = prevRunning;
-      globalThis[_Redactable_js__rspack_import_10/* .currentFiberTypeId */.fL] = prevFiber;
+      globalThis[_Redactable_js__rspack_import_9/* .currentFiberTypeId */.fL] = prevFiber;
     }
   }
   getCont(symbol) {
@@ -41419,11 +39635,14 @@ class FiberImpl {
     while (true) {
       const op = this._stack.pop();
       if (!op) return undefined;
-      const cont = op[_core_js__rspack_import_0/* .contAll */.u4] && op[_core_js__rspack_import_0/* .contAll */.u4](this);
-      if (cont) {
-        ;
-        cont[symbol] = cont;
-        return cont;
+      const all = op[_core_js__rspack_import_0/* .contAll */.u4];
+      if (all !== undefined) {
+        const cont = all.call(op, this);
+        if (cont) {
+          ;
+          cont[symbol] = cont;
+          return cont;
+        }
       }
       if (op[symbol]) return op;
     }
@@ -41436,7 +39655,7 @@ class FiberImpl {
     return this._children ??= new Set();
   }
   pipe() {
-    return (0,_Pipeable_js__rspack_import_12/* .pipeArguments */.tT)(this, arguments);
+    return (0,_Pipeable_js__rspack_import_11/* .pipeArguments */.tT)(this, arguments);
   }
   setContext(context) {
     const previous = this.context;
@@ -41444,27 +39663,39 @@ class FiberImpl {
     // Every key cached below opts in to Context caching, so contexts related
     // only by non-caching adds cannot have changed any of them
     if (previous !== undefined && _Context_js__rspack_import_5/* .hasSameCache */.Pf(previous, context)) return;
-    const scheduler = this.getRef(_Scheduler_js__rspack_import_13/* .Scheduler */._F);
-    if (scheduler !== this.currentScheduler) {
-      this.currentScheduler = scheduler;
+    // Contexts sharing a cacheRoot resolve every cached key identically, so
+    // the derived cache object is computed once per root and shared by all
+    // fibers running with that root (forked fibers reuse the parent's).
+    const root = context.cacheRoot;
+    const cache = root._fiberCache ??= makeFiberContextCache(context);
+    if (this.cache !== undefined && this.cache.scheduler !== cache.scheduler) {
       this._dispatcher = undefined;
     }
-    // The string-keyed lookups keep the Tracer key values (and the native
-    // tracer behind Tracer.Tracer's default) out of every bundle
-    this.currentSpan = _Context_js__rspack_import_5/* .getOrUndefinedUnsafe */.Ub(context, _Tracer_js__rspack_import_14/* .ParentSpanKey */.WG);
-    this.currentLogLevel = this.getRef(_references_js__rspack_import_15/* .CurrentLogLevel */.Gl);
-    this.minimumLogLevel = this.getRef(_references_js__rspack_import_15/* .MinimumLogLevel */.zQ);
-    this.currentStackFrame = this.getRef(_references_js__rspack_import_15/* .CurrentStackFrame */.vA);
-    this.maxOpsBeforeYield = this.getRef(_Scheduler_js__rspack_import_13/* .MaxOpsBeforeYield */.Zm);
-    this.currentPreventYield = this.getRef(_Scheduler_js__rspack_import_13/* .PreventSchedulerYield */.hf);
-    this.runtimeMetrics = _Context_js__rspack_import_5/* .getOrUndefinedUnsafe */.Ub(context, _metric_js__rspack_import_16/* .FiberRuntimeMetricsKey */.F);
-    const currentTracer = _Context_js__rspack_import_5/* .getOrUndefinedUnsafe */.Ub(context, _Tracer_js__rspack_import_14/* .TracerKey */.RL);
-    this.currentTracerContext = currentTracer ? currentTracer["context"] : undefined;
+    this.cache = cache;
   }
   get currentSpanLocal() {
-    return this.currentSpan?._tag === "Span" ? this.currentSpan : undefined;
+    const span = this.cache.span;
+    return span?._tag === "Span" ? span : undefined;
   }
 }
+const makeFiberContextCache = context => {
+  // The string-keyed lookups keep the Tracer key values (and the native
+  // tracer behind Tracer.Tracer's default) out of every bundle
+  const currentTracer = _Context_js__rspack_import_5/* .getOrUndefinedUnsafe */.Ub(context, _Tracer_js__rspack_import_12/* .TracerKey */.RL);
+  return {
+    scheduler: _Context_js__rspack_import_5/* .get */.Jt(context, _Scheduler_js__rspack_import_13/* .Scheduler */._F),
+    tracer: currentTracer,
+    tracerContext: currentTracer ? currentTracer["context"] : undefined,
+    tracerEnabled: _Context_js__rspack_import_5/* .get */.Jt(context, _references_js__rspack_import_14/* .TracerEnabled */.rf),
+    span: _Context_js__rspack_import_5/* .getOrUndefinedUnsafe */.Ub(context, _Tracer_js__rspack_import_12/* .ParentSpanKey */.WG),
+    logLevel: _Context_js__rspack_import_5/* .get */.Jt(context, _references_js__rspack_import_14/* .CurrentLogLevel */.Gl),
+    minimumLogLevel: _Context_js__rspack_import_5/* .get */.Jt(context, _references_js__rspack_import_14/* .MinimumLogLevel */.zQ),
+    stackFrame: _Context_js__rspack_import_5/* .get */.Jt(context, _references_js__rspack_import_14/* .CurrentStackFrame */.vA),
+    runtimeMetrics: _Context_js__rspack_import_5/* .getOrUndefinedUnsafe */.Ub(context, _metric_js__rspack_import_15/* .FiberRuntimeMetricsKey */.F),
+    maxOpsBeforeYield: _Context_js__rspack_import_5/* .get */.Jt(context, _Scheduler_js__rspack_import_13/* .MaxOpsBeforeYield */.Zm),
+    preventYield: _Context_js__rspack_import_5/* .get */.Jt(context, _Scheduler_js__rspack_import_13/* .PreventSchedulerYield */.hf)
+  };
+};
 const deferredInterruptCont = {
   [_core_js__rspack_import_0/* .contA */.ee](_value, fiber) {
     return failCause(fiber._interruptedCause);
@@ -41477,9 +39708,9 @@ const fiberMiddleware = {
   interruptChildren: undefined
 };
 const fiberStackAnnotations = fiber => {
-  if (!fiber.currentStackFrame) return undefined;
+  if (!fiber.cache.stackFrame) return undefined;
   const annotations = new Map();
-  annotations.set(_core_js__rspack_import_0/* .InterruptorStackTrace.key */.QJ.key, fiber.currentStackFrame);
+  annotations.set(_core_js__rspack_import_0/* .InterruptorStackTrace.key */.QJ.key, fiber.cache.stackFrame);
   return _Context_js__rspack_import_5/* .makeUnsafe */.LZ(annotations);
 };
 const fiberInterruptChildren = fiber => {
@@ -41533,9 +39764,9 @@ const fiberJoin = self => {
 /** @internal */
 const fiberJoinAll = self => callback(resume => {
   const fibers = Array.from(self);
-  if (fibers.length === 0) return resume(succeed(_Array_js__rspack_import_7/* .empty */.Ie()));
+  if (fibers.length === 0) return resume(succeed(_Array_js__rspack_import_16/* .empty */.Ie()));
   const out = new Array(fibers.length);
-  const cancels = _Array_js__rspack_import_7/* .empty */.Ie();
+  const cancels = _Array_js__rspack_import_16/* .empty */.Ie();
   let done = 0;
   let failed = false;
   for (let i = 0; i < fibers.length; i++) {
@@ -41561,7 +39792,7 @@ const fiberJoinAll = self => callback(resume => {
 /** @internal */
 const fiberInterrupt = self => (0,_core_js__rspack_import_0/* .withFiber */.R6)(fiber => fiberInterruptAs(self, fiber.id));
 /** @internal */
-const fiberInterruptAs = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(args[0], FiberTypeId), (self, fiberId, annotations) => (0,_core_js__rspack_import_0/* .withFiber */.R6)(parent => {
+const fiberInterruptAs = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(args[0], FiberTypeId), (self, fiberId, annotations) => (0,_core_js__rspack_import_0/* .withFiber */.R6)(parent => {
   let ann = fiberStackAnnotations(parent);
   ann = ann && annotations ? _Context_js__rspack_import_5/* .merge */.h1(ann, annotations) : ann ?? annotations;
   self.interruptUnsafe(fiberId, ann);
@@ -41570,7 +39801,7 @@ const fiberInterruptAs = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual *
 /** @internal */
 const fiberInterruptAll = fibers => (0,_core_js__rspack_import_0/* .withFiber */.R6)(parent => {
   const annotations = fiberStackAnnotations(parent);
-  let fiberArr = _Array_js__rspack_import_7/* .empty */.Ie();
+  let fiberArr = _Array_js__rspack_import_16/* .empty */.Ie();
   for (const fiber of fibers) {
     fiber.interruptUnsafe(parent.id, annotations);
     fiberArr.push(fiber);
@@ -41580,7 +39811,7 @@ const fiberInterruptAll = fibers => (0,_core_js__rspack_import_0/* .withFiber */
 /** @internal */
 const fiberInterruptAllAs = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (fibers, fiberId) => (0,_core_js__rspack_import_0/* .withFiber */.R6)(parent => {
   const annotations = fiberStackAnnotations(parent);
-  const fiberArr = _Array_js__rspack_import_7/* .empty */.Ie();
+  const fiberArr = _Array_js__rspack_import_16/* .empty */.Ie();
   for (const fiber of fibers) {
     fiber.interruptUnsafe(fiberId, annotations);
     fiberArr.push(fiber);
@@ -41693,39 +39924,48 @@ const withFiberId = f => (0,_core_js__rspack_import_0/* .withFiber */.R6)(fiber 
 const fiber = /*#__PURE__*/(0,_core_js__rspack_import_0/* .withFiber */.R6)(succeed);
 /** @internal */
 const fiberId = /*#__PURE__*/withFiberId(succeed);
-const callbackOptions = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitive */.Uf)({
-  op: "Async",
-  single: false,
-  [_core_js__rspack_import_0/* .evaluate */._3](fiber) {
-    const register = (0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => this[_core_js__rspack_import_0/* .args */.a2][0].bind(fiber.currentScheduler));
-    let resumed = false;
-    let yielded = false;
-    const controller = this[_core_js__rspack_import_0/* .args */.a2][1] ? new AbortController() : undefined;
-    const onCancel = register(effect => {
-      if (resumed) return;
-      resumed = true;
-      if (yielded) {
-        fiber.evaluate(effect);
-      } else {
-        yielded = effect;
+const callbackOptions = /*#__PURE__*/function () {
+  const Proto = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitiveProto */.yj)({
+    op: "Async",
+    [_core_js__rspack_import_0/* .evaluate */._3](fiber) {
+      const register = (0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => this.register.bind(fiber.cache.scheduler));
+      let resumed = false;
+      let yielded = false;
+      const controller = this.withSignal ? new AbortController() : undefined;
+      const onCancel = register(effect => {
+        if (resumed) return;
+        resumed = true;
+        if (yielded) {
+          fiber.evaluate(effect);
+        } else {
+          yielded = effect;
+        }
+      }, controller?.signal);
+      if (yielded !== false) return yielded;
+      yielded = true;
+      fiber._yielded = () => {
+        resumed = true;
+      };
+      if (controller === undefined && onCancel === undefined) {
+        return _core_js__rspack_import_0/* .Yield */.GN;
       }
-    }, controller?.signal);
-    if (yielded !== false) return yielded;
-    yielded = true;
-    fiber._yielded = () => {
-      resumed = true;
-    };
-    if (controller === undefined && onCancel === undefined) {
+      fiber._stack.push(asyncFinalizer(() => {
+        resumed = true;
+        controller?.abort();
+        return onCancel ?? exitVoid;
+      }));
       return _core_js__rspack_import_0/* .Yield */.GN;
     }
-    fiber._stack.push(asyncFinalizer(() => {
-      resumed = true;
-      controller?.abort();
-      return onCancel ?? exitVoid;
-    }));
-    return _core_js__rspack_import_0/* .Yield */.GN;
-  }
-});
+  });
+  const AsyncImpl = function (register, withSignal) {
+    this.register = register;
+    this.withSignal = withSignal;
+  };
+  AsyncImpl.prototype = Proto;
+  return function (register, withSignal) {
+    return new AsyncImpl(register, withSignal);
+  };
+}();
 const asyncFinalizer = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitive */.Uf)({
   op: "AsyncFinalizer",
   [_core_js__rspack_import_0/* .contAll */.u4](fiber) {
@@ -41743,7 +39983,14 @@ const callback = register => callbackOptions(register, register.length >= 2);
 /** @internal */
 const never = /*#__PURE__*/callback(_Function_js__rspack_import_6/* .constVoid */.Yi);
 /** @internal */
-const gen = (...args) => suspend(() => fromIteratorUnsafe(args.length === 1 ? args[0]() : args[1].call(args[0].self)));
+const gen = (...args) => {
+  if (args.length === 1) {
+    const body = args[0];
+    return suspend(() => fromIteratorUnsafe(body()));
+  }
+  const [options, body] = args;
+  return suspend(() => fromIteratorUnsafe(body.call(options.self)));
+};
 /** @internal */
 const fnUntraced = (body, ...pipeables) => {
   const fn = pipeables.length === 0 ? function () {
@@ -41767,10 +40014,13 @@ const fn = function () {
   const nameFirst = typeof arguments[0] === "string";
   const name = nameFirst ? arguments[0] : "Effect.fn";
   const spanOptions = nameFirst ? arguments[1] : undefined;
-  const prevLimit = (0,_stackTraceLimit_js__rspack_import_8/* .getStackTraceLimit */.jt)();
-  (0,_stackTraceLimit_js__rspack_import_8/* .setStackTraceLimit */.ft)(2);
-  const defError = new globalThis.Error();
-  (0,_stackTraceLimit_js__rspack_import_8/* .setStackTraceLimit */.ft)(prevLimit);
+  const prevLimit = (0,_stackTraceLimit_js__rspack_import_7/* .getStackTraceLimit */.jt)();
+  let defError;
+  if (prevLimit !== 0) {
+    (0,_stackTraceLimit_js__rspack_import_7/* .setStackTraceLimit */.ft)(2);
+    defError = new globalThis.Error();
+    (0,_stackTraceLimit_js__rspack_import_7/* .setStackTraceLimit */.ft)(prevLimit);
+  }
   if (nameFirst) {
     return (body, ...pipeables) => makeFn(name, body, defError, pipeables, nameFirst, spanOptions);
   }
@@ -41789,16 +40039,19 @@ const makeFn = (name, bodyOrOptions, defError, pipeables, addSpan, spanOptions) 
     if (!(0,_core_js__rspack_import_0/* .isEffect */.yw)(result)) {
       return result;
     }
-    const prevLimit = (0,_stackTraceLimit_js__rspack_import_8/* .getStackTraceLimit */.jt)();
-    (0,_stackTraceLimit_js__rspack_import_8/* .setStackTraceLimit */.ft)(2);
-    const callError = new globalThis.Error();
-    (0,_stackTraceLimit_js__rspack_import_8/* .setStackTraceLimit */.ft)(prevLimit);
-    return updateService(addSpan ? useSpan(name, spanOptions, span => provideParentSpan(result, span)) : result, _references_js__rspack_import_15/* .CurrentStackFrame */.vA, prev => ({
+    const prevLimit = (0,_stackTraceLimit_js__rspack_import_7/* .getStackTraceLimit */.jt)();
+    let callError;
+    if (prevLimit !== 0) {
+      (0,_stackTraceLimit_js__rspack_import_7/* .setStackTraceLimit */.ft)(2);
+      callError = new globalThis.Error();
+      (0,_stackTraceLimit_js__rspack_import_7/* .setStackTraceLimit */.ft)(prevLimit);
+    }
+    return updateService(addSpan ? useSpan(name, spanOptions, span => provideParentSpan(result, span)) : result, _references_js__rspack_import_14/* .CurrentStackFrame */.vA, prev => ({
       name,
-      stack: fnStackCleaner(() => callError.stack),
+      stack: callError ? fnStackCleaner(() => callError.stack) : _Function_js__rspack_import_6/* .constUndefined */.MN,
       parent: {
         name: `${name} (definition)`,
-        stack: fnStackCleaner(() => defError.stack),
+        stack: defError ? fnStackCleaner(() => defError.stack) : _Function_js__rspack_import_6/* .constUndefined */.MN,
         parent: prev
       }
     }));
@@ -41810,7 +40063,7 @@ const fnUntracedEager = (body, ...pipeables) => defineFunctionLength(body.length
 } : function () {
   let effect = fromIteratorEagerUnsafe(() => body.apply(this, arguments));
   for (const pipeable of pipeables) {
-    effect = pipeable(effect);
+    effect = pipeable(effect, ...arguments);
   }
   return effect;
 });
@@ -41846,35 +40099,82 @@ const fromIteratorEagerUnsafe = evaluate => {
     return die(error);
   }
 };
-const fromIteratorUnsafe = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitive */.Uf)({
-  op: "Iterator",
-  single: false,
-  [_core_js__rspack_import_0/* .contA */.ee](value, fiber) {
-    const iter = this[_core_js__rspack_import_0/* .args */.a2][0];
-    while (true) {
-      const state = iter.next(value);
-      if (state.done) return succeed(state.value);
-      if (!effectIsExit(state.value)) {
-        fiber._stack.push(this);
-        return state.value;
-      } else if (state.value._tag === "Failure") {
-        return state.value;
+const fromIteratorUnsafe = /*#__PURE__*/function () {
+  const Proto = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitiveProto */.yj)({
+    op: "Iterator",
+    [_core_js__rspack_import_0/* .contA */.ee](value, fiber) {
+      const iter = this.iterator;
+      while (true) {
+        const state = iter.next(value);
+        if (state.done) return succeed(state.value);
+        if (!effectIsExit(state.value)) {
+          fiber._stack.push(this);
+          return state.value;
+        } else if (state.value._tag === "Failure") {
+          return state.value;
+        }
+        value = state.value.value;
       }
-      value = state.value.value;
+    },
+    [_core_js__rspack_import_0/* .evaluate */._3](fiber) {
+      return this[_core_js__rspack_import_0/* .contA */.ee](this.initial, fiber);
     }
-  },
-  [_core_js__rspack_import_0/* .evaluate */._3](fiber) {
-    return this[_core_js__rspack_import_0/* .contA */.ee](this[_core_js__rspack_import_0/* .args */.a2][1], fiber);
-  }
-});
+  });
+  const IteratorImpl = function (iterator, initial) {
+    this.iterator = iterator;
+    this.initial = initial;
+  };
+  IteratorImpl.prototype = Proto;
+  return function (iterator, initial) {
+    return new IteratorImpl(iterator, initial);
+  };
+}();
 // ----------------------------------------------------------------------------
 // mapping & sequencing
 // ----------------------------------------------------------------------------
 /** @internal */
-const as = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, value) => {
-  const b = succeed(value);
-  return flatMap(self, _ => b);
+const as = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, value) => new ContImpl(self, returnPayload, succeed(value)));
+const evaluateCont = function (fiber) {
+  fiber._stack.push(this);
+  return this[_core_js__rspack_import_0/* .args */.a2];
+};
+const OnSuccessProto = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitiveProto */.yj)({
+  op: "OnSuccess",
+  [_core_js__rspack_import_0/* .evaluate */._3]: evaluateCont
 });
+const OnSuccessImpl = function (self, f) {
+  this[_core_js__rspack_import_0/* .args */.a2] = self;
+  this[_core_js__rspack_import_0/* .contA */.ee] = f;
+};
+OnSuccessImpl.prototype = OnSuccessProto;
+// A success continuation with an extra payload slot. The stored continuation
+// receives the primitive as `this` and reads `this.payload`, so combinators
+// like map / as / tap / andThen can share module-level continuation functions
+// instead of allocating a closure per call.
+const ContImpl = function (self, cont, payload) {
+  this[_core_js__rspack_import_0/* .args */.a2] = self;
+  this[_core_js__rspack_import_0/* .contA */.ee] = cont;
+  this.payload = payload;
+};
+ContImpl.prototype = OnSuccessProto;
+const returnPayload = function () {
+  return this.payload;
+};
+const mapCont = function (value) {
+  const f = this.payload;
+  return succeed((0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => f(value)));
+};
+const andThenCont = function (value) {
+  const f = this.payload;
+  return (0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => f(value));
+};
+const tapCont = function (value) {
+  const f = this.payload;
+  return new ContImpl((0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => f(value)), returnPayload, (0,_core_js__rspack_import_0/* .exitSucceed */.xt)(value));
+};
+const tapEffectCont = function (value) {
+  return new ContImpl(this.payload, returnPayload, (0,_core_js__rspack_import_0/* .exitSucceed */.xt)(value));
+};
 /** @internal */
 const asSome = self => map(self, _Option_js__rspack_import_17.some);
 /** @internal */
@@ -41883,16 +40183,16 @@ const flip = self => matchEffect(self, {
   onSuccess: fail
 });
 /** @internal */
-const andThen = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => flatMap(self, a => (0,_core_js__rspack_import_0/* .isEffect */.yw)(f) ? f : (0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => f(a))));
+const andThen = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => new ContImpl(self, (0,_core_js__rspack_import_0/* .isEffect */.yw)(f) ? returnPayload : andThenCont, f));
 /** @internal */
-const tap = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => flatMap(self, a => as((0,_core_js__rspack_import_0/* .isEffect */.yw)(f) ? f : (0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => f(a)), a)));
+const tap = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => new ContImpl(self, (0,_core_js__rspack_import_0/* .isEffect */.yw)(f) ? tapEffectCont : tapCont, f));
 /** @internal */
-const asVoid = self => flatMap(self, _ => exitVoid);
+const asVoid = self => new ContImpl(self, returnPayload, exitVoid);
 /** @internal */
 const sandbox = self => catchCause(self, fail);
 /** @internal */
 const raceAll = (all, options) => (0,_core_js__rspack_import_0/* .withFiber */.R6)(parent => callback(resume => {
-  const effects = _Array_js__rspack_import_7/* .fromIterable */.Ts(all);
+  const effects = _Array_js__rspack_import_16/* .fromIterable */.Ts(all);
   const len = effects.length;
   let doneCount = 0;
   let done = false;
@@ -41963,19 +40263,7 @@ const race = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args =
 /** @internal */
 const raceFirst = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_core_js__rspack_import_0/* .isEffect */.yw)(args[1]), (self, that, options) => raceAllFirst([self, that], options));
 /** @internal */
-const flatMap = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => {
-  const onSuccess = Object.create(OnSuccessProto);
-  onSuccess[_core_js__rspack_import_0/* .args */.a2] = self;
-  onSuccess[_core_js__rspack_import_0/* .contA */.ee] = f.length !== 1 ? a => f(a) : f;
-  return onSuccess;
-});
-const OnSuccessProto = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitiveProto */.yj)({
-  op: "OnSuccess",
-  [_core_js__rspack_import_0/* .evaluate */._3](fiber) {
-    fiber._stack.push(this);
-    return this[_core_js__rspack_import_0/* .args */.a2];
-  }
-});
+const flatMap = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => new OnSuccessImpl(self, f.length !== 1 ? a => f(a) : f));
 /** @internal */
 const matchCauseEffectEager = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, options) => {
   if (effectIsExit(self)) {
@@ -41984,7 +40272,7 @@ const matchCauseEffectEager = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .d
   return matchCauseEffect(self, options);
 });
 /** @internal */
-const effectIsExit = effect => _core_js__rspack_import_0/* .ExitTypeId */.IH in effect;
+const effectIsExit = effect => effect[_core_js__rspack_import_0/* .ExitTypeId */.IH] !== undefined;
 /** @internal */
 const flatMapEager = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => {
   if (effectIsExit(self)) {
@@ -41998,7 +40286,7 @@ const flatMapEager = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY
 /** @internal */
 const flatten = self => flatMap(self, _Function_js__rspack_import_6/* .identity */.D_);
 /** @internal */
-const map = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => flatMap(self, a => succeed((0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => f(a)))));
+const map = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => new ContImpl(self, mapCont, f));
 /** @internal */
 const mapEager = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => effectIsExit(self) ? exitMap(self, f) : map(self, f));
 /** @internal */
@@ -42120,7 +40408,9 @@ const updateServiceScoped = (service, update, options) => uninterruptible((0,_co
   const updated = update(original);
   fiber.setContext(_Context_js__rspack_import_5/* .add */.WQ(fiber.context, service, updated));
   return scopeAddFinalizerExit(_Context_js__rspack_import_5/* .getUnsafe */.fp(fiber.context, scopeTag), _ => {
-    const current = _Context_js__rspack_import_5/* .getUnsafe */.fp(fiber.context, service);
+    const currentOption = _Context_js__rspack_import_5/* .getOption */.om(fiber.context, service);
+    if (_Option_js__rspack_import_17.isNone(currentOption)) return void_;
+    const current = currentOption.value;
     let next;
     if (options?.reset === undefined) {
       if (current !== updated) return void_;
@@ -42168,7 +40458,7 @@ const zipWith = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(arg
 // ----------------------------------------------------------------------------
 // filtering & conditionals
 // ----------------------------------------------------------------------------
-/* @internal */
+/** @internal */
 const filterOrFail = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (self, predicate, orFailWith) => filterOrElse(self, predicate, orFailWith ? a => fail(orFailWith(a)) : () => fail(new _core_js__rspack_import_0/* .NoSuchElementError */.Xm())));
 /** @internal */
 const when = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, condition) => flatMap(condition, pass => pass ? asSome(self) : succeedNone));
@@ -42191,19 +40481,16 @@ const forever = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(arg
 // error handling
 // ----------------------------------------------------------------------------
 /** @internal */
-const catchCause = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => {
-  const onFailure = Object.create(OnFailureProto);
-  onFailure[_core_js__rspack_import_0/* .args */.a2] = self;
-  onFailure[_core_js__rspack_import_0/* .contE */.Sc] = f.length !== 1 ? cause => f(cause) : f;
-  return onFailure;
-});
+const catchCause = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => new OnFailureImpl(self, f.length !== 1 ? cause => f(cause) : f));
 const OnFailureProto = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitiveProto */.yj)({
   op: "OnFailure",
-  [_core_js__rspack_import_0/* .evaluate */._3](fiber) {
-    fiber._stack.push(this);
-    return this[_core_js__rspack_import_0/* .args */.a2];
-  }
+  [_core_js__rspack_import_0/* .evaluate */._3]: evaluateCont
 });
+const OnFailureImpl = function (self, f) {
+  this[_core_js__rspack_import_0/* .args */.a2] = self;
+  this[_core_js__rspack_import_0/* .contE */.Sc] = f;
+};
+OnFailureImpl.prototype = OnFailureProto;
 /** @internal */
 const catchCauseIf = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(3, (self, predicate, f) => catchCause(self, cause => {
   if (!predicate(cause)) {
@@ -42241,7 +40528,7 @@ const tapCauseFilter = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.
 const tapError = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => tapCauseFilter(self, findError, e => f(e)));
 /** @internal */
 const tapErrorTag = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(3, (self, k, f) => {
-  const predicate = Array.isArray(k) ? e => (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(e, "_tag") && k.includes(e._tag) : (0,_Predicate_js__rspack_import_11/* .isTagged */.$J)(k);
+  const predicate = Array.isArray(k) ? e => (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(e, "_tag") && k.includes(e._tag) : (0,_Predicate_js__rspack_import_10/* .isTagged */.$J)(k);
   return tapError(self, error => predicate(error) ? f(error) : void_);
 });
 /** @internal */
@@ -42267,7 +40554,7 @@ const catchFilter = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)
 }));
 /** @internal */
 const catchTag = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (self, k, f, orElse) => {
-  const pred = Array.isArray(k) ? e => (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(e, "_tag") && k.includes(e._tag) : (0,_Predicate_js__rspack_import_11/* .isTagged */.$J)(k);
+  const pred = Array.isArray(k) ? e => (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(e, "_tag") && k.includes(e._tag) : (0,_Predicate_js__rspack_import_10/* .isTagged */.$J)(k);
   return catchIf(self, pred, f, orElse);
 });
 /** @internal */
@@ -42275,19 +40562,19 @@ const catchTags = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(a
   let keys;
   return catchFilter(self, e => {
     keys ??= Object.keys(cases);
-    return (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(e, "_tag") && (0,_Predicate_js__rspack_import_11/* .isString */.Kg)(e["_tag"]) && keys.includes(e["_tag"]) ? _Result_js__rspack_import_3/* .succeed */.Py(e) : _Result_js__rspack_import_3/* .fail */.fJ(e);
+    return (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(e, "_tag") && (0,_Predicate_js__rspack_import_10/* .isString */.Kg)(e["_tag"]) && keys.includes(e["_tag"]) ? _Result_js__rspack_import_3/* .succeed */.Py(e) : _Result_js__rspack_import_3/* .fail */.fJ(e);
   }, e => (0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => cases[e["_tag"]](e)), orElse);
 });
 /** @internal */
-const catchReason = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (self, errorTag, reasonTag, f, orElse) => catchIf(self, e => (0,_Predicate_js__rspack_import_11/* .isTagged */.$J)(e, errorTag) && (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(e, "reason"), e => {
+const catchReason = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (self, errorTag, reasonTag, f, orElse) => catchIf(self, e => (0,_Predicate_js__rspack_import_10/* .isTagged */.$J)(e, errorTag) && (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(e, "reason") && (orElse !== undefined || (0,_Predicate_js__rspack_import_10/* .isTagged */.$J)(e.reason, reasonTag)), e => {
   const reason = e.reason;
-  if ((0,_Predicate_js__rspack_import_11/* .isTagged */.$J)(reason, reasonTag)) return f(reason, e);
+  if ((0,_Predicate_js__rspack_import_10/* .isTagged */.$J)(reason, reasonTag)) return f(reason, e);
   return orElse ? (0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => orElse(reason, e)) : fail(e);
 }));
 /** @internal */
 const catchReasons = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (self, errorTag, cases, orElse) => {
   let keys;
-  return catchIf(self, e => (0,_Predicate_js__rspack_import_11/* .isTagged */.$J)(e, errorTag) && (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(e, "reason") && (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(e.reason, "_tag") && (0,_Predicate_js__rspack_import_11/* .isString */.Kg)(e.reason._tag), e => {
+  return catchIf(self, e => (0,_Predicate_js__rspack_import_10/* .isTagged */.$J)(e, errorTag) && (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(e, "reason") && (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(e.reason, "_tag") && (0,_Predicate_js__rspack_import_10/* .isString */.Kg)(e.reason._tag) && (orElse !== undefined || (keys ??= Object.keys(cases)).includes(e.reason._tag)), e => {
     const reason = e.reason;
     keys ??= Object.keys(cases);
     if (keys.includes(reason._tag)) {
@@ -42298,14 +40585,14 @@ const catchReasons = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY
 });
 /** @internal */
 const unwrapReason = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, errorTag) => catchFilter(self, e => {
-  if ((0,_Predicate_js__rspack_import_11/* .isTagged */.$J)(e, errorTag) && (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(e, "reason")) {
+  if ((0,_Predicate_js__rspack_import_10/* .isTagged */.$J)(e, errorTag) && (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(e, "reason")) {
     return _Result_js__rspack_import_3/* .succeed */.Py(e.reason);
   }
   return _Result_js__rspack_import_3/* .fail */.fJ(e);
 }, fail));
 /** @internal */
 const mapError = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => catch_(self, error => failSync(() => f(error))));
-/* @internal */
+/** @internal */
 const mapBoth = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, options) => matchEffect(self, {
   onFailure: e => failSync(() => options.onFailure(e)),
   onSuccess: a => sync(() => options.onSuccess(a))
@@ -42313,7 +40600,7 @@ const mapBoth = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, 
 /** @internal */
 const orDie = self => catch_(self, die);
 /** @internal */
-const orElseSucceed = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => catch_(self, _ => sync(f)));
+const orElseSucceed = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, f) => catch_(self, error => sync(() => f(error))));
 /** @internal */
 const firstSuccessOf = effects => suspend(() => {
   const iterator = effects[Symbol.iterator]();
@@ -42375,20 +40662,17 @@ const result = self => matchEager(self, {
 // pattern matching
 // ----------------------------------------------------------------------------
 /** @internal */
-const matchCauseEffect = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, options) => {
-  const primitive = Object.create(OnSuccessAndFailureProto);
-  primitive[_core_js__rspack_import_0/* .args */.a2] = self;
-  primitive[_core_js__rspack_import_0/* .contA */.ee] = options.onSuccess.length !== 1 ? a => options.onSuccess(a) : options.onSuccess;
-  primitive[_core_js__rspack_import_0/* .contE */.Sc] = options.onFailure.length !== 1 ? cause => options.onFailure(cause) : options.onFailure;
-  return primitive;
-});
+const matchCauseEffect = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, options) => new OnSuccessAndFailureImpl(self, options.onSuccess.length !== 1 ? a => options.onSuccess(a) : options.onSuccess, options.onFailure.length !== 1 ? cause => options.onFailure(cause) : options.onFailure));
 const OnSuccessAndFailureProto = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitiveProto */.yj)({
   op: "OnSuccessAndFailure",
-  [_core_js__rspack_import_0/* .evaluate */._3](fiber) {
-    fiber._stack.push(this);
-    return this[_core_js__rspack_import_0/* .args */.a2];
-  }
+  [_core_js__rspack_import_0/* .evaluate */._3]: evaluateCont
 });
+const OnSuccessAndFailureImpl = function (self, onSuccess, onFailure) {
+  this[_core_js__rspack_import_0/* .args */.a2] = self;
+  this[_core_js__rspack_import_0/* .contA */.ee] = onSuccess;
+  this[_core_js__rspack_import_0/* .contE */.Sc] = onFailure;
+};
+OnSuccessAndFailureImpl.prototype = OnSuccessAndFailureProto;
 /** @internal */
 const matchCause = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, options) => matchCauseEffect(self, {
   onFailure: cause => sync(() => options.onFailure(cause)),
@@ -42459,12 +40743,17 @@ const isSuccess = /*#__PURE__*/matchEager({
 /** @internal */
 const delay = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, duration) => andThen(sleep(duration), self));
 /** @internal */
-const timeoutOrElse = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, options) => raceFirst(self, flatMap(sleep(options.duration), options.orElse)));
+const timeoutOrElse = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, options) => flatMap(timeoutOption(self, options.duration), option => _Option_js__rspack_import_17.isNone(option) ? options.orElse() : succeed(option.value)));
 /** @internal */
-const timeout = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, duration) => timeoutOrElse(self, {
-  duration,
-  orElse: () => fail(new TimeoutError())
-}));
+const timeoutErrorFromDuration = duration => new TimeoutError(`Operation timed out after '${_Duration_js__rspack_import_20/* .format */.GP(duration)}'`);
+/** @internal */
+const timeout = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, duration) => {
+  const decoded = _Duration_js__rspack_import_20/* .fromInputUnsafe */.bN(duration);
+  return timeoutOrElse(self, {
+    duration: decoded,
+    orElse: () => fail(timeoutErrorFromDuration(decoded))
+  });
+});
 /** @internal */
 const timeoutOption = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, duration) => raceFirst(asSome(self), as(sleep(duration), _Option_js__rspack_import_17.none())));
 /** @internal */
@@ -42628,30 +40917,40 @@ const acquireRelease = (acquire, release, options) => contextWith(context => uni
 /** @internal */
 const addFinalizer = finalizer => flatMap(scope, scope => contextWith(context => scopeAddFinalizerExit(scope, exit => provideContext(finalizer(exit), context))));
 /** @internal */
-const onExitPrimitive = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitive */.Uf)({
-  op: "OnExit",
-  single: false,
-  [_core_js__rspack_import_0/* .evaluate */._3](fiber) {
-    fiber._stack.push(this);
-    return this[_core_js__rspack_import_0/* .args */.a2][0];
-  },
-  [_core_js__rspack_import_0/* .contAll */.u4](fiber) {
-    if (fiber.interruptible && this[_core_js__rspack_import_0/* .args */.a2][2] !== true) {
-      fiber._stack.push(setInterruptibleTrue);
-      fiber.interruptible = false;
+const onExitPrimitive = /*#__PURE__*/function () {
+  const Proto = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitiveProto */.yj)({
+    op: "OnExit",
+    [_core_js__rspack_import_0/* .evaluate */._3](fiber) {
+      fiber._stack.push(this);
+      return this.effect;
+    },
+    [_core_js__rspack_import_0/* .contAll */.u4](fiber) {
+      if (fiber.interruptible && this.interruptible !== true) {
+        fiber._stack.push(setInterruptibleTrue);
+        fiber.interruptible = false;
+      }
+    },
+    [_core_js__rspack_import_0/* .contA */.ee](value, _, exit) {
+      exit ??= (0,_core_js__rspack_import_0/* .exitSucceed */.xt)(value);
+      const eff = this.onExit(exit);
+      return eff ? flatMap(eff, _ => exit) : exit;
+    },
+    [_core_js__rspack_import_0/* .contE */.Sc](cause, _, exit) {
+      exit ??= (0,_core_js__rspack_import_0/* .exitFailCause */.cb)(cause);
+      const eff = this.onExit(exit);
+      return eff ? flatMap(combineFinalizerCause(exit, eff), _ => exit) : exit;
     }
-  },
-  [_core_js__rspack_import_0/* .contA */.ee](value, _, exit) {
-    exit ??= (0,_core_js__rspack_import_0/* .exitSucceed */.xt)(value);
-    const eff = this[_core_js__rspack_import_0/* .args */.a2][1](exit);
-    return eff ? flatMap(eff, _ => exit) : exit;
-  },
-  [_core_js__rspack_import_0/* .contE */.Sc](cause, _, exit) {
-    exit ??= (0,_core_js__rspack_import_0/* .exitFailCause */.cb)(cause);
-    const eff = this[_core_js__rspack_import_0/* .args */.a2][1](exit);
-    return eff ? flatMap(combineFinalizerCause(exit, eff), _ => exit) : exit;
-  }
-});
+  });
+  const OnExitImpl = function (effect, onExit, interruptible) {
+    this.effect = effect;
+    this.onExit = onExit;
+    this.interruptible = interruptible;
+  };
+  OnExitImpl.prototype = Proto;
+  return function (effect, onExit, interruptible) {
+    return new OnExitImpl(effect, onExit, interruptible);
+  };
+}();
 /** @internal */
 const onExit = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, onExitPrimitive);
 /** @internal */
@@ -42688,16 +40987,15 @@ const onErrorFilter = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.X
 /** @internal */
 const onInterrupt = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, finalizer) => onErrorFilter(causeFilterInterruptors, finalizer)(self));
 /** @internal */
-const acquireUseRelease = (acquire, use, release) => uninterruptibleMask(restore => flatMap(acquire, a => onExitPrimitive(restore(use(a)), exit => release(a, exit), true)));
+const acquireUseRelease = (acquire, use, release) => uninterruptibleMask(restore => flatMap(acquire, a => onExitPrimitive(suspend(() => restore(use(a))), exit => release(a, exit), true)));
 /** @internal */
-const acquireDisposable = acquire => acquireRelease(acquire, resource => (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(resource, Symbol.asyncDispose) ? promise(() => resource[Symbol.asyncDispose]()) : sync(() => resource[Symbol.dispose]()));
+const acquireDisposable = acquire => acquireRelease(acquire, resource => (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(resource, Symbol.asyncDispose) ? promise(() => resource[Symbol.asyncDispose]()) : sync(() => resource[Symbol.dispose]()));
 // ----------------------------------------------------------------------------
 // Caching
 // ----------------------------------------------------------------------------
 /** @internal */
 const cachedInvalidateWithTTL = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, ttl) => sync(() => {
-  const ttlMillis = _Duration_js__rspack_import_20/* .toMillis */.kE(_Duration_js__rspack_import_20/* .fromInputUnsafe */.bN(ttl));
-  const isFinite = Number.isFinite(ttlMillis);
+  const ttlMillis = typeof ttl === "function" ? exit => _Duration_js__rspack_import_20/* .toMillis */.kE(_Duration_js__rspack_import_20/* .fromInputUnsafe */.bN(ttl(exit))) : (0,_Function_js__rspack_import_6/* .constant */.dY)(_Duration_js__rspack_import_20/* .toMillis */.kE(_Duration_js__rspack_import_20/* .fromInputUnsafe */.bN(ttl)));
   const latch = makeLatchUnsafe(false);
   let expiresAt = 0;
   let running = false;
@@ -42705,16 +41003,25 @@ const cachedInvalidateWithTTL = /*#__PURE__*/(0,_Function_js__rspack_import_6/* 
   const wait = flatMap(latch.await, () => exit);
   return [(0,_core_js__rspack_import_0/* .withFiber */.R6)(fiber => {
     const clock = fiber.getRef(ClockRef);
-    const now = isFinite ? clock.currentTimeMillisUnsafe() : 0;
+    const now = expiresAt === Infinity ? 0 : clock.currentTimeMillisUnsafe();
     if (running || now < expiresAt) return exit ?? wait;
     running = true;
     latch.closeUnsafe();
     exit = undefined;
     return onExit(self, exit_ => sync(() => {
-      running = false;
-      expiresAt = clock.currentTimeMillisUnsafe() + ttlMillis;
-      exit = exit_;
-      latch.openUnsafe();
+      try {
+        const duration = ttlMillis(exit_);
+        expiresAt = clock.currentTimeMillisUnsafe() + duration;
+        exit = exit_;
+      } catch (error) {
+        const cause = (0,_core_js__rspack_import_0/* .causeDie */.Iu)(error);
+        // Publish the same combined cause that onExit returns to the owner.
+        exit = (0,_core_js__rspack_import_0/* .exitFailCause */.cb)(exitIsFailure(exit_) ? causeCombine(exit_.cause, cause) : cause);
+        throw error;
+      } finally {
+        running = false;
+        latch.openUnsafe();
+      }
     }));
   }), sync(() => {
     expiresAt = 0;
@@ -42725,7 +41032,21 @@ const cachedInvalidateWithTTL = /*#__PURE__*/(0,_Function_js__rspack_import_6/* 
 /** @internal */
 const cachedWithTTL = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (self, timeToLive) => map(cachedInvalidateWithTTL(self, timeToLive), tuple => tuple[0]));
 /** @internal */
-const cached = self => cachedWithTTL(self, _Duration_js__rspack_import_20/* .infinity */.Tn);
+const cached = self => sync(() => {
+  const latch = makeLatchUnsafe(false);
+  let started = false;
+  let exit;
+  const wait = flatMap(latch.await, () => exit);
+  return suspend(() => {
+    if (exit !== undefined) return exit;
+    if (started) return wait;
+    started = true;
+    return onExit(self, result => sync(() => {
+      exit = result;
+      latch.openUnsafe();
+    }));
+  });
+});
 // ----------------------------------------------------------------------------
 // interruption
 // ----------------------------------------------------------------------------
@@ -42754,6 +41075,30 @@ const setFiberInterruptible = fiber => {
   fiber._stack.push(setInterruptibleFalse);
   if (fiber._interruptedCause) return failCause(fiber._interruptedCause);
 };
+/**
+ * Makes the current fiber uninterruptible for the returned effect without an
+ * extra primitive. Call only within `withFiber`.
+ *
+ * @internal
+ */
+const fiberEnterUninterruptibleUnsafe = fiber => {
+  const impl = fiber;
+  if (!impl.interruptible) return;
+  impl.interruptible = false;
+  impl._stack.push(setInterruptibleTrue);
+};
+/**
+ * Makes the current fiber interruptible for the returned effect without an
+ * extra primitive. Call only within `withFiber` and return any pending
+ * interruption it produces.
+ *
+ * @internal
+ */
+const fiberEnterInterruptibleUnsafe = fiber => {
+  const impl = fiber;
+  if (impl.interruptible) return undefined;
+  return setFiberInterruptible(impl);
+};
 /** @internal */
 const interruptible = self => (0,_core_js__rspack_import_0/* .withFiber */.R6)(fiber => {
   if (fiber.interruptible) return self;
@@ -42780,7 +41125,7 @@ const abortSignal = /*#__PURE__*/map(/*#__PURE__*/acquireRelease(/*#__PURE__*/sy
 // ========================================================================
 /** @internal */
 const all = (arg, options) => {
-  if ((0,_Predicate_js__rspack_import_11/* .isIterable */.xZ)(arg)) {
+  if ((0,_Predicate_js__rspack_import_10/* .isIterable */.xZ)(arg)) {
     return options?.mode === "result" ? forEach(arg, result, options) : forEach(arg, _Function_js__rspack_import_6/* .identity */.D_, options);
   } else if (options?.discard) {
     return options.mode === "result" ? forEach(Object.values(arg), result, options) : forEach(Object.values(arg), _Function_js__rspack_import_6/* .identity */.D_, options);
@@ -42796,10 +41141,10 @@ const all = (arg, options) => {
   });
 };
 /** @internal */
-const partition = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_11/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, f, options) => map(forEach(elements, (a, i) => result(f(a, i)), options), results => _Array_js__rspack_import_7/* .partition */.jB(results, _Function_js__rspack_import_6/* .identity */.D_)));
+const partition = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_10/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, f, options) => map(forEach(elements, (a, i) => result(f(a, i)), options), results => _Array_js__rspack_import_16/* .partition */.jB(results, _Function_js__rspack_import_6/* .identity */.D_)));
 /** @internal */
 const reduce = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(3, (elements, zero, f) => {
-  const arr = _Array_js__rspack_import_7/* .fromIterable */.Ts(elements);
+  const arr = _Array_js__rspack_import_16/* .fromIterable */.Ts(elements);
   if (arr.length === 0) return sync(zero);
   return suspend(() => {
     let index = 0;
@@ -42815,16 +41160,16 @@ const reduce = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(3, (
   });
 });
 /** @internal */
-const validate = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_11/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, f, options) => flatMap(partition(elements, f, {
+const validate = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_10/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, f, options) => flatMap(partition(elements, f, {
   concurrency: options?.concurrency
 }), ([excluded, satisfying]) => {
-  if (_Array_js__rspack_import_7/* .isArrayNonEmpty */.CZ(excluded)) {
+  if (_Array_js__rspack_import_16/* .isArrayNonEmpty */.CZ(excluded)) {
     return fail(excluded);
   }
   return options?.discard ? void_ : succeed(satisfying);
 }));
 /** @internal */
-const findFirst = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_11/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, predicate) => suspend(() => {
+const findFirst = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_10/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, predicate) => suspend(() => {
   const iterator = elements[Symbol.iterator]();
   const next = iterator.next();
   if (!next.done) {
@@ -42843,7 +41188,7 @@ const findFirstLoop = (iterator, index, predicate, value) => flatMap(predicate(v
   return succeed(_Option_js__rspack_import_17.none());
 });
 /** @internal */
-const findFirstFilter = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_11/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, filter) => suspend(() => {
+const findFirstFilter = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_10/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, filter) => suspend(() => {
   const iterator = elements[Symbol.iterator]();
   const next = iterator.next();
   if (!next.done) {
@@ -42882,12 +41227,11 @@ const whileLoop = /*#__PURE__*/(0,_core_js__rspack_import_0/* .makePrimitive */.
 });
 /** @internal */
 const forEach = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => typeof args[1] === "function", (iterable, f, options) => suspend(() => {
-  const concurrencyOption = options?.concurrency ?? 1;
-  const concurrency = concurrencyOption === "unbounded" ? Number.POSITIVE_INFINITY : Math.max(1, concurrencyOption);
+  const concurrency = resolveConcurrency(options?.concurrency);
   if (concurrency === 1) {
     return forEachSequential(iterable, f, options);
   }
-  const items = _Array_js__rspack_import_7/* .fromIterable */.Ts(iterable);
+  const items = _Array_js__rspack_import_16/* .fromIterable */.Ts(iterable);
   let length = items.length;
   if (length === 0) {
     return options?.discard ? void_ : succeed([]);
@@ -42920,10 +41264,13 @@ const forEachSequential = (iterable, f, options) => suspend(() => {
     }
   }), out);
 });
-const iterateEagerImpl = options => {
+/** @internal */
+const resolveConcurrency = concurrency => concurrency === "unbounded" ? Number.POSITIVE_INFINITY : Math.max(1, concurrency ?? 1);
+/** @internal */
+const iterateEager = () => options => {
   const onItem = options.onItem;
   const step = options.step;
-  const runSequential = (state, items, index, end) => {
+  const runSequential = (state, items, index = 0, end = items.length) => {
     for (; index < end; index++) {
       const item = items[index];
       const effect = onItem(state, item, index);
@@ -42934,14 +41281,15 @@ const iterateEagerImpl = options => {
       if (terminal) return terminal._tag === "Failure" ? terminal : undefined;
     }
   };
+  return runSequential;
+};
+const iterateConcurrentImpl = options => {
+  const onItem = options.onItem;
+  const step = options.step;
   return (state, items, opts) => {
     let index = 0;
-    const end = opts?.end ?? items.length;
-    const concurrency = opts?.concurrency ?? 1;
-    if (concurrency === 1) {
-      return runSequential(state, items, 0, end);
-    }
-    const orderedStep = opts?.orderedStep === true;
+    const end = opts.end ?? items.length;
+    const concurrency = opts.concurrency;
     let done = false;
     let parentFiber;
     let fibers;
@@ -42949,27 +41297,12 @@ const iterateEagerImpl = options => {
     let interrupted = false;
     let terminal;
     let effect;
-    let nextIndex = index;
-    const exits = orderedStep ? new Array(end) : undefined;
     const failDefect = error => {
       const defect = (0,_core_js__rspack_import_0/* .exitDie */.V2)(error);
       terminal = defect;
       done = true;
       interrupted = true;
       return fibers && fibers.size > 0 ? flatMap(uninterruptible(fiberInterruptAll(Array.from(fibers))), () => defect) : defect;
-    };
-    const runStep = (item, exit, currentIndex) => {
-      if (!orderedStep) return step(state, item, exit, currentIndex);
-      if (terminal) return terminal;
-      exits[currentIndex] = exit;
-      while (nextIndex < end) {
-        const nextExit = exits[nextIndex];
-        if (nextExit === undefined) return;
-        exits[nextIndex] = undefined;
-        const index = nextIndex++;
-        const result = step(state, items[index], nextExit, index);
-        if (result) return result;
-      }
     };
     const go = () => {
       let paused = false;
@@ -42978,7 +41311,7 @@ const iterateEagerImpl = options => {
         const eff = effect ?? onItem(state, item, index);
         // fast case (already an exit)
         if (effectIsExit(eff)) {
-          terminal = runStep(item, eff, index);
+          terminal = step(state, item, eff, index);
           if (terminal) break;
           // We have an effect, so enter "async" mode
         } else if (!parentFiber) {
@@ -43006,7 +41339,7 @@ const iterateEagerImpl = options => {
           effect = undefined;
           const fiber = forkUnsafe(parentFiber, eff, true, true, "inherit");
           if (fiber._exit) {
-            terminal = runStep(item, fiber._exit, index);
+            terminal = step(state, item, fiber._exit, index);
             if (terminal) break;
             continue;
           }
@@ -43028,7 +41361,7 @@ const iterateEagerImpl = options => {
                   }
                 }
               } else {
-                const result = runStep(item, exit, currentIndex);
+                const result = step(state, item, exit, currentIndex);
                 if (result) {
                   terminal = result._tag === "Failure" ? (0,_core_js__rspack_import_0/* .exitFailCause */.cb)((0,_core_js__rspack_import_0/* .causeFromReasons */.b5)(result.cause.reasons.slice())) : result;
                   go();
@@ -43073,8 +41406,8 @@ const iterateEagerImpl = options => {
   };
 };
 /** @internal */
-const iterateEager = () => iterateEagerImpl;
-const forEachConcurrent = /*#__PURE__*/iterateEagerImpl({
+const iterateConcurrent = () => options => iterateConcurrentImpl(options);
+const forEachConcurrent = /*#__PURE__*/iterateConcurrentImpl({
   onItem(state, item, index) {
     return state.f(item, index);
   },
@@ -43084,17 +41417,17 @@ const forEachConcurrent = /*#__PURE__*/iterateEagerImpl({
     }
   }
 });
-/* @internal */
+/** @internal */
 const filterOrElse = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(3, (self, predicate, orElse) => flatMap(self, a => predicate(a) ? succeed(a) : orElse(a)));
 /** @internal */
 const filterMapOrElse = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(3, (self, filter, orElse) => flatMap(self, a => {
   const result = filter(a);
   return _Result_js__rspack_import_3/* .isFailure */.N6(result) ? orElse(result.failure) : succeed(result.success);
 }));
-/* @internal */
+/** @internal */
 const filterMapOrFail = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (self, filter, orFailWith) => filterMapOrElse(self, filter, orFailWith ? x => fail(orFailWith(x)) : () => fail(new _core_js__rspack_import_0/* .NoSuchElementError */.Xm())));
 /** @internal */
-const filter = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_11/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, predicate, options) => suspend(() => {
+const filter = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_10/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, predicate, options) => suspend(() => {
   const out = [];
   return as(forEach(elements, (a, i) => {
     const result = predicate(a, i);
@@ -43113,7 +41446,7 @@ const filter = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args
   }), out);
 }));
 /** @internal */
-const filterMap = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_11/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, filter) => suspend(() => {
+const filterMap = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_10/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, filter) => suspend(() => {
   const out = [];
   for (const a of elements) {
     const result = filter(a);
@@ -43124,7 +41457,7 @@ const filterMap = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(a
   return succeed(out);
 }));
 /** @internal */
-const filterMapEffect = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_11/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, filter, options) => suspend(() => {
+const filterMapEffect = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_Predicate_js__rspack_import_10/* .isIterable */.xZ)(args[0]) && !(0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (elements, filter, options) => suspend(() => {
   const out = [];
   return as(forEach(elements, a => map(filter(a), result => {
     if (_Result_js__rspack_import_3/* .isSuccess */.oJ(result)) {
@@ -43168,7 +41501,7 @@ const forkUnsafe = (parent, effect, immediate = false, daemon = false, uninterru
   }
   if (!daemon && !child._exit) {
     parentRuntime.children().add(child);
-    child.addObserver(() => parentRuntime._children.delete(child));
+    child._parent = parentRuntime;
   }
   return child;
 };
@@ -43399,13 +41732,13 @@ const makeLatch = open => sync(() => makeLatchUnsafe(open));
 // Tracer
 // ----------------------------------------------------------------------------
 /** @internal */
-const tracer = /*#__PURE__*/(0,_core_js__rspack_import_0/* .withFiber */.R6)(fiber => succeed(fiber.getRef(_Tracer_js__rspack_import_14/* .Tracer */.sh)));
+const tracer = /*#__PURE__*/(0,_core_js__rspack_import_0/* .withFiber */.R6)(fiber => succeed(fiber.getRef(_Tracer_js__rspack_import_12/* .Tracer */.sh)));
 /** @internal */
-const withTracer = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (effect, tracer) => provideService(effect, _Tracer_js__rspack_import_14/* .Tracer */.sh, tracer));
+const withTracer = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(2, (effect, tracer) => provideService(effect, _Tracer_js__rspack_import_12/* .Tracer */.sh, tracer));
 /** @internal */
-const withTracerEnabled = /*#__PURE__*/provideService(_references_js__rspack_import_15/* .TracerEnabled */.rf);
+const withTracerEnabled = /*#__PURE__*/provideService(_references_js__rspack_import_14/* .TracerEnabled */.rf);
 /** @internal */
-const withTracerTiming = /*#__PURE__*/provideService(_references_js__rspack_import_15/* .TracerTimingEnabled */.nU);
+const withTracerTiming = /*#__PURE__*/provideService(_references_js__rspack_import_14/* .TracerTimingEnabled */.nU);
 const bigint0 = /*#__PURE__*/BigInt(0);
 const NoopSpanProto = {
   _tag: "Span",
@@ -43430,36 +41763,36 @@ const NoopSpanProto = {
 const noopSpan = options => Object.assign(Object.create(NoopSpanProto), options);
 const filterDisablePropagation = span => {
   if (!span) return _Option_js__rspack_import_17.none();
-  return _Context_js__rspack_import_5/* .get */.Jt(span.annotations, _Tracer_js__rspack_import_14/* .DisablePropagation */.DW) ? span._tag === "Span" ? filterDisablePropagation(_Option_js__rspack_import_17.getOrUndefined(span.parent)) : _Option_js__rspack_import_17.none() : _Option_js__rspack_import_17.some(span);
+  return _Context_js__rspack_import_5/* .get */.Jt(span.annotations, _Tracer_js__rspack_import_12/* .DisablePropagation */.DW) ? span._tag === "Span" ? filterDisablePropagation(_Option_js__rspack_import_17.getOrUndefined(span.parent)) : _Option_js__rspack_import_17.none() : _Option_js__rspack_import_17.some(span);
 };
 /** @internal */
 const makeSpanUnsafe = (fiber, name, options) => {
-  const disablePropagation = !fiber.getRef(_references_js__rspack_import_15/* .TracerEnabled */.rf) || options?.annotations && _Context_js__rspack_import_5/* .get */.Jt(options.annotations, _Tracer_js__rspack_import_14/* .DisablePropagation */.DW);
-  const parent = options?.parent !== undefined ? _Option_js__rspack_import_17.some(options.parent) : options?.root ? _Option_js__rspack_import_17.none() : filterDisablePropagation(fiber.currentSpan);
+  const disablePropagation = !fiber.getRef(_references_js__rspack_import_14/* .TracerEnabled */.rf) || options?.annotations && _Context_js__rspack_import_5/* .get */.Jt(options.annotations, _Tracer_js__rspack_import_12/* .DisablePropagation */.DW);
+  const parent = options?.parent !== undefined ? _Option_js__rspack_import_17.some(options.parent) : options?.root ? _Option_js__rspack_import_17.none() : filterDisablePropagation(fiber.cache.span);
   let span;
   if (disablePropagation) {
     span = noopSpan({
       name,
       parent,
-      annotations: _Context_js__rspack_import_5/* .add */.WQ(options?.annotations ?? _Context_js__rspack_import_5/* .empty */.Ie(), _Tracer_js__rspack_import_14/* .DisablePropagation */.DW, true)
+      annotations: _Context_js__rspack_import_5/* .add */.WQ(options?.annotations ?? _Context_js__rspack_import_5/* .empty */.Ie(), _Tracer_js__rspack_import_12/* .DisablePropagation */.DW, true)
     });
   } else {
-    const tracer = fiber.getRef(_Tracer_js__rspack_import_14/* .Tracer */.sh);
+    const tracer = fiber.getRef(_Tracer_js__rspack_import_12/* .Tracer */.sh);
     const clock = fiber.getRef(ClockRef);
-    const timingEnabled = fiber.getRef(_references_js__rspack_import_15/* .TracerTimingEnabled */.nU);
-    const annotationsFromEnv = fiber.getRef(_references_js__rspack_import_15/* .TracerSpanAnnotations */.ce);
-    const linksFromEnv = fiber.getRef(_references_js__rspack_import_15/* .TracerSpanLinks */.ls);
-    const level = options?.level ?? fiber.getRef(_Tracer_js__rspack_import_14/* .CurrentTraceLevel */.pX);
+    const timingEnabled = fiber.getRef(_references_js__rspack_import_14/* .TracerTimingEnabled */.nU);
+    const annotationsFromEnv = fiber.getRef(_references_js__rspack_import_14/* .TracerSpanAnnotations */.ce);
+    const linksFromEnv = fiber.getRef(_references_js__rspack_import_14/* .TracerSpanLinks */.ls);
+    const level = options?.level ?? fiber.getRef(_Tracer_js__rspack_import_12/* .CurrentTraceLevel */.pX);
     const links = options?.links !== undefined ? [...linksFromEnv, ...options.links] : linksFromEnv.length === 0 ? [] : linksFromEnv.slice();
     span = tracer.span({
       name,
       parent,
       annotations: options?.annotations ?? _Context_js__rspack_import_5/* .empty */.Ie(),
       links,
-      startTime: timingEnabled ? clock.currentTimeNanosUnsafe() : BigInt(0),
+      startTime: timingEnabled ? clock.currentTimeNanosUnsafe() : bigint0,
       kind: options?.kind ?? "internal",
       root: options?.root ?? _Option_js__rspack_import_17.isNone(parent),
-      sampled: options?.sampled ?? (_Option_js__rspack_import_17.isSome(parent) && parent.value.sampled === false ? false : !isLogLevelGreaterThan(fiber.getRef(_Tracer_js__rspack_import_14/* .MinimumTraceLevel */.EW), level))
+      sampled: options?.sampled ?? (_Option_js__rspack_import_17.isSome(parent) && parent.value.sampled === false ? false : !isLogLevelGreaterThan(fiber.getRef(_Tracer_js__rspack_import_12/* .MinimumTraceLevel */.EW), level))
     });
     for (const key in annotationsFromEnv) {
       span.attribute(key, annotationsFromEnv[key]);
@@ -43479,7 +41812,7 @@ const makeSpanScoped = (name, options) => uninterruptible((0,_core_js__rspack_im
   const scope = _Context_js__rspack_import_5/* .getUnsafe */.fp(fiber.context, scopeTag);
   const span = makeSpanUnsafe(fiber, name, options ?? {});
   const clock = fiber.getRef(ClockRef);
-  const timingEnabled = fiber.getRef(_references_js__rspack_import_15/* .TracerTimingEnabled */.nU);
+  const timingEnabled = fiber.getRef(_references_js__rspack_import_14/* .TracerTimingEnabled */.nU);
   return as(scopeAddFinalizerExit(scope, exit => endSpan(span, exit, clock, timingEnabled)), span);
 }));
 /** @internal */
@@ -43495,16 +41828,16 @@ const withSpanScoped = function () {
 };
 const provideSpanStackFrame = (name, stack) => {
   stack = typeof stack === "function" ? stack : _Function_js__rspack_import_6/* .constUndefined */.MN;
-  return updateService(_references_js__rspack_import_15/* .CurrentStackFrame */.vA, parent => ({
+  return updateService(_references_js__rspack_import_14/* .CurrentStackFrame */.vA, parent => ({
     name,
     stack,
     parent
   }));
 };
 /** @internal */
-const spanAnnotations = _references_js__rspack_import_15/* .TracerSpanAnnotations */.ce;
+const spanAnnotations = _references_js__rspack_import_14/* .TracerSpanAnnotations */.ce;
 /** @internal */
-const spanLinks = _references_js__rspack_import_15/* .TracerSpanLinks */.ls;
+const spanLinks = _references_js__rspack_import_14/* .TracerSpanLinks */.ls;
 /** @internal */
 const linkSpans = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (self, span, attributes = {}) => {
   const spans = Array.isArray(span) ? span : [span];
@@ -43512,7 +41845,7 @@ const linkSpans = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(a
     span,
     attributes
   }));
-  return updateService(self, _references_js__rspack_import_15/* .TracerSpanLinks */.ls, current => [...current, ...links]);
+  return updateService(self, _references_js__rspack_import_14/* .TracerSpanLinks */.ls, current => [...current, ...links]);
 });
 /** @internal */
 const endSpan = (span, exit, clock, timingEnabled) => sync(() => {
@@ -43526,11 +41859,11 @@ const useSpan = (name, ...args) => {
   return (0,_core_js__rspack_import_0/* .withFiber */.R6)(fiber => {
     const span = makeSpanUnsafe(fiber, name, options);
     const clock = fiber.getRef(ClockRef);
-    const timingEnabled = fiber.getRef(_references_js__rspack_import_15/* .TracerTimingEnabled */.nU);
-    return onExit((0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => evaluate(span)), exit => endSpan(span, exit, clock, timingEnabled));
+    const timingEnabled = fiber.getRef(_references_js__rspack_import_14/* .TracerTimingEnabled */.nU);
+    return onExit(suspend(() => (0,_Utils_js__rspack_import_18/* .internalCall */.s)(() => evaluate(span))), exit => endSpan(span, exit, clock, timingEnabled));
   });
 };
-const provideParentSpan = /*#__PURE__*/provideService(_Tracer_js__rspack_import_14/* .ParentSpan */.Tv);
+const provideParentSpan = /*#__PURE__*/provideService(_Tracer_js__rspack_import_12/* .ParentSpan */.Tv);
 /** @internal */
 const withParentSpan = function () {
   const dataFirst = (0,_core_js__rspack_import_0/* .isEffect */.yw)(arguments[0]);
@@ -43560,7 +41893,7 @@ const withSpan = function () {
   return (self, ...args) => useSpan(name, fnArg ? fnArg(...args) : options, span => withParentSpan(self, span, traceOptions));
 };
 /** @internal */
-const annotateSpans = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (effect, ...args) => updateService(effect, _references_js__rspack_import_15/* .TracerSpanAnnotations */.ce, annotations => {
+const annotateSpans = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual */.XY)(args => (0,_core_js__rspack_import_0/* .isEffect */.yw)(args[0]), (effect, ...args) => updateService(effect, _references_js__rspack_import_14/* .TracerSpanAnnotations */.ce, annotations => {
   const newAnnotations = args.length === 1 ? {
     ...annotations,
     ...args[0]
@@ -43594,7 +41927,7 @@ const currentSpan = /*#__PURE__*/(0,_core_js__rspack_import_0/* .withFiber */.R6
   return span ? succeed(span) : fail(new _core_js__rspack_import_0/* .NoSuchElementError */.Xm());
 });
 /** @internal */
-const currentParentSpan = /*#__PURE__*/serviceOptional(_Tracer_js__rspack_import_14/* .ParentSpan */.Tv);
+const currentParentSpan = /*#__PURE__*/serviceOptional(_Tracer_js__rspack_import_12/* .ParentSpan */.Tv);
 // ----------------------------------------------------------------------------
 // Clock
 // ----------------------------------------------------------------------------
@@ -43680,7 +42013,7 @@ const monotonicTimeNanos = /*#__PURE__*/(/* unused pure expression or super */ n
 /** @internal */
 const TimeoutErrorTypeId = "~effect/Cause/TimeoutError";
 /** @internal */
-const isTimeoutError = u => (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(u, TimeoutErrorTypeId);
+const isTimeoutError = u => (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(u, TimeoutErrorTypeId);
 /** @internal */
 class TimeoutError extends /*#__PURE__*/(0,_core_js__rspack_import_0/* .TaggedError */.rN)("TimeoutError") {
   [TimeoutErrorTypeId] = TimeoutErrorTypeId;
@@ -43693,7 +42026,7 @@ class TimeoutError extends /*#__PURE__*/(0,_core_js__rspack_import_0/* .TaggedEr
 /** @internal */
 const IllegalArgumentErrorTypeId = "~effect/Cause/IllegalArgumentError";
 /** @internal */
-const isIllegalArgumentError = u => (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(u, IllegalArgumentErrorTypeId);
+const isIllegalArgumentError = u => (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(u, IllegalArgumentErrorTypeId);
 /** @internal */
 class IllegalArgumentError extends /*#__PURE__*/(0,_core_js__rspack_import_0/* .TaggedError */.rN)("IllegalArgumentError") {
   [IllegalArgumentErrorTypeId] = IllegalArgumentErrorTypeId;
@@ -43706,7 +42039,7 @@ class IllegalArgumentError extends /*#__PURE__*/(0,_core_js__rspack_import_0/* .
 /** @internal */
 const ExceededCapacityErrorTypeId = "~effect/Cause/ExceededCapacityError";
 /** @internal */
-const isExceededCapacityError = u => (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(u, ExceededCapacityErrorTypeId);
+const isExceededCapacityError = u => (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(u, ExceededCapacityErrorTypeId);
 /** @internal */
 class ExceededCapacityError extends /*#__PURE__*/(0,_core_js__rspack_import_0/* .TaggedError */.rN)("ExceededCapacityError") {
   [ExceededCapacityErrorTypeId] = ExceededCapacityErrorTypeId;
@@ -43719,7 +42052,7 @@ class ExceededCapacityError extends /*#__PURE__*/(0,_core_js__rspack_import_0/* 
 /** @internal */
 const AsyncFiberErrorTypeId = "~effect/Cause/AsyncFiberError";
 /** @internal */
-const isAsyncFiberError = u => (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(u, AsyncFiberErrorTypeId);
+const isAsyncFiberError = u => (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(u, AsyncFiberErrorTypeId);
 /** @internal */
 class AsyncFiberError extends /*#__PURE__*/(0,_core_js__rspack_import_0/* .TaggedError */.rN)("AsyncFiberError") {
   [AsyncFiberErrorTypeId] = AsyncFiberErrorTypeId;
@@ -43733,7 +42066,7 @@ class AsyncFiberError extends /*#__PURE__*/(0,_core_js__rspack_import_0/* .Tagge
 /** @internal */
 const UnknownErrorTypeId = "~effect/Cause/UnknownError";
 /** @internal */
-const isUnknownError = u => (0,_Predicate_js__rspack_import_11/* .hasProperty */.i5)(u, UnknownErrorTypeId);
+const isUnknownError = u => (0,_Predicate_js__rspack_import_10/* .hasProperty */.i5)(u, UnknownErrorTypeId);
 /** @internal */
 class UnknownError extends /*#__PURE__*/(0,_core_js__rspack_import_0/* .TaggedError */.rN)("UnknownError") {
   [UnknownErrorTypeId] = UnknownErrorTypeId;
@@ -43748,7 +42081,7 @@ class UnknownError extends /*#__PURE__*/(0,_core_js__rspack_import_0/* .TaggedEr
 // Console
 // ----------------------------------------------------------------------------
 /** @internal */
-const ConsoleRef = /*#__PURE__*/_Context_js__rspack_import_5/* .Reference */.Or("effect/Console/CurrentConsole", {
+const ConsoleRef = /*#__PURE__*/_Context_js__rspack_import_5/* .Reference */.Or("effect/Console", {
   defaultValue: () => globalThis.console
 });
 // ----------------------------------------------------------------------------
@@ -43783,7 +42116,7 @@ const isLogLevelGreaterThan = /*#__PURE__*/_Order_js__rspack_import_24/* .isGrea
 // Logger
 // ----------------------------------------------------------------------------
 /** @internal */
-const CurrentLoggers = /*#__PURE__*/_Context_js__rspack_import_5/* .Reference */.Or("effect/Loggers/CurrentLoggers", {
+const CurrentLoggers = /*#__PURE__*/_Context_js__rspack_import_5/* .Reference */.Or("effect/Logger/CurrentLoggers", {
   defaultValue: () => new Set([defaultLogger, tracerLogger])
 });
 /** @internal */
@@ -43794,7 +42127,7 @@ const LogToStderr = /*#__PURE__*/_Context_js__rspack_import_5/* .Reference */.Or
 const annotateLogsScoped = function () {
   const entries = typeof arguments[0] === "string" ? [[arguments[0], arguments[1]]] : Object.entries(arguments[0]);
   return uninterruptible((0,_core_js__rspack_import_0/* .withFiber */.R6)(fiber => {
-    const prev = fiber.getRef(_references_js__rspack_import_15/* .CurrentLogAnnotations */.iL);
+    const prev = fiber.getRef(_references_js__rspack_import_14/* .CurrentLogAnnotations */.iL);
     const next = {
       ...prev
     };
@@ -43802,22 +42135,22 @@ const annotateLogsScoped = function () {
       const [key, value] = entries[i];
       _record_js__rspack_import_21/* .assignProperty */.x(next, key, value);
     }
-    fiber.setContext(_Context_js__rspack_import_5/* .add */.WQ(fiber.context, _references_js__rspack_import_15/* .CurrentLogAnnotations */.iL, next));
+    fiber.setContext(_Context_js__rspack_import_5/* .add */.WQ(fiber.context, _references_js__rspack_import_14/* .CurrentLogAnnotations */.iL, next));
     return scopeAddFinalizerExit(_Context_js__rspack_import_5/* .getUnsafe */.fp(fiber.context, scopeTag), _ => {
-      const current = fiber.getRef(_references_js__rspack_import_15/* .CurrentLogAnnotations */.iL);
+      const current = fiber.getRef(_references_js__rspack_import_14/* .CurrentLogAnnotations */.iL);
       const next = {
         ...current
       };
       for (let i = 0; i < entries.length; i++) {
         const [key, value] = entries[i];
-        if (current[key] !== value) continue;
+        if (current[key] !== value && !Object.is(current[key], value)) continue;
         if (Object.hasOwn(prev, key)) {
           _record_js__rspack_import_21/* .assignProperty */.x(next, key, prev[key]);
         } else {
           delete next[key];
         }
       }
-      fiber.setContext(_Context_js__rspack_import_5/* .add */.WQ(fiber.context, _references_js__rspack_import_15/* .CurrentLogAnnotations */.iL, next));
+      fiber.setContext(_Context_js__rspack_import_5/* .add */.WQ(fiber.context, _references_js__rspack_import_14/* .CurrentLogAnnotations */.iL, next));
       return void_;
     });
   }));
@@ -43830,7 +42163,7 @@ const LoggerProto = {
     _Output: _Function_js__rspack_import_6/* .identity */.D_
   },
   pipe() {
-    return (0,_Pipeable_js__rspack_import_12/* .pipeArguments */.tT)(this, arguments);
+    return (0,_Pipeable_js__rspack_import_11/* .pipeArguments */.tT)(this, arguments);
   }
 };
 /** @internal */
@@ -43889,8 +42222,8 @@ const logWithLevel = level => (...message) => {
     cause = _core_js__rspack_import_0/* .causeEmpty */.DH;
   }
   return (0,_core_js__rspack_import_0/* .withFiber */.R6)(fiber => {
-    const logLevel = level ?? fiber.currentLogLevel;
-    if (isLogLevelGreaterThan(fiber.minimumLogLevel, logLevel)) {
+    const logLevel = level ?? fiber.cache.logLevel;
+    if (isLogLevelGreaterThan(fiber.cache.minimumLogLevel, logLevel)) {
       return void_;
     }
     const clock = fiber.getRef(ClockRef);
@@ -43957,24 +42290,22 @@ const consolePretty = options => {
   // property accesses, which bundlers must retain as possible side effects
   const process = globalThis.process;
   const hasProcessStdout = typeof process?.stdout === "object" && process.stdout !== null;
-  const processStdoutIsTTY = hasProcessStdout && process.stdout.isTTY === true;
-  const hasProcessStdoutOrDeno = hasProcessStdout || "Deno" in globalThis;
-  const mode_ = options?.mode ?? "auto";
-  const mode = mode_ === "auto" ? hasProcessStdoutOrDeno ? "tty" : "browser" : mode_;
-  const isBrowser = mode === "browser";
-  const showColors = typeof options?.colors === "boolean" ? options.colors : processStdoutIsTTY || isBrowser;
-  const formatDate = options?.formatDate ?? defaultDateFormat;
-  return isBrowser ? prettyLoggerBrowser({
-    colors: showColors,
-    formatDate
-  }) : prettyLoggerTty({
-    colors: showColors,
-    formatDate
-  });
+  const isDeno = "Deno" in globalThis;
+  const mode = options?.mode ?? "auto";
+  const isTtyLogger = mode === "auto" ? hasProcessStdout || isDeno : mode === "tty";
+  return isTtyLogger ? prettyLoggerTty(options) : prettyLoggerBrowser(options);
 };
+/** @internal */
 const prettyLoggerTty = options => {
-  const processIsBun = globalThis.process?.isBun === true;
-  const color = options.colors ? withColor : withColorNoop;
+  const formatDate = options?.formatDate ?? defaultDateFormat;
+  // evaluated lazily so the module-level bundle stays free of `process`
+  // property accesses, which bundlers must retain as possible side effects
+  const process = globalThis.process;
+  const hasProcessStdout = typeof process?.stdout === "object" && process.stdout !== null;
+  const processStdoutIsTTY = hasProcessStdout && process.stdout.isTTY === true;
+  const showColors = typeof options?.colors === "boolean" ? options.colors : processStdoutIsTTY;
+  const color = showColors ? withColor : withColorNoop;
+  const processIsBun = process?.isBun === true;
   return loggerMake(({
     cause,
     date,
@@ -43986,7 +42317,7 @@ const prettyLoggerTty = options => {
     // oxlint-disable-next-line no-console
     const log = fiber.getRef(LogToStderr) ? console.error : console.log;
     const message = Array.isArray(message_) ? message_.slice() : [message_];
-    let firstLine = color(`[${options.formatDate(date)}]`, colors.white) + ` ${color(logLevel.toUpperCase(), ...logLevelColors[logLevel])}` + ` (#${fiber.id})`;
+    let firstLine = color(`[${formatDate(date)}]`, colors.white) + ` ${color(logLevel.toUpperCase(), ...logLevelColors[logLevel])}` + ` (#${fiber.id})`;
     const now = date.getTime();
     const spans = fiber.getRef(CurrentLogSpans);
     for (const span of spans) {
@@ -44020,8 +42351,11 @@ const prettyLoggerTty = options => {
     if (!processIsBun) console.groupEnd();
   });
 };
+/** @internal */
 const prettyLoggerBrowser = options => {
-  const color = options.colors ? "%c" : "";
+  const showColors = options?.colors !== false;
+  const color = showColors ? "%c" : "";
+  const formatDate = options?.formatDate ?? defaultDateFormat;
   return loggerMake(({
     cause,
     date,
@@ -44031,13 +42365,13 @@ const prettyLoggerBrowser = options => {
   }) => {
     const console = fiber.getRef(ConsoleRef);
     const message = Array.isArray(message_) ? message_.slice() : [message_];
-    let firstLine = `${color}[${options.formatDate(date)}]`;
+    let firstLine = `${color}[${formatDate(date)}]`;
     const firstParams = [];
-    if (options.colors) {
+    if (showColors) {
       firstParams.push("color:gray");
     }
     firstLine += ` ${color}${logLevel.toUpperCase()}${color} (#${fiber.id})`;
-    if (options.colors) {
+    if (showColors) {
       firstParams.push(logLevelStyle[logLevel], "");
     }
     const now = date.getTime();
@@ -44051,7 +42385,7 @@ const prettyLoggerBrowser = options => {
       const firstMaybeString = structuredMessage(message[0]);
       if (typeof firstMaybeString === "string") {
         firstLine += ` ${color}${firstMaybeString}`;
-        if (options.colors) {
+        if (showColors) {
           firstParams.push("color:deepskyblue");
         }
         messageIndex++;
@@ -44072,7 +42406,7 @@ const prettyLoggerBrowser = options => {
     const annotations = fiber.getRef(CurrentLogAnnotations);
     for (const [key, value] of Object.entries(annotations)) {
       const redacted = redact(value);
-      if (options.colors) {
+      if (showColors) {
         // oxlint-disable-next-line no-console
         console.log(`%c${key}:`, "color:gray", redacted);
       } else {
@@ -44097,12 +42431,12 @@ const defaultLogger = /*#__PURE__*/loggerMake(({
     message_.push(causePretty(cause));
   }
   const now = date.getTime();
-  const spans = fiber.getRef(_references_js__rspack_import_15/* .CurrentLogSpans */.d8);
+  const spans = fiber.getRef(_references_js__rspack_import_14/* .CurrentLogSpans */.d8);
   let spanString = "";
   for (const span of spans) {
     spanString += ` ${formatLogSpan(span, now)}`;
   }
-  const annotations = fiber.getRef(_references_js__rspack_import_15/* .CurrentLogAnnotations */.iL);
+  const annotations = fiber.getRef(_references_js__rspack_import_14/* .CurrentLogAnnotations */.iL);
   if (Object.keys(annotations).length > 0) {
     message_.push(annotations);
   }
@@ -44119,8 +42453,8 @@ const tracerLogger = /*#__PURE__*/loggerMake(({
   message
 }) => {
   const clock = fiber.getRef(ClockRef);
-  const annotations = fiber.getRef(_references_js__rspack_import_15/* .CurrentLogAnnotations */.iL);
-  const span = fiber.currentSpan;
+  const annotations = fiber.getRef(_references_js__rspack_import_14/* .CurrentLogAnnotations */.iL);
+  const span = fiber.cache.span;
   if (span === undefined || span._tag === "ExternalSpan") return;
   const attributes = {};
   for (const [key, value] of Object.entries(annotations)) {
@@ -44151,7 +42485,7 @@ const withErrorReporting = /*#__PURE__*/(0,_Function_js__rspack_import_6/* .dual
 })));
 /** @internal */
 const reportCauseUnsafe = (fiber, cause, defectsOnly) => {
-  const reporters = fiber.getRef(_references_js__rspack_import_15/* .CurrentErrorReporters */.oQ);
+  const reporters = fiber.getRef(_references_js__rspack_import_14/* .CurrentErrorReporters */.oQ);
   if (reporters.size === 0) return;
   if (defectsOnly && !hasDies(cause)) return;
   const opts = {
@@ -44633,7 +42967,7 @@ __webpack_require__.d(__webpack_exports__, {
 },
 "./node_modules/effect/dist/internal/metric.js"(__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
 /** @internal */
-const FiberRuntimeMetricsKey = "effect/observability/Metric/FiberRuntimeMetricsKey";
+const FiberRuntimeMetricsKey = "effect/Metric/FiberRuntimeMetrics";
 //# sourceMappingURL=metric.js.map
 __webpack_require__.d(__webpack_exports__, {
 }, {
@@ -44660,7 +42994,7 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 
-const TypeId = "~effect/data/Option";
+const TypeId = "~effect/Option";
 const CommonProto = {
   [TypeId]: {
     _A: _ => _
@@ -44727,11 +43061,12 @@ const isSome = fa => fa._tag === "Some";
 /** @internal */
 const none = /*#__PURE__*/Object.create(NoneProto);
 /** @internal */
-const some = value => {
-  const a = Object.create(SomeProto);
-  a.value = value;
-  return a;
+const SomeImpl = function (value) {
+  this.value = value;
 };
+SomeImpl.prototype = SomeProto;
+/** @internal */
+const some = value => new SomeImpl(value);
 //# sourceMappingURL=option.js.map
 __webpack_require__.d(__webpack_exports__, {
 }, {
@@ -44791,6 +43126,7 @@ const CurrentStackFrame = /*#__PURE__*/_Context_js__rspack_import_0/* .Reference
 });
 /** @internal */
 const TracerEnabled = /*#__PURE__*/_Context_js__rspack_import_0/* .Reference */.Or("effect/References/TracerEnabled", {
+  fiberCached: true,
   defaultValue: _Function_js__rspack_import_1/* .constTrue */.ue
 });
 /** @internal */
@@ -44869,7 +43205,9 @@ const request = /*#__PURE__*/(0,_Function_js__rspack_import_0/* .dual */.XY)(2, 
 const requestUnsafe = (self, options) => {
   const entry = addEntry(options.resolver, self, options.onExit, {
     context: options.context,
-    currentScheduler: _Context_js__rspack_import_3/* .get */.Jt(options.context, _Scheduler_js__rspack_import_4/* .Scheduler */._F)
+    cache: {
+      scheduler: _Context_js__rspack_import_3/* .get */.Jt(options.context, _Scheduler_js__rspack_import_4/* .Scheduler */._F)
+    }
   });
   return () => removeEntryUnsafe(options.resolver, entry);
 };
@@ -44890,8 +43228,9 @@ const addEntry = (resolver, request, resume, fiber) => {
     completeUnsafe(effect) {
       if (completed) return;
       completed = true;
+      // Removed entries still notify resolver hooks, but not their cancelled callers.
+      if (batch && !batch.entrySet.delete(entry)) return;
       resume(effect);
-      batch?.entrySet.delete(entry);
     }
   });
   if (resolver.preCheck !== undefined && !resolver.preCheck(entry)) {
@@ -44935,7 +43274,7 @@ const addEntry = (resolver, request, resume, fiber) => {
     }
     batchMap.set(key, batch);
     batch.fiber = _effect_js__rspack_import_1/* .runForkWith */.eJC(fiber.context)(batch.delayEffect, {
-      scheduler: fiber.currentScheduler
+      scheduler: fiber.cache.scheduler
     });
   }
   batch.entrySet.add(entry);
@@ -44943,7 +43282,7 @@ const addEntry = (resolver, request, resume, fiber) => {
   if (batch.resolver.collectWhile(batch.entries)) return entry;
   batch.fiber.interruptUnsafe(fiber.id);
   batch.fiber = _effect_js__rspack_import_1/* .runForkWith */.eJC(fiber.context)(runBatch(batch), {
-    scheduler: fiber.currentScheduler
+    scheduler: fiber.cache.scheduler
   });
   return entry;
 };
@@ -44954,12 +43293,16 @@ const removeEntryUnsafe = (resolver, entry) => {
   const key = resolver.batchKey(entry);
   const batch = batchMap.get(key);
   if (!batch) return;
-  batch.entries.delete(entry);
+  if (!batch.entries.delete(entry)) return;
   batch.entrySet.delete(entry);
+  let fiber;
   if (batch.entries.size === 0) {
     batchMap.delete(key);
-    batch.fiber?.interruptUnsafe();
+    fiber = batch.fiber;
   }
+  // Delay finalizers may enqueue new requests, so complete the removed entry first.
+  entry.completeUnsafe(_effect_js__rspack_import_1/* .exitInterrupt */._sz());
+  fiber?.interruptUnsafe();
 };
 const maybeRemoveEntry = (resolver, entry) => _effect_js__rspack_import_1/* .sync */.OH5(() => removeEntryUnsafe(resolver, entry));
 function runBatch(batch) {
@@ -44995,7 +43338,7 @@ __webpack_require__.d(__webpack_exports__, {
 
 
 
-const TypeId = "~effect/data/Result";
+const TypeId = "~effect/Result";
 const CommonProto = {
   [TypeId]: {
     /* v8 ignore next 2 */
@@ -45054,17 +43397,19 @@ const isFailure = result => result._tag === "Failure";
 /** @internal */
 const isSuccess = result => result._tag === "Success";
 /** @internal */
-const fail = failure => {
-  const a = Object.create(FailureProto);
-  a.failure = failure;
-  return a;
+const FailureImpl = function (failure) {
+  this.failure = failure;
 };
+FailureImpl.prototype = FailureProto;
 /** @internal */
-const succeed = success => {
-  const a = Object.create(SuccessProto);
-  a.success = success;
-  return a;
+const fail = failure => new FailureImpl(failure);
+/** @internal */
+const SuccessImpl = function (success) {
+  this.success = success;
 };
+SuccessImpl.prototype = SuccessProto;
+/** @internal */
+const succeed = success => new SuccessImpl(success);
 /** @internal */
 const getFailure = self => isSuccess(self) ? _option_js__rspack_import_7/* .none */.dv : _option_js__rspack_import_7/* .some */.zN(self.failure);
 /** @internal */
@@ -45246,6 +43591,12 @@ const addSpanStackTrace = options => {
     return options;
   }
   const limit = (0,_stackTraceLimit_js__rspack_import_0/* .getStackTraceLimit */.jt)();
+  if (limit === 0 && options?.captureStackTrace !== true) {
+    return {
+      ...options,
+      captureStackTrace: false
+    };
+  }
   (0,_stackTraceLimit_js__rspack_import_0/* .setStackTraceLimit */.ft)(3);
   const traceError = new Error();
   (0,_stackTraceLimit_js__rspack_import_0/* .setStackTraceLimit */.ft)(limit);
@@ -61194,14 +59545,6 @@ __webpack_require__.r = (exports) => {
 		Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 	}
 	Object.defineProperty(exports, '__esModule', { value: true });
-};
-})();
-// webpack/runtime/node_module_decorator
-(() => {
-__webpack_require__.nmd = (module) => {
-  module.paths = [];
-  if (!module.children) module.children = [];
-  return module;
 };
 })();
 // module cache are used so entry inlining is disabled
