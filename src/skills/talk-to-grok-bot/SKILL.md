@@ -4,8 +4,17 @@ description: Message Grok Bot, Codex threads, or opted-in local Claude Code chan
 ---
 # Talk to Grok Bot
 
-The `grok-bot` MCP server and `gbot` CLI share Grok gateway access and local
-Codex/Claude transports.
+The `grok-bot` MCP server and `gbot` CLI share Grok gateway access and
+Codex/Claude transports that run on the **user's registered machines**.
+
+## Where Codex and Claude live
+
+Codex app-server threads and opted-in Claude Code channels live on the user's
+computers (Linux desktop, Mac, and other registered hosts) — never on the Grok Bot
+agent's own sandbox box (`/home/box`, no Codex install). From a box, do not expect
+`/home/box/.codex/...` sockets. Run `gbot` / the managed bridge on the user's
+machine, or set `CODEX_APP_SERVER_SOCK` to a reachable socket there (for example
+SSH-forwarded). Auth stays with each machine's native Codex or Claude login.
 
 ## When to load this
 
@@ -49,12 +58,12 @@ which source is present.
 
 ## Claude Code channel
 
-`claude_send` sends to a named live Claude Code session on this machine and waits
-for its explicit `claude_reply`. The destination must enable the native
-`claude-channel` with `GROK_BOT_CLAUDE_CHANNEL=NAME` and Claude's development-channel
-opt-in. Supply `name`, `message`, and optional `timeoutMs` (1..120000). `replied`
-means the reply tool ran; `unknown` is not rejection and must not be automatically
-retried. Normal Claude tool approvals remain in its session. This does not attach
-to arbitrary Claude Desktop chats or connect a remote Grok runtime to local tools.
-CLI: `gbot claude send NAME "message" --json`.
-
+`claude_send` sends to a named live Claude Code session on the user's registered
+machine and waits for its explicit `claude_reply`. The destination must enable the
+native `claude-channel` with `GROK_BOT_CLAUDE_CHANNEL=NAME` and Claude's
+development-channel opt-in. Supply `name`, `message`, and optional `timeoutMs`
+(1..120000). `replied` means the reply tool ran; `unknown` is not rejection and must
+not be automatically retried. Normal Claude tool approvals remain in its session.
+This does not attach to arbitrary Claude Desktop chats or invent a path from the
+Grok Bot box to local tools — run the channel (or `gbot claude send`) on that
+machine. CLI: `gbot claude send NAME "message" --json`.

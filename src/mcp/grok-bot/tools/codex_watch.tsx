@@ -4,7 +4,7 @@ import { watchSchema as inputSchema, resultSchema, observeOperation, resultText 
 export { inputSchema };
 export default defineTool({
   excludeClients: ['codex'],
-  description: 'Watch bounded Codex thread events for diagnostics without answering approvals.', title: 'Codex watch', annotations: { readOnlyHint: true },
+  description: 'Watch bounded Codex thread events on the user\'s registered machine for diagnostics without answering approvals.', title: 'Codex watch', annotations: { readOnlyHint: true },
   render: { maxElapsedMs: 660000 },
   inputSchema, resultSchema,
   inputJsonSchema: { type: 'object', additionalProperties: false, properties: {

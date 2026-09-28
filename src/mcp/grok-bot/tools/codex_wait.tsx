@@ -4,7 +4,7 @@ import { waitSchema as inputSchema, resultSchema, observeOperation, resultText }
 export { inputSchema };
 export default defineTool({
   excludeClients: ['codex'],
-  description: 'Explicit diagnostic observation of one Codex turn; returns execution and final reply without interrupting it.', title: 'Codex wait', annotations: { readOnlyHint: true },
+  description: 'Explicit diagnostic observation of one Codex turn on the user\'s registered machine; returns execution and final reply without interrupting it.', title: 'Codex wait', annotations: { readOnlyHint: true },
   render: { maxElapsedMs: 660000 },
   inputSchema, resultSchema,
   inputJsonSchema: { type: 'object', additionalProperties: false, properties: {

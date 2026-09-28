@@ -4,7 +4,7 @@ import { threadsSchema as inputSchema, resultSchema, threadsOperation, resultTex
 export { inputSchema };
 export default defineTool({
   excludeClients: ['codex'],
-  description: 'Discover a bounded page of Codex daemon threads.', title: 'Codex threads', annotations: { readOnlyHint: true },
+  description: 'Discover a bounded page of Codex daemon threads on the user\'s registered machine (not the Grok Bot box). Requires that machine\'s app-server socket (CODEX_APP_SERVER_SOCK or local CODEX_HOME).', title: 'Codex threads', annotations: { readOnlyHint: true },
   render: { maxElapsedMs: 660000 },
   inputSchema, resultSchema,
   inputJsonSchema: { type: 'object', additionalProperties: false, properties: {

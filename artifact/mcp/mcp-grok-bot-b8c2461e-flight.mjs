@@ -8654,7 +8654,7 @@ var __webpack_modules__ = {
         var _core_claude_routes_js__rspack_import_2 = __webpack_require__("./src/core/claude-routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'Message Claude Code',
-            description: 'Send to a named, opted-in live Claude Code channel and wait for its reply. Unknown delivery must not be retried automatically.',
+            description: 'Send to a named, opted-in live Claude Code channel on the user\'s registered machine (not the Grok Bot box) and wait for its reply. Unknown delivery must not be retried automatically.',
             annotations: {
                 readOnlyHint: false
             },
@@ -8724,7 +8724,7 @@ var __webpack_modules__ = {
             excludeClients: [
                 'codex'
             ],
-            description: 'Send to Codex. With replyToGrok or bindingId, managed delivery returns the terminal answer to Grok automatically. Otherwise optional wait observes completion and explicit steer requires expectedTurnId. Acceptance is not completion.',
+            description: 'Send to a Codex thread on the user\'s registered machine (not the Grok Bot box). Requires that machine\'s app-server socket. With replyToGrok or bindingId, managed delivery returns the terminal answer to Grok automatically. Otherwise optional wait observes completion and explicit steer requires expectedTurnId. Acceptance is not completion.',
             title: 'Codex send',
             annotations: {
                 readOnlyHint: false
@@ -8835,7 +8835,7 @@ var __webpack_modules__ = {
             excludeClients: [
                 'codex'
             ],
-            description: 'Discover a bounded page of Codex daemon threads.',
+            description: 'Discover a bounded page of Codex daemon threads on the user\'s registered machine (not the Grok Bot box). Requires that machine\'s app-server socket (CODEX_APP_SERVER_SOCK or local CODEX_HOME).',
             title: 'Codex threads',
             annotations: {
                 readOnlyHint: true
@@ -8886,7 +8886,7 @@ var __webpack_modules__ = {
             excludeClients: [
                 'codex'
             ],
-            description: 'Explicit diagnostic observation of one Codex turn; returns execution and final reply without interrupting it.',
+            description: 'Explicit diagnostic observation of one Codex turn on the user\'s registered machine; returns execution and final reply without interrupting it.',
             title: 'Codex wait',
             annotations: {
                 readOnlyHint: true
@@ -8955,7 +8955,7 @@ var __webpack_modules__ = {
             excludeClients: [
                 'codex'
             ],
-            description: 'Watch bounded Codex thread events for diagnostics without answering approvals.',
+            description: 'Watch bounded Codex thread events on the user\'s registered machine for diagnostics without answering approvals.',
             title: 'Codex watch',
             annotations: {
                 readOnlyHint: true
@@ -20235,6 +20235,7 @@ var __webpack_modules__ = {
         var node_net__rspack_import_2 = __webpack_require__("node:net");
         var node_os__rspack_import_3 = __webpack_require__("node:os");
         var node_path__rspack_import_4 = __webpack_require__("node:path");
+        var _codex_bridge_js__rspack_import_5 = __webpack_require__("./src/core/codex-bridge.js");
         const MAX_BYTES = 65536;
         const FRAME_BYTES = MAX_BYTES * 6 + 1024;
         const defaultDirectory = ()=>(0, node_path__rspack_import_4.join)((0, node_os__rspack_import_3.homedir)(), '.grok-bot-cli', 'claude');
@@ -20244,6 +20245,19 @@ var __webpack_modules__ = {
             const path = (0, node_path__rspack_import_4.join)(directory, `${name}.sock`);
             if (Buffer.byteLength(path) >= 104) throw Error('Claude channel socket path is too long');
             return path;
+        }
+        function absentClaudeChannelMessage(path, directory) {
+            if ((0, _codex_bridge_js__rspack_import_5.R8)({
+                path,
+                home: directory
+            })) {
+                return [
+                    'No Claude channel socket at ' + path + '.',
+                    'Claude sessions live on the user\'s registered machines (for example their Linux desktop or Mac), not on this Grok Bot agent box (/home/box).',
+                    'Run Claude with GROK_BOT_CLAUDE_CHANNEL on that machine, or invoke gbot/claude_send there. Auth stays with that machine\'s native Claude login.'
+                ].join('\n');
+            }
+            return 'No Claude channel socket at ' + path + '. Start an opted-in Claude Code session with GROK_BOT_CLAUDE_CHANNEL on this machine.';
         }
         function messageText(message) {
             if (typeof message !== 'string' || !message.trim() || Buffer.byteLength(message) > MAX_BYTES) throw Error('Message must contain text within 64 KiB');
@@ -20378,8 +20392,21 @@ var __webpack_modules__ = {
             const path = socketPath(name, directory);
             messageText(message);
             timeout(timeoutMs);
-            await privateDirectory(directory);
-            const info = await (0, node_fs_promises__rspack_import_1.lstat)(path);
+            try {
+                await privateDirectory(directory);
+            } catch (error) {
+                if (error && (error.code === 'ENOENT' || /no such file|ENOENT/i.test(String(error.message)))) {
+                    throw Error(absentClaudeChannelMessage(path, directory));
+                }
+                throw error;
+            }
+            let info;
+            try {
+                info = await (0, node_fs_promises__rspack_import_1.lstat)(path);
+            } catch (error) {
+                if (error && error.code === 'ENOENT') throw Error(absentClaudeChannelMessage(path, directory));
+                throw error;
+            }
             if (!info.isSocket() || info.uid !== process.getuid() || info.mode & 63) throw Error('Claude channel socket is not private to this user');
             return new Promise((resolve, reject)=>{
                 const socket = (0, node_net__rspack_import_2.connect)(path);
@@ -20449,6 +20476,16 @@ var __webpack_modules__ = {
             const home = env.CODEX_HOME || (0, node_path__rspack_import_4.join)((0, node_os__rspack_import_3.homedir)(), ".codex");
             return (0, node_path__rspack_import_4.join)(home, "app-server-control", "app-server-control.sock");
         }
+        function looksLikeGrokBotBox({ path = "", env = process.env, home = env.HOME || (0, node_os__rspack_import_3.homedir)() } = {}) {
+            const values = [
+                home,
+                env.HOME,
+                env.CODEX_HOME,
+                env.CODEX_APP_SERVER_SOCK,
+                path
+            ].filter((value)=>value != null && value !== "").map(String);
+            return values.some((value)=>value === "/home/box" || value.startsWith("/home/box/"));
+        }
         function socketState(path) {
             try {
                 return (0, node_fs__rspack_import_1.statSync)(path).isSocket() ? "socket" : "not-a-socket";
@@ -20462,7 +20499,22 @@ var __webpack_modules__ = {
         function singleLine(text) {
             return stripTerminalControls(text).replace(/[\t\n\r\u2028\u2029]+/g, " ");
         }
-        function unreachableMessage(path, desktopAttached = "unknown") {
+        function boxUnreachableMessage(path) {
+            return [
+                "No Codex app-server control socket at " + path + ".",
+                "Codex and Claude sessions live on the user's registered machines (for example their Linux desktop or Mac), not on this Grok Bot agent box (/home/box).",
+                "This sandbox has no Codex install. Do not look for a local daemon here.",
+                "Target the user's machine instead: run `gbot` / `gbot codex …` / the managed bridge there (after `codex app-server daemon start`), or set CODEX_APP_SERVER_SOCK to a reachable Unix socket on that machine (for example an SSH-forwarded path).",
+                "Auth stays with each machine's native Codex login; gbot does not store or export credentials."
+            ].join("\n");
+        }
+        function unreachableMessage(path, desktopAttached = "unknown", env = process.env) {
+            if (looksLikeGrokBotBox({
+                path,
+                env
+            })) {
+                return boxUnreachableMessage(path);
+            }
             if (desktopAttached === "private-stdio") {
                 return [
                     "ChatGPT Desktop is running its private stdio app-server, which external clients cannot reach",
@@ -20476,6 +20528,8 @@ var __webpack_modules__ = {
                 "Either no daemon is running (start one with `codex app-server daemon start`),",
                 "or ChatGPT Desktop is running a private stdio app-server that external clients cannot reach",
                 "(" + UPSTREAM_DESKTOP_ISSUES.join(", ") + ").",
+                "Codex sessions live on the machine that owns CODEX_HOME (the user's registered computer), not on a remote Grok Bot box.",
+                "Point CODEX_APP_SERVER_SOCK at that machine's socket when calling from elsewhere, or run gbot on the machine itself.",
                 "gbot codex targets daemon-managed threads only."
             ].join("\n");
         }
@@ -21208,7 +21262,7 @@ var __webpack_modules__ = {
                 session = await openSession(env);
             } catch (err) {
                 if (err instanceof CodexRouteError) {
-                    const message = err.mode === "socket-absent" ? unreachableMessage(path, desktopAttached) : err.message;
+                    const message = err.mode === "socket-absent" ? unreachableMessage(path, desktopAttached, env) : err.message;
                     return withStatusExitCode({
                         ...base,
                         reachable: false,
@@ -21738,6 +21792,7 @@ var __webpack_modules__ = {
         __webpack_require__.d(__webpack_exports__, {
             $3: ()=>assertThreadAllowed,
             Mr: ()=>withEnvelopeHeader,
+            R8: ()=>looksLikeGrokBotBox,
             X$: ()=>listCodexThreads,
             ZS: ()=>sendToCodexThread,
             e0: ()=>experimentalEnabled,
@@ -24243,7 +24298,7 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": false
             },
-            "description": "Send to a named, opted-in live Claude Code channel and wait for its reply. Unknown delivery must not be retried automatically.",
+            "description": "Send to a named, opted-in live Claude Code channel on the user's registered machine (not the Grok Bot box) and wait for its reply. Unknown delivery must not be retried automatically.",
             "inputJsonSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -24279,7 +24334,7 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": false
             },
-            "description": "Send to Codex. With replyToGrok or bindingId, managed delivery returns the terminal answer to Grok automatically. Otherwise optional wait observes completion and explicit steer requires expectedTurnId. Acceptance is not completion.",
+            "description": "Send to a Codex thread on the user's registered machine (not the Grok Bot box). Requires that machine's app-server socket. With replyToGrok or bindingId, managed delivery returns the terminal answer to Grok automatically. Otherwise optional wait observes completion and explicit steer requires expectedTurnId. Acceptance is not completion.",
             "excludeClients": [
                 "codex"
             ],
@@ -24360,7 +24415,7 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": true
             },
-            "description": "Discover a bounded page of Codex daemon threads.",
+            "description": "Discover a bounded page of Codex daemon threads on the user's registered machine (not the Grok Bot box). Requires that machine's app-server socket (CODEX_APP_SERVER_SOCK or local CODEX_HOME).",
             "excludeClients": [
                 "codex"
             ],
@@ -24394,7 +24449,7 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": true
             },
-            "description": "Explicit diagnostic observation of one Codex turn; returns execution and final reply without interrupting it.",
+            "description": "Explicit diagnostic observation of one Codex turn on the user's registered machine; returns execution and final reply without interrupting it.",
             "excludeClients": [
                 "codex"
             ],
@@ -24444,7 +24499,7 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": true
             },
-            "description": "Watch bounded Codex thread events for diagnostics without answering approvals.",
+            "description": "Watch bounded Codex thread events on the user's registered machine for diagnostics without answering approvals.",
             "excludeClients": [
                 "codex"
             ],

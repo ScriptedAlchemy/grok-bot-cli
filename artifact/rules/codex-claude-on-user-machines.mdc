@@ -1,0 +1,17 @@
+---
+description: Codex and Claude tools target the user's registered machines, never the Grok Bot box
+alwaysApply: true
+---
+# Codex and Claude run on the user's machines
+
+`codex_*` and `claude_send` talk to sessions on the **user's registered computers**
+(for example their Linux desktop or Mac). They do **not** run on the Grok Bot agent's
+own sandbox ("box", a Linux VM under `/home/box` with no Codex install).
+
+- Prefer calling these tools from the user's machine, or run the managed
+  `gbot` bridge there so Grok traffic reaches local Codex/Claude.
+- From elsewhere, set `CODEX_APP_SERVER_SOCK` to a reachable Unix socket on that
+  machine (for example an SSH-forwarded path). Do not expect
+  `/home/box/.codex/app-server-control/app-server-control.sock`.
+- Auth stays with each machine's native Codex or Claude login. Do not invent
+  token files or export credentials.

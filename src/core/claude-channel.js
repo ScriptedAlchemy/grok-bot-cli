@@ -3,6 +3,7 @@ import { mkdir, lstat, chmod, unlink } from 'node:fs/promises';
 import { connect, createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { looksLikeGrokBotBox } from './codex-bridge.js';
 
 const MAX_BYTES = 65536;
 const FRAME_BYTES = MAX_BYTES * 6 + 1024;
@@ -13,6 +14,16 @@ function socketPath(name, directory) {
   const path = join(directory, `${name}.sock`);
   if (Buffer.byteLength(path) >= 104) throw Error('Claude channel socket path is too long');
   return path;
+}
+function absentClaudeChannelMessage(path, directory) {
+  if (looksLikeGrokBotBox({ path, home: directory })) {
+    return [
+      'No Claude channel socket at ' + path + '.',
+      'Claude sessions live on the user\'s registered machines (for example their Linux desktop or Mac), not on this Grok Bot agent box (/home/box).',
+      'Run Claude with GROK_BOT_CLAUDE_CHANNEL on that machine, or invoke gbot/claude_send there. Auth stays with that machine\'s native Claude login.',
+    ].join('\n');
+  }
+  return 'No Claude channel socket at ' + path + '. Start an opted-in Claude Code session with GROK_BOT_CLAUDE_CHANNEL on this machine.';
 }
 function messageText(message) {
   if (typeof message !== 'string' || !message.trim() || Buffer.byteLength(message) > MAX_BYTES)
@@ -103,8 +114,21 @@ export async function sendToClaude({ name, message, timeoutMs = 60000, directory
   const path = socketPath(name, directory);
   messageText(message);
   timeout(timeoutMs);
-  await privateDirectory(directory);
-  const info = await lstat(path);
+  try {
+    await privateDirectory(directory);
+  } catch (error) {
+    if (error && (error.code === 'ENOENT' || /no such file|ENOENT/i.test(String(error.message)))) {
+      throw Error(absentClaudeChannelMessage(path, directory));
+    }
+    throw error;
+  }
+  let info;
+  try {
+    info = await lstat(path);
+  } catch (error) {
+    if (error && error.code === 'ENOENT') throw Error(absentClaudeChannelMessage(path, directory));
+    throw error;
+  }
   if (!info.isSocket() || info.uid !== process.getuid() || (info.mode & 0o077))
     throw Error('Claude channel socket is not private to this user');
   return new Promise((resolve, reject) => {

@@ -22154,6 +22154,16 @@ var __webpack_modules__ = {
             const home = env.CODEX_HOME || (0, node_path__rspack_import_4.join)((0, node_os__rspack_import_3.homedir)(), ".codex");
             return (0, node_path__rspack_import_4.join)(home, "app-server-control", "app-server-control.sock");
         }
+        function looksLikeGrokBotBox({ path = "", env = process.env, home = env.HOME || (0, node_os__rspack_import_3.homedir)() } = {}) {
+            const values = [
+                home,
+                env.HOME,
+                env.CODEX_HOME,
+                env.CODEX_APP_SERVER_SOCK,
+                path
+            ].filter((value)=>value != null && value !== "").map(String);
+            return values.some((value)=>value === "/home/box" || value.startsWith("/home/box/"));
+        }
         function socketState(path) {
             try {
                 return (0, node_fs__rspack_import_1.statSync)(path).isSocket() ? "socket" : "not-a-socket";
@@ -22167,7 +22177,22 @@ var __webpack_modules__ = {
         function singleLine(text) {
             return stripTerminalControls(text).replace(/[\t\n\r\u2028\u2029]+/g, " ");
         }
-        function unreachableMessage(path, desktopAttached = "unknown") {
+        function boxUnreachableMessage(path) {
+            return [
+                "No Codex app-server control socket at " + path + ".",
+                "Codex and Claude sessions live on the user's registered machines (for example their Linux desktop or Mac), not on this Grok Bot agent box (/home/box).",
+                "This sandbox has no Codex install. Do not look for a local daemon here.",
+                "Target the user's machine instead: run `gbot` / `gbot codex …` / the managed bridge there (after `codex app-server daemon start`), or set CODEX_APP_SERVER_SOCK to a reachable Unix socket on that machine (for example an SSH-forwarded path).",
+                "Auth stays with each machine's native Codex login; gbot does not store or export credentials."
+            ].join("\n");
+        }
+        function unreachableMessage(path, desktopAttached = "unknown", env = process.env) {
+            if (looksLikeGrokBotBox({
+                path,
+                env
+            })) {
+                return boxUnreachableMessage(path);
+            }
             if (desktopAttached === "private-stdio") {
                 return [
                     "ChatGPT Desktop is running its private stdio app-server, which external clients cannot reach",
@@ -22181,6 +22206,8 @@ var __webpack_modules__ = {
                 "Either no daemon is running (start one with `codex app-server daemon start`),",
                 "or ChatGPT Desktop is running a private stdio app-server that external clients cannot reach",
                 "(" + UPSTREAM_DESKTOP_ISSUES.join(", ") + ").",
+                "Codex sessions live on the machine that owns CODEX_HOME (the user's registered computer), not on a remote Grok Bot box.",
+                "Point CODEX_APP_SERVER_SOCK at that machine's socket when calling from elsewhere, or run gbot on the machine itself.",
                 "gbot codex targets daemon-managed threads only."
             ].join("\n");
         }
@@ -22913,7 +22940,7 @@ var __webpack_modules__ = {
                 session = await openSession(env);
             } catch (err) {
                 if (err instanceof CodexRouteError) {
-                    const message = err.mode === "socket-absent" ? unreachableMessage(path, desktopAttached) : err.message;
+                    const message = err.mode === "socket-absent" ? unreachableMessage(path, desktopAttached, env) : err.message;
                     return withStatusExitCode({
                         ...base,
                         reachable: false,

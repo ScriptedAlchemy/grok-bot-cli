@@ -22,7 +22,7 @@ export default defineTool(
   {
     excludeClients: ['codex'],
     description:
-      'Send to Codex. With replyToGrok or bindingId, managed delivery returns the terminal answer to Grok automatically. Otherwise optional wait observes completion and explicit steer requires expectedTurnId. Acceptance is not completion.',
+      'Send to a Codex thread on the user\'s registered machine (not the Grok Bot box). Requires that machine\'s app-server socket. With replyToGrok or bindingId, managed delivery returns the terminal answer to Grok automatically. Otherwise optional wait observes completion and explicit steer requires expectedTurnId. Acceptance is not completion.',
     title: 'Codex send',
     annotations: { readOnlyHint: false },
     render: { maxElapsedMs: 660000 },
