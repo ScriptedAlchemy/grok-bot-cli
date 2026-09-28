@@ -39251,7 +39251,7 @@ var __webpack_modules__ = {
                         execute,
                         name: "gbot",
                         render,
-                        version: "0.10.0"
+                        version: "0.10.1"
                     });
                 }
                 __webpack_require__.d(__webpack_exports__, {}, {
@@ -43790,7 +43790,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
     },
     "./package.json" (module) {
         module.exports = {
-            "rE": "0.10.0"
+            "rE": "0.10.1"
         };
     }
 };
