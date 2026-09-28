@@ -12985,9 +12985,2408 @@ var __webpack_modules__ = {
             zol: ()=>_auth_CUe6YdwF_mjs__rspack_import_0.N
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/ajvProvider-CEoC__sr.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _chunk_Br0eD_fh_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/chunk-Br0eD_fh.mjs");
-        var _dialects_DoSzNhcb_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/dialects-DoSzNhcb.mjs");
+    "./node_modules/agent-bundle/dist/573~1.js" (__unused_rspack___webpack_module__, __unused_rspack___webpack_exports__, __webpack_require__) {
+        var _917_1_js__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/dist/917~1.js");
+        const appResourceUri = (reference)=>reference;
+        const MAX_ROUTE_RENDER_ELAPSED_MS = 86400000;
+    },
+    "./node_modules/agent-bundle/dist/667~1.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var node_crypto__rspack_import_0 = __webpack_require__("node:crypto");
+        var node_fs_promises__rspack_import_1 = __webpack_require__("node:fs/promises");
+        var _991_1_js__rspack_import_2 = __webpack_require__("./node_modules/agent-bundle/dist/991~1.js");
+        const sha256Hex = (bytes)=>createHash('sha256').update(bytes).digest('hex');
+        const serializeJson = (value, key = '')=>{
+            if (null !== value && 'object' == typeof value) {
+                const toJson1 = value.toJSON;
+                if ('function' == typeof toJson1) return serializeJson(toJson1.call(value, key), key);
+                if (value instanceof Boolean || value instanceof Number || value instanceof String) return JSON.stringify(value);
+                if (Array.isArray(value)) {
+                    const items = Array.from({
+                        length: value.length
+                    }, (_, index)=>serializeJson(value[index], String(index)) ?? 'null');
+                    return `[${items.join(',')}]`;
+                }
+                const object = value;
+                const keys = Object.keys(object);
+                const orderedKeys = (0, _991_1_js__rspack_import_2.UQ)(object) ? keys.sort() : keys;
+                const entries = orderedKeys.flatMap((objectKey)=>{
+                    const serialized = serializeJson(object[objectKey], objectKey);
+                    return void 0 === serialized ? [] : [
+                        `${JSON.stringify(objectKey)}:${serialized}`
+                    ];
+                });
+                return `{${entries.join(',')}}`;
+            }
+            const serialized = JSON.stringify(value);
+            return 'string' == typeof serialized ? serialized : void 0;
+        };
+        const stableJson = (value)=>{
+            const serialized = serializeJson(value);
+            if (void 0 === serialized) throw new TypeError('Cannot serialize a top-level non-JSON value.');
+            return serialized;
+        };
+        const digest = (value)=>createHash('sha256').update(stableJson(value)).digest('hex');
+        __webpack_require__.d(__webpack_exports__, {}, {
+            _Y: stableJson
+        });
+    },
+    "./node_modules/agent-bundle/dist/790~1.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        const isErrno = (error, code)=>'object' == typeof error && null !== error && 'code' in error && error.code === code;
+        const errorMessage = (error)=>error instanceof Error ? error.message : String(error);
+        class CodedError extends Error {
+            code;
+            constructor(name, code, message, options){
+                super(message, options);
+                this.name = name;
+                this.code = code;
+            }
+        }
+        __webpack_require__.d(__webpack_exports__, {}, {
+            gJ: errorMessage
+        });
+    },
+    "./node_modules/agent-bundle/dist/818~1.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        const isPlainObjectOrArray = (value)=>{
+            if (Array.isArray(value)) return true;
+            const proto = Object.getPrototypeOf(value);
+            return proto === Object.prototype || null === proto;
+        };
+        const deepFreeze = (value, seen = new WeakSet())=>{
+            if ('object' != typeof value || null === value || seen.has(value)) return value;
+            if (!isPlainObjectOrArray(value)) return value;
+            seen.add(value);
+            for (const property of Reflect.ownKeys(value))deepFreeze(Reflect.get(value, property), seen);
+            return Object.freeze(value);
+        };
+        __webpack_require__.d(__webpack_exports__, {}, {
+            o: deepFreeze
+        });
+    },
+    "./node_modules/agent-bundle/dist/917~1.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _818_1_js__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/dist/818~1.js");
+        const canonicalAgentEvents = Object.freeze([
+            'session/start',
+            'tool/before',
+            'tool/after',
+            'stop',
+            'agent/start',
+            'agent/stop',
+            'workspace/open',
+            'session/end',
+            'prompt/submit',
+            'tool/failure',
+            'compact/before',
+            'compact/after',
+            'permission/request',
+            'permission/denied',
+            'stop/failure',
+            'file/change',
+            'config/change',
+            'task/create',
+            'task/complete',
+            'agent/idle',
+            'model-switch/before',
+            'model-switch/after'
+        ]);
+        const eventContracts = null && {
+            'session/start': {
+                deny: false
+            },
+            'tool/before': {
+                deny: true
+            },
+            'tool/after': {
+                deny: false
+            },
+            stop: {
+                deny: true
+            },
+            'agent/start': {
+                deny: true
+            },
+            'agent/stop': {
+                deny: true
+            },
+            'workspace/open': {
+                deny: false
+            },
+            'session/end': {
+                deny: false
+            },
+            'prompt/submit': {
+                deny: true
+            },
+            'tool/failure': {
+                deny: false
+            },
+            'compact/before': {
+                deny: true
+            },
+            'compact/after': {
+                deny: false
+            },
+            'permission/request': {
+                deny: true
+            },
+            'permission/denied': {
+                deny: false
+            },
+            'stop/failure': {
+                deny: false
+            },
+            'file/change': {
+                deny: false
+            },
+            'config/change': {
+                deny: true
+            },
+            'task/create': {
+                deny: true
+            },
+            'task/complete': {
+                deny: false
+            },
+            'agent/idle': {
+                deny: true
+            },
+            'model-switch/before': {
+                deny: true
+            },
+            'model-switch/after': {
+                deny: false
+            }
+        };
+        const agentEventPayloadFieldKinds = (0, _818_1_js__rspack_import_0.o)({
+            agentId: 'string',
+            agentTranscriptPath: 'nullable-string',
+            agentType: 'string',
+            cwd: 'string',
+            error: 'string',
+            filePath: 'string',
+            fromModel: 'string',
+            isInterrupt: 'boolean',
+            lastAssistantMessage: 'nullable-string',
+            model: 'string',
+            permissionMode: 'string',
+            prompt: 'string',
+            reason: 'string',
+            reentry: 'boolean',
+            requestedModel: 'nullable-string',
+            sessionId: 'string',
+            source: 'string',
+            taskDescription: 'string',
+            taskId: 'string',
+            taskSubject: 'string',
+            teamName: 'string',
+            teammateName: 'string',
+            toModel: 'string',
+            toolInput: 'json',
+            toolName: 'string',
+            toolResponse: 'json',
+            toolUseId: 'string',
+            transcriptPath: 'nullable-string',
+            trigger: 'trigger',
+            workspaceRoots: 'string-array'
+        });
+        const sessionFields = [
+            'sessionId',
+            'cwd',
+            "transcriptPath",
+            'permissionMode',
+            'agentId',
+            'agentType'
+        ];
+        const threeHostFields = [
+            ...sessionFields,
+            'model'
+        ];
+        const toolFields = [
+            ...threeHostFields,
+            'toolName',
+            'toolInput',
+            'toolUseId'
+        ];
+        const taskFields = [
+            ...sessionFields,
+            'taskId',
+            'taskSubject',
+            "taskDescription",
+            'teammateName',
+            'teamName'
+        ];
+        const modelSwitchFields = [
+            ...sessionFields,
+            'fromModel',
+            'toModel',
+            'requestedModel',
+            'source'
+        ];
+        const agentEventPayloadFields = (0, _818_1_js__rspack_import_0.o)({
+            'agent/idle': [
+                ...sessionFields,
+                'teammateName',
+                'teamName'
+            ],
+            'agent/start': threeHostFields,
+            'agent/stop': [
+                ...threeHostFields,
+                "agentTranscriptPath",
+                'reentry',
+                'lastAssistantMessage'
+            ],
+            'compact/after': [
+                ...sessionFields,
+                'trigger'
+            ],
+            'compact/before': [
+                ...threeHostFields,
+                'trigger'
+            ],
+            'config/change': [
+                ...sessionFields,
+                'source',
+                'filePath'
+            ],
+            'file/change': [
+                ...sessionFields,
+                'filePath'
+            ],
+            'model-switch/after': modelSwitchFields,
+            'model-switch/before': modelSwitchFields,
+            'permission/denied': [
+                ...sessionFields,
+                'toolName',
+                'toolInput'
+            ],
+            'permission/request': [
+                ...sessionFields,
+                'toolName',
+                'toolInput'
+            ],
+            'prompt/submit': [
+                ...threeHostFields,
+                'prompt'
+            ],
+            'session/end': [
+                ...threeHostFields,
+                'reason'
+            ],
+            'session/start': [
+                ...threeHostFields,
+                'source'
+            ],
+            stop: [
+                ...threeHostFields,
+                'reentry',
+                'lastAssistantMessage'
+            ],
+            'stop/failure': [
+                ...sessionFields,
+                'error',
+                'reentry',
+                'lastAssistantMessage'
+            ],
+            'task/complete': taskFields,
+            'task/create': taskFields,
+            'tool/after': [
+                ...toolFields,
+                'toolResponse'
+            ],
+            'tool/before': toolFields,
+            'tool/failure': [
+                'sessionId',
+                'cwd',
+                "transcriptPath",
+                'toolName',
+                'toolInput',
+                'toolUseId',
+                'error',
+                'isInterrupt'
+            ],
+            'workspace/open': [
+                'workspaceRoots'
+            ]
+        });
+        const key = (nativeKey, decode)=>Object.freeze(void 0 === decode ? {
+                nativeKey
+            } : {
+                decode,
+                nativeKey
+            });
+        const standardKeys = Object.freeze({
+            agentId: key('agent_id'),
+            agentTranscriptPath: key("agent_transcript_path"),
+            agentType: key('agent_type'),
+            cwd: key('cwd'),
+            error: key('error'),
+            filePath: key('file_path'),
+            fromModel: key('from_model'),
+            isInterrupt: key('is_interrupt'),
+            lastAssistantMessage: key('last_assistant_message'),
+            model: key('model'),
+            permissionMode: key('permission_mode'),
+            prompt: key('prompt'),
+            reason: key('reason'),
+            reentry: key('stop_hook_active'),
+            requestedModel: key('requested_model'),
+            sessionId: key('session_id'),
+            source: key('source'),
+            taskDescription: key("task_description"),
+            taskId: key('task_id'),
+            taskSubject: key('task_subject'),
+            teamName: key('team_name'),
+            teammateName: key('teammate_name'),
+            toModel: key('to_model'),
+            toolInput: key('tool_input'),
+            toolName: key('tool_name'),
+            toolResponse: key('tool_response'),
+            toolUseId: key('tool_use_id'),
+            transcriptPath: key("transcript_path"),
+            trigger: key('trigger')
+        });
+        const cursorKeys = Object.freeze({
+            ...standardKeys,
+            agentId: key('subagent_id'),
+            agentType: key('subagent_type'),
+            error: key('error_message'),
+            reentry: key('loop_count', 'positive-count'),
+            sessionId: key('conversation_id'),
+            toolResponse: key('tool_output', 'json-string'),
+            workspaceRoots: key('workspace_roots')
+        });
+        const pick = (keys, fields)=>Object.freeze(Object.fromEntries(fields.map((field)=>[
+                    field,
+                    keys[field]
+                ])));
+        const claudeSession = [
+            'sessionId',
+            'cwd',
+            "transcriptPath",
+            'permissionMode',
+            'agentId',
+            'agentType'
+        ];
+        const claudeTool = [
+            ...claudeSession,
+            'toolName',
+            'toolInput',
+            'toolUseId'
+        ];
+        const claudeTask = [
+            ...claudeSession,
+            'taskId',
+            'taskSubject',
+            "taskDescription",
+            'teammateName',
+            'teamName'
+        ];
+        const codexSession = [
+            'sessionId',
+            'cwd',
+            "transcriptPath",
+            'permissionMode',
+            'agentId',
+            'agentType'
+        ];
+        const codexThreeHost = [
+            ...codexSession,
+            'model'
+        ];
+        const codexTool = [
+            ...codexThreeHost,
+            'toolName',
+            'toolInput',
+            'toolUseId'
+        ];
+        const cursorSession = [
+            'sessionId',
+            "transcriptPath",
+            'model'
+        ];
+        const cursorTool = [
+            ...cursorSession,
+            'cwd',
+            'toolName',
+            'toolInput',
+            'toolUseId'
+        ];
+        const agentEventPayloadNativeKeys = (0, _818_1_js__rspack_import_0.o)({
+            amp: Object.freeze({
+                'prompt/submit': pick(standardKeys, [
+                    'sessionId',
+                    'prompt'
+                ]),
+                'session/start': pick(standardKeys, [
+                    'sessionId'
+                ]),
+                stop: pick(standardKeys, [
+                    'sessionId'
+                ]),
+                'tool/after': pick(standardKeys, [
+                    'sessionId',
+                    'toolName',
+                    'toolInput',
+                    'toolUseId',
+                    'toolResponse'
+                ]),
+                'tool/before': pick(standardKeys, [
+                    'sessionId',
+                    'toolName',
+                    'toolInput',
+                    'toolUseId'
+                ])
+            }),
+            claude: Object.freeze({
+                'agent/idle': pick(standardKeys, [
+                    ...claudeSession,
+                    'teammateName',
+                    'teamName'
+                ]),
+                'agent/start': pick(standardKeys, claudeSession),
+                'agent/stop': pick(standardKeys, [
+                    ...claudeSession,
+                    "agentTranscriptPath",
+                    'reentry',
+                    'lastAssistantMessage'
+                ]),
+                'compact/after': pick(standardKeys, [
+                    ...claudeSession,
+                    'trigger'
+                ]),
+                'compact/before': pick(standardKeys, [
+                    ...claudeSession,
+                    'trigger'
+                ]),
+                'config/change': pick(standardKeys, [
+                    ...claudeSession,
+                    'source',
+                    'filePath'
+                ]),
+                'file/change': pick(standardKeys, [
+                    ...claudeSession,
+                    'filePath'
+                ]),
+                'model-switch/after': pick(standardKeys, modelSwitchFields),
+                'model-switch/before': pick(standardKeys, modelSwitchFields),
+                'permission/denied': pick(standardKeys, [
+                    ...claudeSession,
+                    'toolName',
+                    'toolInput'
+                ]),
+                'permission/request': pick(standardKeys, [
+                    ...claudeSession,
+                    'toolName',
+                    'toolInput'
+                ]),
+                'prompt/submit': pick(standardKeys, [
+                    ...claudeSession,
+                    'prompt'
+                ]),
+                'session/end': pick(standardKeys, [
+                    ...claudeSession,
+                    'reason'
+                ]),
+                'session/start': pick(standardKeys, [
+                    ...claudeSession,
+                    'model',
+                    'source'
+                ]),
+                stop: pick(standardKeys, [
+                    ...claudeSession,
+                    'reentry',
+                    'lastAssistantMessage'
+                ]),
+                'stop/failure': pick(standardKeys, [
+                    ...claudeSession,
+                    'error',
+                    'reentry',
+                    'lastAssistantMessage'
+                ]),
+                'task/complete': pick(standardKeys, claudeTask),
+                'task/create': pick(standardKeys, claudeTask),
+                'tool/after': pick(standardKeys, [
+                    ...claudeTool,
+                    'toolResponse'
+                ]),
+                'tool/before': pick(standardKeys, claudeTool),
+                'tool/failure': pick(standardKeys, [
+                    'sessionId',
+                    'cwd',
+                    "transcriptPath",
+                    'toolName',
+                    'toolInput',
+                    'toolUseId',
+                    'error',
+                    'isInterrupt'
+                ])
+            }),
+            codex: Object.freeze({
+                'agent/start': pick(standardKeys, codexThreeHost),
+                'agent/stop': pick(standardKeys, [
+                    ...codexThreeHost,
+                    "agentTranscriptPath",
+                    'reentry',
+                    'lastAssistantMessage'
+                ]),
+                'compact/after': pick(standardKeys, [
+                    ...codexSession,
+                    'trigger'
+                ]),
+                'compact/before': pick(standardKeys, [
+                    ...codexThreeHost,
+                    'trigger'
+                ]),
+                'permission/request': pick(standardKeys, [
+                    ...codexSession,
+                    'toolName',
+                    'toolInput'
+                ]),
+                'prompt/submit': pick(standardKeys, [
+                    ...codexThreeHost,
+                    'prompt'
+                ]),
+                'session/end': pick(standardKeys, [
+                    ...codexThreeHost,
+                    'reason'
+                ]),
+                'session/start': pick(standardKeys, [
+                    ...codexThreeHost,
+                    'source'
+                ]),
+                stop: pick(standardKeys, [
+                    ...codexThreeHost,
+                    'reentry',
+                    'lastAssistantMessage'
+                ]),
+                'tool/after': pick(standardKeys, [
+                    ...codexTool,
+                    'toolResponse'
+                ]),
+                'tool/before': pick(standardKeys, codexTool)
+            }),
+            cursor: Object.freeze({
+                'agent/start': pick(cursorKeys, [
+                    ...cursorSession,
+                    'agentId',
+                    'agentType'
+                ]),
+                'agent/stop': pick(cursorKeys, [
+                    ...cursorSession,
+                    'agentId',
+                    'agentType',
+                    "agentTranscriptPath",
+                    'reentry'
+                ]),
+                'compact/before': pick(cursorKeys, [
+                    ...cursorSession,
+                    'trigger'
+                ]),
+                'prompt/submit': pick(cursorKeys, [
+                    ...cursorSession,
+                    'prompt'
+                ]),
+                'session/end': pick(cursorKeys, [
+                    ...cursorSession,
+                    'reason'
+                ]),
+                'session/start': pick(cursorKeys, cursorSession),
+                stop: pick(cursorKeys, [
+                    ...cursorSession,
+                    'reentry'
+                ]),
+                'tool/after': pick(cursorKeys, [
+                    ...cursorTool,
+                    'toolResponse'
+                ]),
+                'tool/before': pick(cursorKeys, cursorTool),
+                'tool/failure': pick(cursorKeys, [
+                    'sessionId',
+                    "transcriptPath",
+                    'cwd',
+                    'toolName',
+                    'toolInput',
+                    'toolUseId',
+                    'error',
+                    'isInterrupt'
+                ]),
+                'workspace/open': pick(cursorKeys, [
+                    'workspaceRoots'
+                ])
+            })
+        });
+        const isAgentEventPayloadHost = (target)=>'amp' === target || 'claude' === target || 'codex' === target || 'cursor' === target;
+        __webpack_require__.d(__webpack_exports__, {}, {
+            jy: canonicalAgentEvents
+        });
+    },
+    "./node_modules/agent-bundle/dist/991~1.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        const isJsonWhitespace = (code)=>0x09 === code || 0x0a === code || 0x0d === code || 0x20 === code;
+        const isValueTerminator = (code)=>isJsonWhitespace(code) || 0x2c === code || 0x7d === code || 0x5d === code;
+        const skipWhitespace = (bytes, index)=>{
+            let cursor = index;
+            while(cursor < bytes.length && isJsonWhitespace(bytes.charCodeAt(cursor)))cursor += 1;
+            return cursor;
+        };
+        const scanJsonString = (bytes, index)=>{
+            let cursor = index + 1;
+            while(cursor < bytes.length){
+                const character = bytes[cursor];
+                if ('\\' === character) {
+                    cursor += 2;
+                    continue;
+                }
+                if ('"' === character) {
+                    const end = cursor + 1;
+                    return [
+                        JSON.parse(bytes.slice(index, end)),
+                        end
+                    ];
+                }
+                cursor += 1;
+            }
+            throw new SyntaxError('JSON has an unterminated string.');
+        };
+        const scanJsonValue = (bytes, index)=>{
+            let cursor = skipWhitespace(bytes, index);
+            const character = bytes[cursor];
+            if ('{' === character) {
+                cursor = skipWhitespace(bytes, cursor + 1);
+                const keys = new Set();
+                if ('}' === bytes[cursor]) return cursor + 1;
+                while(true){
+                    if ('"' !== bytes[cursor]) throw new SyntaxError('JSON has an invalid object key.');
+                    const [key, afterKey] = scanJsonString(bytes, cursor);
+                    if (keys.has(key)) throw new SyntaxError(`JSON has duplicate key ${JSON.stringify(key)}.`);
+                    keys.add(key);
+                    cursor = skipWhitespace(bytes, afterKey);
+                    if (':' !== bytes[cursor]) throw new SyntaxError('JSON has an invalid object entry.');
+                    cursor = skipWhitespace(bytes, scanJsonValue(bytes, cursor + 1));
+                    if ('}' === bytes[cursor]) return cursor + 1;
+                    if (',' !== bytes[cursor]) throw new SyntaxError('JSON has an invalid object separator.');
+                    cursor = skipWhitespace(bytes, cursor + 1);
+                }
+            }
+            if ('[' === character) {
+                cursor = skipWhitespace(bytes, cursor + 1);
+                if (']' === bytes[cursor]) return cursor + 1;
+                while(true){
+                    cursor = skipWhitespace(bytes, scanJsonValue(bytes, cursor));
+                    if (']' === bytes[cursor]) return cursor + 1;
+                    if (',' !== bytes[cursor]) throw new SyntaxError('JSON has an invalid array separator.');
+                    cursor = skipWhitespace(bytes, cursor + 1);
+                }
+            }
+            if ('"' === character) return scanJsonString(bytes, cursor)[1];
+            while(cursor < bytes.length && !isValueTerminator(bytes.charCodeAt(cursor)))cursor += 1;
+            return cursor;
+        };
+        class StrictJsonError extends TypeError {
+            reason;
+            constructor(reason, message){
+                super(message);
+                this.name = 'StrictJsonError';
+                this.reason = reason;
+            }
+        }
+        const isRecord = (value)=>'object' == typeof value && null !== value && !Array.isArray(value);
+        const isJsonRecord = (value)=>isRecord(value);
+        const ownDataValue = (value, key)=>{
+            const descriptor = Object.getOwnPropertyDescriptor(value, key);
+            if (void 0 === descriptor) return {
+                found: false,
+                value: void 0
+            };
+            return 'value' in descriptor ? {
+                found: true,
+                value: descriptor.value
+            } : void 0;
+        };
+        const dataArrayValues = (value)=>{
+            if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) return;
+            const length = Object.getOwnPropertyDescriptor(value, 'length');
+            if (void 0 === length || !('value' in length) || 'number' != typeof length.value || !Number.isSafeInteger(length.value) || length.value < 0 || Reflect.ownKeys(value).length !== length.value + 1) return;
+            const copy = [];
+            for(let index = 0; index < length.value; index += 1){
+                const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+                if (void 0 === descriptor || !('value' in descriptor)) return;
+                copy.push(descriptor.value);
+            }
+            return Object.freeze(copy);
+        };
+        const isPlainRecord = (value)=>{
+            if (!isRecord(value)) return false;
+            const prototype = Object.getPrototypeOf(value);
+            return prototype === Object.prototype || null === prototype;
+        };
+        const hasOnlyOwnKeys = (value, keys)=>Object.keys(value).every((key)=>keys.includes(key));
+        const isPlainDataRecord = (value)=>{
+            if (!isRecord(value)) return false;
+            const prototype = Object.getPrototypeOf(value);
+            if (prototype !== Object.prototype && null !== prototype) return false;
+            return Reflect.ownKeys(value).every((key)=>{
+                if ('string' != typeof key) return false;
+                const descriptor = Object.getOwnPropertyDescriptor(value, key);
+                return void 0 !== descriptor && 'value' in descriptor;
+            });
+        };
+        const hasDataKeys = (value, required, optional = [])=>{
+            if (!isPlainDataRecord(value)) return false;
+            const allowed = new Set([
+                ...required,
+                ...optional
+            ]);
+            return Reflect.ownKeys(value).length >= required.length && Reflect.ownKeys(value).every((key)=>'string' == typeof key && allowed.has(key)) && required.every((key)=>Object.hasOwn(value, key));
+        };
+        const fail = (reason, message)=>{
+            throw new StrictJsonError(reason, message);
+        };
+        const snapshotJsonValue = (value, ancestors, nullPrototype)=>{
+            if (null === value || 'boolean' == typeof value || 'string' == typeof value) return value;
+            if ('number' == typeof value) {
+                if (Number.isFinite(value)) return value;
+                return fail('nonfinite', 'JSON values must be finite.');
+            }
+            if ('object' != typeof value) return fail('not-json', 'JSON values must be primitives, arrays, or plain objects.');
+            if (ancestors.has(value)) return fail('cyclic', 'JSON values must not be cyclic.');
+            ancestors.add(value);
+            try {
+                const descriptors = Object.getOwnPropertyDescriptors(value);
+                if (Array.isArray(value)) {
+                    if (Object.getPrototypeOf(value) !== Array.prototype) return fail('array-shape', 'JSON arrays must be ordinary arrays.');
+                    const length = descriptors.length;
+                    if (void 0 === length || !('value' in length) || !Number.isSafeInteger(length.value) || length.value < 0) return fail('array-shape', 'JSON arrays must have a finite length.');
+                    const values = [];
+                    for(let index = 0; index < length.value; index += 1){
+                        const descriptor = descriptors[String(index)];
+                        if (void 0 === descriptor || !descriptor.enumerable || !('value' in descriptor)) return fail('array-shape', 'JSON arrays must contain only enumerable data properties.');
+                        values.push(snapshotJsonValue(descriptor.value, ancestors, nullPrototype));
+                    }
+                    if (Reflect.ownKeys(descriptors).length !== length.value + 1) return fail('array-shape', 'JSON arrays must not have extra properties.');
+                    return Object.freeze(values);
+                }
+                const prototype = Object.getPrototypeOf(value);
+                if (prototype !== Object.prototype && null !== prototype) return fail('exotic-prototype', 'JSON objects must be plain objects.');
+                const entries = Reflect.ownKeys(descriptors).map((key)=>{
+                    if ('string' != typeof key) return fail('not-json', 'JSON objects must not use symbol keys.');
+                    const descriptor = descriptors[key];
+                    if (void 0 === descriptor || !descriptor.enumerable || !('value' in descriptor)) return fail('not-json', 'JSON objects must contain only enumerable data properties.');
+                    return [
+                        key,
+                        snapshotJsonValue(descriptor.value, ancestors, nullPrototype)
+                    ];
+                });
+                if (nullPrototype) {
+                    const snapshot = Object.create(null);
+                    for (const [key, entry] of entries)snapshot[key] = entry;
+                    return Object.freeze(snapshot);
+                }
+                return Object.freeze(Object.fromEntries(entries));
+            } finally{
+                ancestors.delete(value);
+            }
+        };
+        const snapshotStrictJsonValue = (value, options = {})=>snapshotJsonValue(value, new Set(), true === options.nullPrototype);
+        const parseJsonWithoutDuplicateKeys = (bytes)=>{
+            const end = skipWhitespace(bytes, scanJsonValue(bytes, 0));
+            if (end !== bytes.length) throw new SyntaxError('JSON has trailing data.');
+            return JSON.parse(bytes);
+        };
+        __webpack_require__.d(__webpack_exports__, {}, {
+            UQ: isPlainRecord,
+            u4: isRecord
+        });
+    },
+    "./node_modules/agent-bundle/dist/launch-env.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var node_fs__rspack_import_0 = __webpack_require__("node:fs");
+        var node_path__rspack_import_1 = __webpack_require__("node:path");
+        const OPERATOR_ENV_FILE_VARIABLE = 'AGENT_BUNDLE_ENV_FILE';
+        const OPERATOR_ENV_FILE_NONE = 'none';
+        const OPERATOR_ENV_FILE_NAMES = Object.freeze([
+            '.env',
+            '.env.local'
+        ]);
+        const unexpandedToken = /\$\{[^}]*\}/u;
+        const operatorEnvPluginRoot = (fallback, env = process.env)=>{
+            const declared = env['AGENT_BUNDLE_PLUGIN_ROOT'] ?? '';
+            return '' === declared.trim() || unexpandedToken.test(declared) ? (0, node_path__rspack_import_1.resolve)(fallback) : (0, node_path__rspack_import_1.resolve)(declared);
+        };
+        const operatorEnvFilePaths = (pluginRoot, env = process.env)=>{
+            const explicit = env[OPERATOR_ENV_FILE_VARIABLE]?.trim() ?? '';
+            if (explicit === OPERATOR_ENV_FILE_NONE) return Object.freeze([]);
+            if ('' !== explicit) return Object.freeze(explicit.split(node_path__rspack_import_1.delimiter).map((path)=>path.trim()).filter((path)=>'' !== path).map((path)=>(0, node_path__rspack_import_1.resolve)(path)));
+            return Object.freeze(OPERATOR_ENV_FILE_NAMES.map((name)=>(0, node_path__rspack_import_1.join)(pluginRoot, name)));
+        };
+        const closingQuoteIndex = (raw, quote)=>{
+            for(let index = 1; index < raw.length; index += 1){
+                if ('\\' === raw[index]) {
+                    index += 1;
+                    continue;
+                }
+                if (raw[index] === quote) return index;
+            }
+            return -1;
+        };
+        const unquotedValue = (raw)=>{
+            const value = raw.trim();
+            const comment = value.search(/\s#/u);
+            return (-1 === comment ? value : value.slice(0, comment)).trim();
+        };
+        const quotedValue = (quote, inner)=>'"' === quote ? inner.replace(/\\n/gu, '\n').replace(/\\r/gu, '\r').replace(/\\"/gu, '"') : inner;
+        const parseOperatorEnv = (contents)=>{
+            const parsed = {};
+            const lines = contents.replace(/\r\n?/gu, '\n').split('\n');
+            for(let index = 0; index < lines.length; index += 1){
+                const line = lines[index].trim();
+                if ('' === line || line.startsWith('#')) continue;
+                const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$/u.exec(line);
+                if (null === match) continue;
+                const key = match[1];
+                let raw = match[2].trim();
+                const quote = raw[0];
+                if ('"' === quote || "'" === quote || '`' === quote) {
+                    let end = closingQuoteIndex(raw, quote);
+                    while(-1 === end && '`' !== quote && index + 1 < lines.length){
+                        index += 1;
+                        raw += `\n${lines[index]}`;
+                        end = closingQuoteIndex(raw, quote);
+                    }
+                    if (-1 !== end) {
+                        const trailer = raw.slice(end + 1).trim();
+                        if ('' === trailer || trailer.startsWith('#')) {
+                            parsed[key] = quotedValue(quote, raw.slice(1, end));
+                            continue;
+                        }
+                    }
+                }
+                parsed[key] = unquotedValue(raw);
+            }
+            return parsed;
+        };
+        const readOptional = (path)=>{
+            try {
+                return (0, node_fs__rspack_import_0.readFileSync)(path, 'utf8');
+            } catch (error) {
+                return 'ENOENT' === error.code ? void 0 : null;
+            }
+        };
+        const applyOperatorEnv = (options)=>{
+            const env = options.env ?? process.env;
+            const reservedKey = (options.platform ?? process.platform) === 'win32' ? (key)=>key.toUpperCase() : (key)=>key;
+            const manifestDefaults = new Map(Object.entries(options.manifestEnv ?? {}).map(([key, value])=>[
+                    reservedKey(key),
+                    value
+                ]));
+            const reserved = new Set(Object.keys(env).filter((key)=>void 0 !== env[key] && manifestDefaults.get(reservedKey(key)) !== env[key]).map(reservedKey));
+            const files = [];
+            const applied = new Set();
+            for (const path of operatorEnvFilePaths(options.pluginRoot, env)){
+                const contents = readOptional(path);
+                if (void 0 === contents) {
+                    files.push({
+                        path,
+                        state: 'absent'
+                    });
+                    continue;
+                }
+                if (null === contents) {
+                    files.push({
+                        path,
+                        state: 'unreadable'
+                    });
+                    continue;
+                }
+                let count = 0;
+                for (const [key, value] of Object.entries(parseOperatorEnv(contents)))if (!reserved.has(reservedKey(key))) {
+                    env[key] = value;
+                    applied.add(key);
+                    count += 1;
+                }
+                files.push({
+                    applied: count,
+                    path,
+                    state: 'loaded'
+                });
+            }
+            return Object.freeze({
+                applied: Object.freeze([
+                    ...applied
+                ].sort((left, right)=>left.localeCompare(right))),
+                files: Object.freeze(files)
+            });
+        };
+        __webpack_require__.d(__webpack_exports__, {}, {
+            FF: operatorEnvPluginRoot,
+            OJ: applyOperatorEnv
+        });
+    },
+    "./node_modules/agent-bundle/dist/mcp-entry.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        const defaultHeartbeatIntervalMs = 300000;
+        const defaultActivityThrottleMs = 60000;
+        const defaultShutdownTimeoutMs = 5000;
+        const defaultHeartbeatName = 'agent-bundle';
+        let installedGuard;
+        const redirectConsoleToStderr = ()=>{
+            if (void 0 !== installedGuard) return installedGuard.guard;
+            const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+            const stderrConsole = new console.Console({
+                stderr: process.stderr,
+                stdout: process.stderr
+            });
+            const methods = [
+                'debug',
+                'dir',
+                'error',
+                'info',
+                'log',
+                'trace',
+                'warn'
+            ];
+            for (const method of methods)console[method] = stderrConsole[method].bind(stderrConsole);
+            const redirectedWrite = (chunk, encoding, callback)=>process.stderr.write(chunk, encoding, callback);
+            process.stdout.write = redirectedWrite;
+            let restored = false;
+            const guard = Object.freeze({
+                restoreProtocolStdout: ()=>{
+                    if (restored) return;
+                    restored = true;
+                    if (process.stdout.write !== redirectedWrite) process.stderr.write("[agent-bundle] a module replaced process.stdout.write while console output was redirected to stderr; the replacement is discarded because stdout carries the MCP protocol stream.\n");
+                    process.stdout.write = originalStdoutWrite;
+                    if (installedGuard?.guard === guard) installedGuard = void 0;
+                }
+            });
+            installedGuard = {
+                guard,
+                redirectedWrite
+            };
+            return guard;
+        };
+        const createHeartbeat = ({ activityThrottleMs = defaultActivityThrottleMs, intervalMs = defaultHeartbeatIntervalMs, name = defaultHeartbeatName, writeLine })=>{
+            const startedAt = Date.now();
+            let lastActivityAt = startedAt;
+            let lastActivityLogAt = 0;
+            const log = (reason)=>{
+                const uptimeSeconds = Math.round((Date.now() - startedAt) / 1000);
+                const idleSeconds = Math.round((Date.now() - lastActivityAt) / 1000);
+                writeLine(`[${name}] stdio heartbeat (${reason}) pid=${process.pid} uptime=${uptimeSeconds}s idle=${idleSeconds}s`);
+            };
+            const timer = setInterval(()=>log('interval'), intervalMs);
+            timer.unref?.();
+            return Object.freeze({
+                log,
+                noteActivity: ()=>{
+                    lastActivityAt = Date.now();
+                    if (lastActivityAt - lastActivityLogAt >= activityThrottleMs) {
+                        lastActivityLogAt = lastActivityAt;
+                        log('activity');
+                    }
+                },
+                stop: ()=>clearInterval(timer)
+            });
+        };
+        const runStdioServer = async ({ activityThrottleMs, exit = (code)=>process.exit(code), heartbeat: heartbeatEnabled = true, heartbeatIntervalMs, server, serverName, shutdownTimeoutMs = defaultShutdownTimeoutMs, signals = process, stdin = process.stdin, transport, writeLine = (line)=>void process.stderr.write(`${line}\n`) })=>{
+            const heartbeat = createHeartbeat({
+                ...void 0 === activityThrottleMs ? {} : {
+                    activityThrottleMs
+                },
+                ...void 0 === heartbeatIntervalMs ? {} : {
+                    intervalMs: heartbeatIntervalMs
+                },
+                ...void 0 === serverName ? {} : {
+                    name: serverName
+                },
+                writeLine: heartbeatEnabled ? writeLine : ()=>void 0
+            });
+            const keepalive = setInterval(()=>void 0, 60000);
+            keepalive.unref?.();
+            let shuttingDown = false;
+            const shutdown = async (exitCode = 0)=>{
+                if (shuttingDown) return;
+                shuttingDown = true;
+                signals.off('SIGINT', handleSigint);
+                signals.off('SIGTERM', handleSigterm);
+                stdin.off?.('end', handleStdinEnd);
+                clearInterval(keepalive);
+                heartbeat.stop();
+                await Promise.race([
+                    Promise.allSettled([
+                        Promise.resolve().then(()=>transport.close()),
+                        Promise.resolve().then(()=>server.close())
+                    ]),
+                    new Promise((resolve)=>setTimeout(resolve, shutdownTimeoutMs))
+                ]);
+                exit(exitCode);
+            };
+            const handleSigint = ()=>{
+                shutdown(130);
+            };
+            const handleSigterm = ()=>{
+                shutdown(143);
+            };
+            const handleStdinEnd = ()=>{
+                shutdown(0);
+            };
+            signals.on('SIGINT', handleSigint);
+            signals.on('SIGTERM', handleSigterm);
+            stdin.once?.('end', handleStdinEnd);
+            transport.onclose = ()=>{
+                shutdown(0);
+            };
+            await server.connect(transport);
+            const originalOnMessage = transport.onmessage;
+            transport.onmessage = (message, extra)=>{
+                heartbeat.noteActivity();
+                originalOnMessage?.(message, extra);
+            };
+            return Object.freeze({
+                heartbeat,
+                shutdown
+            });
+        };
+        const runGeneratedStdioMcpEntry = async (options)=>{
+            const guard = redirectConsoleToStderr();
+            const entry = await options.loadEntry();
+            const factory = entry.default;
+            if ('function' != typeof factory) throw new TypeError(`Generated stdio entry for MCP server ${JSON.stringify(options.serverName)} must default-export a server factory.`);
+            const server = await factory();
+            const { StdioServerTransport } = await Promise.resolve().then(__webpack_require__.bind(__webpack_require__, "./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/stdio.mjs"));
+            guard.restoreProtocolStdout();
+            const transport = new StdioServerTransport();
+            return runStdioServer({
+                ...options.lifecycle,
+                server,
+                serverName: options.serverName,
+                transport: transport
+            });
+        };
+        __webpack_require__.d(__webpack_exports__, {}, {
+            WQ: runGeneratedStdioMcpEntry,
+            p9: redirectConsoleToStderr
+        });
+    },
+    "./node_modules/agent-bundle/dist/mcp-server-runtime.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var node_worker_threads__rspack_import_0 = __webpack_require__("node:worker_threads");
+        var _modelcontextprotocol_server__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/index.mjs");
+        var _agent_bundle_runtime__rspack_import_9 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
+        var _agent_bundle_runtime__rspack_import_10 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/40.js");
+        var _agent_bundle_runtime__rspack_import_11 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/index.js");
+        var node_crypto__rspack_import_2 = __webpack_require__("node:crypto");
+        var _667_1_js__rspack_import_3 = __webpack_require__("./node_modules/agent-bundle/dist/667~1.js");
+        var _991_1_js__rspack_import_4 = __webpack_require__("./node_modules/agent-bundle/dist/991~1.js");
+        var _790_1_js__rspack_import_5 = __webpack_require__("./node_modules/agent-bundle/dist/790~1.js");
+        var _573_1_js__rspack_import_6 = __webpack_require__("./node_modules/agent-bundle/dist/573~1.js");
+        var _terminal_capability_js__rspack_import_7 = __webpack_require__("./node_modules/agent-bundle/dist/terminal-capability.js");
+        var _917_1_js__rspack_import_8 = __webpack_require__("./node_modules/agent-bundle/dist/917~1.js");
+        const SINGLE_SCHEMA_KEYWORDS = new Set([
+            'additionalItems',
+            'additionalProperties',
+            'contains',
+            'contentSchema',
+            'else',
+            'if',
+            'not',
+            'propertyNames',
+            'then',
+            'unevaluatedItems',
+            'unevaluatedProperties'
+        ]);
+        const SCHEMA_ARRAY_KEYWORDS = new Set([
+            'allOf',
+            'anyOf',
+            'oneOf',
+            'prefixItems'
+        ]);
+        const SCHEMA_MAP_KEYWORDS = new Set([
+            '$defs',
+            'definitions',
+            'dependentSchemas',
+            'patternProperties',
+            'properties'
+        ]);
+        const unionOf = (members)=>{
+            const distinct = new Map();
+            for (const member of members){
+                const key = (0, _667_1_js__rspack_import_3._Y)(member);
+                if (!distinct.has(key)) distinct.set(key, member);
+            }
+            const unique = [
+                ...distinct.values()
+            ];
+            return 1 === unique.length ? unique[0] : {
+                anyOf: unique
+            };
+        };
+        const interoperableTuple = (schema)=>{
+            const prefixItems = schema['prefixItems'];
+            if (!Array.isArray(prefixItems) || 0 === prefixItems.length) return schema;
+            const items = schema['items'];
+            if (false === items) {
+                const maxItems = schema['maxItems'];
+                return {
+                    ...schema,
+                    items: unionOf(prefixItems),
+                    maxItems: 'number' == typeof maxItems ? Math.min(maxItems, prefixItems.length) : prefixItems.length
+                };
+            }
+            if ((0, _991_1_js__rspack_import_4.u4)(items)) return {
+                ...schema,
+                items: unionOf([
+                    ...prefixItems,
+                    items
+                ])
+            };
+            return schema;
+        };
+        const projectSchemaArray = (schemas1)=>schemas1.map((schema)=>interoperableJsonSchema(schema));
+        const projectSchemaMap = (schemas1)=>Object.fromEntries(Object.entries(schemas1).map(([name, schema])=>[
+                    name,
+                    interoperableJsonSchema(schema)
+                ]));
+        const projectKeyword = (keyword, value)=>{
+            if ('items' === keyword) return Array.isArray(value) ? projectSchemaArray(value) : interoperableJsonSchema(value);
+            if (SINGLE_SCHEMA_KEYWORDS.has(keyword)) return interoperableJsonSchema(value);
+            if (SCHEMA_ARRAY_KEYWORDS.has(keyword)) return Array.isArray(value) ? projectSchemaArray(value) : value;
+            if (SCHEMA_MAP_KEYWORDS.has(keyword)) return (0, _991_1_js__rspack_import_4.u4)(value) ? projectSchemaMap(value) : value;
+            return value;
+        };
+        const interoperableJsonSchema = (schema)=>{
+            if (!(0, _991_1_js__rspack_import_4.u4)(schema)) return schema;
+            const projected = {};
+            for (const [keyword, value] of Object.entries(schema))projected[keyword] = projectKeyword(keyword, value);
+            return interoperableTuple(projected);
+        };
+        const isStandardJsonSchemaConverter = (value)=>(0, _991_1_js__rspack_import_4.u4)(value) && 'function' == typeof value['input'] && 'function' == typeof value['output'];
+        const isStandardSchemaWithJsonSchema = (schema)=>{
+            if (null == schema) return false;
+            if ('object' != typeof schema && 'function' != typeof schema) return false;
+            const props = schema['~standard'];
+            return (0, _991_1_js__rspack_import_4.u4)(props) && 'function' == typeof props['validate'] && isStandardJsonSchemaConverter(props['jsonSchema']);
+        };
+        const interoperableStandardSchema = (schema)=>{
+            if (!isStandardSchemaWithJsonSchema(schema)) return schema;
+            const std = schema['~standard'];
+            const wrapped = {
+                '~standard': {
+                    jsonSchema: {
+                        input: (options)=>interoperableJsonSchema(std.jsonSchema.input(options)),
+                        output: (options)=>interoperableJsonSchema(std.jsonSchema.output(options))
+                    },
+                    validate: (value)=>std.validate(value),
+                    vendor: 'agent-bundle',
+                    version: std.version
+                }
+            };
+            return wrapped;
+        };
+        const MCP_TASKS_PROTOCOL_VERSION = '2025-11-25';
+        const DEFAULT_MCP_TASK_TTL_MS = 300000;
+        const MAX_MCP_TASK_TTL_MS = 86400000;
+        const DEFAULT_MCP_TASK_POLL_INTERVAL_MS = 1000;
+        const MIN_MCP_TASK_POLL_INTERVAL_MS = 100;
+        const MAX_MCP_TASKS_RETAINED = 256;
+        const MODEL_IMMEDIATE_RESPONSE_META_KEY = 'io.modelcontextprotocol/model-immediate-response';
+        const MCP_TASK_PROGRESS_META_KEY = 'agent-bundle/progress';
+        const isTerminal = (status)=>'completed' === status || 'failed' === status || 'cancelled' === status;
+        const mcp_tasks_now = ()=>new Date().toISOString();
+        const paramsSchema = (describe, parse1)=>({
+                '~standard': {
+                    validate: (value)=>{
+                        if (!(0, _991_1_js__rspack_import_4.u4)(value)) return {
+                            issues: [
+                                {
+                                    message: `${describe} params must be an object.`
+                                }
+                            ]
+                        };
+                        const parsed = parse1(value);
+                        return 'string' == typeof parsed ? {
+                            issues: [
+                                {
+                                    message: parsed
+                                }
+                            ]
+                        } : {
+                            value: parsed
+                        };
+                    },
+                    vendor: 'agent-bundle',
+                    version: 1
+                }
+            });
+        const taskIdParams = (method)=>paramsSchema(method, (value)=>{
+                const taskId = value['taskId'];
+                return 'string' == typeof taskId && '' !== taskId ? {
+                    taskId
+                } : `${method} requires a non-empty string taskId.`;
+            });
+        const listParams = paramsSchema('tasks/list', (value)=>{
+            const cursor = value['cursor'];
+            if (void 0 === cursor) return {};
+            return 'string' == typeof cursor ? {
+                cursor
+            } : 'tasks/list cursor must be a string.';
+        });
+        const clampTtl = (requested)=>{
+            if ('number' != typeof requested || !Number.isFinite(requested) || requested <= 0) return DEFAULT_MCP_TASK_TTL_MS;
+            return Math.min(Math.floor(requested), MAX_MCP_TASK_TTL_MS);
+        };
+        const clampPollInterval = (requested)=>{
+            if ('number' != typeof requested || !Number.isFinite(requested) || requested <= 0) return DEFAULT_MCP_TASK_POLL_INTERVAL_MS;
+            return Math.max(Math.floor(requested), MIN_MCP_TASK_POLL_INTERVAL_MS);
+        };
+        const errorOutcome = (error)=>{
+            if (_modelcontextprotocol_server__rspack_import_1.bd.isInstance(error)) return {
+                code: error.code,
+                ...void 0 === error.data ? {} : {
+                    data: error.data
+                },
+                kind: 'error',
+                message: error.message
+            };
+            const code = (0, _991_1_js__rspack_import_4.u4)(error) && Number.isSafeInteger(error['code']) ? error['code'] : _modelcontextprotocol_server__rspack_import_1.qu.InternalError;
+            return {
+                code,
+                kind: 'error',
+                message: (0, _790_1_js__rspack_import_5.gJ)(error)
+            };
+        };
+        const TASK_LIST_PAGE = 50;
+        const progressStatusMessage = (progress)=>{
+            if (void 0 !== progress.message) return progress.message;
+            return void 0 === progress.total ? `progress ${String(progress.progress)}` : `progress ${String(progress.progress)}/${String(progress.total)}`;
+        };
+        class TaskAugmentedServer extends _modelcontextprotocol_server__rspack_import_1.gq {
+            #records = new Map();
+            #support = new Map();
+            #sequence = 0;
+            #installed = false;
+            _onclose() {
+                this.abortTasks('The MCP session closed before the task settled.');
+                super._onclose();
+            }
+            taskSupport(toolName) {
+                return this.#support.get(toolName) ?? 'forbidden';
+            }
+            declareTaskSupport(toolName, taskSupport) {
+                if ('forbidden' === taskSupport) this.#support.delete(toolName);
+                else this.#support.set(toolName, taskSupport);
+            }
+            get tasksEnabled() {
+                return this.#support.size > 0;
+            }
+            tasks() {
+                return [
+                    ...this.#records.values()
+                ].sort((left, right)=>left.sequence - right.sequence).map((record)=>record.task);
+            }
+            installTaskSupport() {
+                if (this.#installed || !this.tasksEnabled) return;
+                this.#installed = true;
+                this.registerCapabilities({
+                    tasks: {
+                        cancel: {},
+                        list: {},
+                        requests: {
+                            tools: {
+                                call: {}
+                            }
+                        }
+                    }
+                });
+                this.setRequestHandler('tasks/get', {
+                    params: taskIdParams('tasks/get')
+                }, async ({ taskId })=>{
+                    const record = this.#require(taskId);
+                    return {
+                        ...void 0 === record.progress ? {} : {
+                            _meta: {
+                                [MCP_TASK_PROGRESS_META_KEY]: {
+                                    ...record.progress
+                                }
+                            }
+                        },
+                        ...record.task
+                    };
+                });
+                this.setRequestHandler('tasks/result', {
+                    params: taskIdParams('tasks/result')
+                }, async ({ taskId }, ctx)=>{
+                    const record = this.#require(taskId);
+                    await this.#awaitSettled(record, ctx.mcpReq.signal);
+                    const outcome = record.outcome;
+                    if (void 0 === outcome) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InternalError, `Task ${taskId} settled without an outcome.`);
+                    switch(outcome.kind){
+                        case 'error':
+                            throw new _modelcontextprotocol_server__rspack_import_1.bd(outcome.code, outcome.message, outcome.data);
+                        case 'result':
+                            return {
+                                ...outcome.result,
+                                _meta: {
+                                    ...outcome.result._meta,
+                                    [_modelcontextprotocol_server__rspack_import_1.EV]: {
+                                        taskId
+                                    }
+                                }
+                            };
+                        default:
+                            {
+                                const unreachable = outcome;
+                                throw new TypeError(`Unhandled task outcome ${String(unreachable)}.`);
+                            }
+                    }
+                });
+                this.setRequestHandler('tasks/list', {
+                    params: listParams
+                }, async ({ cursor })=>{
+                    const ordered = [
+                        ...this.#records.values()
+                    ].sort((left, right)=>left.sequence - right.sequence);
+                    let start = 0;
+                    if (void 0 !== cursor) {
+                        const after = Number(cursor);
+                        if (!Number.isSafeInteger(after) || after < 0) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InvalidParams, `Invalid tasks/list cursor ${JSON.stringify(cursor)}.`);
+                        start = ordered.findIndex((record)=>record.sequence > after);
+                        if (-1 === start) start = ordered.length;
+                    }
+                    const page = ordered.slice(start, start + TASK_LIST_PAGE);
+                    const last = page.at(-1);
+                    return {
+                        ...void 0 !== last && start + TASK_LIST_PAGE < ordered.length ? {
+                            nextCursor: String(last.sequence)
+                        } : {},
+                        tasks: page.map((record)=>record.task)
+                    };
+                });
+                this.setRequestHandler('tasks/cancel', {
+                    params: taskIdParams('tasks/cancel')
+                }, async ({ taskId })=>{
+                    const record = this.#require(taskId);
+                    if (isTerminal(record.task.status)) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InvalidParams, `Cannot cancel task ${taskId}: already in terminal status '${record.task.status}'.`);
+                    this.#transition(record, 'cancelled', 'The task was cancelled by request.');
+                    record.controller.abort(new DOMException('The task was cancelled by request.', 'AbortError'));
+                    return {
+                        ...record.task
+                    };
+                });
+            }
+            abortTasks(reason) {
+                for (const record of this.#records.values())if (!isTerminal(record.task.status)) {
+                    this.#transition(record, 'cancelled', reason);
+                    record.controller.abort(new DOMException(reason, 'AbortError'));
+                }
+                for (const record of this.#records.values())if (void 0 !== record.expiry) clearTimeout(record.expiry);
+                this.#records.clear();
+            }
+            _wrapHandler(method, handler) {
+                const wrapped = super._wrapHandler(method, handler);
+                if ('tools/call' !== method) return wrapped;
+                return async (request, ctx)=>{
+                    if (!this.#installed || !this.#taskSession()) return wrapped(request, ctx);
+                    const params = request.params;
+                    const toolName = (0, _991_1_js__rspack_import_4.u4)(params) && 'string' == typeof params['name'] ? params['name'] : void 0;
+                    const augmented = (0, _991_1_js__rspack_import_4.u4)(params) && (0, _991_1_js__rspack_import_4.u4)(params['task']);
+                    const support = void 0 === toolName ? 'forbidden' : this.taskSupport(toolName);
+                    if (!augmented) {
+                        if ('required' === support) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.MethodNotFound, `Tool ${String(toolName)} requires task-augmented execution (execution.taskSupport: "required"); call it with params.task.`);
+                        return wrapped(request, ctx);
+                    }
+                    if ('forbidden' === support) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.MethodNotFound, `Tool ${String(toolName)} does not support task-augmented execution (execution.taskSupport is "forbidden").`);
+                    return this.#createTask(String(toolName), params, request, ctx, wrapped);
+                };
+            }
+            #taskSession() {
+                return this.getNegotiatedProtocolVersion() === MCP_TASKS_PROTOCOL_VERSION;
+            }
+            #require(taskId) {
+                const record = this.#records.get(taskId);
+                if (void 0 === record) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InvalidParams, `Task not found: ${taskId}`);
+                return record;
+            }
+            #evict() {
+                if (this.#records.size < MAX_MCP_TASKS_RETAINED) return;
+                const settled = [
+                    ...this.#records.values()
+                ].filter((record)=>isTerminal(record.task.status)).sort((left, right)=>left.sequence - right.sequence);
+                const oldest = settled[0];
+                if (void 0 === oldest) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InternalError, `This server is already running ${String(MAX_MCP_TASKS_RETAINED)} tasks; wait for one to settle or cancel one.`);
+                this.#forget(oldest);
+            }
+            #forget(record) {
+                if (void 0 !== record.expiry) clearTimeout(record.expiry);
+                this.#records.delete(record.task.taskId);
+            }
+            #transition(record, status, statusMessage) {
+                if (isTerminal(record.task.status)) return;
+                record.task = {
+                    ...record.task,
+                    lastUpdatedAt: mcp_tasks_now(),
+                    status,
+                    ...void 0 === statusMessage ? {} : {
+                        statusMessage
+                    }
+                };
+                if (void 0 === statusMessage) {
+                    const { statusMessage: _dropped, ...rest } = record.task;
+                    record.task = rest;
+                }
+                if (!isTerminal(status)) return;
+                const ttl = record.task.ttl ?? DEFAULT_MCP_TASK_TTL_MS;
+                record.expiry = setTimeout(()=>this.#forget(record), ttl);
+                record.expiry.unref?.();
+                this.notification({
+                    method: 'notifications/tasks/status',
+                    params: {
+                        ...record.task
+                    }
+                }).catch(()=>void 0);
+            }
+            #observeProgress(record, params) {
+                if (isTerminal(record.task.status)) return;
+                record.progress = {
+                    progress: params.progress,
+                    ...void 0 === params.message ? {} : {
+                        message: params.message
+                    },
+                    ...void 0 === params.total ? {} : {
+                        total: params.total
+                    }
+                };
+                record.task = {
+                    ...record.task,
+                    lastUpdatedAt: mcp_tasks_now(),
+                    statusMessage: progressStatusMessage(record.progress)
+                };
+            }
+            async #awaitSettled(record, signal) {
+                if (void 0 !== record.outcome) return;
+                await new Promise((resolve, reject)=>{
+                    const onAbort = ()=>{
+                        reject(new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InvalidRequest, 'The tasks/result request was cancelled before the task settled.'));
+                    };
+                    signal.addEventListener('abort', onAbort, {
+                        once: true
+                    });
+                    record.settled.then(()=>{
+                        signal.removeEventListener('abort', onAbort);
+                        resolve();
+                    });
+                });
+            }
+            async #createTask(toolName, params, request, ctx, handler) {
+                this.#evict();
+                const creation = (0, _991_1_js__rspack_import_4.u4)(params['task']) ? params['task'] : {};
+                const taskId = (0, node_crypto__rspack_import_2.randomUUID)();
+                const createdAt = mcp_tasks_now();
+                const controller = new AbortController();
+                let settle = ()=>void 0;
+                const settled = new Promise((resolve)=>{
+                    settle = resolve;
+                });
+                const record = {
+                    controller,
+                    sequence: ++this.#sequence,
+                    settled,
+                    task: {
+                        createdAt,
+                        lastUpdatedAt: createdAt,
+                        pollInterval: clampPollInterval(creation['pollInterval']),
+                        status: 'working',
+                        taskId,
+                        ttl: clampTtl(creation['ttl'])
+                    },
+                    toolName
+                };
+                this.#records.set(taskId, record);
+                const clientToken = ctx.mcpReq._meta?.progressToken;
+                const notify = ctx.mcpReq.notify;
+                const taskContext = {
+                    ...ctx,
+                    mcpReq: {
+                        ...ctx.mcpReq,
+                        _meta: {
+                            ...ctx.mcpReq._meta,
+                            progressToken: clientToken ?? `agent-bundle/task/${taskId}`
+                        },
+                        notify: async (notification)=>{
+                            if ('notifications/progress' === notification.method && (0, _991_1_js__rspack_import_4.u4)(notification.params)) {
+                                this.#observeProgress(record, notification.params);
+                                if (void 0 === clientToken) return;
+                            }
+                            await notify({
+                                ...notification,
+                                params: {
+                                    ...notification.params,
+                                    _meta: {
+                                        ...(0, _991_1_js__rspack_import_4.u4)(notification.params?._meta) ? notification.params._meta : {},
+                                        [_modelcontextprotocol_server__rspack_import_1.EV]: {
+                                            taskId
+                                        }
+                                    }
+                                }
+                            });
+                        },
+                        signal: controller.signal
+                    }
+                };
+                const { task: _creation, ...ordinaryParams } = params;
+                const ordinaryRequest = {
+                    ...request,
+                    params: ordinaryParams
+                };
+                handler(ordinaryRequest, taskContext).then((result)=>{
+                    const toolResult = result;
+                    record.outcome = {
+                        kind: 'result',
+                        result: toolResult
+                    };
+                    if (true === toolResult.isError) {
+                        const text = toolResult.content.find((block)=>'text' === block.type);
+                        this.#transition(record, 'failed', void 0 !== text && 'text' in text ? text.text : 'The tool call failed.');
+                    } else this.#transition(record, 'completed', void 0);
+                }, (error)=>{
+                    record.outcome = errorOutcome(error);
+                    this.#transition(record, 'failed', (0, _790_1_js__rspack_import_5.gJ)(error));
+                }).finally(settle);
+                const created = {
+                    _meta: {
+                        [MODEL_IMMEDIATE_RESPONSE_META_KEY]: `The ${toolName} call is running as task ${taskId}. Poll tasks/get for its status and fetch the result with tasks/result.`
+                    },
+                    task: {
+                        ...record.task
+                    }
+                };
+                return created;
+            }
+        }
+        const createTaskAugmentedMcpServer = (serverInfo, options)=>{
+            const server = new _modelcontextprotocol_server__rspack_import_1._k(serverInfo, options);
+            const tasks = new TaskAugmentedServer(serverInfo, options);
+            Object.defineProperty(server, 'server', {
+                configurable: true,
+                enumerable: true,
+                value: tasks,
+                writable: false
+            });
+            return Object.freeze({
+                declareTool: (tool, toolName, taskSupport)=>{
+                    if ('forbidden' !== taskSupport) tool.execution = {
+                        taskSupport
+                    };
+                    tasks.declareTaskSupport(toolName, taskSupport);
+                },
+                install: ()=>tasks.installTaskSupport(),
+                server,
+                tasks
+            });
+        };
+        new Set([
+            'maxElapsedMs'
+        ]);
+        const routeRenderLimits = (config)=>{
+            const declared = config['render'];
+            if ('object' != typeof declared || null === declared) return;
+            const maxElapsedMs = declared.maxElapsedMs;
+            if ('number' != typeof maxElapsedMs || !Number.isSafeInteger(maxElapsedMs) || maxElapsedMs <= 0) return;
+            return Object.freeze({
+                maxElapsedMs
+            });
+        };
+        const toolTaskSupportValues = Object.freeze([
+            'forbidden',
+            'optional',
+            'required'
+        ]);
+        new Set([
+            'taskSupport'
+        ]);
+        const isToolTaskSupport = (value)=>'string' == typeof value && toolTaskSupportValues.includes(value);
+        const routeTaskSupport = (config)=>{
+            const declared = config['execution'];
+            if ('object' != typeof declared || null === declared) return 'forbidden';
+            const taskSupport = declared.taskSupport;
+            return isToolTaskSupport(taskSupport) ? taskSupport : 'forbidden';
+        };
+        const requestKey = (requestId)=>`${typeof requestId}:${String(requestId)}`;
+        const RAW_ARGUMENTS_RETENTION = 1024;
+        const captureRawToolArguments = (server)=>{
+            const captured = new Map();
+            const connect = server.connect.bind(server);
+            server.connect = async (transport)=>{
+                await connect(transport);
+                const inner = transport.onmessage;
+                transport.onmessage = (message, extra)=>{
+                    if ((0, _modelcontextprotocol_server__rspack_import_1.vo)(message) && 'tools/call' === message.method) {
+                        const params = message.params;
+                        const value = void 0 === params || 'object' != typeof params || null === params || Array.isArray(params) ? void 0 : params.arguments;
+                        captured.set(requestKey(message.id), Object.freeze({
+                            value
+                        }));
+                        if (captured.size > RAW_ARGUMENTS_RETENTION) captured.delete(captured.keys().next().value);
+                    }
+                    inner?.(message, extra);
+                };
+            };
+            return Object.freeze({
+                take (requestId) {
+                    if (void 0 === requestId) return;
+                    const key = requestKey(requestId);
+                    const raw = captured.get(key);
+                    captured.delete(key);
+                    return raw;
+                }
+            });
+        };
+        const toolCallLineage = async (registry, context, toolName, rawArguments, clientName, fallbackHost)=>{
+            if (void 0 === registry) return (0, _agent_bundle_runtime__rspack_import_9.hU)('not-provided');
+            return registry.resolveToolCall({
+                ...void 0 === rawArguments ? {} : {
+                    arguments: rawArguments.value
+                },
+                host: (0, _agent_bundle_runtime__rspack_import_10.bg)(clientName) ?? fallbackHost,
+                meta: context.mcpReq._meta,
+                toolName
+            });
+        };
+        const requestIdentity = (context, clientName, lineage, plugin)=>({
+                lineage,
+                ...void 0 === plugin ? {} : {
+                    plugin
+                },
+                ...context.http?.authInfo?.clientId === void 0 ? {} : {
+                    actor: (0, _agent_bundle_runtime__rspack_import_9.qC)({
+                        id: context.http.authInfo.clientId
+                    }, 'native')
+                },
+                ...'string' == typeof clientName && '' !== clientName.trim() ? {
+                    host: (0, _agent_bundle_runtime__rspack_import_9.qC)({
+                        name: clientName
+                    }, 'native')
+                } : {},
+                ...'string' == typeof context.sessionId && '' !== context.sessionId.trim() ? {
+                    session: (0, _agent_bundle_runtime__rspack_import_9.qC)({
+                        sessionId: context.sessionId
+                    }, 'native')
+                } : {},
+                terminal: (0, _agent_bundle_runtime__rspack_import_9.qC)((0, _terminal_capability_js__rspack_import_7.Ue)('mcp'), 'derived'),
+                workspace: (0, _agent_bundle_runtime__rspack_import_9.qC)({
+                    root: process.cwd()
+                }, 'derived')
+            });
+        const projectorOptions = (context)=>{
+            const progressToken = context.mcpReq._meta?.progressToken;
+            const notify = context.mcpReq.notify;
+            return {
+                signal: context.mcpReq.signal,
+                ...void 0 === progressToken || void 0 === notify ? {} : {
+                    progressToken,
+                    sendProgress: async (params)=>notify({
+                            method: 'notifications/progress',
+                            params
+                        })
+                }
+            };
+        };
+        const renderGeneratedRoute = async (dispatcher, artifactEpoch, route, input, context, identity1)=>(0, _agent_bundle_runtime__rspack_import_9.iC)({
+                ...requestIdentity(context, identity1?.clientName, identity1?.lineage ?? (0, _agent_bundle_runtime__rspack_import_9.hU)('not-provided'), identity1?.plugin),
+                invocation: {
+                    artifactEpoch,
+                    kind: 'tool',
+                    operationId: route.id,
+                    surface: route.name
+                },
+                signal: context.mcpReq.signal
+            }, async ()=>{
+                const render = routeRenderLimits(route.config);
+                const projected = await (0, _agent_bundle_runtime__rspack_import_11.ej)(dispatcher.stream({
+                    artifactEpoch,
+                    invocation: {
+                        kind: 'tool',
+                        props: {
+                            input: input,
+                            operationId: route.id
+                        }
+                    },
+                    ...void 0 === render ? {} : {
+                        limits: render
+                    },
+                    signal: context.mcpReq.signal
+                }), projectorOptions(context));
+                return {
+                    document: projected.document,
+                    result: route.module.resultSchema.parse(projected.document.value),
+                    toolResult: projected.result
+                };
+            });
+        const selectedConfig = (config, keys)=>Object.fromEntries(keys.filter((key)=>void 0 !== config[key]).map((key)=>[
+                    key,
+                    config[key]
+                ]));
+        const JSON_SCHEMA_TARGET = 'draft-2020-12';
+        const objectRootedJsonSchema = (schema)=>{
+            if (!(0, _991_1_js__rspack_import_4.u4)(schema)) return false;
+            if (void 0 !== schema['type']) return 'object' === schema['type'];
+            if ([
+                'properties',
+                'patternProperties',
+                'additionalProperties',
+                'required'
+            ].some((key)=>key in schema)) return true;
+            return [
+                'oneOf',
+                'anyOf',
+                'allOf'
+            ].some((key)=>{
+                const members = schema[key];
+                return Array.isArray(members) && members.length > 0 && members.every(objectRootedJsonSchema);
+            });
+        };
+        const advertisedOutputSchema = (schema)=>{
+            const toJsonSchema = schema?.['~standard']?.jsonSchema?.output;
+            if ('function' != typeof toJsonSchema) return schema;
+            let jsonSchema;
+            try {
+                jsonSchema = toJsonSchema({
+                    target: JSON_SCHEMA_TARGET
+                });
+            } catch  {
+                return;
+            }
+            return objectRootedJsonSchema(jsonSchema) ? schema : void 0;
+        };
+        const mcp_server_runtime_settled = async (operation, afterRender)=>{
+            try {
+                return await operation();
+            } finally{
+                await afterRender?.();
+            }
+        };
+        const registerGeneratedRoutes = (server, routes, dispatcher, artifactEpoch, options = {})=>{
+            const clientTools = [];
+            for (const route of Object.values(routes))switch(route.kind){
+                case 'tool':
+                    {
+                        const excluded = route.config['excludeClients'];
+                        if (void 0 !== excluded && (!Array.isArray(excluded) || excluded.some((prefix)=>'string' != typeof prefix || '' === prefix.trim() || prefix.length > 128))) throw new TypeError(`Tool ${JSON.stringify(route.name)} excludeClients must contain non-empty client-name prefixes up to 128 characters.`);
+                        const outputSchema = advertisedOutputSchema(route.module.resultSchema);
+                        const registered = server.registerTool(route.name, {
+                            ...selectedConfig(route.config, [
+                                '_meta',
+                                'annotations',
+                                "description",
+                                'icons',
+                                'title'
+                            ]),
+                            inputSchema: interoperableStandardSchema(route.module.inputSchema),
+                            ...void 0 === outputSchema ? {} : {
+                                outputSchema: interoperableStandardSchema(outputSchema)
+                            }
+                        }, async (input, context)=>mcp_server_runtime_settled(async ()=>{
+                                const clientName = server.server.getClientVersion()?.name;
+                                const rawArguments = options.rawArguments?.take(context.mcpReq.id);
+                                const rendered = await renderGeneratedRoute(dispatcher, artifactEpoch, route, input, context, {
+                                    clientName,
+                                    lineage: await toolCallLineage(options.lineage, context, route.name, rawArguments, clientName, options.lineageHost),
+                                    ...void 0 === options.pluginRoot ? {} : {
+                                        plugin: options.pluginRoot
+                                    }
+                                });
+                                return (0, _agent_bundle_runtime__rspack_import_11.IB)(rendered.toolResult, rendered.result);
+                            }, options.afterRender));
+                        options.tasks?.declareTool(registered, route.name, routeTaskSupport(route.config));
+                        if (Array.isArray(excluded) && excluded.length > 0) clientTools.push({
+                            prefixes: excluded.map((prefix)=>String(prefix).toLowerCase()),
+                            disable: ()=>registered.disable()
+                        });
+                        break;
+                    }
+                case 'resource':
+                    {
+                        const uri = route.config['uri'];
+                        if ('string' != typeof uri || '' === uri.trim()) throw new Error(`Generated resource route ${JSON.stringify(route.id)} requires a non-empty static config.uri.`);
+                        server.registerResource(route.name, uri, selectedConfig(route.config, [
+                            '_meta',
+                            "description",
+                            'icons',
+                            'mimeType',
+                            'title'
+                        ]), async (resourceUri, context)=>mcp_server_runtime_settled(async ()=>{
+                                const clientName = server.server.getClientVersion()?.name;
+                                return (await renderGeneratedRoute(dispatcher, artifactEpoch, route, {
+                                    uri: resourceUri.href
+                                }, context, {
+                                    clientName,
+                                    ...void 0 === options.pluginRoot ? {} : {
+                                        plugin: options.pluginRoot
+                                    }
+                                })).result;
+                            }, options.afterRender));
+                        break;
+                    }
+                case 'prompt':
+                    server.registerPrompt(route.name, {
+                        ...selectedConfig(route.config, [
+                            '_meta',
+                            "description",
+                            'icons',
+                            'title'
+                        ]),
+                        argsSchema: route.module.inputSchema
+                    }, async (input, context)=>mcp_server_runtime_settled(async ()=>{
+                            const clientName = server.server.getClientVersion()?.name;
+                            return (await renderGeneratedRoute(dispatcher, artifactEpoch, route, input, context, {
+                                clientName,
+                                ...void 0 === options.pluginRoot ? {} : {
+                                    plugin: options.pluginRoot
+                                }
+                            })).result;
+                        }, options.afterRender));
+                    break;
+                default:
+                    {
+                        const unreachable = route.kind;
+                        throw new TypeError(`Unsupported generated MCP route kind ${String(unreachable)}.`);
+                    }
+            }
+            if (clientTools.length > 0) {
+                const initialized = server.server.oninitialized;
+                server.server.oninitialized = ()=>{
+                    const name = server.server.getClientVersion()?.name.toLowerCase();
+                    if (void 0 !== name) {
+                        for (const tool of clientTools)if (tool.prefixes.some((prefix)=>name.startsWith(prefix))) tool.disable();
+                    }
+                    initialized?.();
+                };
+            }
+        };
+        const registerGeneratedMcpApps = (server, apps)=>{
+            for (const app of apps)server.registerResource(app.name, app.resourceUri, {
+                ...void 0 === app._meta ? {} : {
+                    _meta: app._meta
+                },
+                mimeType: app.mimeType
+            }, async (uri)=>({
+                    contents: [
+                        {
+                            mimeType: app.mimeType,
+                            text: app.html,
+                            uri: uri.href
+                        }
+                    ]
+                }));
+        };
+        const createFlightWorkerHost = (workerUrl, artifactEpoch)=>{
+            const worker = new node_worker_threads__rspack_import_0.Worker(workerUrl, {
+                stderr: true,
+                stdout: true
+            });
+            worker.stdout.on('data', (chunk)=>process.stderr.write(chunk));
+            worker.stderr.on('data', (chunk)=>process.stderr.write(chunk));
+            const pending = new Map();
+            let sequence = 0;
+            let exited = false;
+            const failPending = (error)=>{
+                for (const request of pending.values())request.controller.error(error);
+                pending.clear();
+            };
+            const workerError = (message)=>{
+                switch(message.code){
+                    case 'artifact-epoch-mismatch':
+                        return new _agent_bundle_runtime__rspack_import_11.MB('artifact-epoch-mismatch', message.message ?? 'Artifact epoch mismatch', {
+                            expectedEpoch: artifactEpoch,
+                            ...void 0 === message.receivedEpoch ? {} : {
+                                receivedEpoch: message.receivedEpoch
+                            }
+                        });
+                    case 'runtime-unavailable':
+                    case 'runtime-restarted':
+                        return new _agent_bundle_runtime__rspack_import_11.MB(message.code, message.message ?? 'The MCP render runtime is unavailable');
+                    default:
+                        return new Error(message.message);
+                }
+            };
+            worker.on('error', (error)=>{
+                exited = true;
+                failPending(error);
+            });
+            worker.on('exit', (code)=>{
+                exited = true;
+                warmHost.markUnavailable(0 === code ? 'runtime-unavailable' : 'runtime-restarted');
+                failPending(new _agent_bundle_runtime__rspack_import_11.MB(0 === code ? 'runtime-unavailable' : 'runtime-restarted', 0 === code ? 'The MCP render runtime is unavailable' : `The MCP render runtime restarted; worker exited with code ${String(code)}.`));
+            });
+            const settle = (id, request, error)=>{
+                pending.delete(id);
+                request.signal.removeEventListener('abort', request.abort);
+                if (void 0 === error) request.controller.close();
+                else request.controller.error(error);
+            };
+            worker.on('message', (message)=>{
+                const request = pending.get(message.id);
+                if (void 0 === request) return;
+                if ('progress' === message.type) return void Promise.resolve(request.progress?.report(message.update)).catch((error)=>{
+                    if (pending.get(message.id) !== request) return;
+                    worker.postMessage({
+                        id: message.id,
+                        type: 'cancel'
+                    });
+                    settle(message.id, request, error instanceof Error ? error : new Error(String(error)));
+                });
+                if ('chunk' === message.type) return void request.controller.enqueue(message.bytes);
+                settle(message.id, request, 'error' === message.type ? workerError(message) : void 0);
+            });
+            const warmHost = (0, _agent_bundle_runtime__rspack_import_11.w3)({
+                artifactEpoch,
+                close: async ()=>{
+                    await worker.terminate();
+                },
+                host: {
+                    execute: async ({ artifactEpoch: requestEpoch, invocation, progress, signal })=>{
+                        if (exited) throw new _agent_bundle_runtime__rspack_import_11.MB('runtime-unavailable', 'The MCP render runtime is unavailable');
+                        const context = await (0, _agent_bundle_runtime__rspack_import_9.MA)();
+                        const id = ++sequence;
+                        let controller;
+                        const cancelRender = ()=>{
+                            worker.postMessage({
+                                id,
+                                type: 'cancel'
+                            });
+                            pending.delete(id);
+                        };
+                        const abort = ()=>{
+                            cancelRender();
+                            controller.error(new DOMException('Agent render was aborted', 'AbortError'));
+                        };
+                        const stream = new ReadableStream({
+                            cancel: ()=>{
+                                cancelRender();
+                                signal.removeEventListener('abort', abort);
+                            },
+                            start: (opened)=>{
+                                controller = opened;
+                            }
+                        });
+                        if (signal.aborted) {
+                            controller.error(new DOMException('Agent render was aborted', 'AbortError'));
+                            return stream;
+                        }
+                        pending.set(id, {
+                            abort,
+                            controller,
+                            ...void 0 === progress ? {} : {
+                                progress
+                            },
+                            signal
+                        });
+                        signal.addEventListener('abort', abort, {
+                            once: true
+                        });
+                        worker.postMessage({
+                            actor: context.actor,
+                            artifactEpoch: requestEpoch ?? artifactEpoch,
+                            host: context.host,
+                            id,
+                            invocation,
+                            lineage: context.lineage,
+                            plugin: context.plugin,
+                            requestInvocation: context.invocation,
+                            session: context.session,
+                            terminal: context.terminal,
+                            type: 'render',
+                            workspace: context.workspace
+                        });
+                        return stream;
+                    }
+                }
+            });
+            return warmHost;
+        };
+        const noticeDiagnostic = (line)=>{
+            process.stderr.write(`[agent-bundle] notice inbox ${line}\n`);
+        };
+        const eventRuntimeDiagnostic = (line)=>{
+            process.stderr.write(`agent-bundle event runtime: ${line}\n`);
+        };
+        const STANDBY_ERROR_REPEAT_INTERVAL_MS = 30000;
+        const createStandbyErrorReporter = (report, now = Date.now)=>{
+            const lastReportedAt = new Map();
+            return (error)=>{
+                const at = now();
+                const previous = lastReportedAt.get(error.message);
+                if (void 0 !== previous && at - previous < STANDBY_ERROR_REPEAT_INTERVAL_MS) return;
+                lastReportedAt.set(error.message, at);
+                report(`takeover failed, still standing by: ${error.message}`);
+            };
+        };
+        const installNoticeInboxSubscriptions = (server, notices)=>{
+            const protocol = server.server;
+            protocol.assertCanSetRequestHandler('resources/subscribe');
+            protocol.assertCanSetRequestHandler('resources/unsubscribe');
+            protocol.registerCapabilities({
+                resources: {
+                    subscribe: true
+                }
+            });
+            const assertInboxUri = (uri)=>{
+                if (uri === notices.inboxUri) return;
+                throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InvalidParams, `Resource ${String(uri)} does not support subscriptions; only ${notices.inboxUri} emits notifications/resources/updated.`, {
+                    uri
+                });
+            };
+            protocol.setRequestHandler('resources/subscribe', async (request, context)=>{
+                assertInboxUri(request.params.uri);
+                const identity1 = requestIdentity(context, protocol.getClientVersion()?.name, (0, _agent_bundle_runtime__rspack_import_9.hU)('not-provided'), void 0);
+                try {
+                    await notices.subscribe({
+                        actor: identity1.actor ?? (0, _agent_bundle_runtime__rspack_import_9.hU)(),
+                        host: identity1.host ?? (0, _agent_bundle_runtime__rspack_import_9.hU)(),
+                        lineage: identity1.lineage,
+                        session: identity1.session ?? (0, _agent_bundle_runtime__rspack_import_9.hU)(),
+                        workspace: identity1.workspace
+                    });
+                } catch (error) {
+                    throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InternalError, `Notice inbox subscriptions are unavailable: ${(0, _790_1_js__rspack_import_5.gJ)(error)}`);
+                }
+                return {};
+            });
+            protocol.setRequestHandler('resources/unsubscribe', async (request)=>{
+                assertInboxUri(request.params.uri);
+                await notices.unsubscribe();
+                return {};
+            });
+            const send = async ()=>{
+                await protocol.sendResourceUpdated({
+                    uri: notices.inboxUri
+                });
+            };
+            const report = (outcome)=>{
+                switch(outcome.kind){
+                    case 'idle':
+                    case 'signalled':
+                        return;
+                    case 'failed':
+                        noticeDiagnostic(`resources/updated ${outcome.stage} failed: ${(0, _790_1_js__rspack_import_5.gJ)(outcome.error)}`);
+                        return;
+                    default:
+                        {
+                            const unreachable = outcome;
+                            throw new TypeError(`Unhandled notice inbox signal outcome ${String(unreachable)}.`);
+                        }
+                }
+            };
+            let observing;
+            let owed = false;
+            const observe = ()=>{
+                observing = notices.observe(send).then(report, (error)=>{
+                    noticeDiagnostic(`resources/updated observation failed: ${(0, _790_1_js__rspack_import_5.gJ)(error)}`);
+                }).then(()=>{
+                    observing = void 0;
+                    if (!owed) return;
+                    owed = false;
+                    observe();
+                });
+            };
+            return ()=>{
+                if (void 0 === observing) observe();
+                else owed = true;
+                return Promise.resolve();
+            };
+        };
+        const lineageHostFor = (target)=>'claude' === target || 'codex' === target || 'cursor' === target ? target : void 0;
+        const eventLineage = async (registry, target, event, native, idempotencyKey, observedAt)=>{
+            const host = lineageHostFor(target);
+            if (void 0 === host) return (0, _agent_bundle_runtime__rspack_import_9.hU)('no-subagent-events');
+            if ('cursor' === host && true === native['is_background_agent']) return (0, _agent_bundle_runtime__rspack_import_9.hU)('cloud-agent-no-user-hooks');
+            if (void 0 === registry) return (0, _agent_bundle_runtime__rspack_import_9.hU)('not-provided');
+            return registry.observe({
+                event,
+                host,
+                idempotencyKey,
+                native,
+                observedAt
+            });
+        };
+        const nativeString = (native, key)=>'string' == typeof native[key] ? native[key] : void 0;
+        const canonicalEvent = (event)=>{
+            const canonical = _917_1_js__rspack_import_8.jy.find((candidate)=>candidate === event);
+            if (void 0 === canonical) throw new TypeError(`Event runtime received the unknown canonical event ${JSON.stringify(event)}.`);
+            return canonical;
+        };
+        const startEventRuntime = async (events, dispatcher, host, afterRender, registry, pluginRoot)=>{
+            const startedAt = new Date().toISOString();
+            let endpointLabel = events.endpointId;
+            const server = await events.createEventRuntimeServer({
+                artifactEpoch: events.artifactEpoch,
+                endpointId: events.endpointId,
+                handle: async (request, signal)=>mcp_server_runtime_settled(async ()=>{
+                        const event = canonicalEvent(request.event);
+                        const target = events.allowedTargets.find((candidate)=>candidate === request.target);
+                        if (void 0 === target) throw new TypeError(`Event runtime target ${JSON.stringify(request.target)} is not allowed by this artifact (${events.allowedTargets.map((candidate)=>JSON.stringify(candidate)).join(', ')}).`);
+                        const nativeEvent = nativeString(request.native, 'hook_event_name') ?? event;
+                        const props = events.createCanonicalEventProps(event, request.native, target, nativeEvent, request.hostContractRevision, signal, void 0 === request.observedAt || void 0 === request.sequence ? void 0 : {
+                            observedAt: request.observedAt,
+                            sequence: request.sequence
+                        });
+                        const sessionId = nativeString(request.native, 'session_id') ?? nativeString(request.native, 'conversation_id');
+                        const workspaceRoots = request.native['workspace_roots'];
+                        const workspaceRoot = nativeString(request.native, 'cwd') ?? (Array.isArray(workspaceRoots) && 'string' == typeof workspaceRoots[0] ? workspaceRoots[0] : void 0);
+                        const lineage = await eventLineage(registry, target, event, request.native, props.canonical.idempotencyKey, props.canonical.observedAt);
+                        return (0, _agent_bundle_runtime__rspack_import_9.iC)({
+                            host: (0, _agent_bundle_runtime__rspack_import_9.qC)({
+                                name: target
+                            }, 'native'),
+                            invocation: {
+                                artifactEpoch: events.artifactEpoch,
+                                hostContractRevision: request.hostContractRevision,
+                                kind: 'event',
+                                operationId: `event:${event}`,
+                                surface: event
+                            },
+                            lineage,
+                            ...void 0 === pluginRoot ? {} : {
+                                plugin: pluginRoot
+                            },
+                            ...void 0 === sessionId ? {} : {
+                                session: (0, _agent_bundle_runtime__rspack_import_9.qC)({
+                                    sessionId
+                                }, 'native')
+                            },
+                            signal,
+                            terminal: (0, _agent_bundle_runtime__rspack_import_9.qC)((0, _terminal_capability_js__rspack_import_7.Ue)('hook'), 'derived'),
+                            ...void 0 === workspaceRoot ? {} : {
+                                workspace: (0, _agent_bundle_runtime__rspack_import_9.qC)({
+                                    root: workspaceRoot
+                                }, 'native')
+                            }
+                        }, async ()=>events.projectEventDocument(await dispatcher.dispatch({
+                                invocation: {
+                                    kind: 'event',
+                                    props: {
+                                        event,
+                                        payload: {
+                                            canonical: props.canonical,
+                                            native: props.native,
+                                            ...void 0 === request.renderInput ? {} : {
+                                                renderInput: request.renderInput
+                                            }
+                                        }
+                                    }
+                                },
+                                signal
+                            }), event, target, nativeEvent, props.native));
+                    }, afterRender),
+                status: ()=>({
+                        artifactEpoch: host.identity.artifactEpoch,
+                        availability: host.availability(),
+                        instanceId: host.identity.instanceId,
+                        pid: process.pid,
+                        startedAt
+                    }),
+                onStandbyError: createStandbyErrorReporter((line)=>{
+                    eventRuntimeDiagnostic(`${endpointLabel} ${line}`);
+                }),
+                whenOwned: 'standby'
+            });
+            endpointLabel = server.endpoint;
+            if ('standby' === server.role()) {
+                eventRuntimeDiagnostic(`${server.endpoint} is owned by another process; standing by`);
+                server.onRoleChange((role)=>{
+                    if ('owner' === role) eventRuntimeDiagnostic(`${server.endpoint} was released by its owner; took it over`);
+                });
+            }
+            return server;
+        };
+        const createGeneratedRouteMcpServer = async (options)=>{
+            const tasks = createTaskAugmentedMcpServer(options.plugin);
+            const server = tasks.server;
+            const dispatcher = (0, _agent_bundle_runtime__rspack_import_11.jK)(options.host, void 0 === options.limits ? {} : {
+                limits: options.limits
+            });
+            const afterRender = void 0 === options.notices ? void 0 : installNoticeInboxSubscriptions(server, options.notices);
+            const events = void 0 === options.events ? void 0 : await startEventRuntime(options.events, dispatcher, options.host, afterRender, options.lineage, options.pluginRoot);
+            const [onlyHost, ...otherHosts] = options.events?.hosts ?? [];
+            const lineageHost = void 0 !== onlyHost && 0 === otherHosts.length ? lineageHostFor(onlyHost) : void 0;
+            registerGeneratedRoutes(server, options.routes, dispatcher, options.artifactEpoch, {
+                ...void 0 === afterRender ? {} : {
+                    afterRender
+                },
+                ...void 0 === options.pluginRoot ? {} : {
+                    pluginRoot: options.pluginRoot
+                },
+                ...void 0 === options.lineage ? {} : {
+                    lineage: options.lineage,
+                    rawArguments: captureRawToolArguments(server)
+                },
+                ...void 0 === lineageHost ? {} : {
+                    lineageHost
+                },
+                tasks
+            });
+            registerGeneratedMcpApps(server, options.apps ?? []);
+            tasks.install();
+            const close = server.close.bind(server);
+            server.close = async ()=>{
+                tasks.tasks.abortTasks('The MCP server closed before the task settled.');
+                try {
+                    try {
+                        await events?.close();
+                    } finally{
+                        try {
+                            await options.notices?.close();
+                        } finally{
+                            try {
+                                await options.host.close();
+                            } finally{
+                                await options.disposeLineage?.();
+                            }
+                        }
+                    }
+                } finally{
+                    await close();
+                }
+            };
+            return server;
+        };
+        __webpack_require__.d(__webpack_exports__, {}, {
+            EY: createGeneratedRouteMcpServer,
+            HG: createFlightWorkerHost
+        });
+    },
+    "./node_modules/agent-bundle/dist/routes.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _917_1_js__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/dist/917~1.js");
+        var _573_1_js__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/573~1.js");
+        const defineTool = (config, handler)=>Object.assign(async (props)=>{
+                const { agent } = await Promise.resolve().then(__webpack_require__.bind(__webpack_require__, "./node_modules/@agent-bundle/runtime/dist/request.js"));
+                return handler(props.input, await agent());
+            }, config);
+        const definitions = {};
+        for (const event of _917_1_js__rspack_import_0.jy){
+            const [family, name] = event.split('/');
+            const key = family.replace(/-([a-z])/gu, (_match, letter)=>letter.toUpperCase());
+            const define = (config, handler)=>Object.assign(handler, {
+                    config,
+                    event
+                });
+            if (void 0 === name) definitions[key] = Object.assign(define, definitions[key]);
+            else {
+                const group = definitions[key] ?? {};
+                Object.assign(group, {
+                    [name]: define
+                });
+                definitions[key] = group;
+            }
+        }
+        const events = null && definitions;
+        __webpack_require__.d(__webpack_exports__, {}, {
+            uO: defineTool
+        });
+    },
+    "./node_modules/agent-bundle/dist/terminal-capability.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var node_fs__rspack_import_0 = __webpack_require__("node:fs");
+        const isSet = (value)=>void 0 !== value && '' !== value;
+        const isOn = (value)=>'0' !== value && 'false' !== value.toLowerCase();
+        const terminalDepth = (env)=>{
+            const colorterm = env.COLORTERM?.toLowerCase();
+            if ('truecolor' === colorterm || '24bit' === colorterm) return 'truecolor';
+            if (/-256(?:color)?$/u.test(env.TERM ?? '')) return '256';
+            return 'basic';
+        };
+        const terminalColor = (env, isTty)=>{
+            const forceColor = env.FORCE_COLOR;
+            if (void 0 !== forceColor) switch(forceColor){
+                case '':
+                case '1':
+                case 'true':
+                    return 'basic';
+                case '2':
+                    return '256';
+                case '3':
+                    return 'truecolor';
+                default:
+                    return 'none';
+            }
+            const clicolorForce = env.CLICOLOR_FORCE;
+            if (isSet(clicolorForce) && isOn(clicolorForce)) return terminalDepth(env);
+            if (isSet(env.NO_COLOR)) return 'none';
+            if ('0' === env.CLICOLOR) return 'none';
+            if ('dumb' === env.TERM) return 'none';
+            return isTty ? terminalDepth(env) : 'none';
+        };
+        const dimensionOverride = (value)=>{
+            if (!isSet(value) || !/^\d+$/u.test(value)) return;
+            const parsed = Number(value);
+            return parsed > 0 ? parsed : void 0;
+        };
+        const dimension = (override, reported, isTty)=>{
+            const overridden = dimensionOverride(override);
+            if (void 0 !== overridden) return overridden;
+            return isTty && 'number' == typeof reported && reported > 0 ? reported : void 0;
+        };
+        const streamKind = (probe)=>{
+            if (true === probe.isTTY) return 'tty';
+            try {
+                fstatSync(probe.fd);
+                return 'pipe';
+            } catch  {
+                return 'none';
+            }
+        };
+        const probeStream = (probe, env)=>{
+            const kind = streamKind(probe);
+            const isTty = 'tty' === kind;
+            const columns = dimension(env.COLUMNS, probe.columns, isTty);
+            const rows = dimension(env.LINES, probe.rows, isTty);
+            return Object.freeze({
+                color: 'none' === kind ? 'none' : terminalColor(env, isTty),
+                kind,
+                ...void 0 === columns ? {} : {
+                    columns
+                },
+                ...void 0 === rows ? {} : {
+                    rows
+                }
+            });
+        };
+        const sharesOutputTarget = (stdoutFd, stderrFd)=>{
+            try {
+                const out = fstatSync(stdoutFd);
+                const err = fstatSync(stderrFd);
+                return 0 !== out.ino && out.dev === err.dev && out.ino === err.ino;
+            } catch  {
+                return false;
+            }
+        };
+        const processProbe = (stream, fd)=>({
+                columns: stream.columns,
+                fd,
+                isTTY: stream.isTTY,
+                rows: stream.rows
+            });
+        const detectProcessTerminal = (hostSurface, options = {})=>{
+            const env = options.env ?? process.env;
+            const stdout = options.stdout ?? processProbe(process.stdout, 1);
+            const stderr = options.stderr ?? processProbe(process.stderr, 2);
+            return Object.freeze({
+                hostSurface,
+                sharesTarget: sharesOutputTarget(stdout.fd, stderr.fd),
+                stderr: probeStream(stderr, env),
+                stdout: probeStream(stdout, env)
+            });
+        };
+        const closedStream = Object.freeze({
+            color: 'none',
+            kind: 'none'
+        });
+        const noTerminal = (hostSurface)=>Object.freeze({
+                hostSurface,
+                sharesTarget: false,
+                stderr: closedStream,
+                stdout: closedStream
+            });
+        __webpack_require__.d(__webpack_exports__, {}, {
+            Ue: noTerminal
+        });
+    },
+    "./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/ajvProvider-CEoC__sr.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _chunk_Br0eD_fh_mjs__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/chunk-Br0eD_fh.mjs");
+        var _dialects_DoSzNhcb_mjs__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/dialects-DoSzNhcb.mjs");
         var require_code$1 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
@@ -20839,7 +23238,7 @@ var __webpack_modules__ = {
             n: ()=>AjvJsonSchemaValidator
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/chunk-Br0eD_fh.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+    "./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/chunk-Br0eD_fh.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         var __create = Object.create;
         var __defProp = Object.defineProperty;
         var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -20888,7 +23287,7 @@ var __webpack_modules__ = {
             t: ()=>__commonJSMin
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/dialects-DoSzNhcb.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+    "./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/dialects-DoSzNhcb.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         const DRAFT_2020_12_URIS = new Set([
             "https://json-schema.org/draft/2020-12/schema",
             "http://json-schema.org/draft/2020-12/schema"
@@ -20921,10 +23320,10 @@ var __webpack_modules__ = {
             t: ()=>declaredDialect
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/index.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _mcp_DXXb3Vv3_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/mcp-DXXb3Vv3.mjs");
-        var _src_CX2iR2pK_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs");
-        var _modelcontextprotocol_server_shims__rspack_import_2 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
+    "./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/index.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _mcp_DXXb3Vv3_mjs__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/mcp-DXXb3Vv3.mjs");
+        var _src_CX2iR2pK_mjs__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs");
+        var _modelcontextprotocol_server_shims__rspack_import_2 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
         var PerRequestHTTPServerTransport = class {
             onclose;
             onerror;
@@ -22401,9 +24800,9 @@ var __webpack_modules__ = {
             vo: ()=>_src_CX2iR2pK_mjs__rspack_import_1.X
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/mcp-DXXb3Vv3.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _src_CX2iR2pK_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs");
-        var _modelcontextprotocol_server_shims__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
+    "./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/mcp-DXXb3Vv3.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _src_CX2iR2pK_mjs__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs");
+        var _modelcontextprotocol_server_shims__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
         const COMPLETABLE_SYMBOL = Symbol.for("mcp.completable");
         function completable(schema, complete) {
             Object.defineProperty(schema, COMPLETABLE_SYMBOL, {
@@ -23944,17 +26343,17 @@ var __webpack_modules__ = {
             t: ()=>McpServer1
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _ajvProvider_CEoC_sr_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/ajvProvider-CEoC__sr.mjs");
+    "./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _ajvProvider_CEoC_sr_mjs__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/ajvProvider-CEoC__sr.mjs");
         var node_process__rspack_import_1 = __webpack_require__("node:process");
         __webpack_require__.d(__webpack_exports__, {
             e: ()=>node_process__rspack_import_1["default"],
             f: ()=>_ajvProvider_CEoC_sr_mjs__rspack_import_0.n
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _chunk_Br0eD_fh_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/chunk-Br0eD_fh.mjs");
-        var _dialects_DoSzNhcb_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/dialects-DoSzNhcb.mjs");
+    "./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _chunk_Br0eD_fh_mjs__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/chunk-Br0eD_fh.mjs");
+        var _dialects_DoSzNhcb_mjs__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/dialects-DoSzNhcb.mjs");
         var _modelcontextprotocol_core_internal__rspack_import_2 = __webpack_require__("./node_modules/@modelcontextprotocol/core/dist/internal.mjs");
         var zod_v4__rspack_import_3 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
         var zod_v4__rspack_import_4 = __webpack_require__("./node_modules/zod/v4/classic/iso.js");
@@ -29633,10 +32032,10 @@ var __webpack_modules__ = {
             q: isInputRequiredResult
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/stdio.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _mcp_DXXb3Vv3_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/mcp-DXXb3Vv3.mjs");
-        var _src_CX2iR2pK_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs");
-        var _modelcontextprotocol_server_shims__rspack_import_2 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
+    "./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/stdio.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _mcp_DXXb3Vv3_mjs__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/mcp-DXXb3Vv3.mjs");
+        var _src_CX2iR2pK_mjs__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs");
+        var _modelcontextprotocol_server_shims__rspack_import_2 = __webpack_require__("./node_modules/agent-bundle/node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
         var StdioServerTransport = class {
             _readBuffer;
             _started = false;
@@ -30137,2405 +32536,6 @@ var __webpack_modules__ = {
         }
         __webpack_require__.d(__webpack_exports__, {
             StdioServerTransport: ()=>StdioServerTransport
-        });
-    },
-    "./node_modules/agent-bundle/dist/573~1.js" (__unused_rspack___webpack_module__, __unused_rspack___webpack_exports__, __webpack_require__) {
-        var _917_1_js__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/dist/917~1.js");
-        const appResourceUri = (reference)=>reference;
-        const MAX_ROUTE_RENDER_ELAPSED_MS = 86400000;
-    },
-    "./node_modules/agent-bundle/dist/667~1.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var node_crypto__rspack_import_0 = __webpack_require__("node:crypto");
-        var node_fs_promises__rspack_import_1 = __webpack_require__("node:fs/promises");
-        var _991_1_js__rspack_import_2 = __webpack_require__("./node_modules/agent-bundle/dist/991~1.js");
-        const sha256Hex = (bytes)=>createHash('sha256').update(bytes).digest('hex');
-        const serializeJson = (value, key = '')=>{
-            if (null !== value && 'object' == typeof value) {
-                const toJson1 = value.toJSON;
-                if ('function' == typeof toJson1) return serializeJson(toJson1.call(value, key), key);
-                if (value instanceof Boolean || value instanceof Number || value instanceof String) return JSON.stringify(value);
-                if (Array.isArray(value)) {
-                    const items = Array.from({
-                        length: value.length
-                    }, (_, index)=>serializeJson(value[index], String(index)) ?? 'null');
-                    return `[${items.join(',')}]`;
-                }
-                const object = value;
-                const keys = Object.keys(object);
-                const orderedKeys = (0, _991_1_js__rspack_import_2.UQ)(object) ? keys.sort() : keys;
-                const entries = orderedKeys.flatMap((objectKey)=>{
-                    const serialized = serializeJson(object[objectKey], objectKey);
-                    return void 0 === serialized ? [] : [
-                        `${JSON.stringify(objectKey)}:${serialized}`
-                    ];
-                });
-                return `{${entries.join(',')}}`;
-            }
-            const serialized = JSON.stringify(value);
-            return 'string' == typeof serialized ? serialized : void 0;
-        };
-        const stableJson = (value)=>{
-            const serialized = serializeJson(value);
-            if (void 0 === serialized) throw new TypeError('Cannot serialize a top-level non-JSON value.');
-            return serialized;
-        };
-        const digest = (value)=>createHash('sha256').update(stableJson(value)).digest('hex');
-        __webpack_require__.d(__webpack_exports__, {}, {
-            _Y: stableJson
-        });
-    },
-    "./node_modules/agent-bundle/dist/790~1.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        const isErrno = (error, code)=>'object' == typeof error && null !== error && 'code' in error && error.code === code;
-        const errorMessage = (error)=>error instanceof Error ? error.message : String(error);
-        class CodedError extends Error {
-            code;
-            constructor(name, code, message, options){
-                super(message, options);
-                this.name = name;
-                this.code = code;
-            }
-        }
-        __webpack_require__.d(__webpack_exports__, {}, {
-            gJ: errorMessage
-        });
-    },
-    "./node_modules/agent-bundle/dist/818~1.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        const isPlainObjectOrArray = (value)=>{
-            if (Array.isArray(value)) return true;
-            const proto = Object.getPrototypeOf(value);
-            return proto === Object.prototype || null === proto;
-        };
-        const deepFreeze = (value, seen = new WeakSet())=>{
-            if ('object' != typeof value || null === value || seen.has(value)) return value;
-            if (!isPlainObjectOrArray(value)) return value;
-            seen.add(value);
-            for (const property of Reflect.ownKeys(value))deepFreeze(Reflect.get(value, property), seen);
-            return Object.freeze(value);
-        };
-        __webpack_require__.d(__webpack_exports__, {}, {
-            o: deepFreeze
-        });
-    },
-    "./node_modules/agent-bundle/dist/917~1.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _818_1_js__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/dist/818~1.js");
-        const canonicalAgentEvents = Object.freeze([
-            'session/start',
-            'tool/before',
-            'tool/after',
-            'stop',
-            'agent/start',
-            'agent/stop',
-            'workspace/open',
-            'session/end',
-            'prompt/submit',
-            'tool/failure',
-            'compact/before',
-            'compact/after',
-            'permission/request',
-            'permission/denied',
-            'stop/failure',
-            'file/change',
-            'config/change',
-            'task/create',
-            'task/complete',
-            'agent/idle',
-            'model-switch/before',
-            'model-switch/after'
-        ]);
-        const eventContracts = null && {
-            'session/start': {
-                deny: false
-            },
-            'tool/before': {
-                deny: true
-            },
-            'tool/after': {
-                deny: false
-            },
-            stop: {
-                deny: true
-            },
-            'agent/start': {
-                deny: true
-            },
-            'agent/stop': {
-                deny: true
-            },
-            'workspace/open': {
-                deny: false
-            },
-            'session/end': {
-                deny: false
-            },
-            'prompt/submit': {
-                deny: true
-            },
-            'tool/failure': {
-                deny: false
-            },
-            'compact/before': {
-                deny: true
-            },
-            'compact/after': {
-                deny: false
-            },
-            'permission/request': {
-                deny: true
-            },
-            'permission/denied': {
-                deny: false
-            },
-            'stop/failure': {
-                deny: false
-            },
-            'file/change': {
-                deny: false
-            },
-            'config/change': {
-                deny: true
-            },
-            'task/create': {
-                deny: true
-            },
-            'task/complete': {
-                deny: false
-            },
-            'agent/idle': {
-                deny: true
-            },
-            'model-switch/before': {
-                deny: true
-            },
-            'model-switch/after': {
-                deny: false
-            }
-        };
-        const agentEventPayloadFieldKinds = (0, _818_1_js__rspack_import_0.o)({
-            agentId: 'string',
-            agentTranscriptPath: 'nullable-string',
-            agentType: 'string',
-            cwd: 'string',
-            error: 'string',
-            filePath: 'string',
-            fromModel: 'string',
-            isInterrupt: 'boolean',
-            lastAssistantMessage: 'nullable-string',
-            model: 'string',
-            permissionMode: 'string',
-            prompt: 'string',
-            reason: 'string',
-            reentry: 'boolean',
-            requestedModel: 'nullable-string',
-            sessionId: 'string',
-            source: 'string',
-            taskDescription: 'string',
-            taskId: 'string',
-            taskSubject: 'string',
-            teamName: 'string',
-            teammateName: 'string',
-            toModel: 'string',
-            toolInput: 'json',
-            toolName: 'string',
-            toolResponse: 'json',
-            toolUseId: 'string',
-            transcriptPath: 'nullable-string',
-            trigger: 'trigger',
-            workspaceRoots: 'string-array'
-        });
-        const sessionFields = [
-            'sessionId',
-            'cwd',
-            "transcriptPath",
-            'permissionMode',
-            'agentId',
-            'agentType'
-        ];
-        const threeHostFields = [
-            ...sessionFields,
-            'model'
-        ];
-        const toolFields = [
-            ...threeHostFields,
-            'toolName',
-            'toolInput',
-            'toolUseId'
-        ];
-        const taskFields = [
-            ...sessionFields,
-            'taskId',
-            'taskSubject',
-            "taskDescription",
-            'teammateName',
-            'teamName'
-        ];
-        const modelSwitchFields = [
-            ...sessionFields,
-            'fromModel',
-            'toModel',
-            'requestedModel',
-            'source'
-        ];
-        const agentEventPayloadFields = (0, _818_1_js__rspack_import_0.o)({
-            'agent/idle': [
-                ...sessionFields,
-                'teammateName',
-                'teamName'
-            ],
-            'agent/start': threeHostFields,
-            'agent/stop': [
-                ...threeHostFields,
-                "agentTranscriptPath",
-                'reentry',
-                'lastAssistantMessage'
-            ],
-            'compact/after': [
-                ...sessionFields,
-                'trigger'
-            ],
-            'compact/before': [
-                ...threeHostFields,
-                'trigger'
-            ],
-            'config/change': [
-                ...sessionFields,
-                'source',
-                'filePath'
-            ],
-            'file/change': [
-                ...sessionFields,
-                'filePath'
-            ],
-            'model-switch/after': modelSwitchFields,
-            'model-switch/before': modelSwitchFields,
-            'permission/denied': [
-                ...sessionFields,
-                'toolName',
-                'toolInput'
-            ],
-            'permission/request': [
-                ...sessionFields,
-                'toolName',
-                'toolInput'
-            ],
-            'prompt/submit': [
-                ...threeHostFields,
-                'prompt'
-            ],
-            'session/end': [
-                ...threeHostFields,
-                'reason'
-            ],
-            'session/start': [
-                ...threeHostFields,
-                'source'
-            ],
-            stop: [
-                ...threeHostFields,
-                'reentry',
-                'lastAssistantMessage'
-            ],
-            'stop/failure': [
-                ...sessionFields,
-                'error',
-                'reentry',
-                'lastAssistantMessage'
-            ],
-            'task/complete': taskFields,
-            'task/create': taskFields,
-            'tool/after': [
-                ...toolFields,
-                'toolResponse'
-            ],
-            'tool/before': toolFields,
-            'tool/failure': [
-                'sessionId',
-                'cwd',
-                "transcriptPath",
-                'toolName',
-                'toolInput',
-                'toolUseId',
-                'error',
-                'isInterrupt'
-            ],
-            'workspace/open': [
-                'workspaceRoots'
-            ]
-        });
-        const key = (nativeKey, decode)=>Object.freeze(void 0 === decode ? {
-                nativeKey
-            } : {
-                decode,
-                nativeKey
-            });
-        const standardKeys = Object.freeze({
-            agentId: key('agent_id'),
-            agentTranscriptPath: key("agent_transcript_path"),
-            agentType: key('agent_type'),
-            cwd: key('cwd'),
-            error: key('error'),
-            filePath: key('file_path'),
-            fromModel: key('from_model'),
-            isInterrupt: key('is_interrupt'),
-            lastAssistantMessage: key('last_assistant_message'),
-            model: key('model'),
-            permissionMode: key('permission_mode'),
-            prompt: key('prompt'),
-            reason: key('reason'),
-            reentry: key('stop_hook_active'),
-            requestedModel: key('requested_model'),
-            sessionId: key('session_id'),
-            source: key('source'),
-            taskDescription: key("task_description"),
-            taskId: key('task_id'),
-            taskSubject: key('task_subject'),
-            teamName: key('team_name'),
-            teammateName: key('teammate_name'),
-            toModel: key('to_model'),
-            toolInput: key('tool_input'),
-            toolName: key('tool_name'),
-            toolResponse: key('tool_response'),
-            toolUseId: key('tool_use_id'),
-            transcriptPath: key("transcript_path"),
-            trigger: key('trigger')
-        });
-        const cursorKeys = Object.freeze({
-            ...standardKeys,
-            agentId: key('subagent_id'),
-            agentType: key('subagent_type'),
-            error: key('error_message'),
-            reentry: key('loop_count', 'positive-count'),
-            sessionId: key('conversation_id'),
-            toolResponse: key('tool_output', 'json-string'),
-            workspaceRoots: key('workspace_roots')
-        });
-        const pick = (keys, fields)=>Object.freeze(Object.fromEntries(fields.map((field)=>[
-                    field,
-                    keys[field]
-                ])));
-        const claudeSession = [
-            'sessionId',
-            'cwd',
-            "transcriptPath",
-            'permissionMode',
-            'agentId',
-            'agentType'
-        ];
-        const claudeTool = [
-            ...claudeSession,
-            'toolName',
-            'toolInput',
-            'toolUseId'
-        ];
-        const claudeTask = [
-            ...claudeSession,
-            'taskId',
-            'taskSubject',
-            "taskDescription",
-            'teammateName',
-            'teamName'
-        ];
-        const codexSession = [
-            'sessionId',
-            'cwd',
-            "transcriptPath",
-            'permissionMode',
-            'agentId',
-            'agentType'
-        ];
-        const codexThreeHost = [
-            ...codexSession,
-            'model'
-        ];
-        const codexTool = [
-            ...codexThreeHost,
-            'toolName',
-            'toolInput',
-            'toolUseId'
-        ];
-        const cursorSession = [
-            'sessionId',
-            "transcriptPath",
-            'model'
-        ];
-        const cursorTool = [
-            ...cursorSession,
-            'cwd',
-            'toolName',
-            'toolInput',
-            'toolUseId'
-        ];
-        const agentEventPayloadNativeKeys = (0, _818_1_js__rspack_import_0.o)({
-            amp: Object.freeze({
-                'prompt/submit': pick(standardKeys, [
-                    'sessionId',
-                    'prompt'
-                ]),
-                'session/start': pick(standardKeys, [
-                    'sessionId'
-                ]),
-                stop: pick(standardKeys, [
-                    'sessionId'
-                ]),
-                'tool/after': pick(standardKeys, [
-                    'sessionId',
-                    'toolName',
-                    'toolInput',
-                    'toolUseId',
-                    'toolResponse'
-                ]),
-                'tool/before': pick(standardKeys, [
-                    'sessionId',
-                    'toolName',
-                    'toolInput',
-                    'toolUseId'
-                ])
-            }),
-            claude: Object.freeze({
-                'agent/idle': pick(standardKeys, [
-                    ...claudeSession,
-                    'teammateName',
-                    'teamName'
-                ]),
-                'agent/start': pick(standardKeys, claudeSession),
-                'agent/stop': pick(standardKeys, [
-                    ...claudeSession,
-                    "agentTranscriptPath",
-                    'reentry',
-                    'lastAssistantMessage'
-                ]),
-                'compact/after': pick(standardKeys, [
-                    ...claudeSession,
-                    'trigger'
-                ]),
-                'compact/before': pick(standardKeys, [
-                    ...claudeSession,
-                    'trigger'
-                ]),
-                'config/change': pick(standardKeys, [
-                    ...claudeSession,
-                    'source',
-                    'filePath'
-                ]),
-                'file/change': pick(standardKeys, [
-                    ...claudeSession,
-                    'filePath'
-                ]),
-                'model-switch/after': pick(standardKeys, modelSwitchFields),
-                'model-switch/before': pick(standardKeys, modelSwitchFields),
-                'permission/denied': pick(standardKeys, [
-                    ...claudeSession,
-                    'toolName',
-                    'toolInput'
-                ]),
-                'permission/request': pick(standardKeys, [
-                    ...claudeSession,
-                    'toolName',
-                    'toolInput'
-                ]),
-                'prompt/submit': pick(standardKeys, [
-                    ...claudeSession,
-                    'prompt'
-                ]),
-                'session/end': pick(standardKeys, [
-                    ...claudeSession,
-                    'reason'
-                ]),
-                'session/start': pick(standardKeys, [
-                    ...claudeSession,
-                    'model',
-                    'source'
-                ]),
-                stop: pick(standardKeys, [
-                    ...claudeSession,
-                    'reentry',
-                    'lastAssistantMessage'
-                ]),
-                'stop/failure': pick(standardKeys, [
-                    ...claudeSession,
-                    'error',
-                    'reentry',
-                    'lastAssistantMessage'
-                ]),
-                'task/complete': pick(standardKeys, claudeTask),
-                'task/create': pick(standardKeys, claudeTask),
-                'tool/after': pick(standardKeys, [
-                    ...claudeTool,
-                    'toolResponse'
-                ]),
-                'tool/before': pick(standardKeys, claudeTool),
-                'tool/failure': pick(standardKeys, [
-                    'sessionId',
-                    'cwd',
-                    "transcriptPath",
-                    'toolName',
-                    'toolInput',
-                    'toolUseId',
-                    'error',
-                    'isInterrupt'
-                ])
-            }),
-            codex: Object.freeze({
-                'agent/start': pick(standardKeys, codexThreeHost),
-                'agent/stop': pick(standardKeys, [
-                    ...codexThreeHost,
-                    "agentTranscriptPath",
-                    'reentry',
-                    'lastAssistantMessage'
-                ]),
-                'compact/after': pick(standardKeys, [
-                    ...codexSession,
-                    'trigger'
-                ]),
-                'compact/before': pick(standardKeys, [
-                    ...codexThreeHost,
-                    'trigger'
-                ]),
-                'permission/request': pick(standardKeys, [
-                    ...codexSession,
-                    'toolName',
-                    'toolInput'
-                ]),
-                'prompt/submit': pick(standardKeys, [
-                    ...codexThreeHost,
-                    'prompt'
-                ]),
-                'session/end': pick(standardKeys, [
-                    ...codexThreeHost,
-                    'reason'
-                ]),
-                'session/start': pick(standardKeys, [
-                    ...codexThreeHost,
-                    'source'
-                ]),
-                stop: pick(standardKeys, [
-                    ...codexThreeHost,
-                    'reentry',
-                    'lastAssistantMessage'
-                ]),
-                'tool/after': pick(standardKeys, [
-                    ...codexTool,
-                    'toolResponse'
-                ]),
-                'tool/before': pick(standardKeys, codexTool)
-            }),
-            cursor: Object.freeze({
-                'agent/start': pick(cursorKeys, [
-                    ...cursorSession,
-                    'agentId',
-                    'agentType'
-                ]),
-                'agent/stop': pick(cursorKeys, [
-                    ...cursorSession,
-                    'agentId',
-                    'agentType',
-                    "agentTranscriptPath",
-                    'reentry'
-                ]),
-                'compact/before': pick(cursorKeys, [
-                    ...cursorSession,
-                    'trigger'
-                ]),
-                'prompt/submit': pick(cursorKeys, [
-                    ...cursorSession,
-                    'prompt'
-                ]),
-                'session/end': pick(cursorKeys, [
-                    ...cursorSession,
-                    'reason'
-                ]),
-                'session/start': pick(cursorKeys, cursorSession),
-                stop: pick(cursorKeys, [
-                    ...cursorSession,
-                    'reentry'
-                ]),
-                'tool/after': pick(cursorKeys, [
-                    ...cursorTool,
-                    'toolResponse'
-                ]),
-                'tool/before': pick(cursorKeys, cursorTool),
-                'tool/failure': pick(cursorKeys, [
-                    'sessionId',
-                    "transcriptPath",
-                    'cwd',
-                    'toolName',
-                    'toolInput',
-                    'toolUseId',
-                    'error',
-                    'isInterrupt'
-                ]),
-                'workspace/open': pick(cursorKeys, [
-                    'workspaceRoots'
-                ])
-            })
-        });
-        const isAgentEventPayloadHost = (target)=>'amp' === target || 'claude' === target || 'codex' === target || 'cursor' === target;
-        __webpack_require__.d(__webpack_exports__, {}, {
-            jy: canonicalAgentEvents
-        });
-    },
-    "./node_modules/agent-bundle/dist/991~1.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        const isJsonWhitespace = (code)=>0x09 === code || 0x0a === code || 0x0d === code || 0x20 === code;
-        const isValueTerminator = (code)=>isJsonWhitespace(code) || 0x2c === code || 0x7d === code || 0x5d === code;
-        const skipWhitespace = (bytes, index)=>{
-            let cursor = index;
-            while(cursor < bytes.length && isJsonWhitespace(bytes.charCodeAt(cursor)))cursor += 1;
-            return cursor;
-        };
-        const scanJsonString = (bytes, index)=>{
-            let cursor = index + 1;
-            while(cursor < bytes.length){
-                const character = bytes[cursor];
-                if ('\\' === character) {
-                    cursor += 2;
-                    continue;
-                }
-                if ('"' === character) {
-                    const end = cursor + 1;
-                    return [
-                        JSON.parse(bytes.slice(index, end)),
-                        end
-                    ];
-                }
-                cursor += 1;
-            }
-            throw new SyntaxError('JSON has an unterminated string.');
-        };
-        const scanJsonValue = (bytes, index)=>{
-            let cursor = skipWhitespace(bytes, index);
-            const character = bytes[cursor];
-            if ('{' === character) {
-                cursor = skipWhitespace(bytes, cursor + 1);
-                const keys = new Set();
-                if ('}' === bytes[cursor]) return cursor + 1;
-                while(true){
-                    if ('"' !== bytes[cursor]) throw new SyntaxError('JSON has an invalid object key.');
-                    const [key, afterKey] = scanJsonString(bytes, cursor);
-                    if (keys.has(key)) throw new SyntaxError(`JSON has duplicate key ${JSON.stringify(key)}.`);
-                    keys.add(key);
-                    cursor = skipWhitespace(bytes, afterKey);
-                    if (':' !== bytes[cursor]) throw new SyntaxError('JSON has an invalid object entry.');
-                    cursor = skipWhitespace(bytes, scanJsonValue(bytes, cursor + 1));
-                    if ('}' === bytes[cursor]) return cursor + 1;
-                    if (',' !== bytes[cursor]) throw new SyntaxError('JSON has an invalid object separator.');
-                    cursor = skipWhitespace(bytes, cursor + 1);
-                }
-            }
-            if ('[' === character) {
-                cursor = skipWhitespace(bytes, cursor + 1);
-                if (']' === bytes[cursor]) return cursor + 1;
-                while(true){
-                    cursor = skipWhitespace(bytes, scanJsonValue(bytes, cursor));
-                    if (']' === bytes[cursor]) return cursor + 1;
-                    if (',' !== bytes[cursor]) throw new SyntaxError('JSON has an invalid array separator.');
-                    cursor = skipWhitespace(bytes, cursor + 1);
-                }
-            }
-            if ('"' === character) return scanJsonString(bytes, cursor)[1];
-            while(cursor < bytes.length && !isValueTerminator(bytes.charCodeAt(cursor)))cursor += 1;
-            return cursor;
-        };
-        class StrictJsonError extends TypeError {
-            reason;
-            constructor(reason, message){
-                super(message);
-                this.name = 'StrictJsonError';
-                this.reason = reason;
-            }
-        }
-        const isRecord = (value)=>'object' == typeof value && null !== value && !Array.isArray(value);
-        const isJsonRecord = (value)=>isRecord(value);
-        const ownDataValue = (value, key)=>{
-            const descriptor = Object.getOwnPropertyDescriptor(value, key);
-            if (void 0 === descriptor) return {
-                found: false,
-                value: void 0
-            };
-            return 'value' in descriptor ? {
-                found: true,
-                value: descriptor.value
-            } : void 0;
-        };
-        const dataArrayValues = (value)=>{
-            if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) return;
-            const length = Object.getOwnPropertyDescriptor(value, 'length');
-            if (void 0 === length || !('value' in length) || 'number' != typeof length.value || !Number.isSafeInteger(length.value) || length.value < 0 || Reflect.ownKeys(value).length !== length.value + 1) return;
-            const copy = [];
-            for(let index = 0; index < length.value; index += 1){
-                const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
-                if (void 0 === descriptor || !('value' in descriptor)) return;
-                copy.push(descriptor.value);
-            }
-            return Object.freeze(copy);
-        };
-        const isPlainRecord = (value)=>{
-            if (!isRecord(value)) return false;
-            const prototype = Object.getPrototypeOf(value);
-            return prototype === Object.prototype || null === prototype;
-        };
-        const hasOnlyOwnKeys = (value, keys)=>Object.keys(value).every((key)=>keys.includes(key));
-        const isPlainDataRecord = (value)=>{
-            if (!isRecord(value)) return false;
-            const prototype = Object.getPrototypeOf(value);
-            if (prototype !== Object.prototype && null !== prototype) return false;
-            return Reflect.ownKeys(value).every((key)=>{
-                if ('string' != typeof key) return false;
-                const descriptor = Object.getOwnPropertyDescriptor(value, key);
-                return void 0 !== descriptor && 'value' in descriptor;
-            });
-        };
-        const hasDataKeys = (value, required, optional = [])=>{
-            if (!isPlainDataRecord(value)) return false;
-            const allowed = new Set([
-                ...required,
-                ...optional
-            ]);
-            return Reflect.ownKeys(value).length >= required.length && Reflect.ownKeys(value).every((key)=>'string' == typeof key && allowed.has(key)) && required.every((key)=>Object.hasOwn(value, key));
-        };
-        const fail = (reason, message)=>{
-            throw new StrictJsonError(reason, message);
-        };
-        const snapshotJsonValue = (value, ancestors, nullPrototype)=>{
-            if (null === value || 'boolean' == typeof value || 'string' == typeof value) return value;
-            if ('number' == typeof value) {
-                if (Number.isFinite(value)) return value;
-                return fail('nonfinite', 'JSON values must be finite.');
-            }
-            if ('object' != typeof value) return fail('not-json', 'JSON values must be primitives, arrays, or plain objects.');
-            if (ancestors.has(value)) return fail('cyclic', 'JSON values must not be cyclic.');
-            ancestors.add(value);
-            try {
-                const descriptors = Object.getOwnPropertyDescriptors(value);
-                if (Array.isArray(value)) {
-                    if (Object.getPrototypeOf(value) !== Array.prototype) return fail('array-shape', 'JSON arrays must be ordinary arrays.');
-                    const length = descriptors.length;
-                    if (void 0 === length || !('value' in length) || !Number.isSafeInteger(length.value) || length.value < 0) return fail('array-shape', 'JSON arrays must have a finite length.');
-                    const values = [];
-                    for(let index = 0; index < length.value; index += 1){
-                        const descriptor = descriptors[String(index)];
-                        if (void 0 === descriptor || !descriptor.enumerable || !('value' in descriptor)) return fail('array-shape', 'JSON arrays must contain only enumerable data properties.');
-                        values.push(snapshotJsonValue(descriptor.value, ancestors, nullPrototype));
-                    }
-                    if (Reflect.ownKeys(descriptors).length !== length.value + 1) return fail('array-shape', 'JSON arrays must not have extra properties.');
-                    return Object.freeze(values);
-                }
-                const prototype = Object.getPrototypeOf(value);
-                if (prototype !== Object.prototype && null !== prototype) return fail('exotic-prototype', 'JSON objects must be plain objects.');
-                const entries = Reflect.ownKeys(descriptors).map((key)=>{
-                    if ('string' != typeof key) return fail('not-json', 'JSON objects must not use symbol keys.');
-                    const descriptor = descriptors[key];
-                    if (void 0 === descriptor || !descriptor.enumerable || !('value' in descriptor)) return fail('not-json', 'JSON objects must contain only enumerable data properties.');
-                    return [
-                        key,
-                        snapshotJsonValue(descriptor.value, ancestors, nullPrototype)
-                    ];
-                });
-                if (nullPrototype) {
-                    const snapshot = Object.create(null);
-                    for (const [key, entry] of entries)snapshot[key] = entry;
-                    return Object.freeze(snapshot);
-                }
-                return Object.freeze(Object.fromEntries(entries));
-            } finally{
-                ancestors.delete(value);
-            }
-        };
-        const snapshotStrictJsonValue = (value, options = {})=>snapshotJsonValue(value, new Set(), true === options.nullPrototype);
-        const parseJsonWithoutDuplicateKeys = (bytes)=>{
-            const end = skipWhitespace(bytes, scanJsonValue(bytes, 0));
-            if (end !== bytes.length) throw new SyntaxError('JSON has trailing data.');
-            return JSON.parse(bytes);
-        };
-        __webpack_require__.d(__webpack_exports__, {}, {
-            UQ: isPlainRecord,
-            u4: isRecord
-        });
-    },
-    "./node_modules/agent-bundle/dist/launch-env.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var node_fs__rspack_import_0 = __webpack_require__("node:fs");
-        var node_path__rspack_import_1 = __webpack_require__("node:path");
-        const OPERATOR_ENV_FILE_VARIABLE = 'AGENT_BUNDLE_ENV_FILE';
-        const OPERATOR_ENV_FILE_NONE = 'none';
-        const OPERATOR_ENV_FILE_NAMES = Object.freeze([
-            '.env',
-            '.env.local'
-        ]);
-        const unexpandedToken = /\$\{[^}]*\}/u;
-        const operatorEnvPluginRoot = (fallback, env = process.env)=>{
-            const declared = env['AGENT_BUNDLE_PLUGIN_ROOT'] ?? '';
-            return '' === declared.trim() || unexpandedToken.test(declared) ? (0, node_path__rspack_import_1.resolve)(fallback) : (0, node_path__rspack_import_1.resolve)(declared);
-        };
-        const operatorEnvFilePaths = (pluginRoot, env = process.env)=>{
-            const explicit = env[OPERATOR_ENV_FILE_VARIABLE]?.trim() ?? '';
-            if (explicit === OPERATOR_ENV_FILE_NONE) return Object.freeze([]);
-            if ('' !== explicit) return Object.freeze(explicit.split(node_path__rspack_import_1.delimiter).map((path)=>path.trim()).filter((path)=>'' !== path).map((path)=>(0, node_path__rspack_import_1.resolve)(path)));
-            return Object.freeze(OPERATOR_ENV_FILE_NAMES.map((name)=>(0, node_path__rspack_import_1.join)(pluginRoot, name)));
-        };
-        const closingQuoteIndex = (raw, quote)=>{
-            for(let index = 1; index < raw.length; index += 1){
-                if ('\\' === raw[index]) {
-                    index += 1;
-                    continue;
-                }
-                if (raw[index] === quote) return index;
-            }
-            return -1;
-        };
-        const unquotedValue = (raw)=>{
-            const value = raw.trim();
-            const comment = value.search(/\s#/u);
-            return (-1 === comment ? value : value.slice(0, comment)).trim();
-        };
-        const quotedValue = (quote, inner)=>'"' === quote ? inner.replace(/\\n/gu, '\n').replace(/\\r/gu, '\r').replace(/\\"/gu, '"') : inner;
-        const parseOperatorEnv = (contents)=>{
-            const parsed = {};
-            const lines = contents.replace(/\r\n?/gu, '\n').split('\n');
-            for(let index = 0; index < lines.length; index += 1){
-                const line = lines[index].trim();
-                if ('' === line || line.startsWith('#')) continue;
-                const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$/u.exec(line);
-                if (null === match) continue;
-                const key = match[1];
-                let raw = match[2].trim();
-                const quote = raw[0];
-                if ('"' === quote || "'" === quote || '`' === quote) {
-                    let end = closingQuoteIndex(raw, quote);
-                    while(-1 === end && '`' !== quote && index + 1 < lines.length){
-                        index += 1;
-                        raw += `\n${lines[index]}`;
-                        end = closingQuoteIndex(raw, quote);
-                    }
-                    if (-1 !== end) {
-                        const trailer = raw.slice(end + 1).trim();
-                        if ('' === trailer || trailer.startsWith('#')) {
-                            parsed[key] = quotedValue(quote, raw.slice(1, end));
-                            continue;
-                        }
-                    }
-                }
-                parsed[key] = unquotedValue(raw);
-            }
-            return parsed;
-        };
-        const readOptional = (path)=>{
-            try {
-                return (0, node_fs__rspack_import_0.readFileSync)(path, 'utf8');
-            } catch (error) {
-                return 'ENOENT' === error.code ? void 0 : null;
-            }
-        };
-        const applyOperatorEnv = (options)=>{
-            const env = options.env ?? process.env;
-            const reservedKey = (options.platform ?? process.platform) === 'win32' ? (key)=>key.toUpperCase() : (key)=>key;
-            const manifestDefaults = new Map(Object.entries(options.manifestEnv ?? {}).map(([key, value])=>[
-                    reservedKey(key),
-                    value
-                ]));
-            const reserved = new Set(Object.keys(env).filter((key)=>void 0 !== env[key] && manifestDefaults.get(reservedKey(key)) !== env[key]).map(reservedKey));
-            const files = [];
-            const applied = new Set();
-            for (const path of operatorEnvFilePaths(options.pluginRoot, env)){
-                const contents = readOptional(path);
-                if (void 0 === contents) {
-                    files.push({
-                        path,
-                        state: 'absent'
-                    });
-                    continue;
-                }
-                if (null === contents) {
-                    files.push({
-                        path,
-                        state: 'unreadable'
-                    });
-                    continue;
-                }
-                let count = 0;
-                for (const [key, value] of Object.entries(parseOperatorEnv(contents)))if (!reserved.has(reservedKey(key))) {
-                    env[key] = value;
-                    applied.add(key);
-                    count += 1;
-                }
-                files.push({
-                    applied: count,
-                    path,
-                    state: 'loaded'
-                });
-            }
-            return Object.freeze({
-                applied: Object.freeze([
-                    ...applied
-                ].sort((left, right)=>left.localeCompare(right))),
-                files: Object.freeze(files)
-            });
-        };
-        __webpack_require__.d(__webpack_exports__, {}, {
-            FF: operatorEnvPluginRoot,
-            OJ: applyOperatorEnv
-        });
-    },
-    "./node_modules/agent-bundle/dist/mcp-entry.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        const defaultHeartbeatIntervalMs = 300000;
-        const defaultActivityThrottleMs = 60000;
-        const defaultShutdownTimeoutMs = 5000;
-        const defaultHeartbeatName = 'agent-bundle';
-        let installedGuard;
-        const redirectConsoleToStderr = ()=>{
-            if (void 0 !== installedGuard) return installedGuard.guard;
-            const originalStdoutWrite = process.stdout.write.bind(process.stdout);
-            const stderrConsole = new console.Console({
-                stderr: process.stderr,
-                stdout: process.stderr
-            });
-            const methods = [
-                'debug',
-                'dir',
-                'error',
-                'info',
-                'log',
-                'trace',
-                'warn'
-            ];
-            for (const method of methods)console[method] = stderrConsole[method].bind(stderrConsole);
-            const redirectedWrite = (chunk, encoding, callback)=>process.stderr.write(chunk, encoding, callback);
-            process.stdout.write = redirectedWrite;
-            let restored = false;
-            const guard = Object.freeze({
-                restoreProtocolStdout: ()=>{
-                    if (restored) return;
-                    restored = true;
-                    if (process.stdout.write !== redirectedWrite) process.stderr.write("[agent-bundle] a module replaced process.stdout.write while console output was redirected to stderr; the replacement is discarded because stdout carries the MCP protocol stream.\n");
-                    process.stdout.write = originalStdoutWrite;
-                    if (installedGuard?.guard === guard) installedGuard = void 0;
-                }
-            });
-            installedGuard = {
-                guard,
-                redirectedWrite
-            };
-            return guard;
-        };
-        const createHeartbeat = ({ activityThrottleMs = defaultActivityThrottleMs, intervalMs = defaultHeartbeatIntervalMs, name = defaultHeartbeatName, writeLine })=>{
-            const startedAt = Date.now();
-            let lastActivityAt = startedAt;
-            let lastActivityLogAt = 0;
-            const log = (reason)=>{
-                const uptimeSeconds = Math.round((Date.now() - startedAt) / 1000);
-                const idleSeconds = Math.round((Date.now() - lastActivityAt) / 1000);
-                writeLine(`[${name}] stdio heartbeat (${reason}) pid=${process.pid} uptime=${uptimeSeconds}s idle=${idleSeconds}s`);
-            };
-            const timer = setInterval(()=>log('interval'), intervalMs);
-            timer.unref?.();
-            return Object.freeze({
-                log,
-                noteActivity: ()=>{
-                    lastActivityAt = Date.now();
-                    if (lastActivityAt - lastActivityLogAt >= activityThrottleMs) {
-                        lastActivityLogAt = lastActivityAt;
-                        log('activity');
-                    }
-                },
-                stop: ()=>clearInterval(timer)
-            });
-        };
-        const runStdioServer = async ({ activityThrottleMs, exit = (code)=>process.exit(code), heartbeat: heartbeatEnabled = true, heartbeatIntervalMs, server, serverName, shutdownTimeoutMs = defaultShutdownTimeoutMs, signals = process, stdin = process.stdin, transport, writeLine = (line)=>void process.stderr.write(`${line}\n`) })=>{
-            const heartbeat = createHeartbeat({
-                ...void 0 === activityThrottleMs ? {} : {
-                    activityThrottleMs
-                },
-                ...void 0 === heartbeatIntervalMs ? {} : {
-                    intervalMs: heartbeatIntervalMs
-                },
-                ...void 0 === serverName ? {} : {
-                    name: serverName
-                },
-                writeLine: heartbeatEnabled ? writeLine : ()=>void 0
-            });
-            const keepalive = setInterval(()=>void 0, 60000);
-            keepalive.unref?.();
-            let shuttingDown = false;
-            const shutdown = async (exitCode = 0)=>{
-                if (shuttingDown) return;
-                shuttingDown = true;
-                signals.off('SIGINT', handleSigint);
-                signals.off('SIGTERM', handleSigterm);
-                stdin.off?.('end', handleStdinEnd);
-                clearInterval(keepalive);
-                heartbeat.stop();
-                await Promise.race([
-                    Promise.allSettled([
-                        Promise.resolve().then(()=>transport.close()),
-                        Promise.resolve().then(()=>server.close())
-                    ]),
-                    new Promise((resolve)=>setTimeout(resolve, shutdownTimeoutMs))
-                ]);
-                exit(exitCode);
-            };
-            const handleSigint = ()=>{
-                shutdown(130);
-            };
-            const handleSigterm = ()=>{
-                shutdown(143);
-            };
-            const handleStdinEnd = ()=>{
-                shutdown(0);
-            };
-            signals.on('SIGINT', handleSigint);
-            signals.on('SIGTERM', handleSigterm);
-            stdin.once?.('end', handleStdinEnd);
-            transport.onclose = ()=>{
-                shutdown(0);
-            };
-            await server.connect(transport);
-            const originalOnMessage = transport.onmessage;
-            transport.onmessage = (message, extra)=>{
-                heartbeat.noteActivity();
-                originalOnMessage?.(message, extra);
-            };
-            return Object.freeze({
-                heartbeat,
-                shutdown
-            });
-        };
-        const runGeneratedStdioMcpEntry = async (options)=>{
-            const guard = redirectConsoleToStderr();
-            const entry = await options.loadEntry();
-            const factory = entry.default;
-            if ('function' != typeof factory) throw new TypeError(`Generated stdio entry for MCP server ${JSON.stringify(options.serverName)} must default-export a server factory.`);
-            const server = await factory();
-            const { StdioServerTransport } = await Promise.resolve().then(__webpack_require__.bind(__webpack_require__, "./node_modules/@modelcontextprotocol/server/dist/stdio.mjs"));
-            guard.restoreProtocolStdout();
-            const transport = new StdioServerTransport();
-            return runStdioServer({
-                ...options.lifecycle,
-                server,
-                serverName: options.serverName,
-                transport: transport
-            });
-        };
-        __webpack_require__.d(__webpack_exports__, {}, {
-            WQ: runGeneratedStdioMcpEntry,
-            p9: redirectConsoleToStderr
-        });
-    },
-    "./node_modules/agent-bundle/dist/mcp-server-runtime.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var node_worker_threads__rspack_import_0 = __webpack_require__("node:worker_threads");
-        var _modelcontextprotocol_server__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/index.mjs");
-        var _agent_bundle_runtime__rspack_import_9 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
-        var _agent_bundle_runtime__rspack_import_10 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/40.js");
-        var _agent_bundle_runtime__rspack_import_11 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/index.js");
-        var node_crypto__rspack_import_2 = __webpack_require__("node:crypto");
-        var _667_1_js__rspack_import_3 = __webpack_require__("./node_modules/agent-bundle/dist/667~1.js");
-        var _991_1_js__rspack_import_4 = __webpack_require__("./node_modules/agent-bundle/dist/991~1.js");
-        var _790_1_js__rspack_import_5 = __webpack_require__("./node_modules/agent-bundle/dist/790~1.js");
-        var _573_1_js__rspack_import_6 = __webpack_require__("./node_modules/agent-bundle/dist/573~1.js");
-        var _terminal_capability_js__rspack_import_7 = __webpack_require__("./node_modules/agent-bundle/dist/terminal-capability.js");
-        var _917_1_js__rspack_import_8 = __webpack_require__("./node_modules/agent-bundle/dist/917~1.js");
-        const SINGLE_SCHEMA_KEYWORDS = new Set([
-            'additionalItems',
-            'additionalProperties',
-            'contains',
-            'contentSchema',
-            'else',
-            'if',
-            'not',
-            'propertyNames',
-            'then',
-            'unevaluatedItems',
-            'unevaluatedProperties'
-        ]);
-        const SCHEMA_ARRAY_KEYWORDS = new Set([
-            'allOf',
-            'anyOf',
-            'oneOf',
-            'prefixItems'
-        ]);
-        const SCHEMA_MAP_KEYWORDS = new Set([
-            '$defs',
-            'definitions',
-            'dependentSchemas',
-            'patternProperties',
-            'properties'
-        ]);
-        const unionOf = (members)=>{
-            const distinct = new Map();
-            for (const member of members){
-                const key = (0, _667_1_js__rspack_import_3._Y)(member);
-                if (!distinct.has(key)) distinct.set(key, member);
-            }
-            const unique = [
-                ...distinct.values()
-            ];
-            return 1 === unique.length ? unique[0] : {
-                anyOf: unique
-            };
-        };
-        const interoperableTuple = (schema)=>{
-            const prefixItems = schema['prefixItems'];
-            if (!Array.isArray(prefixItems) || 0 === prefixItems.length) return schema;
-            const items = schema['items'];
-            if (false === items) {
-                const maxItems = schema['maxItems'];
-                return {
-                    ...schema,
-                    items: unionOf(prefixItems),
-                    maxItems: 'number' == typeof maxItems ? Math.min(maxItems, prefixItems.length) : prefixItems.length
-                };
-            }
-            if ((0, _991_1_js__rspack_import_4.u4)(items)) return {
-                ...schema,
-                items: unionOf([
-                    ...prefixItems,
-                    items
-                ])
-            };
-            return schema;
-        };
-        const projectSchemaArray = (schemas1)=>schemas1.map((schema)=>interoperableJsonSchema(schema));
-        const projectSchemaMap = (schemas1)=>Object.fromEntries(Object.entries(schemas1).map(([name, schema])=>[
-                    name,
-                    interoperableJsonSchema(schema)
-                ]));
-        const projectKeyword = (keyword, value)=>{
-            if ('items' === keyword) return Array.isArray(value) ? projectSchemaArray(value) : interoperableJsonSchema(value);
-            if (SINGLE_SCHEMA_KEYWORDS.has(keyword)) return interoperableJsonSchema(value);
-            if (SCHEMA_ARRAY_KEYWORDS.has(keyword)) return Array.isArray(value) ? projectSchemaArray(value) : value;
-            if (SCHEMA_MAP_KEYWORDS.has(keyword)) return (0, _991_1_js__rspack_import_4.u4)(value) ? projectSchemaMap(value) : value;
-            return value;
-        };
-        const interoperableJsonSchema = (schema)=>{
-            if (!(0, _991_1_js__rspack_import_4.u4)(schema)) return schema;
-            const projected = {};
-            for (const [keyword, value] of Object.entries(schema))projected[keyword] = projectKeyword(keyword, value);
-            return interoperableTuple(projected);
-        };
-        const isStandardJsonSchemaConverter = (value)=>(0, _991_1_js__rspack_import_4.u4)(value) && 'function' == typeof value['input'] && 'function' == typeof value['output'];
-        const isStandardSchemaWithJsonSchema = (schema)=>{
-            if (null == schema) return false;
-            if ('object' != typeof schema && 'function' != typeof schema) return false;
-            const props = schema['~standard'];
-            return (0, _991_1_js__rspack_import_4.u4)(props) && 'function' == typeof props['validate'] && isStandardJsonSchemaConverter(props['jsonSchema']);
-        };
-        const interoperableStandardSchema = (schema)=>{
-            if (!isStandardSchemaWithJsonSchema(schema)) return schema;
-            const std = schema['~standard'];
-            const wrapped = {
-                '~standard': {
-                    jsonSchema: {
-                        input: (options)=>interoperableJsonSchema(std.jsonSchema.input(options)),
-                        output: (options)=>interoperableJsonSchema(std.jsonSchema.output(options))
-                    },
-                    validate: (value)=>std.validate(value),
-                    vendor: 'agent-bundle',
-                    version: std.version
-                }
-            };
-            return wrapped;
-        };
-        const MCP_TASKS_PROTOCOL_VERSION = '2025-11-25';
-        const DEFAULT_MCP_TASK_TTL_MS = 300000;
-        const MAX_MCP_TASK_TTL_MS = 86400000;
-        const DEFAULT_MCP_TASK_POLL_INTERVAL_MS = 1000;
-        const MIN_MCP_TASK_POLL_INTERVAL_MS = 100;
-        const MAX_MCP_TASKS_RETAINED = 256;
-        const MODEL_IMMEDIATE_RESPONSE_META_KEY = 'io.modelcontextprotocol/model-immediate-response';
-        const MCP_TASK_PROGRESS_META_KEY = 'agent-bundle/progress';
-        const isTerminal = (status)=>'completed' === status || 'failed' === status || 'cancelled' === status;
-        const mcp_tasks_now = ()=>new Date().toISOString();
-        const paramsSchema = (describe, parse1)=>({
-                '~standard': {
-                    validate: (value)=>{
-                        if (!(0, _991_1_js__rspack_import_4.u4)(value)) return {
-                            issues: [
-                                {
-                                    message: `${describe} params must be an object.`
-                                }
-                            ]
-                        };
-                        const parsed = parse1(value);
-                        return 'string' == typeof parsed ? {
-                            issues: [
-                                {
-                                    message: parsed
-                                }
-                            ]
-                        } : {
-                            value: parsed
-                        };
-                    },
-                    vendor: 'agent-bundle',
-                    version: 1
-                }
-            });
-        const taskIdParams = (method)=>paramsSchema(method, (value)=>{
-                const taskId = value['taskId'];
-                return 'string' == typeof taskId && '' !== taskId ? {
-                    taskId
-                } : `${method} requires a non-empty string taskId.`;
-            });
-        const listParams = paramsSchema('tasks/list', (value)=>{
-            const cursor = value['cursor'];
-            if (void 0 === cursor) return {};
-            return 'string' == typeof cursor ? {
-                cursor
-            } : 'tasks/list cursor must be a string.';
-        });
-        const clampTtl = (requested)=>{
-            if ('number' != typeof requested || !Number.isFinite(requested) || requested <= 0) return DEFAULT_MCP_TASK_TTL_MS;
-            return Math.min(Math.floor(requested), MAX_MCP_TASK_TTL_MS);
-        };
-        const clampPollInterval = (requested)=>{
-            if ('number' != typeof requested || !Number.isFinite(requested) || requested <= 0) return DEFAULT_MCP_TASK_POLL_INTERVAL_MS;
-            return Math.max(Math.floor(requested), MIN_MCP_TASK_POLL_INTERVAL_MS);
-        };
-        const errorOutcome = (error)=>{
-            if (_modelcontextprotocol_server__rspack_import_1.bd.isInstance(error)) return {
-                code: error.code,
-                ...void 0 === error.data ? {} : {
-                    data: error.data
-                },
-                kind: 'error',
-                message: error.message
-            };
-            const code = (0, _991_1_js__rspack_import_4.u4)(error) && Number.isSafeInteger(error['code']) ? error['code'] : _modelcontextprotocol_server__rspack_import_1.qu.InternalError;
-            return {
-                code,
-                kind: 'error',
-                message: (0, _790_1_js__rspack_import_5.gJ)(error)
-            };
-        };
-        const TASK_LIST_PAGE = 50;
-        const progressStatusMessage = (progress)=>{
-            if (void 0 !== progress.message) return progress.message;
-            return void 0 === progress.total ? `progress ${String(progress.progress)}` : `progress ${String(progress.progress)}/${String(progress.total)}`;
-        };
-        class TaskAugmentedServer extends _modelcontextprotocol_server__rspack_import_1.gq {
-            #records = new Map();
-            #support = new Map();
-            #sequence = 0;
-            #installed = false;
-            _onclose() {
-                this.abortTasks('The MCP session closed before the task settled.');
-                super._onclose();
-            }
-            taskSupport(toolName) {
-                return this.#support.get(toolName) ?? 'forbidden';
-            }
-            declareTaskSupport(toolName, taskSupport) {
-                if ('forbidden' === taskSupport) this.#support.delete(toolName);
-                else this.#support.set(toolName, taskSupport);
-            }
-            get tasksEnabled() {
-                return this.#support.size > 0;
-            }
-            tasks() {
-                return [
-                    ...this.#records.values()
-                ].sort((left, right)=>left.sequence - right.sequence).map((record)=>record.task);
-            }
-            installTaskSupport() {
-                if (this.#installed || !this.tasksEnabled) return;
-                this.#installed = true;
-                this.registerCapabilities({
-                    tasks: {
-                        cancel: {},
-                        list: {},
-                        requests: {
-                            tools: {
-                                call: {}
-                            }
-                        }
-                    }
-                });
-                this.setRequestHandler('tasks/get', {
-                    params: taskIdParams('tasks/get')
-                }, async ({ taskId })=>{
-                    const record = this.#require(taskId);
-                    return {
-                        ...void 0 === record.progress ? {} : {
-                            _meta: {
-                                [MCP_TASK_PROGRESS_META_KEY]: {
-                                    ...record.progress
-                                }
-                            }
-                        },
-                        ...record.task
-                    };
-                });
-                this.setRequestHandler('tasks/result', {
-                    params: taskIdParams('tasks/result')
-                }, async ({ taskId }, ctx)=>{
-                    const record = this.#require(taskId);
-                    await this.#awaitSettled(record, ctx.mcpReq.signal);
-                    const outcome = record.outcome;
-                    if (void 0 === outcome) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InternalError, `Task ${taskId} settled without an outcome.`);
-                    switch(outcome.kind){
-                        case 'error':
-                            throw new _modelcontextprotocol_server__rspack_import_1.bd(outcome.code, outcome.message, outcome.data);
-                        case 'result':
-                            return {
-                                ...outcome.result,
-                                _meta: {
-                                    ...outcome.result._meta,
-                                    [_modelcontextprotocol_server__rspack_import_1.EV]: {
-                                        taskId
-                                    }
-                                }
-                            };
-                        default:
-                            {
-                                const unreachable = outcome;
-                                throw new TypeError(`Unhandled task outcome ${String(unreachable)}.`);
-                            }
-                    }
-                });
-                this.setRequestHandler('tasks/list', {
-                    params: listParams
-                }, async ({ cursor })=>{
-                    const ordered = [
-                        ...this.#records.values()
-                    ].sort((left, right)=>left.sequence - right.sequence);
-                    let start = 0;
-                    if (void 0 !== cursor) {
-                        const after = Number(cursor);
-                        if (!Number.isSafeInteger(after) || after < 0) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InvalidParams, `Invalid tasks/list cursor ${JSON.stringify(cursor)}.`);
-                        start = ordered.findIndex((record)=>record.sequence > after);
-                        if (-1 === start) start = ordered.length;
-                    }
-                    const page = ordered.slice(start, start + TASK_LIST_PAGE);
-                    const last = page.at(-1);
-                    return {
-                        ...void 0 !== last && start + TASK_LIST_PAGE < ordered.length ? {
-                            nextCursor: String(last.sequence)
-                        } : {},
-                        tasks: page.map((record)=>record.task)
-                    };
-                });
-                this.setRequestHandler('tasks/cancel', {
-                    params: taskIdParams('tasks/cancel')
-                }, async ({ taskId })=>{
-                    const record = this.#require(taskId);
-                    if (isTerminal(record.task.status)) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InvalidParams, `Cannot cancel task ${taskId}: already in terminal status '${record.task.status}'.`);
-                    this.#transition(record, 'cancelled', 'The task was cancelled by request.');
-                    record.controller.abort(new DOMException('The task was cancelled by request.', 'AbortError'));
-                    return {
-                        ...record.task
-                    };
-                });
-            }
-            abortTasks(reason) {
-                for (const record of this.#records.values())if (!isTerminal(record.task.status)) {
-                    this.#transition(record, 'cancelled', reason);
-                    record.controller.abort(new DOMException(reason, 'AbortError'));
-                }
-                for (const record of this.#records.values())if (void 0 !== record.expiry) clearTimeout(record.expiry);
-                this.#records.clear();
-            }
-            _wrapHandler(method, handler) {
-                const wrapped = super._wrapHandler(method, handler);
-                if ('tools/call' !== method) return wrapped;
-                return async (request, ctx)=>{
-                    if (!this.#installed || !this.#taskSession()) return wrapped(request, ctx);
-                    const params = request.params;
-                    const toolName = (0, _991_1_js__rspack_import_4.u4)(params) && 'string' == typeof params['name'] ? params['name'] : void 0;
-                    const augmented = (0, _991_1_js__rspack_import_4.u4)(params) && (0, _991_1_js__rspack_import_4.u4)(params['task']);
-                    const support = void 0 === toolName ? 'forbidden' : this.taskSupport(toolName);
-                    if (!augmented) {
-                        if ('required' === support) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.MethodNotFound, `Tool ${String(toolName)} requires task-augmented execution (execution.taskSupport: "required"); call it with params.task.`);
-                        return wrapped(request, ctx);
-                    }
-                    if ('forbidden' === support) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.MethodNotFound, `Tool ${String(toolName)} does not support task-augmented execution (execution.taskSupport is "forbidden").`);
-                    return this.#createTask(String(toolName), params, request, ctx, wrapped);
-                };
-            }
-            #taskSession() {
-                return this.getNegotiatedProtocolVersion() === MCP_TASKS_PROTOCOL_VERSION;
-            }
-            #require(taskId) {
-                const record = this.#records.get(taskId);
-                if (void 0 === record) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InvalidParams, `Task not found: ${taskId}`);
-                return record;
-            }
-            #evict() {
-                if (this.#records.size < MAX_MCP_TASKS_RETAINED) return;
-                const settled = [
-                    ...this.#records.values()
-                ].filter((record)=>isTerminal(record.task.status)).sort((left, right)=>left.sequence - right.sequence);
-                const oldest = settled[0];
-                if (void 0 === oldest) throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InternalError, `This server is already running ${String(MAX_MCP_TASKS_RETAINED)} tasks; wait for one to settle or cancel one.`);
-                this.#forget(oldest);
-            }
-            #forget(record) {
-                if (void 0 !== record.expiry) clearTimeout(record.expiry);
-                this.#records.delete(record.task.taskId);
-            }
-            #transition(record, status, statusMessage) {
-                if (isTerminal(record.task.status)) return;
-                record.task = {
-                    ...record.task,
-                    lastUpdatedAt: mcp_tasks_now(),
-                    status,
-                    ...void 0 === statusMessage ? {} : {
-                        statusMessage
-                    }
-                };
-                if (void 0 === statusMessage) {
-                    const { statusMessage: _dropped, ...rest } = record.task;
-                    record.task = rest;
-                }
-                if (!isTerminal(status)) return;
-                const ttl = record.task.ttl ?? DEFAULT_MCP_TASK_TTL_MS;
-                record.expiry = setTimeout(()=>this.#forget(record), ttl);
-                record.expiry.unref?.();
-                this.notification({
-                    method: 'notifications/tasks/status',
-                    params: {
-                        ...record.task
-                    }
-                }).catch(()=>void 0);
-            }
-            #observeProgress(record, params) {
-                if (isTerminal(record.task.status)) return;
-                record.progress = {
-                    progress: params.progress,
-                    ...void 0 === params.message ? {} : {
-                        message: params.message
-                    },
-                    ...void 0 === params.total ? {} : {
-                        total: params.total
-                    }
-                };
-                record.task = {
-                    ...record.task,
-                    lastUpdatedAt: mcp_tasks_now(),
-                    statusMessage: progressStatusMessage(record.progress)
-                };
-            }
-            async #awaitSettled(record, signal) {
-                if (void 0 !== record.outcome) return;
-                await new Promise((resolve, reject)=>{
-                    const onAbort = ()=>{
-                        reject(new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InvalidRequest, 'The tasks/result request was cancelled before the task settled.'));
-                    };
-                    signal.addEventListener('abort', onAbort, {
-                        once: true
-                    });
-                    record.settled.then(()=>{
-                        signal.removeEventListener('abort', onAbort);
-                        resolve();
-                    });
-                });
-            }
-            async #createTask(toolName, params, request, ctx, handler) {
-                this.#evict();
-                const creation = (0, _991_1_js__rspack_import_4.u4)(params['task']) ? params['task'] : {};
-                const taskId = (0, node_crypto__rspack_import_2.randomUUID)();
-                const createdAt = mcp_tasks_now();
-                const controller = new AbortController();
-                let settle = ()=>void 0;
-                const settled = new Promise((resolve)=>{
-                    settle = resolve;
-                });
-                const record = {
-                    controller,
-                    sequence: ++this.#sequence,
-                    settled,
-                    task: {
-                        createdAt,
-                        lastUpdatedAt: createdAt,
-                        pollInterval: clampPollInterval(creation['pollInterval']),
-                        status: 'working',
-                        taskId,
-                        ttl: clampTtl(creation['ttl'])
-                    },
-                    toolName
-                };
-                this.#records.set(taskId, record);
-                const clientToken = ctx.mcpReq._meta?.progressToken;
-                const notify = ctx.mcpReq.notify;
-                const taskContext = {
-                    ...ctx,
-                    mcpReq: {
-                        ...ctx.mcpReq,
-                        _meta: {
-                            ...ctx.mcpReq._meta,
-                            progressToken: clientToken ?? `agent-bundle/task/${taskId}`
-                        },
-                        notify: async (notification)=>{
-                            if ('notifications/progress' === notification.method && (0, _991_1_js__rspack_import_4.u4)(notification.params)) {
-                                this.#observeProgress(record, notification.params);
-                                if (void 0 === clientToken) return;
-                            }
-                            await notify({
-                                ...notification,
-                                params: {
-                                    ...notification.params,
-                                    _meta: {
-                                        ...(0, _991_1_js__rspack_import_4.u4)(notification.params?._meta) ? notification.params._meta : {},
-                                        [_modelcontextprotocol_server__rspack_import_1.EV]: {
-                                            taskId
-                                        }
-                                    }
-                                }
-                            });
-                        },
-                        signal: controller.signal
-                    }
-                };
-                const { task: _creation, ...ordinaryParams } = params;
-                const ordinaryRequest = {
-                    ...request,
-                    params: ordinaryParams
-                };
-                handler(ordinaryRequest, taskContext).then((result)=>{
-                    const toolResult = result;
-                    record.outcome = {
-                        kind: 'result',
-                        result: toolResult
-                    };
-                    if (true === toolResult.isError) {
-                        const text = toolResult.content.find((block)=>'text' === block.type);
-                        this.#transition(record, 'failed', void 0 !== text && 'text' in text ? text.text : 'The tool call failed.');
-                    } else this.#transition(record, 'completed', void 0);
-                }, (error)=>{
-                    record.outcome = errorOutcome(error);
-                    this.#transition(record, 'failed', (0, _790_1_js__rspack_import_5.gJ)(error));
-                }).finally(settle);
-                const created = {
-                    _meta: {
-                        [MODEL_IMMEDIATE_RESPONSE_META_KEY]: `The ${toolName} call is running as task ${taskId}. Poll tasks/get for its status and fetch the result with tasks/result.`
-                    },
-                    task: {
-                        ...record.task
-                    }
-                };
-                return created;
-            }
-        }
-        const createTaskAugmentedMcpServer = (serverInfo, options)=>{
-            const server = new _modelcontextprotocol_server__rspack_import_1._k(serverInfo, options);
-            const tasks = new TaskAugmentedServer(serverInfo, options);
-            Object.defineProperty(server, 'server', {
-                configurable: true,
-                enumerable: true,
-                value: tasks,
-                writable: false
-            });
-            return Object.freeze({
-                declareTool: (tool, toolName, taskSupport)=>{
-                    if ('forbidden' !== taskSupport) tool.execution = {
-                        taskSupport
-                    };
-                    tasks.declareTaskSupport(toolName, taskSupport);
-                },
-                install: ()=>tasks.installTaskSupport(),
-                server,
-                tasks
-            });
-        };
-        new Set([
-            'maxElapsedMs'
-        ]);
-        const routeRenderLimits = (config)=>{
-            const declared = config['render'];
-            if ('object' != typeof declared || null === declared) return;
-            const maxElapsedMs = declared.maxElapsedMs;
-            if ('number' != typeof maxElapsedMs || !Number.isSafeInteger(maxElapsedMs) || maxElapsedMs <= 0) return;
-            return Object.freeze({
-                maxElapsedMs
-            });
-        };
-        const toolTaskSupportValues = Object.freeze([
-            'forbidden',
-            'optional',
-            'required'
-        ]);
-        new Set([
-            'taskSupport'
-        ]);
-        const isToolTaskSupport = (value)=>'string' == typeof value && toolTaskSupportValues.includes(value);
-        const routeTaskSupport = (config)=>{
-            const declared = config['execution'];
-            if ('object' != typeof declared || null === declared) return 'forbidden';
-            const taskSupport = declared.taskSupport;
-            return isToolTaskSupport(taskSupport) ? taskSupport : 'forbidden';
-        };
-        const requestKey = (requestId)=>`${typeof requestId}:${String(requestId)}`;
-        const RAW_ARGUMENTS_RETENTION = 1024;
-        const captureRawToolArguments = (server)=>{
-            const captured = new Map();
-            const connect = server.connect.bind(server);
-            server.connect = async (transport)=>{
-                await connect(transport);
-                const inner = transport.onmessage;
-                transport.onmessage = (message, extra)=>{
-                    if ((0, _modelcontextprotocol_server__rspack_import_1.vo)(message) && 'tools/call' === message.method) {
-                        const params = message.params;
-                        const value = void 0 === params || 'object' != typeof params || null === params || Array.isArray(params) ? void 0 : params.arguments;
-                        captured.set(requestKey(message.id), Object.freeze({
-                            value
-                        }));
-                        if (captured.size > RAW_ARGUMENTS_RETENTION) captured.delete(captured.keys().next().value);
-                    }
-                    inner?.(message, extra);
-                };
-            };
-            return Object.freeze({
-                take (requestId) {
-                    if (void 0 === requestId) return;
-                    const key = requestKey(requestId);
-                    const raw = captured.get(key);
-                    captured.delete(key);
-                    return raw;
-                }
-            });
-        };
-        const toolCallLineage = async (registry, context, toolName, rawArguments, clientName, fallbackHost)=>{
-            if (void 0 === registry) return (0, _agent_bundle_runtime__rspack_import_9.hU)('not-provided');
-            return registry.resolveToolCall({
-                ...void 0 === rawArguments ? {} : {
-                    arguments: rawArguments.value
-                },
-                host: (0, _agent_bundle_runtime__rspack_import_10.bg)(clientName) ?? fallbackHost,
-                meta: context.mcpReq._meta,
-                toolName
-            });
-        };
-        const requestIdentity = (context, clientName, lineage, plugin)=>({
-                lineage,
-                ...void 0 === plugin ? {} : {
-                    plugin
-                },
-                ...context.http?.authInfo?.clientId === void 0 ? {} : {
-                    actor: (0, _agent_bundle_runtime__rspack_import_9.qC)({
-                        id: context.http.authInfo.clientId
-                    }, 'native')
-                },
-                ...'string' == typeof clientName && '' !== clientName.trim() ? {
-                    host: (0, _agent_bundle_runtime__rspack_import_9.qC)({
-                        name: clientName
-                    }, 'native')
-                } : {},
-                ...'string' == typeof context.sessionId && '' !== context.sessionId.trim() ? {
-                    session: (0, _agent_bundle_runtime__rspack_import_9.qC)({
-                        sessionId: context.sessionId
-                    }, 'native')
-                } : {},
-                terminal: (0, _agent_bundle_runtime__rspack_import_9.qC)((0, _terminal_capability_js__rspack_import_7.Ue)('mcp'), 'derived'),
-                workspace: (0, _agent_bundle_runtime__rspack_import_9.qC)({
-                    root: process.cwd()
-                }, 'derived')
-            });
-        const projectorOptions = (context)=>{
-            const progressToken = context.mcpReq._meta?.progressToken;
-            const notify = context.mcpReq.notify;
-            return {
-                signal: context.mcpReq.signal,
-                ...void 0 === progressToken || void 0 === notify ? {} : {
-                    progressToken,
-                    sendProgress: async (params)=>notify({
-                            method: 'notifications/progress',
-                            params
-                        })
-                }
-            };
-        };
-        const renderGeneratedRoute = async (dispatcher, artifactEpoch, route, input, context, identity1)=>(0, _agent_bundle_runtime__rspack_import_9.iC)({
-                ...requestIdentity(context, identity1?.clientName, identity1?.lineage ?? (0, _agent_bundle_runtime__rspack_import_9.hU)('not-provided'), identity1?.plugin),
-                invocation: {
-                    artifactEpoch,
-                    kind: 'tool',
-                    operationId: route.id,
-                    surface: route.name
-                },
-                signal: context.mcpReq.signal
-            }, async ()=>{
-                const render = routeRenderLimits(route.config);
-                const projected = await (0, _agent_bundle_runtime__rspack_import_11.ej)(dispatcher.stream({
-                    artifactEpoch,
-                    invocation: {
-                        kind: 'tool',
-                        props: {
-                            input: input,
-                            operationId: route.id
-                        }
-                    },
-                    ...void 0 === render ? {} : {
-                        limits: render
-                    },
-                    signal: context.mcpReq.signal
-                }), projectorOptions(context));
-                return {
-                    document: projected.document,
-                    result: route.module.resultSchema.parse(projected.document.value),
-                    toolResult: projected.result
-                };
-            });
-        const selectedConfig = (config, keys)=>Object.fromEntries(keys.filter((key)=>void 0 !== config[key]).map((key)=>[
-                    key,
-                    config[key]
-                ]));
-        const JSON_SCHEMA_TARGET = 'draft-2020-12';
-        const objectRootedJsonSchema = (schema)=>{
-            if (!(0, _991_1_js__rspack_import_4.u4)(schema)) return false;
-            if (void 0 !== schema['type']) return 'object' === schema['type'];
-            if ([
-                'properties',
-                'patternProperties',
-                'additionalProperties',
-                'required'
-            ].some((key)=>key in schema)) return true;
-            return [
-                'oneOf',
-                'anyOf',
-                'allOf'
-            ].some((key)=>{
-                const members = schema[key];
-                return Array.isArray(members) && members.length > 0 && members.every(objectRootedJsonSchema);
-            });
-        };
-        const advertisedOutputSchema = (schema)=>{
-            const toJsonSchema = schema?.['~standard']?.jsonSchema?.output;
-            if ('function' != typeof toJsonSchema) return schema;
-            let jsonSchema;
-            try {
-                jsonSchema = toJsonSchema({
-                    target: JSON_SCHEMA_TARGET
-                });
-            } catch  {
-                return;
-            }
-            return objectRootedJsonSchema(jsonSchema) ? schema : void 0;
-        };
-        const mcp_server_runtime_settled = async (operation, afterRender)=>{
-            try {
-                return await operation();
-            } finally{
-                await afterRender?.();
-            }
-        };
-        const registerGeneratedRoutes = (server, routes, dispatcher, artifactEpoch, options = {})=>{
-            const clientTools = [];
-            for (const route of Object.values(routes))switch(route.kind){
-                case 'tool':
-                    {
-                        const excluded = route.config['excludeClients'];
-                        if (void 0 !== excluded && (!Array.isArray(excluded) || excluded.some((prefix)=>'string' != typeof prefix || '' === prefix.trim() || prefix.length > 128))) throw new TypeError(`Tool ${JSON.stringify(route.name)} excludeClients must contain non-empty client-name prefixes up to 128 characters.`);
-                        const outputSchema = advertisedOutputSchema(route.module.resultSchema);
-                        const registered = server.registerTool(route.name, {
-                            ...selectedConfig(route.config, [
-                                '_meta',
-                                'annotations',
-                                "description",
-                                'icons',
-                                'title'
-                            ]),
-                            inputSchema: interoperableStandardSchema(route.module.inputSchema),
-                            ...void 0 === outputSchema ? {} : {
-                                outputSchema: interoperableStandardSchema(outputSchema)
-                            }
-                        }, async (input, context)=>mcp_server_runtime_settled(async ()=>{
-                                const clientName = server.server.getClientVersion()?.name;
-                                const rawArguments = options.rawArguments?.take(context.mcpReq.id);
-                                const rendered = await renderGeneratedRoute(dispatcher, artifactEpoch, route, input, context, {
-                                    clientName,
-                                    lineage: await toolCallLineage(options.lineage, context, route.name, rawArguments, clientName, options.lineageHost),
-                                    ...void 0 === options.pluginRoot ? {} : {
-                                        plugin: options.pluginRoot
-                                    }
-                                });
-                                return (0, _agent_bundle_runtime__rspack_import_11.IB)(rendered.toolResult, rendered.result);
-                            }, options.afterRender));
-                        options.tasks?.declareTool(registered, route.name, routeTaskSupport(route.config));
-                        if (Array.isArray(excluded) && excluded.length > 0) clientTools.push({
-                            prefixes: excluded.map((prefix)=>String(prefix).toLowerCase()),
-                            disable: ()=>registered.disable()
-                        });
-                        break;
-                    }
-                case 'resource':
-                    {
-                        const uri = route.config['uri'];
-                        if ('string' != typeof uri || '' === uri.trim()) throw new Error(`Generated resource route ${JSON.stringify(route.id)} requires a non-empty static config.uri.`);
-                        server.registerResource(route.name, uri, selectedConfig(route.config, [
-                            '_meta',
-                            "description",
-                            'icons',
-                            'mimeType',
-                            'title'
-                        ]), async (resourceUri, context)=>mcp_server_runtime_settled(async ()=>{
-                                const clientName = server.server.getClientVersion()?.name;
-                                return (await renderGeneratedRoute(dispatcher, artifactEpoch, route, {
-                                    uri: resourceUri.href
-                                }, context, {
-                                    clientName,
-                                    ...void 0 === options.pluginRoot ? {} : {
-                                        plugin: options.pluginRoot
-                                    }
-                                })).result;
-                            }, options.afterRender));
-                        break;
-                    }
-                case 'prompt':
-                    server.registerPrompt(route.name, {
-                        ...selectedConfig(route.config, [
-                            '_meta',
-                            "description",
-                            'icons',
-                            'title'
-                        ]),
-                        argsSchema: route.module.inputSchema
-                    }, async (input, context)=>mcp_server_runtime_settled(async ()=>{
-                            const clientName = server.server.getClientVersion()?.name;
-                            return (await renderGeneratedRoute(dispatcher, artifactEpoch, route, input, context, {
-                                clientName,
-                                ...void 0 === options.pluginRoot ? {} : {
-                                    plugin: options.pluginRoot
-                                }
-                            })).result;
-                        }, options.afterRender));
-                    break;
-                default:
-                    {
-                        const unreachable = route.kind;
-                        throw new TypeError(`Unsupported generated MCP route kind ${String(unreachable)}.`);
-                    }
-            }
-            if (clientTools.length > 0) {
-                const initialized = server.server.oninitialized;
-                server.server.oninitialized = ()=>{
-                    const name = server.server.getClientVersion()?.name.toLowerCase();
-                    if (void 0 !== name) {
-                        for (const tool of clientTools)if (tool.prefixes.some((prefix)=>name.startsWith(prefix))) tool.disable();
-                    }
-                    initialized?.();
-                };
-            }
-        };
-        const registerGeneratedMcpApps = (server, apps)=>{
-            for (const app of apps)server.registerResource(app.name, app.resourceUri, {
-                ...void 0 === app._meta ? {} : {
-                    _meta: app._meta
-                },
-                mimeType: app.mimeType
-            }, async (uri)=>({
-                    contents: [
-                        {
-                            mimeType: app.mimeType,
-                            text: app.html,
-                            uri: uri.href
-                        }
-                    ]
-                }));
-        };
-        const createFlightWorkerHost = (workerUrl, artifactEpoch)=>{
-            const worker = new node_worker_threads__rspack_import_0.Worker(workerUrl, {
-                stderr: true,
-                stdout: true
-            });
-            worker.stdout.on('data', (chunk)=>process.stderr.write(chunk));
-            worker.stderr.on('data', (chunk)=>process.stderr.write(chunk));
-            const pending = new Map();
-            let sequence = 0;
-            let exited = false;
-            const failPending = (error)=>{
-                for (const request of pending.values())request.controller.error(error);
-                pending.clear();
-            };
-            const workerError = (message)=>{
-                switch(message.code){
-                    case 'artifact-epoch-mismatch':
-                        return new _agent_bundle_runtime__rspack_import_11.MB('artifact-epoch-mismatch', message.message ?? 'Artifact epoch mismatch', {
-                            expectedEpoch: artifactEpoch,
-                            ...void 0 === message.receivedEpoch ? {} : {
-                                receivedEpoch: message.receivedEpoch
-                            }
-                        });
-                    case 'runtime-unavailable':
-                    case 'runtime-restarted':
-                        return new _agent_bundle_runtime__rspack_import_11.MB(message.code, message.message ?? 'The MCP render runtime is unavailable');
-                    default:
-                        return new Error(message.message);
-                }
-            };
-            worker.on('error', (error)=>{
-                exited = true;
-                failPending(error);
-            });
-            worker.on('exit', (code)=>{
-                exited = true;
-                warmHost.markUnavailable(0 === code ? 'runtime-unavailable' : 'runtime-restarted');
-                failPending(new _agent_bundle_runtime__rspack_import_11.MB(0 === code ? 'runtime-unavailable' : 'runtime-restarted', 0 === code ? 'The MCP render runtime is unavailable' : `The MCP render runtime restarted; worker exited with code ${String(code)}.`));
-            });
-            const settle = (id, request, error)=>{
-                pending.delete(id);
-                request.signal.removeEventListener('abort', request.abort);
-                if (void 0 === error) request.controller.close();
-                else request.controller.error(error);
-            };
-            worker.on('message', (message)=>{
-                const request = pending.get(message.id);
-                if (void 0 === request) return;
-                if ('progress' === message.type) return void Promise.resolve(request.progress?.report(message.update)).catch((error)=>{
-                    if (pending.get(message.id) !== request) return;
-                    worker.postMessage({
-                        id: message.id,
-                        type: 'cancel'
-                    });
-                    settle(message.id, request, error instanceof Error ? error : new Error(String(error)));
-                });
-                if ('chunk' === message.type) return void request.controller.enqueue(message.bytes);
-                settle(message.id, request, 'error' === message.type ? workerError(message) : void 0);
-            });
-            const warmHost = (0, _agent_bundle_runtime__rspack_import_11.w3)({
-                artifactEpoch,
-                close: async ()=>{
-                    await worker.terminate();
-                },
-                host: {
-                    execute: async ({ artifactEpoch: requestEpoch, invocation, progress, signal })=>{
-                        if (exited) throw new _agent_bundle_runtime__rspack_import_11.MB('runtime-unavailable', 'The MCP render runtime is unavailable');
-                        const context = await (0, _agent_bundle_runtime__rspack_import_9.MA)();
-                        const id = ++sequence;
-                        let controller;
-                        const cancelRender = ()=>{
-                            worker.postMessage({
-                                id,
-                                type: 'cancel'
-                            });
-                            pending.delete(id);
-                        };
-                        const abort = ()=>{
-                            cancelRender();
-                            controller.error(new DOMException('Agent render was aborted', 'AbortError'));
-                        };
-                        const stream = new ReadableStream({
-                            cancel: ()=>{
-                                cancelRender();
-                                signal.removeEventListener('abort', abort);
-                            },
-                            start: (opened)=>{
-                                controller = opened;
-                            }
-                        });
-                        if (signal.aborted) {
-                            controller.error(new DOMException('Agent render was aborted', 'AbortError'));
-                            return stream;
-                        }
-                        pending.set(id, {
-                            abort,
-                            controller,
-                            ...void 0 === progress ? {} : {
-                                progress
-                            },
-                            signal
-                        });
-                        signal.addEventListener('abort', abort, {
-                            once: true
-                        });
-                        worker.postMessage({
-                            actor: context.actor,
-                            artifactEpoch: requestEpoch ?? artifactEpoch,
-                            host: context.host,
-                            id,
-                            invocation,
-                            lineage: context.lineage,
-                            plugin: context.plugin,
-                            requestInvocation: context.invocation,
-                            session: context.session,
-                            terminal: context.terminal,
-                            type: 'render',
-                            workspace: context.workspace
-                        });
-                        return stream;
-                    }
-                }
-            });
-            return warmHost;
-        };
-        const noticeDiagnostic = (line)=>{
-            process.stderr.write(`[agent-bundle] notice inbox ${line}\n`);
-        };
-        const eventRuntimeDiagnostic = (line)=>{
-            process.stderr.write(`agent-bundle event runtime: ${line}\n`);
-        };
-        const STANDBY_ERROR_REPEAT_INTERVAL_MS = 30000;
-        const createStandbyErrorReporter = (report, now = Date.now)=>{
-            const lastReportedAt = new Map();
-            return (error)=>{
-                const at = now();
-                const previous = lastReportedAt.get(error.message);
-                if (void 0 !== previous && at - previous < STANDBY_ERROR_REPEAT_INTERVAL_MS) return;
-                lastReportedAt.set(error.message, at);
-                report(`takeover failed, still standing by: ${error.message}`);
-            };
-        };
-        const installNoticeInboxSubscriptions = (server, notices)=>{
-            const protocol = server.server;
-            protocol.assertCanSetRequestHandler('resources/subscribe');
-            protocol.assertCanSetRequestHandler('resources/unsubscribe');
-            protocol.registerCapabilities({
-                resources: {
-                    subscribe: true
-                }
-            });
-            const assertInboxUri = (uri)=>{
-                if (uri === notices.inboxUri) return;
-                throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InvalidParams, `Resource ${String(uri)} does not support subscriptions; only ${notices.inboxUri} emits notifications/resources/updated.`, {
-                    uri
-                });
-            };
-            protocol.setRequestHandler('resources/subscribe', async (request, context)=>{
-                assertInboxUri(request.params.uri);
-                const identity1 = requestIdentity(context, protocol.getClientVersion()?.name, (0, _agent_bundle_runtime__rspack_import_9.hU)('not-provided'), void 0);
-                try {
-                    await notices.subscribe({
-                        actor: identity1.actor ?? (0, _agent_bundle_runtime__rspack_import_9.hU)(),
-                        host: identity1.host ?? (0, _agent_bundle_runtime__rspack_import_9.hU)(),
-                        lineage: identity1.lineage,
-                        session: identity1.session ?? (0, _agent_bundle_runtime__rspack_import_9.hU)(),
-                        workspace: identity1.workspace
-                    });
-                } catch (error) {
-                    throw new _modelcontextprotocol_server__rspack_import_1.bd(_modelcontextprotocol_server__rspack_import_1.qu.InternalError, `Notice inbox subscriptions are unavailable: ${(0, _790_1_js__rspack_import_5.gJ)(error)}`);
-                }
-                return {};
-            });
-            protocol.setRequestHandler('resources/unsubscribe', async (request)=>{
-                assertInboxUri(request.params.uri);
-                await notices.unsubscribe();
-                return {};
-            });
-            const send = async ()=>{
-                await protocol.sendResourceUpdated({
-                    uri: notices.inboxUri
-                });
-            };
-            const report = (outcome)=>{
-                switch(outcome.kind){
-                    case 'idle':
-                    case 'signalled':
-                        return;
-                    case 'failed':
-                        noticeDiagnostic(`resources/updated ${outcome.stage} failed: ${(0, _790_1_js__rspack_import_5.gJ)(outcome.error)}`);
-                        return;
-                    default:
-                        {
-                            const unreachable = outcome;
-                            throw new TypeError(`Unhandled notice inbox signal outcome ${String(unreachable)}.`);
-                        }
-                }
-            };
-            let observing;
-            let owed = false;
-            const observe = ()=>{
-                observing = notices.observe(send).then(report, (error)=>{
-                    noticeDiagnostic(`resources/updated observation failed: ${(0, _790_1_js__rspack_import_5.gJ)(error)}`);
-                }).then(()=>{
-                    observing = void 0;
-                    if (!owed) return;
-                    owed = false;
-                    observe();
-                });
-            };
-            return ()=>{
-                if (void 0 === observing) observe();
-                else owed = true;
-                return Promise.resolve();
-            };
-        };
-        const lineageHostFor = (target)=>'claude' === target || 'codex' === target || 'cursor' === target ? target : void 0;
-        const eventLineage = async (registry, target, event, native, idempotencyKey, observedAt)=>{
-            const host = lineageHostFor(target);
-            if (void 0 === host) return (0, _agent_bundle_runtime__rspack_import_9.hU)('no-subagent-events');
-            if ('cursor' === host && true === native['is_background_agent']) return (0, _agent_bundle_runtime__rspack_import_9.hU)('cloud-agent-no-user-hooks');
-            if (void 0 === registry) return (0, _agent_bundle_runtime__rspack_import_9.hU)('not-provided');
-            return registry.observe({
-                event,
-                host,
-                idempotencyKey,
-                native,
-                observedAt
-            });
-        };
-        const nativeString = (native, key)=>'string' == typeof native[key] ? native[key] : void 0;
-        const canonicalEvent = (event)=>{
-            const canonical = _917_1_js__rspack_import_8.jy.find((candidate)=>candidate === event);
-            if (void 0 === canonical) throw new TypeError(`Event runtime received the unknown canonical event ${JSON.stringify(event)}.`);
-            return canonical;
-        };
-        const startEventRuntime = async (events, dispatcher, host, afterRender, registry, pluginRoot)=>{
-            const startedAt = new Date().toISOString();
-            let endpointLabel = events.endpointId;
-            const server = await events.createEventRuntimeServer({
-                artifactEpoch: events.artifactEpoch,
-                endpointId: events.endpointId,
-                handle: async (request, signal)=>mcp_server_runtime_settled(async ()=>{
-                        const event = canonicalEvent(request.event);
-                        const target = events.allowedTargets.find((candidate)=>candidate === request.target);
-                        if (void 0 === target) throw new TypeError(`Event runtime target ${JSON.stringify(request.target)} is not allowed by this artifact (${events.allowedTargets.map((candidate)=>JSON.stringify(candidate)).join(', ')}).`);
-                        const nativeEvent = nativeString(request.native, 'hook_event_name') ?? event;
-                        const props = events.createCanonicalEventProps(event, request.native, target, nativeEvent, request.hostContractRevision, signal, void 0 === request.observedAt || void 0 === request.sequence ? void 0 : {
-                            observedAt: request.observedAt,
-                            sequence: request.sequence
-                        });
-                        const sessionId = nativeString(request.native, 'session_id') ?? nativeString(request.native, 'conversation_id');
-                        const workspaceRoots = request.native['workspace_roots'];
-                        const workspaceRoot = nativeString(request.native, 'cwd') ?? (Array.isArray(workspaceRoots) && 'string' == typeof workspaceRoots[0] ? workspaceRoots[0] : void 0);
-                        const lineage = await eventLineage(registry, target, event, request.native, props.canonical.idempotencyKey, props.canonical.observedAt);
-                        return (0, _agent_bundle_runtime__rspack_import_9.iC)({
-                            host: (0, _agent_bundle_runtime__rspack_import_9.qC)({
-                                name: target
-                            }, 'native'),
-                            invocation: {
-                                artifactEpoch: events.artifactEpoch,
-                                hostContractRevision: request.hostContractRevision,
-                                kind: 'event',
-                                operationId: `event:${event}`,
-                                surface: event
-                            },
-                            lineage,
-                            ...void 0 === pluginRoot ? {} : {
-                                plugin: pluginRoot
-                            },
-                            ...void 0 === sessionId ? {} : {
-                                session: (0, _agent_bundle_runtime__rspack_import_9.qC)({
-                                    sessionId
-                                }, 'native')
-                            },
-                            signal,
-                            terminal: (0, _agent_bundle_runtime__rspack_import_9.qC)((0, _terminal_capability_js__rspack_import_7.Ue)('hook'), 'derived'),
-                            ...void 0 === workspaceRoot ? {} : {
-                                workspace: (0, _agent_bundle_runtime__rspack_import_9.qC)({
-                                    root: workspaceRoot
-                                }, 'native')
-                            }
-                        }, async ()=>events.projectEventDocument(await dispatcher.dispatch({
-                                invocation: {
-                                    kind: 'event',
-                                    props: {
-                                        event,
-                                        payload: {
-                                            canonical: props.canonical,
-                                            native: props.native,
-                                            ...void 0 === request.renderInput ? {} : {
-                                                renderInput: request.renderInput
-                                            }
-                                        }
-                                    }
-                                },
-                                signal
-                            }), event, target, nativeEvent, props.native));
-                    }, afterRender),
-                status: ()=>({
-                        artifactEpoch: host.identity.artifactEpoch,
-                        availability: host.availability(),
-                        instanceId: host.identity.instanceId,
-                        pid: process.pid,
-                        startedAt
-                    }),
-                onStandbyError: createStandbyErrorReporter((line)=>{
-                    eventRuntimeDiagnostic(`${endpointLabel} ${line}`);
-                }),
-                whenOwned: 'standby'
-            });
-            endpointLabel = server.endpoint;
-            if ('standby' === server.role()) {
-                eventRuntimeDiagnostic(`${server.endpoint} is owned by another process; standing by`);
-                server.onRoleChange((role)=>{
-                    if ('owner' === role) eventRuntimeDiagnostic(`${server.endpoint} was released by its owner; took it over`);
-                });
-            }
-            return server;
-        };
-        const createGeneratedRouteMcpServer = async (options)=>{
-            const tasks = createTaskAugmentedMcpServer(options.plugin);
-            const server = tasks.server;
-            const dispatcher = (0, _agent_bundle_runtime__rspack_import_11.jK)(options.host, void 0 === options.limits ? {} : {
-                limits: options.limits
-            });
-            const afterRender = void 0 === options.notices ? void 0 : installNoticeInboxSubscriptions(server, options.notices);
-            const events = void 0 === options.events ? void 0 : await startEventRuntime(options.events, dispatcher, options.host, afterRender, options.lineage, options.pluginRoot);
-            const [onlyHost, ...otherHosts] = options.events?.hosts ?? [];
-            const lineageHost = void 0 !== onlyHost && 0 === otherHosts.length ? lineageHostFor(onlyHost) : void 0;
-            registerGeneratedRoutes(server, options.routes, dispatcher, options.artifactEpoch, {
-                ...void 0 === afterRender ? {} : {
-                    afterRender
-                },
-                ...void 0 === options.pluginRoot ? {} : {
-                    pluginRoot: options.pluginRoot
-                },
-                ...void 0 === options.lineage ? {} : {
-                    lineage: options.lineage,
-                    rawArguments: captureRawToolArguments(server)
-                },
-                ...void 0 === lineageHost ? {} : {
-                    lineageHost
-                },
-                tasks
-            });
-            registerGeneratedMcpApps(server, options.apps ?? []);
-            tasks.install();
-            const close = server.close.bind(server);
-            server.close = async ()=>{
-                tasks.tasks.abortTasks('The MCP server closed before the task settled.');
-                try {
-                    try {
-                        await events?.close();
-                    } finally{
-                        try {
-                            await options.notices?.close();
-                        } finally{
-                            try {
-                                await options.host.close();
-                            } finally{
-                                await options.disposeLineage?.();
-                            }
-                        }
-                    }
-                } finally{
-                    await close();
-                }
-            };
-            return server;
-        };
-        __webpack_require__.d(__webpack_exports__, {}, {
-            EY: createGeneratedRouteMcpServer,
-            HG: createFlightWorkerHost
-        });
-    },
-    "./node_modules/agent-bundle/dist/routes.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _917_1_js__rspack_import_0 = __webpack_require__("./node_modules/agent-bundle/dist/917~1.js");
-        var _573_1_js__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/573~1.js");
-        const defineTool = (config, handler)=>Object.assign(async (props)=>{
-                const { agent } = await Promise.resolve().then(__webpack_require__.bind(__webpack_require__, "./node_modules/@agent-bundle/runtime/dist/request.js"));
-                return handler(props.input, await agent());
-            }, config);
-        const definitions = {};
-        for (const event of _917_1_js__rspack_import_0.jy){
-            const [family, name] = event.split('/');
-            const key = family.replace(/-([a-z])/gu, (_match, letter)=>letter.toUpperCase());
-            const define = (config, handler)=>Object.assign(handler, {
-                    config,
-                    event
-                });
-            if (void 0 === name) definitions[key] = Object.assign(define, definitions[key]);
-            else {
-                const group = definitions[key] ?? {};
-                Object.assign(group, {
-                    [name]: define
-                });
-                definitions[key] = group;
-            }
-        }
-        const events = null && definitions;
-        __webpack_require__.d(__webpack_exports__, {}, {
-            uO: defineTool
-        });
-    },
-    "./node_modules/agent-bundle/dist/terminal-capability.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var node_fs__rspack_import_0 = __webpack_require__("node:fs");
-        const isSet = (value)=>void 0 !== value && '' !== value;
-        const isOn = (value)=>'0' !== value && 'false' !== value.toLowerCase();
-        const terminalDepth = (env)=>{
-            const colorterm = env.COLORTERM?.toLowerCase();
-            if ('truecolor' === colorterm || '24bit' === colorterm) return 'truecolor';
-            if (/-256(?:color)?$/u.test(env.TERM ?? '')) return '256';
-            return 'basic';
-        };
-        const terminalColor = (env, isTty)=>{
-            const forceColor = env.FORCE_COLOR;
-            if (void 0 !== forceColor) switch(forceColor){
-                case '':
-                case '1':
-                case 'true':
-                    return 'basic';
-                case '2':
-                    return '256';
-                case '3':
-                    return 'truecolor';
-                default:
-                    return 'none';
-            }
-            const clicolorForce = env.CLICOLOR_FORCE;
-            if (isSet(clicolorForce) && isOn(clicolorForce)) return terminalDepth(env);
-            if (isSet(env.NO_COLOR)) return 'none';
-            if ('0' === env.CLICOLOR) return 'none';
-            if ('dumb' === env.TERM) return 'none';
-            return isTty ? terminalDepth(env) : 'none';
-        };
-        const dimensionOverride = (value)=>{
-            if (!isSet(value) || !/^\d+$/u.test(value)) return;
-            const parsed = Number(value);
-            return parsed > 0 ? parsed : void 0;
-        };
-        const dimension = (override, reported, isTty)=>{
-            const overridden = dimensionOverride(override);
-            if (void 0 !== overridden) return overridden;
-            return isTty && 'number' == typeof reported && reported > 0 ? reported : void 0;
-        };
-        const streamKind = (probe)=>{
-            if (true === probe.isTTY) return 'tty';
-            try {
-                fstatSync(probe.fd);
-                return 'pipe';
-            } catch  {
-                return 'none';
-            }
-        };
-        const probeStream = (probe, env)=>{
-            const kind = streamKind(probe);
-            const isTty = 'tty' === kind;
-            const columns = dimension(env.COLUMNS, probe.columns, isTty);
-            const rows = dimension(env.LINES, probe.rows, isTty);
-            return Object.freeze({
-                color: 'none' === kind ? 'none' : terminalColor(env, isTty),
-                kind,
-                ...void 0 === columns ? {} : {
-                    columns
-                },
-                ...void 0 === rows ? {} : {
-                    rows
-                }
-            });
-        };
-        const sharesOutputTarget = (stdoutFd, stderrFd)=>{
-            try {
-                const out = fstatSync(stdoutFd);
-                const err = fstatSync(stderrFd);
-                return 0 !== out.ino && out.dev === err.dev && out.ino === err.ino;
-            } catch  {
-                return false;
-            }
-        };
-        const processProbe = (stream, fd)=>({
-                columns: stream.columns,
-                fd,
-                isTTY: stream.isTTY,
-                rows: stream.rows
-            });
-        const detectProcessTerminal = (hostSurface, options = {})=>{
-            const env = options.env ?? process.env;
-            const stdout = options.stdout ?? processProbe(process.stdout, 1);
-            const stderr = options.stderr ?? processProbe(process.stderr, 2);
-            return Object.freeze({
-                hostSurface,
-                sharesTarget: sharesOutputTarget(stdout.fd, stderr.fd),
-                stderr: probeStream(stderr, env),
-                stdout: probeStream(stdout, env)
-            });
-        };
-        const closedStream = Object.freeze({
-            color: 'none',
-            kind: 'none'
-        });
-        const noTerminal = (hostSurface)=>Object.freeze({
-                hostSurface,
-                sharesTarget: false,
-                stderr: closedStream,
-                stdout: closedStream
-            });
-        __webpack_require__.d(__webpack_exports__, {}, {
-            Ue: noTerminal
         });
     },
     "./node_modules/effect/dist/Array.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
