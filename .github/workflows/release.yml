@@ -59,6 +59,8 @@ jobs:
 
       - name: Create release pull request or publish
         id: changesets
+        env:
+          NPM_CONFIG_LOGS_DIR: ${{ runner.temp }}/gbot-publish-logs
         uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
           pr-base-branch: main
@@ -90,3 +92,12 @@ jobs:
           done
           echo "::error::$name@$version is not on npm; the release did not publish."
           exit 1
+
+      - name: Report npm publish result on failure
+        if: failure()
+        shell: bash
+        run: |
+          # Changesets captures npm output, including errors from a false success.
+          # Show only command/status records; exclude config and authentication data.
+          grep -hE ' (verbose (title|exit)|info using|http fetch PUT|error|warn|notice Publishing) ' \
+            "$RUNNER_TEMP"/gbot-publish-logs/* 2>/dev/null || true
