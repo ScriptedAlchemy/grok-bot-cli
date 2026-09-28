@@ -84,6 +84,6 @@ test('absent Claude channel on a box names the user-machine route', async () => 
   const directory = '/home/box/.grok-bot-cli/claude-missing-' + process.pid;
   await assert.rejects(
     sendToClaude({ name: 'review', directory, message: 'ping', timeoutMs: 100 }),
-    /registered machines[\s\S]*GROK_BOT_CLAUDE_CHANNEL/,
+    /registered machines[\s\S]*Grok Bot Shell[\s\S]*machineId/,
   );
 });

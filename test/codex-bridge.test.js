@@ -191,22 +191,25 @@ test("codexSocketPath prefers CODEX_APP_SERVER_SOCK, then CODEX_HOME", () => {
   assert.equal(codexSocketPath({ CODEX_HOME: "/ch" }), join("/ch", "app-server-control", "app-server-control.sock"));
 });
 
-test("looksLikeGrokBotBox detects /home/box paths and env", () => {
+test("looksLikeGrokBotBox detects HOME=/home/box and /home/box paths", () => {
   assert.equal(looksLikeGrokBotBox({ path: "/home/box/.codex/app-server-control/app-server-control.sock" }), true);
   assert.equal(looksLikeGrokBotBox({ home: "/home/box" }), true);
-  assert.equal(looksLikeGrokBotBox({ env: { HOME: "/home/box", CODEX_HOME: "" } }), true);
-  assert.equal(looksLikeGrokBotBox({ env: { CODEX_HOME: "/home/box/.codex" } }), true);
-  assert.equal(looksLikeGrokBotBox({ path: "/tmp/gbot-codex-empty/app-server-control/app-server-control.sock", home: "/tmp/gbot-codex-empty", env: {} }), false);
+  assert.equal(looksLikeGrokBotBox({ env: { HOME: "/home/box" } }), true);
+  assert.equal(looksLikeGrokBotBox({ path: "/tmp/gbot-codex-empty/app-server-control/app-server-control.sock", home: "/tmp/gbot-codex-empty", env: { HOME: "/tmp/gbot-codex-empty" } }), false);
 });
 
-test("unreachableMessage on a box names user machines and CODEX_APP_SERVER_SOCK", () => {
+test("unreachableMessage on a box names Grok Bot Shell and no remote transport", () => {
   const path = "/home/box/.codex/app-server-control/app-server-control.sock";
   const message = unreachableMessage(path, "unknown", { HOME: "/home/box" });
   assert.equal(message, boxUnreachableMessage(path));
   assert.match(message, /user's registered machines/);
-  assert.match(message, /CODEX_APP_SERVER_SOCK/);
+  assert.match(message, /Grok Bot Shell/);
+  assert.match(message, /machineId/);
+  assert.match(message, /no remote transport/);
+  assert.match(message, /daemon start/);
+  assert.match(message, /bootstrap/);
   assert.match(message, /\/home\/box/);
-  assert.match(message, /does not store or export credentials/);
+  assert.doesNotMatch(message, /SSH-forwarded/);
   assert.doesNotMatch(message, /ChatGPT Desktop/);
 });
 
@@ -218,7 +221,9 @@ test("codex status on a box-like CODEX_HOME explains the user-machine route", as
   assert.equal(status.reachable, false);
   assert.equal(status.mode, "socket-absent");
   assert.match(status.message, /registered machines/);
-  assert.match(status.message, /CODEX_APP_SERVER_SOCK/);
+  assert.match(status.message, /Grok Bot Shell/);
+  assert.match(status.message, /machineId/);
+  assert.match(status.message, /no remote transport/);
 });
 
 test("codex send refuses server approval requests and fails with guidance", async () => {

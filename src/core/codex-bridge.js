@@ -8,6 +8,9 @@ import pkg from "../../package.json" with { type: "json" };
 
 import { outcomeFromError, outcomeFromReceipt, withStatusExitCode } from "./codex/contract.js";
 import { desktopShimStatus } from "./desktop-shim.js";
+import { looksLikeGrokBotBox, USER_MACHINE_CODEX_CLAUDE_GUIDANCE } from "./user-machine-guidance.js";
+
+export { looksLikeGrokBotBox } from "./user-machine-guidance.js";
 
 // Method and param names below come from `codex app-server generate-json-schema`
 // of this Codex release. Newer daemons usually keep them; `gbot codex status`
@@ -37,18 +40,6 @@ export function codexSocketPath(env = process.env) {
   return join(home, "app-server-control", "app-server-control.sock");
 }
 
-/**
- * True when paths or env point at the Grok Bot agent sandbox ("box"): a Linux VM
- * under /home/box with no Codex install. Codex/Claude live on the user's registered
- * machines instead.
- */
-export function looksLikeGrokBotBox({ path = "", env = process.env, home = env.HOME || homedir() } = {}) {
-  const values = [home, env.HOME, env.CODEX_HOME, env.CODEX_APP_SERVER_SOCK, path]
-    .filter((value) => value != null && value !== "")
-    .map(String);
-  return values.some((value) => value === "/home/box" || value.startsWith("/home/box/"));
-}
-
 /** `socket` | `absent` | `permission-denied` | `not-a-socket`; permission failures are not absence. */
 function socketState(path) {
   try {
@@ -76,32 +67,28 @@ export function singleLine(text) {
 export function boxUnreachableMessage(path) {
   return [
     "No Codex app-server control socket at " + path + ".",
-    "Codex and Claude sessions live on the user's registered machines (for example their Linux desktop or Mac), not on this Grok Bot agent box (/home/box).",
-    "This sandbox has no Codex install. Do not look for a local daemon here.",
-    "Target the user's machine instead: run `gbot` / `gbot codex …` / the managed bridge there (after `codex app-server daemon start`), or set CODEX_APP_SERVER_SOCK to a reachable Unix socket on that machine (for example an SSH-forwarded path).",
-    "Auth stays with each machine's native Codex login; gbot does not store or export credentials.",
+    USER_MACHINE_CODEX_CLAUDE_GUIDANCE,
   ].join("\n");
 }
 
 export function unreachableMessage(path, desktopAttached = "unknown", env = process.env) {
-  if (looksLikeGrokBotBox({ path, env })) {
+  if (looksLikeGrokBotBox({ path, env, home: env.HOME || homedir() })) {
     return boxUnreachableMessage(path);
   }
   if (desktopAttached === "private-stdio") {
     return [
       "ChatGPT Desktop is running its private stdio app-server, which external clients cannot reach",
       "(" + UPSTREAM_DESKTOP_ISSUES.join(", ") + ").",
-      "No Codex app-server control socket at " + path + ": start a managed standalone daemon with `codex app-server daemon start`.",
-      "gbot codex targets daemon-managed threads only.",
+      "No Codex app-server control socket at " + path + ": start a managed standalone daemon with `codex app-server daemon start` (or bootstrap).",
+      "gbot codex targets daemon-managed threads only; gbot has no remote transport.",
     ].join("\n");
   }
   return [
     "No Codex app-server control socket at " + path + ".",
-    "Either no daemon is running (start one with `codex app-server daemon start`),",
+    "Either no daemon is running (start one with `codex app-server daemon start` or bootstrap),",
     "or ChatGPT Desktop is running a private stdio app-server that external clients cannot reach",
     "(" + UPSTREAM_DESKTOP_ISSUES.join(", ") + ").",
-    "Codex sessions live on the machine that owns CODEX_HOME (the user's registered computer), not on a remote Grok Bot box.",
-    "Point CODEX_APP_SERVER_SOCK at that machine's socket when calling from elsewhere, or run gbot on the machine itself.",
+    "gbot connects only to this machine's local socket; it has no remote transport.",
     "gbot codex targets daemon-managed threads only.",
   ].join("\n");
 }

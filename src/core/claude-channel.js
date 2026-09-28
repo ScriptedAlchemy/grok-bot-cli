@@ -3,7 +3,7 @@ import { mkdir, lstat, chmod, unlink } from 'node:fs/promises';
 import { connect, createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { looksLikeGrokBotBox } from './codex-bridge.js';
+import { looksLikeGrokBotBox, USER_MACHINE_CODEX_CLAUDE_GUIDANCE } from './user-machine-guidance.js';
 
 const MAX_BYTES = 65536;
 const FRAME_BYTES = MAX_BYTES * 6 + 1024;
@@ -19,11 +19,10 @@ function absentClaudeChannelMessage(path, directory) {
   if (looksLikeGrokBotBox({ path, home: directory })) {
     return [
       'No Claude channel socket at ' + path + '.',
-      'Claude sessions live on the user\'s registered machines (for example their Linux desktop or Mac), not on this Grok Bot agent box (/home/box).',
-      'Run Claude with GROK_BOT_CLAUDE_CHANNEL on that machine, or invoke gbot/claude_send there. Auth stays with that machine\'s native Claude login.',
+      USER_MACHINE_CODEX_CLAUDE_GUIDANCE,
     ].join('\n');
   }
-  return 'No Claude channel socket at ' + path + '. Start an opted-in Claude Code session with GROK_BOT_CLAUDE_CHANNEL on this machine.';
+  return 'No Claude channel socket at ' + path + '. Start an opted-in Claude Code session with GROK_BOT_CLAUDE_CHANNEL on this machine (gbot has no remote transport).';
 }
 function messageText(message) {
   if (typeof message !== 'string' || !message.trim() || Buffer.byteLength(message) > MAX_BYTES)
