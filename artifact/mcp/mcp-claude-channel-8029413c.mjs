@@ -45432,7 +45432,6 @@ var __webpack_modules__ = {
             "When running on the box (HOME=/home/box), do not call codex_* or claude_send there. Run the gbot CLI on the user's machine through Grok Bot Shell with a machineId (the host's machine-targeted shell).",
             "On that machine, provide the socket with `codex app-server daemon start` (or bootstrap). Auth stays with each machine's native Codex or Claude login; gbot does not store or export credentials."
         ].join("\n");
-        const USER_MACHINE_TOOL_HINT = "Runs on the user's registered machine via its local Codex/Claude socket — not on the Grok Bot box. From the box, use Grok Bot Shell with a machineId to run gbot there (after `codex app-server daemon start` / bootstrap); gbot has no remote transport.";
         function looksLikeGrokBotBox1({ path = "", env = process.env, home = env.HOME || "" } = {}) {
             const values = [
                 home,
