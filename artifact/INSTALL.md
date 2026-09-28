@@ -2,7 +2,7 @@
 
 Message Grok Bot from Codex, Claude Code, and Cursor, with managed automatic replies and explicit Codex conversation links.
 
-Version: `0.9.1`
+Version: `0.10.0`
 
 Run these commands from this bundle directory. The bundle is self-contained: every command below is
 a host command or the bundled installer, and nothing requires the `agent-bundle` CLI. Where that CLI is
