@@ -79,3 +79,11 @@ test('Claude MCP handshake advertises the native channel and reply tool complete
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('absent Claude channel on a box names the user-machine route', async () => {
+  const directory = '/home/box/.grok-bot-cli/claude-missing-' + process.pid;
+  await assert.rejects(
+    sendToClaude({ name: 'review', directory, message: 'ping', timeoutMs: 100 }),
+    /registered machines[\s\S]*Grok Bot Shell[\s\S]*machineId/,
+  );
+});

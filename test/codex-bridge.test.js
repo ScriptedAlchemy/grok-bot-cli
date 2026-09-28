@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { fakeAppServer, createCodexFixtureHome } from "./helpers/codex-server.js";
 
-import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, codexSocketPath, codexStatus, detectDesktopPrivateAppServer, unreachableMessage } from "../src/core/codex-bridge.js";
+import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, codexSocketPath, codexStatus, detectDesktopPrivateAppServer, unreachableMessage, looksLikeGrokBotBox, boxUnreachableMessage } from "../src/core/codex-bridge.js";
 import { desktopShimStatus } from "../src/core/desktop-shim.js";
 import { formatCodexStatus } from "../src/core/format.js";
 import { createServer as createTcpServer } from "node:net";
@@ -189,6 +189,41 @@ test("codex send explains unknown threads and threads owned by another client", 
 test("codexSocketPath prefers CODEX_APP_SERVER_SOCK, then CODEX_HOME", () => {
   assert.equal(codexSocketPath({ CODEX_APP_SERVER_SOCK: "/explicit/sock", CODEX_HOME: "/ignored" }), "/explicit/sock");
   assert.equal(codexSocketPath({ CODEX_HOME: "/ch" }), join("/ch", "app-server-control", "app-server-control.sock"));
+});
+
+test("looksLikeGrokBotBox detects HOME=/home/box and /home/box paths", () => {
+  assert.equal(looksLikeGrokBotBox({ path: "/home/box/.codex/app-server-control/app-server-control.sock" }), true);
+  assert.equal(looksLikeGrokBotBox({ home: "/home/box" }), true);
+  assert.equal(looksLikeGrokBotBox({ env: { HOME: "/home/box" } }), true);
+  assert.equal(looksLikeGrokBotBox({ path: "/tmp/gbot-codex-empty/app-server-control/app-server-control.sock", home: "/tmp/gbot-codex-empty", env: { HOME: "/tmp/gbot-codex-empty" } }), false);
+});
+
+test("unreachableMessage on a box names Grok Bot Shell and no remote transport", () => {
+  const path = "/home/box/.codex/app-server-control/app-server-control.sock";
+  const message = unreachableMessage(path, "unknown", { HOME: "/home/box" });
+  assert.equal(message, boxUnreachableMessage(path));
+  assert.match(message, /user's registered machines/);
+  assert.match(message, /Grok Bot Shell/);
+  assert.match(message, /machineId/);
+  assert.match(message, /no remote transport/);
+  assert.match(message, /daemon start/);
+  assert.match(message, /bootstrap/);
+  assert.match(message, /\/home\/box/);
+  assert.doesNotMatch(message, /SSH-forwarded/);
+  assert.doesNotMatch(message, /ChatGPT Desktop/);
+});
+
+test("codex status on a box-like CODEX_HOME explains the user-machine route", async () => {
+  const home = "/home/box/.codex-missing-" + process.pid;
+  const status = await codexStatus({ ...process.env, CODEX_HOME: home, CODEX_APP_SERVER_SOCK: "", PATH: "/nonexistent" }, {
+    listProcesses: "",
+  });
+  assert.equal(status.reachable, false);
+  assert.equal(status.mode, "socket-absent");
+  assert.match(status.message, /registered machines/);
+  assert.match(status.message, /Grok Bot Shell/);
+  assert.match(status.message, /machineId/);
+  assert.match(status.message, /no remote transport/);
 });
 
 test("codex send refuses server approval requests and fails with guidance", async () => {

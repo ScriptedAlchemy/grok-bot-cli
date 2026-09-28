@@ -66,6 +66,11 @@ so this integration needs no desktop shim. The Claude plugin includes an opt-in
 `claude-channel` MCP server; Codex and Grok callers can use `claude_send`, or the
 local CLI, to send a message and receive Claude's explicit reply.
 
+Claude channels live on the **user's registered machine** (the same host that runs
+Claude Code), not on the Grok Bot agent box (`HOME=/home/box`). gbot has no remote
+transport: from the box, use Grok Bot Shell with a machineId to run
+`gbot claude send` on that computer. Auth stays with that machine's native Claude login.
+
 After installing this version of the Claude plugin, launch a named session:
 
 ```sh
@@ -198,6 +203,8 @@ gbot codex send <threadId> "Grok here: the build is green, please continue."
 
 **Which Codex you reach.** `gbot` connects to `$CODEX_HOME/app-server-control/app-server-control.sock` (default `~/.codex/...`) with a built-in WebSocket client. The daemon must be started by `codex app-server daemon start`. `list-threads` shows the threads recorded under `CODEX_HOME` (CLI, TUI, VS Code); `send` uses the resumed thread state and selected busy policy: ordinary sends reject active work, while explicitly selected guarded steering can deliver into the active turn. Method and parameter names are pinned to the Codex release recorded in `src/core/codex-bridge.js` (`codex app-server generate-json-schema`); `status` prints the daemon and CLI versions so a stale daemon is visible, and `codex app-server daemon restart` picks up the installed CLI. Native Windows is not supported yet (AF_UNIX control socket); use WSL, Linux, or macOS.
 
+**User machines, not the Grok Bot box.** Codex (and Claude) sessions live on the user's registered computers — for example their Linux desktop or Mac — not on the Grok Bot agent's sandbox VM (`HOME=/home/box`, no Codex install). gbot has **no remote transport**; it only dials a local Unix socket. When this process is on the box, do not call the Codex/Claude MCP tools there — run the `gbot` CLI on the user's machine through **Grok Bot Shell with a machineId**. On that machine, start the daemon with `codex app-server daemon start` (or bootstrap). Auth stays with each machine's native login; gbot does not store or export credentials.
+
 **ChatGPT Desktop limitation.** Desktop runs its own private stdio app-server and does not publish the shared control socket, so external clients cannot reach live Desktop tasks. When the socket is absent, `gbot codex status` exits 1 and says so, naming the upstream issues: [openai/codex#41014](https://github.com/openai/codex/issues/41014) and [openai/codex#41112](https://github.com/openai/codex/issues/41112). `gbot` never reads Desktop's temporary `CODEX_APP_TOOLS_PIPE_PATH` sockets under `/tmp/codex-browser-use/`; that channel is private to Desktop.
 
 **Pointing Desktop at the managed daemon (macOS).** Desktop injects `codex_app` overrides, so `CODEX_APP_SERVER_USE_LOCAL_DAEMON=1` alone cannot select the managed daemon. The workaround is a `CODEX_CLI_PATH` wrapper that rewrites Desktop's `codex … app-server` spawn into a stdio↔WebSocket bridge onto the managed control socket — no Desktop binary patches, no pipe scraping, no protocol change (`gbot` already speaks that socket). Do not use stock `codex app-server proxy` here: it hangs for Desktop stdio, so the shim ships its own bridge.
@@ -222,7 +229,7 @@ Current shim limitation: Desktop's spawn-time app-tools MCP `-c` overrides are n
 
 **Thread discovery.** `list-threads --limit N` (1–200) pages with the opaque `--cursor` from the previous `nextCursor`; JSON keeps the cursor verbatim, text output prints a sanitized `more: --cursor …` hint. Text fields are stripped of terminal control sequences in both outputs (single-line fields also lose line breaks; `preview` keeps its newlines; a structured `source` such as `{ "custom": … }` passes through unchanged), `status` is one of `notLoaded | idle | active | systemError | unknown`, and non-numeric `updatedAt` becomes `null`. Unknown arguments are rejected before the socket is touched; a response that does not match the pinned schema (including an entry without a string `id`) fails with `reason: "bad-response"`.
 
-**Routes, attribution, and loops.** `gbot codex send` runs on the machine that owns `CODEX_HOME`, as the user who owns the socket, with that user's Codex credentials; the socket path comes only from `CODEX_HOME`, never from the message or an agent-supplied argument. A cloud-hosted Grok Bot cannot reach a desktop socket directly — run `gbot` locally (for example from a Codex skill or an agent on that machine). `GROK_BOT_CODEX_THREADS=id,id` lets the operator pin `send` to approved threads (`reason: "route-not-allowed"` otherwise). Every send gets a delivery envelope: `messageId` (also sent as Codex's native `clientUserMessageId`), `correlationId` (defaults to the message id), optional `replyTo`, and `hop`. A reply passes the original correlation id and `hop` + 1:
+**Routes, attribution, and loops.** `gbot codex send` runs on the machine that owns `CODEX_HOME`, as the user who owns the socket, with that user's Codex credentials; the socket path comes only from `CODEX_HOME` or `CODEX_APP_SERVER_SOCK`, never from the message or an agent-supplied argument. gbot has no remote transport. A cloud-hosted Grok Bot on the box cannot reach a desktop socket at `/home/box/.codex/...` — use Grok Bot Shell with a machineId to run `gbot` on the user's registered machine (after `codex app-server daemon start` / bootstrap there). `GROK_BOT_CODEX_THREADS=id,id` lets the operator pin `send` to approved threads (`reason: "route-not-allowed"` otherwise). Every send gets a delivery envelope: `messageId` (also sent as Codex's native `clientUserMessageId`), `correlationId` (defaults to the message id), optional `replyTo`, and `hop`. A reply passes the original correlation id and `hop` + 1:
 
 ```sh
 gbot codex send <threadId> "Grok here: build is green"                  # receipt: messageId M, correlationId M, hop 0
@@ -235,7 +242,7 @@ Sends at `hop >= GROK_BOT_MAX_HOPS` (default 4) are refused with `reason: "hop-l
 
 **Failure modes.** Every `send` and `codex` outcome under `--json` is one document on stdout with `exitCode`; failures include `{ error, delivery, reason, messageId, correlationId, hop, exitCode: 1, … }` and the process exits 1. Framework argument/schema errors remain on stderr and exit 2. `--json` is reserved anywhere before `--`; put `--` before flag-like message text. `reason` values are stable:
 
-- `socket-absent` / `permission-denied` / `not-a-socket` / `connect-failed` / `handshake-failed` / `windows-unsupported`: the route is unavailable. Start the daemon, fix the socket, or wait for the upstream Desktop fixes.
+- `socket-absent` / `permission-denied` / `not-a-socket` / `connect-failed` / `handshake-failed` / `windows-unsupported`: the route is unavailable. Start the daemon on the user's machine (`codex app-server daemon start` / bootstrap), fix the socket, or wait for the upstream Desktop fixes. On a Grok Bot box (`HOME=/home/box`), the error explains that gbot has no remote transport and to run `gbot` via Grok Bot Shell with a machineId instead of expecting a box-local Codex socket.
 - `unknown-thread`: use `list-threads`.
 - `external-owner`: a thread with an active writer (VS Code, TUI) is open in another client; close it there first.
 - `busy` / `thread-error` / `unknown-status`: see above.

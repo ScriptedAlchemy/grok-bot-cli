@@ -4,7 +4,7 @@ import { waitSchema as inputSchema, resultSchema, observeOperation, resultText }
 export { inputSchema };
 export default defineTool({
   excludeClients: ['codex'],
-  description: 'Explicit diagnostic observation of one Codex turn; returns execution and final reply without interrupting it.', title: 'Codex wait', annotations: { readOnlyHint: true },
+  description: 'Explicit diagnostic observation of one Codex turn; returns execution and final reply without interrupting it. Runs on the user\'s registered machine via its local socket, not the Grok Bot box. From the box, use Grok Bot Shell with a machineId to run gbot there after codex app-server daemon start or bootstrap; gbot has no remote transport.', title: 'Codex wait', annotations: { readOnlyHint: true },
   render: { maxElapsedMs: 660000 },
   inputSchema, resultSchema,
   inputJsonSchema: { type: 'object', additionalProperties: false, properties: {

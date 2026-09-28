@@ -30,9 +30,14 @@ cookie/payment approvals and other unsupported requests require the owning Grok 
 ## Codex conversation tools
 
 The generated Codex, Cursor, and Claude plugins and portable MCP artifact expose these
-additional tools on the same `grok-bot` MCP server. Codex tools use the local Codex
-app-server control socket; Grok tools use the Grok gateway. Portable MCP artifacts
-must be configured in an MCP-capable host; they are not automatically loaded by the Grok app.
+additional tools on the same `grok-bot` MCP server. Codex tools connect only to a
+**local** Codex app-server control socket on the process's machine
+(`$CODEX_HOME/...` or `CODEX_APP_SERVER_SOCK`). gbot has **no remote transport**.
+When the MCP server runs on the Grok Bot agent box (`HOME=/home/box`), do not call
+these tools — run the `gbot` CLI on the user's registered machine through Grok Bot
+Shell with a machineId, after `codex app-server daemon start` (or bootstrap) there.
+Grok tools use the Grok gateway. Portable MCP artifacts must be configured in an
+MCP-capable host; they are not automatically loaded by the Grok app.
 
 - `codex_threads`: bounded discovery of daemon-managed Codex threads.
 - `codex_send`: submit a message with a correlation envelope. Default delivery is

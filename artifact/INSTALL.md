@@ -1,6 +1,6 @@
 # Install gbot
 
-Message Grok Bot from Codex, Claude Code, and Cursor, with managed automatic replies and explicit Codex conversation links.
+Message Grok Bot from Codex, Claude Code, and Cursor. Codex/Claude tools use local sockets on the user's registered machines only (no remote transport); from the Grok Bot box, run gbot via Grok Bot Shell with a machineId.
 
 Version: `0.10.0`
 

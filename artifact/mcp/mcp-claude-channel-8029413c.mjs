@@ -45215,6 +45215,7 @@ var __webpack_modules__ = {
         var node_net__rspack_import_2 = __webpack_require__("node:net");
         var node_os__rspack_import_3 = __webpack_require__("node:os");
         var node_path__rspack_import_4 = __webpack_require__("node:path");
+        var _user_machine_guidance_js__rspack_import_5 = __webpack_require__("./src/core/user-machine-guidance.js");
         const MAX_BYTES = 65536;
         const FRAME_BYTES = MAX_BYTES * 6 + 1024;
         const defaultDirectory = ()=>(0, node_path__rspack_import_4.join)((0, node_os__rspack_import_3.homedir)(), '.grok-bot-cli', 'claude');
@@ -45224,6 +45225,18 @@ var __webpack_modules__ = {
             const path = (0, node_path__rspack_import_4.join)(directory, `${name}.sock`);
             if (Buffer.byteLength(path) >= 104) throw Error('Claude channel socket path is too long');
             return path;
+        }
+        function absentClaudeChannelMessage(path, directory) {
+            if (looksLikeGrokBotBox({
+                path,
+                home: directory
+            })) {
+                return [
+                    'No Claude channel socket at ' + path + '.',
+                    USER_MACHINE_CODEX_CLAUDE_GUIDANCE
+                ].join('\n');
+            }
+            return 'No Claude channel socket at ' + path + '. Start an opted-in Claude Code session with GROK_BOT_CLAUDE_CHANNEL on this machine (gbot has no remote transport).';
         }
         function messageText(message) {
             if (typeof message !== 'string' || !message.trim() || Buffer.byteLength(message) > MAX_BYTES) throw Error('Message must contain text within 64 KiB');
@@ -45358,8 +45371,21 @@ var __webpack_modules__ = {
             const path = socketPath(name, directory);
             messageText(message);
             timeout(timeoutMs);
-            await privateDirectory(directory);
-            const info = await lstat(path);
+            try {
+                await privateDirectory(directory);
+            } catch (error) {
+                if (error && (error.code === 'ENOENT' || /no such file|ENOENT/i.test(String(error.message)))) {
+                    throw Error(absentClaudeChannelMessage(path, directory));
+                }
+                throw error;
+            }
+            let info;
+            try {
+                info = await lstat(path);
+            } catch (error) {
+                if (error && error.code === 'ENOENT') throw Error(absentClaudeChannelMessage(path, directory));
+                throw error;
+            }
             if (!info.isSocket() || info.uid !== process.getuid() || info.mode & 63) throw Error('Claude channel socket is not private to this user');
             return new Promise((resolve, reject)=>{
                 const socket = connect(path);
@@ -45398,6 +45424,22 @@ var __webpack_modules__ = {
         __webpack_require__.d(__webpack_exports__, {
             u: ()=>openClaudeChannel
         });
+    },
+    "./src/core/user-machine-guidance.js" () {
+        const USER_MACHINE_CODEX_CLAUDE_GUIDANCE1 = [
+            "Codex and Claude sessions live on the user's registered machines (for example their Linux desktop or Mac), not on the Grok Bot agent box (/home/box).",
+            "gbot connects only to a local Unix socket ($CODEX_HOME/app-server-control/app-server-control.sock, or CODEX_APP_SERVER_SOCK). There is no remote transport.",
+            "When running on the box (HOME=/home/box), do not call codex_* or claude_send there. Run the gbot CLI on the user's machine through Grok Bot Shell with a machineId (the host's machine-targeted shell).",
+            "On that machine, provide the socket with `codex app-server daemon start` (or bootstrap). Auth stays with each machine's native Codex or Claude login; gbot does not store or export credentials."
+        ].join("\n");
+        function looksLikeGrokBotBox1({ path = "", env = process.env, home = env.HOME || "" } = {}) {
+            const values = [
+                home,
+                env.HOME,
+                path
+            ].filter((value)=>value != null && value !== "").map(String);
+            return values.some((value)=>value === "/home/box" || value.startsWith("/home/box/"));
+        }
     }
 };
 var __webpack_module_cache__ = {};

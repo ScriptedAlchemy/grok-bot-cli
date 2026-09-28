@@ -1,0 +1,18 @@
+---
+description: Codex and Claude tools run on the user's registered machines via local sockets — never on the Grok Bot box
+alwaysApply: true
+---
+# Codex and Claude run on the user's machines
+
+`codex_*` and `claude_send` talk only to a **local** Unix socket on the machine
+where the process runs. gbot has **no remote transport**.
+
+- Codex/Claude sessions live on the user's registered computers (Linux desktop,
+  Mac, …), not on the Grok Bot agent box (`HOME=/home/box`, no Codex install).
+- When you are on the box, **do not** call those MCP tools. Run the `gbot` CLI on
+  the user's machine through **Grok Bot Shell with a machineId** (the host's
+  machine-targeted shell).
+- On that machine, start the daemon with `codex app-server daemon start` (or
+  bootstrap) so `$CODEX_HOME/app-server-control/app-server-control.sock` exists.
+- Auth stays with each machine's native Codex or Claude login. Do not invent
+  token files or export credentials.

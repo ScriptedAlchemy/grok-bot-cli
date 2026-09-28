@@ -4,8 +4,23 @@ description: Message Grok Bot, Codex threads, or opted-in local Claude Code chan
 ---
 # Talk to Grok Bot
 
-The `grok-bot` MCP server and `gbot` CLI share Grok gateway access and local
-Codex/Claude transports.
+The `grok-bot` MCP server and `gbot` CLI share Grok gateway access. Codex and
+Claude tools use **local sockets only** on the user's registered machines.
+
+## MCP instructions (Codex / Claude)
+
+gbot connects only to a local Unix socket
+(`$CODEX_HOME/app-server-control/app-server-control.sock`, or
+`CODEX_APP_SERVER_SOCK`). There is **no remote transport**.
+
+- Codex app-server threads and opted-in Claude Code channels live on the user's
+  registered computers (Linux desktop, Mac, …) — **never** on the Grok Bot agent
+  box (`HOME=/home/box`, no Codex install).
+- When this MCP server is running on the box, **do not** call `codex_*` or
+  `claude_send`. Run the `gbot` CLI on the user's machine through **Grok Bot Shell
+  with a machineId** (the host's machine-targeted shell).
+- On that machine, provide the socket with `codex app-server daemon start` (or
+  bootstrap). Auth stays with each machine's native Codex or Claude login.
 
 ## When to load this
 
@@ -49,12 +64,12 @@ which source is present.
 
 ## Claude Code channel
 
-`claude_send` sends to a named live Claude Code session on this machine and waits
-for its explicit `claude_reply`. The destination must enable the native
-`claude-channel` with `GROK_BOT_CLAUDE_CHANNEL=NAME` and Claude's development-channel
-opt-in. Supply `name`, `message`, and optional `timeoutMs` (1..120000). `replied`
-means the reply tool ran; `unknown` is not rejection and must not be automatically
-retried. Normal Claude tool approvals remain in its session. This does not attach
-to arbitrary Claude Desktop chats or connect a remote Grok runtime to local tools.
-CLI: `gbot claude send NAME "message" --json`.
-
+`claude_send` sends to a named live Claude Code session on the user's registered
+machine (local socket under `~/.grok-bot-cli/claude/`) and waits for its explicit
+`claude_reply`. From the Grok Bot box, do not call this tool — use Grok Bot Shell
+with a machineId to run `gbot claude send` on that machine instead. The destination
+must enable the native `claude-channel` with `GROK_BOT_CLAUDE_CHANNEL=NAME` and
+Claude's development-channel opt-in. Supply `name`, `message`, and optional
+`timeoutMs` (1..120000). `replied` means the reply tool ran; `unknown` is not
+rejection and must not be automatically retried. Normal Claude tool approvals remain
+in its session. CLI: `gbot claude send NAME "message" --json`.

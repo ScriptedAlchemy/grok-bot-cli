@@ -4,7 +4,7 @@ import { watchSchema as inputSchema, resultSchema, observeOperation, resultText 
 export { inputSchema };
 export default defineTool({
   excludeClients: ['codex'],
-  description: 'Watch bounded Codex thread events for diagnostics without answering approvals.', title: 'Codex watch', annotations: { readOnlyHint: true },
+  description: 'Watch bounded Codex thread events for diagnostics without answering approvals. Runs on the user\'s registered machine via its local socket, not the Grok Bot box. From the box, use Grok Bot Shell with a machineId to run gbot there after codex app-server daemon start or bootstrap; gbot has no remote transport.', title: 'Codex watch', annotations: { readOnlyHint: true },
   render: { maxElapsedMs: 660000 },
   inputSchema, resultSchema,
   inputJsonSchema: { type: 'object', additionalProperties: false, properties: {

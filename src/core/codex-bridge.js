@@ -8,6 +8,9 @@ import pkg from "../../package.json" with { type: "json" };
 
 import { outcomeFromError, outcomeFromReceipt, withStatusExitCode } from "./codex/contract.js";
 import { desktopShimStatus } from "./desktop-shim.js";
+import { looksLikeGrokBotBox, USER_MACHINE_CODEX_CLAUDE_GUIDANCE } from "./user-machine-guidance.js";
+
+export { looksLikeGrokBotBox } from "./user-machine-guidance.js";
 
 // Method and param names below come from `codex app-server generate-json-schema`
 // of this Codex release. Newer daemons usually keep them; `gbot codex status`
@@ -60,20 +63,32 @@ export function singleLine(text) {
   return stripTerminalControls(text).replace(/[\t\n\r\u2028\u2029]+/g, " ");
 }
 
-export function unreachableMessage(path, desktopAttached = "unknown") {
+/** Guidance when Codex is missing on a Grok Bot box rather than on a user machine. */
+export function boxUnreachableMessage(path) {
+  return [
+    "No Codex app-server control socket at " + path + ".",
+    USER_MACHINE_CODEX_CLAUDE_GUIDANCE,
+  ].join("\n");
+}
+
+export function unreachableMessage(path, desktopAttached = "unknown", env = process.env) {
+  if (looksLikeGrokBotBox({ path, env, home: env.HOME || homedir() })) {
+    return boxUnreachableMessage(path);
+  }
   if (desktopAttached === "private-stdio") {
     return [
       "ChatGPT Desktop is running its private stdio app-server, which external clients cannot reach",
       "(" + UPSTREAM_DESKTOP_ISSUES.join(", ") + ").",
-      "No Codex app-server control socket at " + path + ": start a managed standalone daemon with `codex app-server daemon start`.",
-      "gbot codex targets daemon-managed threads only.",
+      "No Codex app-server control socket at " + path + ": start a managed standalone daemon with `codex app-server daemon start` (or bootstrap).",
+      "gbot codex targets daemon-managed threads only; gbot has no remote transport.",
     ].join("\n");
   }
   return [
     "No Codex app-server control socket at " + path + ".",
-    "Either no daemon is running (start one with `codex app-server daemon start`),",
+    "Either no daemon is running (start one with `codex app-server daemon start` or bootstrap),",
     "or ChatGPT Desktop is running a private stdio app-server that external clients cannot reach",
     "(" + UPSTREAM_DESKTOP_ISSUES.join(", ") + ").",
+    "gbot connects only to this machine's local socket; it has no remote transport.",
     "gbot codex targets daemon-managed threads only.",
   ].join("\n");
 }
@@ -776,7 +791,7 @@ export async function codexStatus(env = process.env, { listProcesses, shim } = {
     if (err instanceof CodexRouteError) {
       // Name the private-stdio case explicitly: Desktop is up but unreachable, so the
       // operator needs a managed standalone daemon, not a Desktop reconnect.
-      const message = err.mode === "socket-absent" ? unreachableMessage(path, desktopAttached) : err.message;
+      const message = err.mode === "socket-absent" ? unreachableMessage(path, desktopAttached, env) : err.message;
       return withStatusExitCode({ ...base, reachable: false, mode: err.mode, message });
     }
     // The endpoint answered; what it said does not match the pinned schema.

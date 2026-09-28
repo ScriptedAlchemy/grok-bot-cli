@@ -21,8 +21,7 @@ const resultSchema = z.union([plainResultSchema, relayResultSchema]);
 export default defineTool(
   {
     excludeClients: ['codex'],
-    description:
-      'Send to Codex. With replyToGrok or bindingId, managed delivery returns the terminal answer to Grok automatically. Otherwise optional wait observes completion and explicit steer requires expectedTurnId. Acceptance is not completion.',
+    description: 'Send to a Codex thread. Runs on the user\'s registered machine via its local socket, not the Grok Bot box. From the box, use Grok Bot Shell with a machineId to run gbot there after codex app-server daemon start or bootstrap; gbot has no remote transport. With replyToGrok or bindingId, managed delivery returns the terminal answer to Grok automatically. Otherwise optional wait observes completion and explicit steer requires expectedTurnId. Acceptance is not completion.',
     title: 'Codex send',
     annotations: { readOnlyHint: false },
     render: { maxElapsedMs: 660000 },
