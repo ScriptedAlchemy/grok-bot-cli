@@ -7887,6 +7887,7 @@ var __webpack_modules__ = {
         });
     },
     "./src/core/chatgpt-desktop/errors.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        var _codex_remote_control_js__rspack_import_0 = __webpack_require__("./src/core/codex/remote-control.js");
         class NotImplementedError extends Error {
             code = 'NOT_IMPLEMENTED';
             delivery = 'rejected';
@@ -7914,29 +7915,15 @@ var __webpack_modules__ = {
                 this.name = 'CdpUnreachableError';
             }
         }
-        class RemoteThreadNotLoadedError extends Error {
-            code = 'REMOTE_THREAD_NOT_LOADED';
-            delivery = 'rejected';
-            reason = 'remote-thread-not-loaded';
-            threadId;
-            hostId;
-            hostName;
-            hint;
+        class RemoteThreadNotLoadedError1 extends _codex_remote_control_js__rspack_import_0.Rg {
             constructor(threadId, hostId = null, hostName = null){
-                const hostLabel = hostName ? `${JSON.stringify(hostName)} (${JSON.stringify(hostId)})` : hostId ? JSON.stringify(hostId) : null;
-                const owner = hostLabel ? `owned by remote-control host ${hostLabel}` : 'owned by a remote-control host (hostId unknown; check ~/.codex/.codex-global-state.json)';
-                const hint = hostId ? `Read this thread via host ${JSON.stringify(hostId)}'s app-server` + (hostName ? ` (${hostName})` : '') + '. SSH remoting is not implemented in this adapter.' : "Read this thread via the owning host's app-server. SSH remoting is not implemented in this adapter.";
-                super(`Codex thread ${JSON.stringify(threadId)} is not loaded on the local app-server; ${owner}. ${hint}`);
+                super(threadId, hostId, hostName);
                 this.name = 'RemoteThreadNotLoadedError';
-                this.threadId = threadId;
-                this.hostId = hostId;
-                this.hostName = hostName;
-                this.hint = hint;
             }
         }
         __webpack_require__.d(__webpack_exports__, {
             EH: ()=>NotImplementedError,
-            Rg: ()=>RemoteThreadNotLoadedError,
+            Rg: ()=>RemoteThreadNotLoadedError1,
             c$: ()=>CdpHostRejectedError,
             sO: ()=>CdpUnreachableError
         });
@@ -8049,6 +8036,22 @@ var __webpack_modules__ = {
                             ...host
                         }
                     ]));
+                for (const thread of remotes){
+                    const existing = byId.get(thread.hostId);
+                    if (existing) {
+                        byId.set(thread.hostId, {
+                            ...existing,
+                            hostName: existing.hostName ?? thread.hostName
+                        });
+                    } else {
+                        byId.set(thread.hostId, {
+                            hostId: thread.hostId,
+                            hostName: thread.hostName,
+                            location: 'remote',
+                            threadCount: 0
+                        });
+                    }
+                }
                 let hostsSource = 'remote-thread-summaries-v3+local';
                 try {
                     const discoverEnvs = this.#fallbacks.discoverRemoteEnvironments ?? _app_server_fallback_js__rspack_import_1.OP;
@@ -9186,19 +9189,21 @@ var __webpack_modules__ = {
         });
     },
     "./src/core/chatgpt-desktop/thread-ids.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        var _codex_thread_id_js__rspack_import_1 = __webpack_require__("./src/core/codex/thread-id.js");
         var _cdp_dom_js__rspack_import_0 = __webpack_require__("./src/core/chatgpt-desktop/cdp-dom.ts");
-        const LOCAL_THREAD_ID_PREFIX = 'local:';
+        const LOCAL_THREAD_ID_PREFIX = "local:";
+        const TEMP_THREAD_ID_PREFIX = null && CDP_TEMP_PREFIX;
         const HISTORY_CONTENT_TURN_PREFIX = 'history-content:turn:';
         function isTemporaryDesktopThreadId(threadId) {
-            return threadId.startsWith(_cdp_dom_js__rspack_import_0.hA);
+            return (0, _codex_thread_id_js__rspack_import_1.vr)(threadId) || threadId.startsWith(_codex_thread_id_js__rspack_import_1.hA);
         }
         function toAppServerThreadId(threadId) {
             if (!threadId || isTemporaryDesktopThreadId(threadId)) return null;
-            if (threadId.startsWith(LOCAL_THREAD_ID_PREFIX)) {
-                const bare = threadId.slice(LOCAL_THREAD_ID_PREFIX.length);
-                return bare || null;
+            try {
+                return (0, _codex_thread_id_js__rspack_import_1.SX)(threadId);
+            } catch  {
+                return null;
             }
-            return threadId;
         }
         function requireAppServerThreadId(threadId) {
             const bare = toAppServerThreadId(threadId);
@@ -9283,10 +9288,23 @@ var __webpack_modules__ = {
     },
     "./src/core/codex/routes.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
         var zod__rspack_import_3 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
+        var zod__rspack_import_5 = __webpack_require__("./node_modules/zod/v4/core/core.js");
         var _codex_bridge_js__rspack_import_0 = __webpack_require__("./src/core/codex-bridge.js");
         var _contract_js__rspack_import_1 = __webpack_require__("./src/core/codex/contract.js");
         var _conversation_js__rspack_import_2 = __webpack_require__("./src/core/codex/conversation.js");
-        const id = zod__rspack_import_3.YjP().regex(/^[A-Za-z0-9_.:-]{1,128}$/);
+        var _thread_id_js__rspack_import_4 = __webpack_require__("./src/core/codex/thread-id.js");
+        const bareId = zod__rspack_import_3.YjP().regex(/^[A-Za-z0-9_.:-]{1,128}$/);
+        const id = zod__rspack_import_3.YjP().min(1).max(160).transform((value, ctx)=>{
+            try {
+                return (0, _thread_id_js__rspack_import_4.SX)(value);
+            } catch (error) {
+                ctx.addIssue({
+                    code: 'custom',
+                    message: error instanceof Error ? error.message : 'Invalid threadId'
+                });
+                return zod__rspack_import_5.tm;
+            }
+        }).pipe(bareId);
         const observationFields = {
             expectedCwd: zod__rspack_import_3.YjP().min(1).optional(),
             threadId: id,
@@ -10370,10 +10388,11 @@ var __webpack_modules__ = {
                 properties: {
                     "limit": {
                         "type": "number",
-                        "description": "Maximum threads in this page: 1-200."
+                        "description": "Maximum threads in this page: 1-200. Pass modelProviders:[] internally so every provider is included; use cursor/nextCursor to page."
                     },
                     "cursor": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Opaque nextCursor from a previous page."
                     }
                 },
                 required: []
@@ -59690,10 +59709,11 @@ var __webpack_modules__ = {
                         "additionalProperties": false,
                         "properties": {
                             "cursor": {
+                                "description": "Opaque nextCursor from a previous page.",
                                 "type": "string"
                             },
                             "limit": {
-                                "description": "Maximum threads in this page: 1-200.",
+                                "description": "Maximum threads in this page: 1-200. Pass modelProviders:[] internally so every provider is included; use cursor/nextCursor to page.",
                                 "type": "number"
                             }
                         },
@@ -60605,8 +60625,10 @@ var __webpack_modules__ = {
         var node_child_process__rspack_import_5 = __webpack_require__("node:child_process");
         var _package_json__rspack_import_6 = __webpack_require__("./package.json");
         var _codex_contract_js__rspack_import_7 = __webpack_require__("./src/core/codex/contract.js");
-        var _desktop_shim_js__rspack_import_8 = __webpack_require__("./src/core/desktop-shim.js");
-        var _user_machine_guidance_js__rspack_import_9 = __webpack_require__("./src/core/user-machine-guidance.js");
+        var _codex_remote_control_js__rspack_import_8 = __webpack_require__("./src/core/codex/remote-control.js");
+        var _codex_thread_id_js__rspack_import_11 = __webpack_require__("./src/core/codex/thread-id.js");
+        var _desktop_shim_js__rspack_import_9 = __webpack_require__("./src/core/desktop-shim.js");
+        var _user_machine_guidance_js__rspack_import_10 = __webpack_require__("./src/core/user-machine-guidance.js");
         const PINNED_CODEX_VERSION = "0.154.0";
         const UPSTREAM_DESKTOP_ISSUES = [
             "https://github.com/openai/codex/issues/41014",
@@ -60643,11 +60665,11 @@ var __webpack_modules__ = {
         function boxUnreachableMessage(path) {
             return [
                 "No Codex app-server control socket at " + path + ".",
-                _user_machine_guidance_js__rspack_import_9.M
+                _user_machine_guidance_js__rspack_import_10.M
             ].join("\n");
         }
         function unreachableMessage(path, desktopAttached = "unknown", env = process.env) {
-            if ((0, _user_machine_guidance_js__rspack_import_9.R)({
+            if ((0, _user_machine_guidance_js__rspack_import_10.R)({
                 path,
                 env,
                 home: env.HOME || (0, node_os__rspack_import_3.homedir)()
@@ -61374,7 +61396,7 @@ var __webpack_modules__ = {
             let desktopShimConfigured = Boolean(shim && shim.installed && shim.wrapperPointsAtShim);
             if (shim === undefined) {
                 try {
-                    const live = (0, _desktop_shim_js__rspack_import_8.em)({
+                    const live = (0, _desktop_shim_js__rspack_import_9.em)({
                         env
                     });
                     desktopShimConfigured = Boolean(live.installed && live.wrapperPointsAtShim);
@@ -61483,33 +61505,52 @@ var __webpack_modules__ = {
             }
             const { client } = await openSession(env);
             try {
-                const params = {
+                const baseParams = {
                     limit,
-                    useStateDbOnly: true,
                     modelProviders,
                     ...cursor !== undefined ? {
                         cursor
                     } : {}
                 };
                 let out;
+                let usedStateDbOnly = true;
                 try {
-                    out = await client.request("thread/list", params);
+                    out = await client.request("thread/list", {
+                        ...baseParams,
+                        useStateDbOnly: true
+                    });
                 } catch (err) {
                     throw transportError(err);
                 }
                 if (!isObject(out) || !Array.isArray(out.data)) throw new CodexProtocolError("thread/list", "missing `data` array");
+                if (out.data.length === 0 && cursor === undefined && (out.nextCursor == null || out.nextCursor === "")) {
+                    try {
+                        out = await client.request("thread/list", {
+                            ...baseParams,
+                            useStateDbOnly: false
+                        });
+                        usedStateDbOnly = false;
+                    } catch (err) {
+                        throw transportError(err);
+                    }
+                    if (!isObject(out) || !Array.isArray(out.data)) throw new CodexProtocolError("thread/list", "missing `data` array");
+                }
                 if (out.nextCursor != null && typeof out.nextCursor !== "string") throw new CodexProtocolError("thread/list", "`nextCursor` is not a string");
                 const threads = out.data.map(summarizeThread);
                 return {
                     threads,
                     nextCursor: out.nextCursor ?? null,
-                    limit
+                    limit,
+                    useStateDbOnly: usedStateDbOnly
                 };
             } finally{
                 client.close();
             }
         }
-        function explainSendError(err, threadId) {
+        function explainSendError(err, threadId, env = process.env) {
+            if (err instanceof _codex_remote_control_js__rspack_import_8.Rg) return err;
+            const mapped = (0, _codex_remote_control_js__rspack_import_8.R3)(err, threadId, env);
+            if (mapped instanceof _codex_remote_control_js__rspack_import_8.Rg) return mapped;
             if (!(err instanceof CodexRpcError)) return err;
             const msg = String(err.rpc && err.rpc.message || "");
             if (/no rollout found|thread not found/i.test(msg)) {
@@ -61584,12 +61625,19 @@ var __webpack_modules__ = {
         function assertThreadAllowed(threadId, env = process.env) {
             const raw = env.GROK_BOT_CODEX_THREADS;
             if (raw == null || raw.trim() === "") return;
-            const allowed = raw.split(",").map((s)=>s.trim()).filter(Boolean);
-            if (!allowed.includes(threadId)) {
-                throw new CodexSendError("Codex thread " + threadId + " is not in GROK_BOT_CODEX_THREADS; the operator allows only: " + allowed.join(", "), {
+            const bare = (0, _codex_thread_id_js__rspack_import_11.SX)(threadId);
+            const allowed = raw.split(",").map((s)=>{
+                try {
+                    return (0, _codex_thread_id_js__rspack_import_11.SX)(s.trim());
+                } catch  {
+                    return s.trim();
+                }
+            }).filter(Boolean);
+            if (!allowed.includes(bare)) {
+                throw new CodexSendError("Codex thread " + bare + " is not in GROK_BOT_CODEX_THREADS; the operator allows only: " + allowed.join(", "), {
                     delivery: "rejected",
                     reason: "route-not-allowed",
-                    threadId
+                    threadId: bare
                 });
             }
         }
@@ -61659,6 +61707,7 @@ var __webpack_modules__ = {
         }
         async function listCodexQueue(threadId, { env = process.env, limit = 50, cursor } = {}) {
             requireExperimental(env, "gbot codex queue");
+            threadId = normalizeCodexThreadId(threadId);
             const { client } = await openSession(env, {
                 experimental: true
             });
@@ -61684,6 +61733,58 @@ var __webpack_modules__ = {
                             text: isObject(q) && Array.isArray(q.input) ? q.input.map((part)=>isObject(part) && typeof part.text === "string" ? part.text : "").filter(Boolean).join("\n") : ""
                         })),
                     nextCursor: typeof out.nextCursor === "string" ? out.nextCursor : null
+                };
+            } finally{
+                client.close();
+            }
+        }
+        async function readCodexThread(threadId, { limit = 100, env = process.env } = {}) {
+            if (!Number.isInteger(limit) || limit < 1 || limit > 2000) {
+                throw new RangeError("limit must be an integer 1-2000");
+            }
+            const bare = normalizeCodexThreadId(threadId);
+            const { client } = await openSession(env);
+            try {
+                let meta;
+                try {
+                    meta = await client.request("thread/read", {
+                        threadId: bare
+                    });
+                } catch (err) {
+                    const mapped = explainSendError(err, bare, env);
+                    if (mapped instanceof RemoteThreadNotLoadedError) throw mapped;
+                    throw transportError(err);
+                }
+                const turns = [];
+                let cursor;
+                for(let page = 0; page < 40 && turns.length < limit; page++){
+                    let out;
+                    try {
+                        out = await client.request("thread/turns/list", {
+                            threadId: bare,
+                            limit: Math.min(100, limit - turns.length),
+                            itemsView: "full",
+                            ...cursor !== undefined ? {
+                                cursor
+                            } : {}
+                        });
+                    } catch (err) {
+                        const mapped = explainSendError(err, bare, env);
+                        if (mapped instanceof RemoteThreadNotLoadedError) throw mapped;
+                        throw transportError(err);
+                    }
+                    if (!isObject(out) || !Array.isArray(out.data)) {
+                        throw new CodexProtocolError("thread/turns/list", "missing `data` array");
+                    }
+                    for (const row of out.data)turns.push(row);
+                    if (out.nextCursor == null || typeof out.nextCursor !== "string") break;
+                    cursor = out.nextCursor;
+                }
+                return {
+                    threadId: bare,
+                    thread: isObject(meta) && isObject(meta.thread) ? meta.thread : null,
+                    turns: turns.slice(0, limit),
+                    nextCursor: cursor ?? null
                 };
             } finally{
                 client.close();
@@ -61720,7 +61821,7 @@ var __webpack_modules__ = {
                 ] : []
             ].includes(whenBusy)) throw new RangeError("--when-busy must be reject, queue, or persistent steer");
             if (whenBusy === "steer" && (typeof expectedTurnId !== "string" || !ID_PATTERN.test(expectedTurnId))) throw new RangeError("steer requires expectedTurnId");
-            if (typeof threadId !== "string" || !ID_PATTERN.test(threadId)) throw new RangeError("Invalid threadId");
+            threadId = (0, _codex_thread_id_js__rspack_import_11.SX)(threadId);
             if (typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > WS_MAX_MESSAGE_BYTES) throw new RangeError("Message must contain text within 4 MiB");
             if (!envelope || typeof envelope.messageId !== "string" || !ID_PATTERN.test(envelope.messageId)) throw new RangeError("Invalid envelope messageId");
             const validated = buildEnvelope({
@@ -61761,8 +61862,10 @@ var __webpack_modules__ = {
                     });
                 } catch (err) {
                     assertNotCancelled();
-                    if (err instanceof CodexSendError) throw err;
-                    throw new CodexSendError(explainSendError(err, threadId).message, {
+                    if (err instanceof CodexSendError || err instanceof _codex_remote_control_js__rspack_import_8.Rg) throw err;
+                    const explained = explainSendError(err, threadId, env);
+                    if (explained instanceof _codex_remote_control_js__rspack_import_8.Rg) throw explained;
+                    throw new CodexSendError(explained.message, {
                         delivery: err instanceof CodexRpcError ? "rejected" : err && err.delivery || "unknown",
                         reason: err instanceof CodexRpcError ? /no rollout found|thread not found/i.test(String(err.rpc && err.rpc.message)) ? "unknown-thread" : /active writer/i.test(String(err.rpc && err.rpc.message)) ? "external-owner" : "rejected" : "transport",
                         threadId,
@@ -61990,7 +62093,11 @@ var __webpack_modules__ = {
                     "messageId",
                     "correlationId",
                     "refused",
-                    "hop"
+                    "hop",
+                    "hostId",
+                    "hostName",
+                    "hint",
+                    "code"
                 ]){
                     if (error[key] !== undefined) out[key] = error[key];
                 }
@@ -62026,9 +62133,12 @@ var __webpack_modules__ = {
         var _contract_js__rspack_import_0 = __webpack_require__("./src/core/codex/contract.js");
         var node_fs__rspack_import_1 = __webpack_require__("node:fs");
         var _codex_bridge_js__rspack_import_2 = __webpack_require__("./src/core/codex-bridge.js");
+        var _remote_control_js__rspack_import_3 = __webpack_require__("./src/core/codex/remote-control.js");
+        var _thread_id_js__rspack_import_4 = __webpack_require__("./src/core/codex/thread-id.js");
         const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
         const BUDGET = 4 * 1024 * 1024;
         function conversationId(value, name = 'threadId') {
+            if (name === 'threadId') return (0, _thread_id_js__rspack_import_4.SX)(value);
             if (typeof value !== 'string' || !ID.test(value)) throw new RangeError(`${name} must be 1-128 identifier characters`);
             return value;
         }
@@ -62153,7 +62263,8 @@ var __webpack_modules__ = {
                 if (expected !== undefined && (typeof cwd !== 'string' || (0, node_fs__rspack_import_1.realpathSync)(cwd) !== expected)) throw new Error('Codex thread cwd does not match expectedCwd');
             } catch (error) {
                 await close();
-                throw error;
+                if (error instanceof _remote_control_js__rspack_import_3.Rg) throw error;
+                throw (0, _remote_control_js__rspack_import_3.R3)(error, threadId, env);
             }
             async function wait({ turnId, messageId, afterMessageId, timeoutMs = 120000, signal: waitSignal, maxOutputBytes = 1048576 }) {
                 conversationId(turnId, 'turnId');
@@ -62457,6 +62568,263 @@ var __webpack_modules__ = {
         }
         __webpack_require__.d(__webpack_exports__, {
             j: ()=>openCodexConversation
+        });
+    },
+    "./src/core/codex/remote-control.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var node_fs__rspack_import_0 = __webpack_require__("node:fs");
+        var node_os__rspack_import_1 = __webpack_require__("node:os");
+        var node_path__rspack_import_2 = __webpack_require__("node:path");
+        var _thread_id_js__rspack_import_3 = __webpack_require__("./src/core/codex/thread-id.js");
+        const REMOTE_SUMMARY_KEY = /^remote-thread-summaries-v3:(.+)$/;
+        class RemoteThreadNotLoadedError1 extends Error {
+            constructor(threadId, hostId = null, hostName = null){
+                const hostLabel = hostName ? `${JSON.stringify(hostName)} (${JSON.stringify(hostId)})` : hostId ? JSON.stringify(hostId) : null;
+                const owner = hostLabel ? `owned by remote-control host ${hostLabel}` : 'owned by a remote-control host (hostId unknown; check ~/.codex/.codex-global-state.json)';
+                const hint = hostId ? `Read this thread via host ${JSON.stringify(hostId)}'s app-server` + (hostName ? ` (${hostName})` : '') + '. SSH remoting is not implemented in this adapter.' : "Read this thread via the owning host's app-server. SSH remoting is not implemented in this adapter.";
+                super(`Codex thread ${JSON.stringify(threadId)} is not loaded on the local app-server; ${owner}. ${hint}`);
+                this.name = 'RemoteThreadNotLoadedError';
+                this.code = 'REMOTE_THREAD_NOT_LOADED';
+                this.delivery = 'rejected';
+                this.reason = 'remote-thread-not-loaded';
+                this.threadId = threadId;
+                this.hostId = hostId;
+                this.hostName = hostName;
+                this.hint = hint;
+            }
+        }
+        function codexGlobalStatePath(env = process.env) {
+            const home = env.CODEX_HOME || (0, node_path__rspack_import_2.join)((0, node_os__rspack_import_1.homedir)(), '.codex');
+            return (0, node_path__rspack_import_2.join)(home, '.codex-global-state.json');
+        }
+        function loadCodexGlobalState(env = process.env) {
+            let raw;
+            try {
+                raw = (0, node_fs__rspack_import_0.readFileSync)(codexGlobalStatePath(env), 'utf8');
+            } catch  {
+                return null;
+            }
+            try {
+                const data = JSON.parse(raw);
+                if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+                return data;
+            } catch  {
+                return null;
+            }
+        }
+        function findRemoteThreadHost(threadId, env = process.env) {
+            let bare;
+            try {
+                bare = (0, _thread_id_js__rspack_import_3.SX)(threadId);
+            } catch  {
+                bare = typeof threadId === 'string' && threadId.startsWith("local:") ? threadId.slice("local:".length) : threadId;
+            }
+            if (!bare) return null;
+            const data = loadCodexGlobalState(env);
+            if (!data) return null;
+            const hostNames = collectHostNames(data);
+            for (const [key, value] of Object.entries(data)){
+                const match = REMOTE_SUMMARY_KEY.exec(key);
+                if (!match?.[1]) continue;
+                const hostId = match[1];
+                const hostName = hostNames.get(hostId) ?? extractHostName(value) ?? null;
+                for (const entry of extractThreadEntries(value)){
+                    const id = threadIdFromEntry(entry);
+                    if (!id) continue;
+                    const entryBare = id.startsWith("local:") ? id.slice("local:".length) : id;
+                    if (entryBare === bare) return {
+                        hostId,
+                        hostName
+                    };
+                }
+            }
+            return null;
+        }
+        function mapRemoteThreadError(error, threadId, env = process.env) {
+            const message = errorMessage(error);
+            if (!/thread not loaded|not loaded|no rollout found|thread not found|invalid thread id/i.test(message)) {
+                return error instanceof Error ? error : new Error(message || String(error));
+            }
+            const remote = findRemoteThreadHost(threadId, env);
+            if (remote) {
+                return new RemoteThreadNotLoadedError1(threadId, remote.hostId, remote.hostName);
+            }
+            if (/thread not loaded|not loaded/i.test(message)) {
+                return new RemoteThreadNotLoadedError1(threadId, null, null);
+            }
+            return error instanceof Error ? error : new Error(message || String(error));
+        }
+        function collectHostNames(data) {
+            const names = new Map();
+            for (const [key, value] of Object.entries(data)){
+                if (!/remote-host|hosts|host-meta|host_directory|environments/i.test(key)) continue;
+                if (!value || typeof value !== 'object') continue;
+                if (Array.isArray(value)) {
+                    for (const entry of value){
+                        const pair = hostNameFromEntry(entry);
+                        if (pair) names.set(pair.hostId, pair.hostName);
+                    }
+                    continue;
+                }
+                for (const [hostId, entry] of Object.entries(value)){
+                    const fromEntry = hostNameFromEntry(entry);
+                    if (fromEntry) {
+                        names.set(fromEntry.hostId, fromEntry.hostName);
+                        continue;
+                    }
+                    const label = stringField(entry, [
+                        'name',
+                        'hostName',
+                        'displayName',
+                        'envName',
+                        'label',
+                        'title'
+                    ]);
+                    if (label) names.set(hostId, label);
+                }
+            }
+            return names;
+        }
+        function hostNameFromEntry(entry) {
+            if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+            const hostId = stringField(entry, [
+                'hostId',
+                'id',
+                'host_id',
+                'uuid'
+            ]);
+            const hostName = stringField(entry, [
+                'name',
+                'hostName',
+                'displayName',
+                'envName',
+                'label',
+                'title'
+            ]);
+            if (!hostId || !hostName) return null;
+            return {
+                hostId,
+                hostName
+            };
+        }
+        function extractHostName(value) {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+            return stringField(value, [
+                'hostName',
+                'displayName',
+                'name',
+                'envName',
+                'label',
+                'title',
+                'friendlyName'
+            ]);
+        }
+        function extractThreadEntries(value) {
+            if (Array.isArray(value)) return value;
+            if (!value || typeof value !== 'object') return [];
+            const record = value;
+            for (const key of [
+                'threads',
+                'summaries',
+                'items',
+                'data',
+                'conversations'
+            ]){
+                if (Array.isArray(record[key])) return record[key];
+            }
+            const entries = [];
+            for (const [key, entry] of Object.entries(record)){
+                if ([
+                    'pinnedIds',
+                    'pinned',
+                    'pinnedThreadIds',
+                    'hostName',
+                    'displayName',
+                    'name',
+                    'envName',
+                    'label',
+                    'title',
+                    'friendlyName',
+                    'hostId',
+                    'version'
+                ].includes(key)) continue;
+                if (typeof entry === 'string') continue;
+                if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+                    const id = stringField(entry, [
+                        'id',
+                        'threadId',
+                        'thread_id',
+                        'conversationId'
+                    ]);
+                    entries.push(id ? entry : {
+                        ...entry,
+                        id: key
+                    });
+                }
+            }
+            return entries;
+        }
+        function threadIdFromEntry(entry) {
+            if (typeof entry === 'string' && entry) return entry;
+            if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+            return stringField(entry, [
+                'id',
+                'threadId',
+                'thread_id',
+                'conversationId'
+            ]);
+        }
+        function stringField(row, keys) {
+            if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+            for (const key of keys){
+                const value = row[key];
+                if (typeof value === 'string' && value.trim()) return value.trim();
+            }
+            return null;
+        }
+        function errorMessage(error) {
+            if (!error) return '';
+            if (typeof error === 'string') return error;
+            if (error instanceof Error) return error.message;
+            if (typeof error === 'object' && error && 'message' in error) return String(error.message);
+            if (typeof error === 'object' && error && 'rpc' in error) {
+                const rpc = error.rpc;
+                if (rpc && typeof rpc.message === 'string') return rpc.message;
+            }
+            return String(error);
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            R3: ()=>mapRemoteThreadError,
+            Rg: ()=>RemoteThreadNotLoadedError1
+        });
+    },
+    "./src/core/codex/thread-id.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        const LOCAL_THREAD_ID_PREFIX = 'local:';
+        const TEMP_THREAD_ID_PREFIX = 'local:client-new-thread:';
+        const ID_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
+        function isTemporaryDesktopThreadId(threadId) {
+            return typeof threadId === 'string' && threadId.startsWith(TEMP_THREAD_ID_PREFIX);
+        }
+        function normalizeCodexThreadId1(threadId) {
+            if (typeof threadId !== 'string' || !threadId) {
+                throw new RangeError('Invalid threadId');
+            }
+            if (isTemporaryDesktopThreadId(threadId)) {
+                throw new RangeError('Temporary Desktop thread id ' + JSON.stringify(threadId) + ' has no app-server mapping; wait for the real conversation id');
+            }
+            const bare = threadId.startsWith(LOCAL_THREAD_ID_PREFIX) ? threadId.slice(LOCAL_THREAD_ID_PREFIX.length) : threadId;
+            if (!bare || !ID_PATTERN.test(bare)) {
+                throw new RangeError('Invalid threadId');
+            }
+            return bare;
+        }
+        function hasLocalThreadPrefix(threadId) {
+            return typeof threadId === 'string' && threadId.startsWith(LOCAL_THREAD_ID_PREFIX) && !isTemporaryDesktopThreadId(threadId);
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            SX: ()=>normalizeCodexThreadId1,
+            vr: ()=>isTemporaryDesktopThreadId
+        }, {
+            hA: TEMP_THREAD_ID_PREFIX
         });
     },
     "./src/core/desktop-shim.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {

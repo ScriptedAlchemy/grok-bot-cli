@@ -2,8 +2,21 @@ import { z } from 'zod';
 import { buildEnvelope, listCodexThreads, sendToCodexThread } from '../codex-bridge.js';
 import { outcomeFromError } from './contract.js';
 import { openCodexConversation } from './conversation.js';
+import { normalizeCodexThreadId } from './thread-id.js';
 
-const id = z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/);
+const bareId = z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/);
+/** Accept Desktop `local:<id>` and normalize before the bare-id check. */
+const id = z.string().min(1).max(160).transform((value, ctx) => {
+  try {
+    return normalizeCodexThreadId(value);
+  } catch (error) {
+    ctx.addIssue({
+      code: 'custom',
+      message: error instanceof Error ? error.message : 'Invalid threadId',
+    });
+    return z.NEVER;
+  }
+}).pipe(bareId);
 export const observationFields = {
   expectedCwd: z.string().min(1).optional(),
   threadId: id,

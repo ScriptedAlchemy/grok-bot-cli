@@ -12,6 +12,7 @@ const entry = config.mcpServers['grok-bot'].args[0].replace('${CLAUDE_PLUGIN_ROO
 const codex = ['codex_send', 'codex_threads', 'codex_wait', 'codex_watch', 'gbot_codex_respond'];
 const grok = ['gbot_send', 'gbot_thread', 'gbot_grok_approvals', 'gbot_grok_respond'];
 const shared = [
+  'chatgpt_desktop_list_hosts',
   'chatgpt_desktop_list_threads',
   'chatgpt_desktop_read_thread',
   'chatgpt_desktop_search_threads',

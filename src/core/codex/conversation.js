@@ -1,10 +1,13 @@
 import { outcomeFromError } from './contract.js';
 import { realpathSync } from 'node:fs';
 import { assertThreadAllowed, buildEnvelope, experimentalEnabled, openCodexSession, sendToCodexThread } from '../codex-bridge.js';
+import { mapRemoteThreadError, RemoteThreadNotLoadedError } from './remote-control.js';
+import { normalizeCodexThreadId } from './thread-id.js';
 
 const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
 const BUDGET = 4 * 1024 * 1024;
 function conversationId(value, name = 'threadId') {
+  if (name === 'threadId') return normalizeCodexThreadId(value);
   if (typeof value !== 'string' || !ID.test(value)) throw new RangeError(`${name} must be 1-128 identifier characters`);
   return value;
 }
@@ -79,7 +82,11 @@ export async function openCodexConversation(threadId, options = {}) {
     if (resumed?.thread?.id !== threadId) throw new Error('thread/resume returned a different thread ID');
     const cwd = resumed.cwd ?? resumed.thread.cwd;
     if (expected !== undefined && (typeof cwd !== 'string' || realpathSync(cwd) !== expected)) throw new Error('Codex thread cwd does not match expectedCwd');
-  } catch (error) { await close(); throw error; }
+  } catch (error) {
+    await close();
+    if (error instanceof RemoteThreadNotLoadedError) throw error;
+    throw mapRemoteThreadError(error, threadId, env);
+  }
 
   /** @param {{turnId: string, messageId?: string, afterMessageId?: string|string[], timeoutMs?: number, signal?: AbortSignal, maxOutputBytes?: number}} options */
   async function wait({ turnId, messageId, afterMessageId, timeoutMs = 120000, signal: waitSignal, maxOutputBytes = 1048576 }) {

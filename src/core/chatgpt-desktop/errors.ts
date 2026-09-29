@@ -1,3 +1,5 @@
+import { RemoteThreadNotLoadedError as SharedRemoteThreadNotLoadedError } from '../codex/remote-control.js';
+
 /** Typed failure when a ChatGPT Desktop CDP/DOM operation is not yet implemented. */
 export class NotImplementedError extends Error {
   readonly code = 'NOT_IMPLEMENTED' as const;
@@ -43,43 +45,23 @@ export class CdpUnreachableError extends Error {
 
 /**
  * Thread exists on a remote-control host and is not loaded on the local
- * app-server. SSH remoting is a follow-up — this error names the owner and
- * tells the caller to read via that host's app-server.
+ * app-server. Shared with codex send/read paths.
  */
-export class RemoteThreadNotLoadedError extends Error {
-  readonly code = 'REMOTE_THREAD_NOT_LOADED' as const;
-  readonly delivery = 'rejected' as const;
-  readonly reason = 'remote-thread-not-loaded' as const;
-  readonly threadId: string;
-  readonly hostId: string | null;
-  readonly hostName: string | null;
-  readonly hint: string;
+export class RemoteThreadNotLoadedError extends SharedRemoteThreadNotLoadedError {
+  declare readonly code: 'REMOTE_THREAD_NOT_LOADED';
+  declare readonly delivery: 'rejected';
+  declare readonly reason: 'remote-thread-not-loaded';
+  declare readonly threadId: string;
+  declare readonly hostId: string | null;
+  declare readonly hostName: string | null;
+  declare readonly hint: string;
 
   constructor(
     threadId: string,
     hostId: string | null = null,
     hostName: string | null = null,
   ) {
-    const hostLabel = hostName
-      ? `${JSON.stringify(hostName)} (${JSON.stringify(hostId)})`
-      : hostId
-        ? JSON.stringify(hostId)
-        : null;
-    const owner = hostLabel
-      ? `owned by remote-control host ${hostLabel}`
-      : 'owned by a remote-control host (hostId unknown; check ~/.codex/.codex-global-state.json)';
-    const hint = hostId
-      ? `Read this thread via host ${JSON.stringify(hostId)}'s app-server` +
-        (hostName ? ` (${hostName})` : '') +
-        '. SSH remoting is not implemented in this adapter.'
-      : "Read this thread via the owning host's app-server. SSH remoting is not implemented in this adapter.";
-    super(
-      `Codex thread ${JSON.stringify(threadId)} is not loaded on the local app-server; ${owner}. ${hint}`,
-    );
+    super(threadId, hostId, hostName);
     this.name = 'RemoteThreadNotLoadedError';
-    this.threadId = threadId;
-    this.hostId = hostId;
-    this.hostName = hostName;
-    this.hint = hint;
   }
 }

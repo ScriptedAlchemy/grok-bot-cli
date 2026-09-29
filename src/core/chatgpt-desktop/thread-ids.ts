@@ -9,16 +9,23 @@
  * first reply annotates a real conversation id — they do not map to app-server.
  */
 
-import { TEMP_THREAD_ID_PREFIX } from './cdp-dom.js';
+import {
+  LOCAL_THREAD_ID_PREFIX as SHARED_LOCAL_PREFIX,
+  TEMP_THREAD_ID_PREFIX as SHARED_TEMP_PREFIX,
+  isTemporaryDesktopThreadId as sharedIsTemporary,
+  normalizeCodexThreadId,
+} from '../codex/thread-id.js';
+import { TEMP_THREAD_ID_PREFIX as CDP_TEMP_PREFIX } from './cdp-dom.js';
 
-export const LOCAL_THREAD_ID_PREFIX = 'local:' as const;
+export const LOCAL_THREAD_ID_PREFIX = SHARED_LOCAL_PREFIX;
+export const TEMP_THREAD_ID_PREFIX = CDP_TEMP_PREFIX;
 
 /** DOM `data-turn-key` prefix; app-server turn ids are the trailing segment. */
 export const HISTORY_CONTENT_TURN_PREFIX = 'history-content:turn:' as const;
 
 /** True when the id is a transient sidebar row, not a durable conversation. */
 export function isTemporaryDesktopThreadId(threadId: string): boolean {
-  return threadId.startsWith(TEMP_THREAD_ID_PREFIX);
+  return sharedIsTemporary(threadId) || threadId.startsWith(SHARED_TEMP_PREFIX);
 }
 
 /**
@@ -27,11 +34,11 @@ export function isTemporaryDesktopThreadId(threadId: string): boolean {
  */
 export function toAppServerThreadId(threadId: string): string | null {
   if (!threadId || isTemporaryDesktopThreadId(threadId)) return null;
-  if (threadId.startsWith(LOCAL_THREAD_ID_PREFIX)) {
-    const bare = threadId.slice(LOCAL_THREAD_ID_PREFIX.length);
-    return bare || null;
+  try {
+    return normalizeCodexThreadId(threadId);
+  } catch {
+    return null;
   }
-  return threadId;
 }
 
 /** Require a bare app-server id; throws when the input cannot be mapped. */
