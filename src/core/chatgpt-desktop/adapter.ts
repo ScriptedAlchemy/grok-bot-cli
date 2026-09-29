@@ -1,6 +1,7 @@
 import type {
   ChatGptDesktopStatus,
   ChatGptDesktopTarget,
+  ListHostsResult,
   ListThreadsResult,
   OpenThreadResult,
   ReadThreadResult,
@@ -17,7 +18,10 @@ export interface ChatGptDesktopAdapter {
   listTargets(): Promise<readonly ChatGptDesktopTarget[]>;
   listThreads(options?: {
     limit?: number;
+    /** `all` (default) | `local` | hostId / friendly name. */
     host?: string;
+    /** Passed through to app-server `modelProviders` (omit/empty = all). */
+    modelProvider?: string;
     groupBy?: 'host';
   }): Promise<ListThreadsResult>;
   /** Optional; facades that support app-server search implement this. */
@@ -25,8 +29,15 @@ export interface ChatGptDesktopAdapter {
     query: string;
     limit?: number;
     host?: string;
+    modelProvider?: string;
     groupBy?: 'host';
   }): Promise<ListThreadsResult>;
+  /**
+   * Optional; facades that discover remote-control hosts implement this.
+   * Returns `local` + every `remote-thread-summaries-v3:<hostId>` host with
+   * counts / friendly names, plus discovered `modelProviders`.
+   */
+  listHosts?(): Promise<ListHostsResult>;
   readThread(options: {
     threadId: string;
     limit?: number;

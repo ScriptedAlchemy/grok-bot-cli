@@ -49,6 +49,7 @@ export {
   codexGlobalStatePath,
   findRemoteThread,
   findRemoteThreadHostId,
+  listDiscoveredHosts,
   listRemoteThreadsFromState,
   loadCodexGlobalState,
 } from './remote-threads.js';
@@ -69,6 +70,8 @@ export {
   relaunchChatGptDesktopWithCdp,
 } from './relaunch.js';
 export {
+  listHostsOperation,
+  listHostsSchema,
   listThreadsOperation,
   listThreadsSchema,
   readThreadOperation,
@@ -93,6 +96,7 @@ export type {
   ChatGptDesktopThreadLocation,
   ChatGptDesktopThreadSection,
   ChatGptDesktopTurn,
+  ListHostsResult,
   ListThreadsResult,
   OpenThreadResult,
   ReadThreadResult,

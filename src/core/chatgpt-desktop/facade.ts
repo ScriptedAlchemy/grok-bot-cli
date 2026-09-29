@@ -5,10 +5,12 @@ import {
   appServerReadThread,
   appServerSearchThreads,
   appServerStatusProbe,
+  discoverModelProviders,
+  discoverRemoteEnvironments,
 } from './app-server-fallback.js';
 import { CdpUnreachableError, NotImplementedError, RemoteThreadNotLoadedError } from './errors.js';
 import { resolveCdpPort } from './loopback.js';
-import { listRemoteThreadsFromState } from './remote-threads.js';
+import { listDiscoveredHosts, listRemoteThreadsFromState } from './remote-threads.js';
 import {
   isTemporaryDesktopThreadId,
   threadIdsEquivalent,
@@ -19,6 +21,7 @@ import type {
   ChatGptDesktopStatus,
   ChatGptDesktopTarget,
   ChatGptDesktopThread,
+  ListHostsResult,
   ListThreadsResult,
   OpenThreadResult,
   ReadThreadResult,
@@ -33,6 +36,9 @@ export type ChatGptDesktopFallbacks = {
   readThread: typeof appServerReadThread;
   statusProbe: typeof appServerStatusProbe;
   listRemoteThreads?: typeof listRemoteThreadsFromState;
+  listHosts?: typeof listDiscoveredHosts;
+  discoverModelProviders?: typeof discoverModelProviders;
+  discoverRemoteEnvironments?: typeof discoverRemoteEnvironments;
 };
 
 const defaultFallbacks: ChatGptDesktopFallbacks = {
@@ -41,12 +47,23 @@ const defaultFallbacks: ChatGptDesktopFallbacks = {
   readThread: appServerReadThread,
   statusProbe: appServerStatusProbe,
   listRemoteThreads: listRemoteThreadsFromState,
+  listHosts: listDiscoveredHosts,
+  discoverModelProviders,
+  discoverRemoteEnvironments,
 };
 
 export type ListThreadsOptions = {
   limit?: number;
-  /** Filter by remote hostId or friendly host/env name (substring, case-insensitive). */
+  /**
+   * Machine / location filter discovered from remote summaries + `local`.
+   * `all` (default) | `local` | `<hostId or friendly name>`.
+   */
   host?: string;
+  /**
+   * Passed through to app-server `thread/list` as `modelProviders`.
+   * Omit / empty = all providers (`modelProviders: []`).
+   */
+  modelProvider?: string;
   /** When `"host"`, also return `groups` keyed by host. */
   groupBy?: 'host';
 };
@@ -93,10 +110,12 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
 
   async listThreads(options: ListThreadsOptions = {}): Promise<ListThreadsResult> {
     const limit = options.limit ?? 50;
+    const host = normalizeHostFilter(options.host);
+    const modelProviders = modelProvidersFromFilter(options.modelProvider);
     let appList: ListThreadsResult | null = null;
     let appError: unknown;
     try {
-      appList = await this.#fallbacks.listThreads({ limit });
+      appList = await this.#fallbacks.listThreads({ limit, modelProviders });
     } catch (error) {
       appError = error;
     }
@@ -124,29 +143,117 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
 
     return finalizeThreadList(base, {
       limit,
-      host: options.host,
+      host,
+      modelProvider: options.modelProvider,
       groupBy: options.groupBy,
       remotes: this.#listRemotes(),
     });
+  }
+
+  async listHosts(): Promise<ListHostsResult> {
+    const remotes = this.#listRemotes();
+    let localThreadCount = 0;
+    try {
+      const local = await this.#fallbacks.listThreads({ limit: 200, modelProviders: [] });
+      localThreadCount = local.threads.length;
+    } catch {
+      localThreadCount = 0;
+    }
+    const listHosts = this.#fallbacks.listHosts ?? listDiscoveredHosts;
+    const fromState = listHosts(process.env, { localThreadCount });
+    const byId = new Map(fromState.map((host) => [host.hostId, { ...host }]));
+
+    let hostsSource = 'remote-thread-summaries-v3+local';
+    try {
+      const discoverEnvs =
+        this.#fallbacks.discoverRemoteEnvironments ?? discoverRemoteEnvironments;
+      const appHosts = await discoverEnvs();
+      if (appHosts.source && appHosts.hosts.length > 0) {
+        for (const host of appHosts.hosts) {
+          const existing = byId.get(host.hostId);
+          if (existing) {
+            byId.set(host.hostId, {
+              ...existing,
+              hostName: existing.hostName ?? host.hostName,
+            });
+          } else {
+            byId.set(host.hostId, {
+              hostId: host.hostId,
+              hostName: host.hostName,
+              location: 'remote',
+              threadCount: 0,
+            });
+          }
+        }
+        hostsSource = `${appHosts.source}+remote-thread-summaries-v3+local`;
+      }
+    } catch {
+      // App-server remote-env probe unavailable — keep global-state hosts.
+    }
+
+    // Recount remotes from the parsed summary rows for accuracy.
+    const remoteCounts = new Map<string, number>();
+    for (const thread of remotes) {
+      remoteCounts.set(thread.hostId, (remoteCounts.get(thread.hostId) ?? 0) + 1);
+    }
+    const withCounts = [...byId.values()]
+      .map((host) =>
+        host.hostId === 'local'
+          ? { ...host, threadCount: localThreadCount }
+          : { ...host, threadCount: remoteCounts.get(host.hostId) ?? host.threadCount },
+      )
+      .sort((a, b) => {
+        if (a.hostId === 'local') return -1;
+        if (b.hostId === 'local') return 1;
+        return a.hostId.localeCompare(b.hostId);
+      });
+
+    let modelProviders: string[] = [];
+    let modelProvidersSource = 'thread/list-distinct';
+    try {
+      const discover = this.#fallbacks.discoverModelProviders ?? discoverModelProviders;
+      const discovered = await discover();
+      modelProviders = [...discovered.providers];
+      modelProvidersSource = discovered.source;
+    } catch {
+      modelProviders = [...new Set(
+        remotes
+          .map((thread) => thread.modelProvider)
+          .filter((value): value is string => typeof value === 'string' && Boolean(value)),
+      )].sort();
+      modelProvidersSource = 'remote-summaries-distinct';
+    }
+    return {
+      hosts: withCounts,
+      hostsSource,
+      modelProviders,
+      modelProvidersSource,
+      backend: 'app-server',
+    };
   }
 
   async searchThreads(options: {
     query: string;
     limit?: number;
     host?: string;
+    modelProvider?: string;
     groupBy?: 'host';
   }): Promise<ListThreadsResult> {
     const limit = options.limit ?? 50;
+    const host = normalizeHostFilter(options.host);
+    const modelProviders = modelProvidersFromFilter(options.modelProvider);
     try {
       const appList = await this.#fallbacks.searchThreads({
         query: options.query,
         limit,
+        modelProviders,
       });
       const cdpList = await this.#tryCdpList({ limit });
       const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
       const withRemotes = finalizeThreadList(base, {
         limit: 10_000,
-        host: options.host,
+        host,
+        modelProvider: options.modelProvider,
         remotes: this.#listRemotes(),
       });
       const needle = options.query.trim().toLowerCase();
@@ -157,7 +264,8 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       };
       return finalizeThreadList(filtered, {
         limit,
-        host: options.host,
+        host,
+        modelProvider: options.modelProvider,
         groupBy: options.groupBy,
         remotes: [],
       });
@@ -172,7 +280,8 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       };
       return finalizeThreadList(filtered, {
         limit,
-        host: options.host,
+        host,
+        modelProvider: options.modelProvider,
         groupBy: options.groupBy,
         remotes: this.#listRemotes(),
       });
@@ -356,12 +465,14 @@ export function finalizeThreadList(
   base: ListThreadsResult,
   {
     limit,
-    host,
+    host = 'all',
+    modelProvider,
     groupBy,
     remotes,
   }: {
     limit: number;
     host?: string;
+    modelProvider?: string;
     groupBy?: 'host';
     remotes: readonly ChatGptDesktopThread[];
   },
@@ -391,9 +502,11 @@ export function finalizeThreadList(
     });
   }
 
-  const filtered = host
-    ? merged.filter((thread) => hostMatches(thread, host))
-    : merged;
+  const filtered = merged.filter((thread) => {
+    if (!hostMatches(thread, host)) return false;
+    if (!modelProviderMatches(thread, modelProvider)) return false;
+    return true;
+  });
   const limited = filtered.slice(0, limit);
   const result: ListThreadsResult = {
     backend: base.backend,
@@ -401,7 +514,8 @@ export function finalizeThreadList(
     threads: limited,
     ...(base.nextCursor !== undefined ? { nextCursor: base.nextCursor } : {}),
     ...(base.query !== undefined ? { query: base.query } : {}),
-    ...(host ? { host } : {}),
+    host,
+    ...(modelProvider ? { modelProvider } : {}),
   };
   if (groupBy === 'host') {
     return { ...result, groupBy: 'host', groups: groupThreadsByHost(limited) };
@@ -432,12 +546,32 @@ export function groupThreadsByHost(
   return [...groups.values()];
 }
 
+function normalizeHostFilter(host?: string): string {
+  const value = (host ?? 'all').trim();
+  return value || 'all';
+}
+
+function modelProvidersFromFilter(modelProvider?: string): string[] {
+  if (!modelProvider || !modelProvider.trim()) return [];
+  return [modelProvider.trim()];
+}
+
 function hostMatches(thread: ChatGptDesktopThread, host: string): boolean {
   const needle = host.trim().toLowerCase();
-  if (!needle) return true;
+  if (!needle || needle === 'all') return true;
   if (needle === 'local') return (thread.location ?? 'local') === 'local';
   return [thread.hostId, thread.hostName]
     .some((value) => typeof value === 'string' && value.toLowerCase().includes(needle));
+}
+
+function modelProviderMatches(thread: ChatGptDesktopThread, modelProvider?: string): boolean {
+  if (!modelProvider) return true;
+  if (!thread.modelProvider) {
+    // Remote summaries often omit provider — keep them; local rows from a
+    // filtered thread/list already match the server-side modelProviders filter.
+    return thread.location === 'remote';
+  }
+  return thread.modelProvider === modelProvider;
 }
 
 function threadMatchesQuery(thread: ChatGptDesktopThread, needle: string): boolean {

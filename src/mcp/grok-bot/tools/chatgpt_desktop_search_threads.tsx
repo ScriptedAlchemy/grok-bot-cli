@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop search threads',
     description:
-      'Search ChatGPT Desktop / Codex threads through the local app-server and remote-control summaries in ~/.codex/.codex-global-state.json. Optional host filter and groupBy=host. Merges CDP selected/pinned when connected. Result includes backend.',
+      'Search ChatGPT Desktop / Codex threads through the local app-server and remote-control summaries. Separate filters: host (all|local|<hostId or friendly name>) and modelProvider (app-server modelProviders pass-through). Optional groupBy=host. Discover hosts via chatgpt_desktop_list_hosts. Result includes backend.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -26,7 +26,13 @@ export default defineTool(
         limit: { type: 'number', description: 'Maximum matches (1-200).' },
         host: {
           type: 'string',
-          description: 'Filter by hostId or friendly host/env name (use "local" for local-only).',
+          description:
+            'Machine/location filter: "all" (default), "local", or a hostId / friendly name from chatgpt_desktop_list_hosts.',
+        },
+        modelProvider: {
+          type: 'string',
+          description:
+            'Filter passed through to app-server thread/list modelProviders. Omit for all providers.',
         },
         groupBy: {
           type: 'string',

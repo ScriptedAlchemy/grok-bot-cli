@@ -17,6 +17,7 @@ import {
 import { ChatGptDesktopFacade } from '../../src/core/chatgpt-desktop/facade.js';
 
 const desktopTools = [
+  'chatgpt_desktop_list_hosts',
   'chatgpt_desktop_list_threads',
   'chatgpt_desktop_read_thread',
   'chatgpt_desktop_search_threads',
@@ -43,6 +44,7 @@ function fakeAdapter(overrides: Partial<ChatGptDesktopAdapter> = {}): ChatGptDes
       return {
         backend: 'cdp',
         limit,
+        host: 'all',
         threads: [
           {
             threadId: 'local:11111111-1111-1111-1111-111111111111',
@@ -50,8 +52,28 @@ function fakeAdapter(overrides: Partial<ChatGptDesktopAdapter> = {}): ChatGptDes
             pinned: false,
             selected: true,
             kind: 'local',
+            location: 'local',
+            hostId: null,
+            hostName: null,
           },
         ].slice(0, limit),
+      };
+    },
+    async listHosts() {
+      return {
+        backend: 'app-server',
+        hostsSource: 'remote-thread-summaries-v3+local',
+        modelProviders: ['openai'],
+        modelProvidersSource: 'thread/list-distinct',
+        hosts: [
+          { hostId: 'local', hostName: 'local', location: 'local', threadCount: 1 },
+          {
+            hostId: 'host-macbook',
+            hostName: "Zack's MacBook",
+            location: 'remote',
+            threadCount: 2,
+          },
+        ],
       };
     },
     async readThread({ threadId, limit = 100, full = false }) {
@@ -283,6 +305,22 @@ describe('chatgpt-desktop MCP tools', () => {
       exitCode: 0,
     });
 
+    const hosts = await invokeMcpTool('chatgpt_desktop_list_hosts', {
+      server: 'grok-bot',
+      input: {},
+    });
+    expect(hosts.isError).toBe(false);
+    expect(hosts.structuredContent).toMatchObject({
+      exitCode: 0,
+      hostsSource: 'remote-thread-summaries-v3+local',
+      modelProvidersSource: 'thread/list-distinct',
+      modelProviders: ['openai'],
+      hosts: [
+        { hostId: 'local', location: 'local' },
+        { hostId: 'host-macbook', hostName: "Zack's MacBook" },
+      ],
+    });
+
     const listed = await invokeMcpTool('chatgpt_desktop_list_threads', {
       server: 'grok-bot',
       input: { limit: 10 },
@@ -361,12 +399,19 @@ describe('chatgpt-desktop MCP tools', () => {
 });
 
 describe('chatgpt-desktop CLI', () => {
-  it('dispatches status|threads|read|send through the fake adapter', async () => {
+  it('dispatches status|hosts|threads|read|send through the fake adapter', async () => {
     setChatGptDesktopAdapterForTests(fakeAdapter());
 
     const status = await invokeCli(['chatgpt-desktop', 'status', '--json']);
     expect(status.exitCode).toBe(0);
     expect(status.value).toMatchObject({ reachable: true, host: '127.0.0.1' });
+
+    const hosts = await invokeCli(['chatgpt-desktop', 'hosts', '--json']);
+    expect(hosts.exitCode).toBe(0);
+    expect(hosts.value).toMatchObject({
+      hostsSource: 'remote-thread-summaries-v3+local',
+      modelProvidersSource: 'thread/list-distinct',
+    });
 
     const threads = await invokeCli(['chatgpt-desktop', 'threads', '--limit', '5', '--json']);
     expect(threads.exitCode).toBe(0);
@@ -858,6 +903,7 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
             location: 'local',
             hostId: null,
             hostName: null,
+            modelProvider: 'openai',
           },
         ],
       },
@@ -865,6 +911,103 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
     );
     expect(localOnly.threads).toHaveLength(1);
     expect(localOnly.threads[0]?.location).toBe('local');
+
+    const byProvider = finalizeThreadList(
+      {
+        backend: 'app-server',
+        limit: 50,
+        threads: [
+          {
+            threadId: 'local:local-thread-1',
+            title: 'Local only',
+            pinned: false,
+            selected: false,
+            kind: 'codex',
+            location: 'local',
+            hostId: null,
+            hostName: null,
+            modelProvider: 'openai',
+          },
+          {
+            threadId: 'local:local-thread-2',
+            title: 'Other provider',
+            pinned: false,
+            selected: false,
+            kind: 'codex',
+            location: 'local',
+            hostId: null,
+            hostName: null,
+            modelProvider: 'anthropic',
+          },
+        ],
+      },
+      { limit: 50, remotes: [], host: 'all', modelProvider: 'openai' },
+    );
+    expect(byProvider.modelProvider).toBe('openai');
+    expect(byProvider.threads).toHaveLength(1);
+    expect(byProvider.threads[0]?.modelProvider).toBe('openai');
+
+    const {
+      listDiscoveredHosts,
+    } = await import('../../src/core/chatgpt-desktop/index.js');
+    const discovered = listDiscoveredHosts(env, { localThreadCount: 3 });
+    expect(discovered.map((h) => h.hostId)).toEqual([
+      'local',
+      'broken-host',
+      'host-linux',
+      'host-macbook',
+    ]);
+    expect(discovered.find((h) => h.hostId === 'local')?.threadCount).toBe(3);
+    expect(discovered.find((h) => h.hostId === 'host-macbook')).toMatchObject({
+      hostName: "Zack's MacBook",
+      threadCount: 2,
+      location: 'remote',
+    });
+
+    const facade = new ChatGptDesktopFacade(
+      fakeAdapter({
+        async connect() {
+          throw new CdpUnreachableError('offline');
+        },
+        async listThreads() {
+          throw new CdpUnreachableError('offline');
+        },
+      }),
+      9222,
+      {
+        listThreads: async ({ limit = 50 } = {}) => ({
+          backend: 'app-server' as const,
+          limit,
+          threads: [
+            {
+              threadId: 'local:local-1',
+              title: 'Local',
+              pinned: false,
+              selected: false,
+              kind: 'codex',
+              modelProvider: 'openai',
+            },
+          ],
+        }),
+        searchThreads: async () => ({ backend: 'app-server' as const, limit: 1, query: '', threads: [] }),
+        readThread: async () => {
+          throw new Error('unused');
+        },
+        statusProbe: async () => ({ reachable: true, mode: 'daemon' }),
+        listRemoteThreads: () => remotes,
+        discoverModelProviders: async () => ({
+          providers: ['openai', 'anthropic'],
+          source: 'thread/list-distinct' as const,
+        }),
+        discoverRemoteEnvironments: async () => ({ hosts: [], source: null }),
+      },
+    );
+    const hostList = await facade.listHosts();
+    expect(hostList.hostsSource).toBe('remote-thread-summaries-v3+local');
+    expect(hostList.modelProvidersSource).toBe('thread/list-distinct');
+    expect(hostList.modelProviders).toEqual(['openai', 'anthropic']);
+    expect(hostList.hosts.find((h) => h.hostId === 'local')?.threadCount).toBe(1);
+    expect(hostList.hosts.find((h) => h.hostId === 'host-macbook')?.threadCount).toBe(2);
 
     const lookup = findRemoteThread('aaaa1111-1111-1111-1111-111111111111', env);
     expect(lookup).toMatchObject({ hostId: 'host-macbook', hostName: "Zack's MacBook" });

@@ -859,22 +859,30 @@ function summarizeThread(t) {
 const THREAD_LIST_MAX_LIMIT = 200;
 
 /**
- * @param {{ limit?: number, cursor?: string, env?: NodeJS.ProcessEnv }} [opts]
+ * @param {{ limit?: number, cursor?: string, modelProviders?: string[], env?: NodeJS.ProcessEnv }} [opts]
  */
-export async function listCodexThreads({ limit = 20, cursor, env = process.env } = {}) {
+export async function listCodexThreads({
+  limit = 20,
+  cursor,
+  modelProviders = [],
+  env = process.env,
+} = {}) {
   if (!Number.isInteger(limit) || limit < 1 || limit > THREAD_LIST_MAX_LIMIT) {
     throw new RangeError("--limit must be an integer 1-" + THREAD_LIST_MAX_LIMIT);
   }
   if (cursor !== undefined && (typeof cursor !== "string" || !cursor)) throw new RangeError("--cursor must be a non-empty string");
+  if (!Array.isArray(modelProviders) || modelProviders.some((p) => typeof p !== "string")) {
+    throw new RangeError("modelProviders must be an array of strings (empty = all providers)");
+  }
   const { client } = await openSession(env);
   try {
-    // Default thread/list filters to the current model provider and misses other
-    // providers' threads. Pass modelProviders: [] for the full inventory.
-    // useStateDbOnly avoids a cold rollout rescan (tens of seconds).
+    // Default daemon filter is the current provider only. Pass modelProviders: [] for
+    // every provider, or a non-empty list to restrict. useStateDbOnly avoids a cold
+    // rollout rescan (tens of seconds).
     const params = {
       limit,
       useStateDbOnly: true,
-      modelProviders: [],
+      modelProviders,
       ...(cursor !== undefined ? { cursor } : {}),
     };
     let out;

@@ -17,7 +17,10 @@ export const listThreadsSchema = z
   .object({
     port: z.number().int().min(1).max(65535).optional(),
     limit: z.number().int().min(1).max(200).default(50),
+    /** `all` (default) | `local` | hostId / friendly name. */
     host: z.string().min(1).max(256).optional(),
+    /** Passed through to app-server `modelProviders` (omit = all). */
+    modelProvider: z.string().min(1).max(256).optional(),
     groupBy: z.literal('host').optional(),
   })
   .strict();
@@ -28,7 +31,14 @@ export const searchThreadsSchema = z
     query: z.string().min(1).max(512),
     limit: z.number().int().min(1).max(200).default(50),
     host: z.string().min(1).max(256).optional(),
+    modelProvider: z.string().min(1).max(256).optional(),
     groupBy: z.literal('host').optional(),
+  })
+  .strict();
+
+export const listHostsSchema = z
+  .object({
+    port: z.number().int().min(1).max(65535).optional(),
   })
   .strict();
 
@@ -136,6 +146,7 @@ export async function listThreadsOperation(
       adapter.listThreads({
         limit: input.limit,
         host: input.host,
+        modelProvider: input.modelProvider,
         groupBy: input.groupBy,
       }),
     );
@@ -157,8 +168,25 @@ export async function searchThreadsOperation(
         query: input.query,
         limit: input.limit,
         host: input.host,
+        modelProvider: input.modelProvider,
         groupBy: input.groupBy,
       });
+    });
+    return asResult({ ...out, exitCode: 0 as const });
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function listHostsOperation(
+  input: z.infer<typeof listHostsSchema>,
+): Promise<OperationResult> {
+  try {
+    const out = await withAdapter(input.port, async (adapter) => {
+      if (typeof adapter.listHosts !== 'function') {
+        throw new NotImplementedError('listHosts', 'adapter does not implement listHosts');
+      }
+      return adapter.listHosts();
     });
     return asResult({ ...out, exitCode: 0 as const });
   } catch (error) {
@@ -228,9 +256,17 @@ export function resultText(result: OperationResult): string {
     return `ChatGPT Desktop CDP reachable on 127.0.0.1:${result.port}${backend}`;
   }
   if (result.reachable === false) return String(result.message ?? 'ChatGPT Desktop CDP unreachable');
+  if (Array.isArray(result.hosts)) {
+    const providers = Array.isArray(result.modelProviders)
+      ? ` providers=${result.modelProviders.length} (${String(result.modelProvidersSource ?? '')})`
+      : '';
+    return `${result.hosts.length} hosts via ${String(result.hostsSource ?? result.backend ?? 'unknown')}${providers}`;
+  }
   if (Array.isArray(result.threads)) {
     const via = result.query ? ` matching ${JSON.stringify(result.query)}` : '';
-    return `${result.threads.length} threads${via} via ${result.backend ?? 'unknown'}`;
+    const host = result.host && result.host !== 'all' ? ` host=${result.host}` : '';
+    const provider = result.modelProvider ? ` provider=${result.modelProvider}` : '';
+    return `${result.threads.length} threads${via}${host}${provider} via ${result.backend ?? 'unknown'}`;
   }
   if (Array.isArray(result.turns)) {
     const mode = result.full ? 'full' : 'page';

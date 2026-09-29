@@ -33,35 +33,39 @@ import type {
 export async function appServerListThreads({
   limit = 50,
   cursor,
+  modelProviders = [],
 }: {
   limit?: number;
   cursor?: string;
+  modelProviders?: string[];
 } = {}): Promise<ListThreadsResult> {
-  const out = await listCodexThreads({ limit, cursor });
+  const out = await listCodexThreads({ limit, cursor, modelProviders });
   return {
     backend: 'app-server',
     limit: out.limit,
     nextCursor: out.nextCursor ?? null,
     threads: out.threads.map(mapListedThread),
+    modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined,
   };
 }
 
 export async function appServerSearchThreads({
   query,
   limit = 50,
+  modelProviders = [],
 }: {
   query: string;
   limit?: number;
+  modelProviders?: string[];
 }): Promise<ListThreadsResult> {
   const needle = query.trim().toLowerCase();
   if (!needle) {
-    return appServerListThreads({ limit });
+    return appServerListThreads({ limit, modelProviders });
   }
   const matched: ChatGptDesktopThread[] = [];
   let cursor: string | undefined;
-  // Page the full inventory (modelProviders: [] is applied inside listCodexThreads).
   for (let page = 0; page < 20 && matched.length < limit; page++) {
-    const out = await listCodexThreads({ limit: 200, cursor });
+    const out = await listCodexThreads({ limit: 200, cursor, modelProviders });
     for (const thread of out.threads) {
       const mapped = mapListedThread(thread);
       if (threadMatchesQuery(mapped, needle)) matched.push(mapped);
@@ -76,7 +80,181 @@ export async function appServerSearchThreads({
     query,
     nextCursor: null,
     threads: matched.slice(0, limit),
+    modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined,
   };
+}
+
+/** Candidate app-server RPCs that might list configured model providers. */
+const MODEL_PROVIDER_LIST_METHODS = [
+  'modelProvider/list',
+  'model/providers/list',
+  'models/providers/list',
+  'account/modelProviders/list',
+  'config/modelProviders/list',
+  'provider/list',
+] as const;
+
+/** Candidate app-server RPCs that might list remote-control environments/hosts. */
+const REMOTE_ENVIRONMENT_LIST_METHODS = [
+  'remoteEnvironment/list',
+  'remote/environments/list',
+  'environment/list',
+  'remoteControl/hosts/list',
+  'remote/hosts/list',
+  'hosts/list',
+] as const;
+
+export type ModelProvidersDiscovery = {
+  readonly providers: readonly string[];
+  /** Which discovery path produced the list. */
+  readonly source:
+    | `app-server:${(typeof MODEL_PROVIDER_LIST_METHODS)[number]}`
+    | 'thread/list-distinct';
+};
+
+export type RemoteEnvironmentsDiscovery = {
+  readonly hosts: readonly { hostId: string; hostName: string | null }[];
+  readonly source: `app-server:${(typeof REMOTE_ENVIRONMENT_LIST_METHODS)[number]}` | null;
+};
+
+/**
+ * Discover configured model providers. Prefers a dedicated app-server list
+ * method when present; otherwise distinct `modelProvider` values from
+ * `thread/list` (`modelProviders: []`).
+ */
+export async function discoverModelProviders(): Promise<ModelProvidersDiscovery> {
+  const { client } = await openCodexSession();
+  try {
+    for (const method of MODEL_PROVIDER_LIST_METHODS) {
+      try {
+        const result = await client.request(method, {}) as unknown;
+        const providers = normalizeNamedList(result, [
+          'id',
+          'name',
+          'provider',
+          'modelProvider',
+          'slug',
+        ]);
+        if (providers.length > 0) {
+          return { providers, source: `app-server:${method}` };
+        }
+      } catch {
+        // Method missing or rejected — try the next candidate.
+      }
+    }
+  } finally {
+    client.close();
+  }
+
+  const providers = new Set<string>();
+  let cursor: string | undefined;
+  for (let page = 0; page < 20; page++) {
+    const out = await listCodexThreads({ limit: 200, cursor, modelProviders: [] });
+    for (const thread of out.threads) {
+      if (typeof thread.modelProvider === 'string' && thread.modelProvider) {
+        providers.add(thread.modelProvider);
+      }
+    }
+    if (out.nextCursor == null || typeof out.nextCursor !== 'string') break;
+    cursor = out.nextCursor;
+  }
+  return {
+    providers: [...providers].sort(),
+    source: 'thread/list-distinct',
+  };
+}
+
+/**
+ * Probe app-server for a remote-environment / hosts list method.
+ * Returns null source when no such method exists (callers fall back to
+ * `remote-thread-summaries-v3:<hostId>` keys in global state).
+ */
+export async function discoverRemoteEnvironments(): Promise<RemoteEnvironmentsDiscovery> {
+  const { client } = await openCodexSession();
+  try {
+    for (const method of REMOTE_ENVIRONMENT_LIST_METHODS) {
+      try {
+        const result = await client.request(method, {}) as unknown;
+        const hosts = normalizeHostEntries(result);
+        if (hosts.length > 0) {
+          return { hosts, source: `app-server:${method}` };
+        }
+      } catch {
+        // Method missing or rejected — try the next candidate.
+      }
+    }
+  } finally {
+    client.close();
+  }
+  return { hosts: [], source: null };
+}
+
+function normalizeNamedList(result: unknown, idKeys: string[]): string[] {
+  const raw = listPayload(result);
+  const out: string[] = [];
+  for (const entry of raw) {
+    if (typeof entry === 'string' && entry) out.push(entry);
+    else if (entry && typeof entry === 'object') {
+      const row = entry as Record<string, unknown>;
+      for (const key of idKeys) {
+        if (typeof row[key] === 'string' && row[key]) {
+          out.push(String(row[key]));
+          break;
+        }
+      }
+    }
+  }
+  return [...new Set(out)].sort();
+}
+
+function normalizeHostEntries(
+  result: unknown,
+): { hostId: string; hostName: string | null }[] {
+  const raw = listPayload(result);
+  const out: { hostId: string; hostName: string | null }[] = [];
+  for (const entry of raw) {
+    if (typeof entry === 'string' && entry) {
+      out.push({ hostId: entry, hostName: null });
+      continue;
+    }
+    if (!entry || typeof entry !== 'object') continue;
+    const row = entry as Record<string, unknown>;
+    let hostId: string | null = null;
+    for (const key of ['hostId', 'id', 'uuid', 'environmentId', 'envId']) {
+      if (typeof row[key] === 'string' && row[key]) {
+        hostId = String(row[key]);
+        break;
+      }
+    }
+    if (!hostId) continue;
+    let hostName: string | null = null;
+    for (const key of ['hostName', 'name', 'displayName', 'envName', 'label', 'title']) {
+      if (typeof row[key] === 'string' && row[key]) {
+        hostName = String(row[key]);
+        break;
+      }
+    }
+    out.push({ hostId, hostName });
+  }
+  return out;
+}
+
+function listPayload(result: unknown): unknown[] {
+  if (Array.isArray(result)) return result;
+  if (!result || typeof result !== 'object') return [];
+  const record = result as Record<string, unknown>;
+  for (const key of [
+    'data',
+    'providers',
+    'modelProviders',
+    'hosts',
+    'environments',
+    'remoteEnvironments',
+    'items',
+  ]) {
+    if (Array.isArray(record[key])) return record[key] as unknown[];
+  }
+  return [];
 }
 
 export async function appServerReadThread({

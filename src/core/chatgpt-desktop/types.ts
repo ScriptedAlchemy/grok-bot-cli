@@ -86,11 +86,28 @@ export type ListThreadsResult = {
   readonly limit: number;
   readonly nextCursor?: string | null;
   readonly query?: string;
-  /** Host filter applied (`hostId` or friendly name substring). */
+  /** Host filter applied: `all` | `local` | hostId / friendly name. */
   readonly host?: string;
+  /** Model-provider filter passed through to app-server `modelProviders`. */
+  readonly modelProvider?: string;
   readonly groupBy?: 'host';
   /** Present when `groupBy: "host"`. */
   readonly groups?: readonly ChatGptDesktopHostGroup[];
+};
+
+export type ListHostsResult = {
+  readonly hosts: readonly {
+    readonly hostId: string;
+    readonly hostName: string | null;
+    readonly location: ChatGptDesktopThreadLocation;
+    readonly threadCount: number;
+  }[];
+  /** How hosts were discovered (e.g. remote-thread-summaries-v3+local). */
+  readonly hostsSource: string;
+  readonly modelProviders: readonly string[];
+  /** How model providers were discovered (app-server method or thread/list-distinct). */
+  readonly modelProvidersSource: string;
+  readonly backend: ChatGptDesktopBackend;
 };
 
 export type ReadThreadResult = {

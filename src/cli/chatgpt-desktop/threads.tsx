@@ -10,14 +10,21 @@ import {
 
 export const config = {
   description:
-    'List local + remote-control ChatGPT Desktop threads; optional --host and --group-by host.',
+    'List local + remote-control ChatGPT Desktop threads; --host and --model-provider are separate filters.',
   exitCode: 'result',
   inputJsonSchema: {
     additionalProperties: false,
     properties: {
       groupBy: { description: 'Group results by host', enum: ['host'], type: 'string' },
-      host: { description: 'Filter by hostId or friendly name (local for local-only)', type: 'string' },
+      host: {
+        description: 'Filter: all (default) | local | hostId or friendly name',
+        type: 'string',
+      },
       limit: { default: 50, description: 'Max threads (1-200)', type: 'number' },
+      modelProvider: {
+        description: 'Pass-through to app-server modelProviders (omit = all)',
+        type: 'string',
+      },
       port: { description: 'Local CDP port', type: 'number' },
     },
     type: 'object',
@@ -29,6 +36,7 @@ export const inputSchema = z
     groupBy: z.literal('host').optional(),
     host: z.string().min(1).max(256).optional(),
     limit: z.number().int().min(1).max(200).default(50),
+    modelProvider: z.string().min(1).max(256).optional(),
     port: z.number().int().min(1).max(65535).optional(),
   })
   .strict();
@@ -51,15 +59,18 @@ export default async function chatgptDesktopThreads({
               location?: string;
               hostId?: string | null;
               hostName?: string | null;
+              modelProvider?: string | null;
             };
             const where =
               row.location === 'remote'
                 ? ` [remote ${row.hostName || row.hostId || '?'}]`
                 : ' [local]';
+            const provider = row.modelProvider ? ` {${row.modelProvider}}` : '';
             return (
               `${row.selected ? '* ' : '  '}${row.threadId ?? ''}  ${row.title ?? ''}` +
               (row.pinned ? ' (pinned)' : '') +
-              where
+              where +
+              provider
             );
           })
           .join('\n') + `\n\nbackend: ${String(out.backend ?? '')}`

@@ -115,6 +115,77 @@ export function findRemoteThreadHostId(
   return findRemoteThread(threadId, env)?.hostId ?? null;
 }
 
+export type DiscoveredHost = {
+  readonly hostId: string;
+  readonly hostName: string | null;
+  readonly location: 'local' | 'remote';
+  readonly threadCount: number;
+};
+
+/**
+ * Discover hosts dynamically: always include `local`, plus every
+ * `remote-thread-summaries-v3:<hostId>` key (with friendly names / counts).
+ */
+export function listDiscoveredHosts(
+  env: NodeJS.ProcessEnv = process.env,
+  {
+    localThreadCount = 0,
+  }: {
+    localThreadCount?: number;
+  } = {},
+): DiscoveredHost[] {
+  const remotes = listRemoteThreadsFromState(env);
+  const byHost = new Map<string, DiscoveredHost>();
+  byHost.set('local', {
+    hostId: 'local',
+    hostName: 'local',
+    location: 'local',
+    threadCount: localThreadCount,
+  });
+
+  const data = loadCodexGlobalState(env);
+  if (data) {
+    const hostNames = collectHostNames(data);
+    for (const key of Object.keys(data)) {
+      const match = REMOTE_SUMMARY_KEY.exec(key);
+      if (!match?.[1]) continue;
+      const hostId = match[1];
+      const summary = data[key];
+      const hostName = hostNames.get(hostId) ?? extractHostName(summary) ?? null;
+      byHost.set(hostId, {
+        hostId,
+        hostName,
+        location: 'remote',
+        threadCount: 0,
+      });
+    }
+  }
+
+  for (const thread of remotes) {
+    const existing = byHost.get(thread.hostId);
+    if (existing) {
+      byHost.set(thread.hostId, {
+        ...existing,
+        hostName: existing.hostName ?? thread.hostName,
+        threadCount: existing.threadCount + 1,
+      });
+    } else {
+      byHost.set(thread.hostId, {
+        hostId: thread.hostId,
+        hostName: thread.hostName,
+        location: 'remote',
+        threadCount: 1,
+      });
+    }
+  }
+
+  return [...byHost.values()].sort((a, b) => {
+    if (a.hostId === 'local') return -1;
+    if (b.hostId === 'local') return 1;
+    return a.hostId.localeCompare(b.hostId);
+  });
+}
+
 function collectHostNames(data: Record<string, unknown>): Map<string, string> {
   const names = new Map<string, string>();
   for (const [key, value] of Object.entries(data)) {

@@ -31,8 +31,11 @@ Override the port with `CHATGPT_DESKTOP_CDP_PORT` or `--port`.
 
 ```sh
 gbot chatgpt-desktop status
+gbot chatgpt-desktop hosts
 gbot chatgpt-desktop threads --limit 20
-gbot chatgpt-desktop search "launch"
+gbot chatgpt-desktop threads --host local
+gbot chatgpt-desktop threads --host macbook --model-provider openai
+gbot chatgpt-desktop search "launch" --host all
 gbot chatgpt-desktop read <threadId>
 gbot chatgpt-desktop send --thread-id <threadId> "hello"
 gbot chatgpt-desktop send "start a new chat with this text"
@@ -43,7 +46,8 @@ gbot chatgpt-desktop send "start a new chat with this text"
 | Tool | Role |
 | --- | --- |
 | `chatgpt_desktop_status` | CDP `/json/version` (+ optional attach) and app-server probe |
-| `chatgpt_desktop_list_threads` | App-server `thread/list` (`modelProviders: []`); merge CDP UI fields |
+| `chatgpt_desktop_list_hosts` | Discover hosts + modelProviders (no hardcoding) |
+| `chatgpt_desktop_list_threads` | App-server `thread/list`; merge CDP UI + remotes |
 | `chatgpt_desktop_search_threads` | App-server list + metadata filter |
 | `chatgpt_desktop_read_thread` | App-server `thread/read` + `thread/turns/list` (`itemsView: "full"`) |
 | `chatgpt_desktop_send` | Composer submit over CDP (new-thread-in-project included) |
@@ -88,26 +92,48 @@ Surfaced list fields: `id`, `name`, `preview`, `cwd`, `createdAt` /
 `projectId`, `status`, `modelProvider`, `model`, `originator`. `archived` is a
 list filter, not a field.
 
-`chatgpt_desktop_list_threads` merges local app-server threads with
-remote-control summaries from `~/.codex/.codex-global-state.json` keys
-`remote-thread-summaries-v3:<hostId>` (title, ids, remote project info; pinned
-ids live there too). Every row gets `location: "local" | "remote"` plus
-`hostId` / `hostName` when known. Filter with `host` (hostId or friendly name;
-`host: "local"` for local-only) and optionally `groupBy: "host"`.
+### Host and modelProvider filters (separate)
+
+`chatgpt_desktop_list_threads` / search take two independent filters:
+
+| Filter | Values | Default | Effect |
+| --- | --- | --- | --- |
+| `host` | `all` \| `local` \| `<hostId or friendly name>` | `all` | Machine/location from remote summaries + local |
+| `modelProvider` | provider id string | omit / `[]` = all | Passed through to app-server `modelProviders` |
+
+Optional `groupBy: "host"` returns `groups[]` keyed by host.
+
+### Host discovery (`chatgpt_desktop_list_hosts`)
+
+Hosts are discovered dynamically — do not hardcode them:
+
+1. Always include `local`
+2. Every `remote-thread-summaries-v3:<hostId>` key in
+   `~/.codex/.codex-global-state.json`, with friendly names and thread counts
+3. If app-server exposes a remote-environment list method, merge those hosts
+   too (`hostsSource` names what was used)
+
+`modelProviders` on the same result: prefer a dedicated app-server list method
+when present; otherwise distinct `modelProvider` values from `thread/list`
+(`modelProviders: []`). `modelProvidersSource` names the path used.
 
 ### Remote-control threads
 
-Remote rows appear in list/search results. `chatgpt_desktop_read_thread` on a
-remote-only thread raises `RemoteThreadNotLoadedError` (`REMOTE_THREAD_NOT_LOADED`)
-with `hostId`, optional `hostName`, and a `hint` to read it via that host's
-app-server. SSH remoting is **not** implemented in this PR (follow-up). The
-global-state parser is defensive — unknown shapes are skipped.
+`chatgpt_desktop_list_threads` merges local app-server threads with
+remote-control summaries (`location: "local" | "remote"` plus `hostId` /
+`hostName`). Remote rows appear in list/search. `chatgpt_desktop_read_thread`
+on a remote-only thread raises `RemoteThreadNotLoadedError`
+(`REMOTE_THREAD_NOT_LOADED`) with `hostId`, optional `hostName`, and a `hint`
+to read it via that host's app-server. SSH remoting is **not** implemented in
+this PR (follow-up). The global-state parser is defensive — unknown shapes are
+skipped.
 
 ## Backend capability matrix
 
 | Operation | CDP | App-server |
 | --- | --- | --- |
 | `status` | `/json/version` + attach | daemon probe |
+| `list_hosts` | — | global-state keys (+ optional remote-env method) + provider discovery |
 | `list_threads` | merge selected / UI overlay | primary inventory + remote summaries |
 | `search_threads` | merge selected when connected | primary (list + filter, includes remotes) |
 | `read_thread` | DOM harvest / wheel **fallback only** (local) | primary; remote → typed error + host hint |
