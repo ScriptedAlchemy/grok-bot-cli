@@ -3,7 +3,7 @@ import type { CliRouteConfig, CliRouteProps } from 'agent-bundle';
 import { waitSchema as inputSchema, resultSchema, observeOperation, resultText } from '../../core/codex/routes.js';
 export { inputSchema, resultSchema };
 export const config = {
-  description: 'Bounded Codex wait observation; never interrupts execution.', exitCode: 'result', render: { maxElapsedMs: 660000 },
+  description: 'Bounded Codex wait observation; never interrupts execution.', exitCode: 'result', render: { maxElapsedMs: 7260000 },
   positionals: ['threadId', 'turnId'],
   inputJsonSchema: { type: 'object', additionalProperties: false, properties: {
       "threadId": {
@@ -14,7 +14,7 @@ export const config = {
       },
       "timeoutMs": {
         "type": "number",
-        "description": "Observation timeout: 1-600000 milliseconds."
+        "description": "Observation timeout: 1-7200000 milliseconds."
       },
       "turnId": {
         "type": "string"

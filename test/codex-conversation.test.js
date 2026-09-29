@@ -128,6 +128,16 @@ test('watch filters foreign events, reports overflow and supports cancellation',
  }finally{await c.close();await fake.close();}
 });
 
+test('notification overflow preserves uncertainty about pending interactions', async () => {
+ const fake=await fakeAppServer({...handlers,
+  'thread/resume':(p,ok,err,send)=>{for(let i=0;i<510;i++)send({method:'item/started',params:{threadId:p.threadId,turnId:'turn-1',item:{id:String(i),type:'reasoning'}}});handlers['thread/resume'](p,ok);},
+  'thread/turns/list':(_,ok)=>ok({data:[{id:'turn-1',status:'inProgress'}],nextCursor:null}),
+  'thread/items/list':(_,ok)=>ok({data:[],nextCursor:null}),
+ });
+ const c=await openCodexConversation('thread-1',{env:{CODEX_HOME:fake.home}});
+ try {const r=await c.wait({turnId:'turn-1',timeoutMs:10});assert.equal(r.execution.state,'unknown');assert.match(r.execution.error,/overflow.*uncertain/i);assert.equal(r.reply.truncated,true);assert.deepEqual(r.interactions,[]);}finally{await c.close();await fake.close();}
+});
+
 test('accepted turn remains observable while history has not caught up',async()=>{
  const fake=await fakeAppServer({...handlers,'turn/start':(_,ok)=>ok({turn:{id:'turn-1',status:'inProgress'}}),'thread/turns/list':(_,ok)=>ok({data:[],nextCursor:null}),'thread/items/list':(_,ok)=>ok({data:[],nextCursor:null})});
  const c=await openCodexConversation('thread-1',{env:{CODEX_HOME:fake.home}});
@@ -251,4 +261,32 @@ test('coalesced anchors select earliest actual user regardless of record order',
  const rows = [final,{id:'u1',type:'userMessage',clientId:'first'},{...final,id:'between',text:'included'}, {id:'u2',type:'userMessage',clientId:'second'},{...final,id:'last',text:'last'}];
  const fake=await fakeAppServer({...handlers,'thread/items/list':(_,ok)=>ok({data:rows.map(item=>({turnId:'turn-1',item})),nextCursor:null})});const c=await openCodexConversation('thread-1',{env:{CODEX_HOME:fake.home}});
  try{assert.equal((await c.wait({turnId:'turn-1',afterMessageId:['second','first']})).reply.text,'included\nlast');}finally{await c.close();await fake.close();}
+});
+
+test('wait survives a notification flood and finds completion in turn history', async () => {
+ let complete = false;
+ const fake = await fakeAppServer({ ...handlers,
+  'thread/turns/list': (_, ok) => ok({ data: [{ id: 'turn-1', status: complete ? 'completed' : 'inProgress' }], nextCursor: null }),
+  'thread/items/list': (_, ok) => ok({ data: complete ? [{ turnId: 'turn-1', item: final }] : [], nextCursor: null }),
+  'thread/resume': (p, ok, err, send) => {
+   handlers['thread/resume'](p, ok);
+   for (let i = 0; i < 550; i++) send({ method: 'item/agentMessage/delta', params: { threadId: p.threadId, turnId: 'turn-1', delta: 'x'.repeat(100) } });
+   setTimeout(() => { complete = true; }, 20);
+  },
+ });
+ const c = await openCodexConversation('thread-1', { env: { CODEX_HOME: fake.home } });
+ try {
+  const result = await c.wait({ turnId: 'turn-1', timeoutMs: 5000 });
+  assert.equal(result.execution.state, 'completed');
+  assert.equal(result.reply.text, 'final answer');
+  assert.equal(result.reply.truncated, false);
+ } finally { await c.close(); await fake.close(); }
+});
+
+test('wait accepts a caller timeout longer than 25 minutes', async () => {
+ const fake = await fakeAppServer(handlers);
+ const controller = new AbortController(); controller.abort();
+ const c = await openCodexConversation('thread-1', { env: { CODEX_HOME: fake.home } });
+ try { assert.equal((await c.wait({ turnId: 'turn-1', timeoutMs: 1500001, signal: controller.signal })).execution.state, 'unknown'); }
+ finally { await c.close(); await fake.close(); }
 });

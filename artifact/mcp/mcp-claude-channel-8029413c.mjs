@@ -45428,7 +45428,7 @@ var __webpack_modules__ = {
     "./src/core/user-machine-guidance.js" () {
         const USER_MACHINE_CODEX_CLAUDE_GUIDANCE1 = [
             "Codex and Claude sessions live on the user's registered machines (for example their Linux desktop or Mac), not on the Grok Bot agent box (/home/box).",
-            "gbot connects only to a local Unix socket ($CODEX_HOME/app-server-control/app-server-control.sock, or CODEX_APP_SERVER_SOCK). There is no remote transport.",
+            "Codex must run on the same machine as gbot. Set CODEX_APP_SERVER_SOCK to an existing local control socket, or use $CODEX_HOME/app-server-control/app-server-control.sock. There is no remote transport.",
             "When running on the box (HOME=/home/box), do not call codex_* or claude_send there. Run the gbot CLI on the user's machine through Grok Bot Shell with a machineId (the host's machine-targeted shell).",
             "On that machine, provide the socket with `codex app-server daemon start` (or bootstrap). Auth stays with each machine's native Codex or Claude login; gbot does not store or export credentials."
         ].join("\n");

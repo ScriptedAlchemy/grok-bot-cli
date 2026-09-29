@@ -6545,13 +6545,22 @@ var __webpack_modules__ = {
         const observationFields = {
             expectedCwd: zod__rspack_import_3.YjP().min(1).optional(),
             threadId: id,
-            timeoutMs: zod__rspack_import_3.aig().int().min(1).max(600000).optional()
+            timeoutMs: zod__rspack_import_3.aig().int().min(1).max(7200000).optional()
         };
         const sendFields = {
             ...observationFields,
             correlationId: id.optional(),
             envelope: zod__rspack_import_3.zMY().optional(),
             hop: zod__rspack_import_3.aig().int().min(0).optional(),
+            model: zod__rspack_import_3.YjP().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/).optional(),
+            effort: zod__rspack_import_3.k5n([
+                'none',
+                'minimal',
+                'low',
+                'medium',
+                'high',
+                'xhigh'
+            ]).optional(),
             replyTo: id.optional(),
             expectedTurnId: id.optional(),
             whenBusy: zod__rspack_import_3.k5n([
@@ -6573,7 +6582,9 @@ var __webpack_modules__ = {
             maxOutputBytes: zod__rspack_import_3.aig().int().min(1).max(4194304).optional()
         }).strict();
         const watchSchema = zod__rspack_import_3.Ikc({
-            ...observationFields,
+            expectedCwd: zod__rspack_import_3.YjP().min(1).optional(),
+            threadId: id,
+            timeoutMs: zod__rspack_import_3.aig().int().min(1).max(600000).optional(),
             maxEvents: zod__rspack_import_3.aig().int().min(1).max(500).default(100)
         }).strict();
         const threadsSchema = zod__rspack_import_3.Ikc({
@@ -6630,6 +6641,8 @@ var __webpack_modules__ = {
                         envelope,
                         whenBusy: input.whenBusy,
                         expectedCwd: input.expectedCwd,
+                        model: input.model,
+                        effort: input.effort,
                         signal
                     });
                 }
@@ -6642,7 +6655,9 @@ var __webpack_modules__ = {
                     receipt = await conversation.send(input.message, {
                         envelope,
                         whenBusy: input.whenBusy,
-                        expectedTurnId: input.expectedTurnId
+                        expectedTurnId: input.expectedTurnId,
+                        model: input.model,
+                        effort: input.effort
                     });
                     if (!input.wait || receipt.delivery !== 'accepted' || !receipt.turnId) return receipt;
                     await progress?.(`Accepted message ${receipt.messageId}; observing turn ${receipt.turnId}`);
@@ -6933,7 +6948,9 @@ var __webpack_modules__ = {
                     requestId: input.requestId,
                     busyPolicy: input.whenBusy,
                     hop: input.hop,
-                    correlationId: input.correlationId
+                    correlationId: input.correlationId,
+                    model: input.model,
+                    effort: input.effort
                 }, options(context)));
         }
         __webpack_require__.d(__webpack_exports__, {
@@ -7105,6 +7122,91 @@ var __webpack_modules__ = {
             "default": __rspack_default_export
         });
     },
+    "./src/mcp/grok-bot/tools/codex_new.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        __webpack_require__.r(__webpack_exports__);
+        var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.js");
+        var _agent_bundle_runtime__rspack_import_6 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
+        var agent_bundle_routes__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/routes.js");
+        var zod__rspack_import_5 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
+        var _core_codex_bridge_js__rspack_import_2 = __webpack_require__("./src/core/codex-bridge.js");
+        var _core_codex_contract_js__rspack_import_3 = __webpack_require__("./src/core/codex/contract.js");
+        var _core_codex_routes_js__rspack_import_4 = __webpack_require__("./src/core/codex/routes.ts");
+        const inputSchema = zod__rspack_import_5.Ikc({
+            cwd: zod__rspack_import_5.YjP().min(1),
+            expectedCwd: zod__rspack_import_5.YjP().min(1).optional(),
+            model: zod__rspack_import_5.YjP().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/).optional(),
+            effort: zod__rspack_import_5.k5n([
+                'none',
+                'minimal',
+                'low',
+                'medium',
+                'high',
+                'xhigh'
+            ]).optional(),
+            message: zod__rspack_import_5.YjP().min(1).optional()
+        }).strict();
+        const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
+            excludeClients: [
+                'codex'
+            ],
+            title: 'Codex new thread',
+            description: 'Start a new Codex thread on this machine in cwd, optionally sending its first message. Codex must run locally on the same machine as gbot.',
+            annotations: {
+                readOnlyHint: false
+            },
+            inputSchema,
+            resultSchema: _core_codex_routes_js__rspack_import_4.FD,
+            inputJsonSchema: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    cwd: {
+                        type: 'string'
+                    },
+                    expectedCwd: {
+                        type: 'string'
+                    },
+                    model: {
+                        type: 'string'
+                    },
+                    effort: {
+                        type: 'string',
+                        enum: [
+                            'none',
+                            'minimal',
+                            'low',
+                            'medium',
+                            'high',
+                            'xhigh'
+                        ]
+                    },
+                    message: {
+                        type: 'string'
+                    }
+                },
+                required: [
+                    'cwd'
+                ]
+            }
+        }, async (input)=>{
+            let out;
+            try {
+                out = await (0, _core_codex_bridge_js__rspack_import_2.QC)(input);
+            } catch (error) {
+                out = (0, _core_codex_contract_js__rspack_import_3.DG)(error);
+            }
+            return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6.g.Result, {
+                value: out,
+                children: (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6.g.Text, {
+                    children: out.threadId && !('delivery' in out) ? `Started Codex thread ${out.threadId}` : (0, _core_codex_routes_js__rspack_import_4.D6)(out)
+                })
+            });
+        });
+        __webpack_require__.d(__webpack_exports__, {}, {
+            "default": __rspack_default_export,
+            inputSchema: inputSchema
+        });
+    },
     "./src/mcp/grok-bot/tools/codex_send.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
         __webpack_require__.r(__webpack_exports__);
         var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.js");
@@ -7138,7 +7240,7 @@ var __webpack_modules__ = {
                 readOnlyHint: false
             },
             render: {
-                maxElapsedMs: 660000
+                maxElapsedMs: 7260000
             },
             inputSchema,
             resultSchema,
@@ -7147,6 +7249,20 @@ var __webpack_modules__ = {
                 properties: {
                     expectedCwd: {
                         type: 'string'
+                    },
+                    model: {
+                        type: 'string'
+                    },
+                    effort: {
+                        type: 'string',
+                        enum: [
+                            'none',
+                            'minimal',
+                            'low',
+                            'medium',
+                            'high',
+                            'xhigh'
+                        ]
                     },
                     threadId: {
                         type: 'string'
@@ -7300,7 +7416,7 @@ var __webpack_modules__ = {
                 readOnlyHint: true
             },
             render: {
-                maxElapsedMs: 660000
+                maxElapsedMs: 7260000
             },
             inputSchema: _core_codex_routes_js__rspack_import_2.jS,
             resultSchema: _core_codex_routes_js__rspack_import_2.FD,
@@ -7316,7 +7432,7 @@ var __webpack_modules__ = {
                     },
                     "timeoutMs": {
                         "type": "number",
-                        "description": "Observation timeout: 1-600000 milliseconds."
+                        "description": "Observation timeout: 1-7200000 milliseconds."
                     },
                     "turnId": {
                         "type": "string"
@@ -56143,44 +56259,46 @@ var __webpack_modules__ = {
     "./.agent-bundle-virtual/mcp-grok-bot-b8c2461e-1.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         __webpack_require__.r(__webpack_exports__);
         var node_url__rspack_import_0 = __webpack_require__("node:url");
-        var _agent_bundle_runtime__rspack_import_16 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
+        var _agent_bundle_runtime__rspack_import_17 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
         var agent_bundle_mcp_server_runtime__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/mcp-server-runtime.js");
-        var _agent_bundle_runtime_lineage__rspack_import_17 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/lineage.js");
+        var _agent_bundle_runtime_lineage__rspack_import_18 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/lineage.js");
         var agent_bundle_mcp_apps__rspack_import_2 = __webpack_require__("./.agent-bundle-virtual/mcp-grok-bot-b8c2461e-0.mjs");
         var _src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_3 = __webpack_require__("./src/mcp/grok-bot/tools/claude_send.tsx");
-        var _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_4 = __webpack_require__("./src/mcp/grok-bot/tools/codex_send.tsx");
-        var _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_5 = __webpack_require__("./src/mcp/grok-bot/tools/codex_threads.tsx");
-        var _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_6 = __webpack_require__("./src/mcp/grok-bot/tools/codex_wait.tsx");
-        var _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_7 = __webpack_require__("./src/mcp/grok-bot/tools/codex_watch.tsx");
-        var _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_8 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_start.tsx");
-        var _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_9 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_status.tsx");
-        var _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_10 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_stop.tsx");
-        var _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_11 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_codex_respond.tsx");
-        var _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_12 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_approvals.tsx");
-        var _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_13 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_respond.tsx");
-        var _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_14 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_send.tsx");
-        var _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_15 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_thread.tsx");
+        var _src_mcp_grok_bot_tools_codex_new_tsx__rspack_import_4 = __webpack_require__("./src/mcp/grok-bot/tools/codex_new.tsx");
+        var _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_5 = __webpack_require__("./src/mcp/grok-bot/tools/codex_send.tsx");
+        var _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_6 = __webpack_require__("./src/mcp/grok-bot/tools/codex_threads.tsx");
+        var _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_7 = __webpack_require__("./src/mcp/grok-bot/tools/codex_wait.tsx");
+        var _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_8 = __webpack_require__("./src/mcp/grok-bot/tools/codex_watch.tsx");
+        var _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_9 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_start.tsx");
+        var _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_10 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_status.tsx");
+        var _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_11 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_stop.tsx");
+        var _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_12 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_codex_respond.tsx");
+        var _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_13 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_approvals.tsx");
+        var _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_14 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_respond.tsx");
+        var _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_15 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_send.tsx");
+        var _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_16 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_thread.tsx");
         const route0 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_3, 'default'), _src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_3);
-        const route1 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_4, 'default'), _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_4);
-        const route2 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_5, 'default'), _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_5);
-        const route3 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_6, 'default'), _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_6);
-        const route4 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_7, 'default'), _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_7);
-        const route5 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_8, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_8);
-        const route6 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_9, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_9);
-        const route7 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_10, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_10);
-        const route8 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_11, 'default'), _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_11);
-        const route9 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_12, 'default'), _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_12);
-        const route10 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_13, 'default'), _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_13);
-        const route11 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_14, 'default'), _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_14);
-        const route12 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_15, 'default'), _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_15);
+        const route1 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_new_tsx__rspack_import_4, 'default'), _src_mcp_grok_bot_tools_codex_new_tsx__rspack_import_4);
+        const route2 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_5, 'default'), _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_5);
+        const route3 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_6, 'default'), _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_6);
+        const route4 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_7, 'default'), _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_7);
+        const route5 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_8, 'default'), _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_8);
+        const route6 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_9, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_9);
+        const route7 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_10, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_10);
+        const route8 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_11, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_11);
+        const route9 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_12, 'default'), _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_12);
+        const route10 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_13, 'default'), _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_13);
+        const route11 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_14, 'default'), _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_14);
+        const route12 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_15, 'default'), _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_15);
+        const route13 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_16, 'default'), _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_16);
         const ARTIFACT_EPOCH = "gbot@0.10.1";
-        const pluginRoot = (0, _agent_bundle_runtime__rspack_import_16.E7)({
+        const pluginRoot = (0, _agent_bundle_runtime__rspack_import_17.E7)({
             fallback: (0, node_url__rspack_import_0.fileURLToPath)(new URL('..', import.meta.url)),
             stateAnchor: 'user-data'
         });
         const openLineage = async ()=>({
                 dispose: async ()=>undefined,
-                registry: (0, _agent_bundle_runtime_lineage__rspack_import_17.Q5)()
+                registry: (0, _agent_bundle_runtime_lineage__rspack_import_18.Q5)()
             });
         const routes = Object.freeze({
             "tool:grok-bot/claude_send": Object.freeze({
@@ -56218,6 +56336,54 @@ var __webpack_modules__ = {
                 module: route0,
                 name: "claude_send"
             }),
+            "tool:grok-bot/codex_new": Object.freeze({
+                config: {
+                    "annotations": {
+                        "readOnlyHint": false
+                    },
+                    "description": "Start a new Codex thread on this machine in cwd, optionally sending its first message. Codex must run locally on the same machine as gbot.",
+                    "excludeClients": [
+                        "codex"
+                    ],
+                    "inputJsonSchema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "cwd": {
+                                "type": "string"
+                            },
+                            "effort": {
+                                "enum": [
+                                    "none",
+                                    "minimal",
+                                    "low",
+                                    "medium",
+                                    "high",
+                                    "xhigh"
+                                ],
+                                "type": "string"
+                            },
+                            "expectedCwd": {
+                                "type": "string"
+                            },
+                            "message": {
+                                "type": "string"
+                            },
+                            "model": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "cwd"
+                        ],
+                        "type": "object"
+                    },
+                    "title": "Codex new thread"
+                },
+                id: "tool:grok-bot/codex_new",
+                kind: "tool",
+                module: route1,
+                name: "codex_new"
+            }),
             "tool:grok-bot/codex_send": Object.freeze({
                 config: {
                     "annotations": {
@@ -56236,6 +56402,17 @@ var __webpack_modules__ = {
                             "correlationId": {
                                 "type": "string"
                             },
+                            "effort": {
+                                "enum": [
+                                    "none",
+                                    "minimal",
+                                    "low",
+                                    "medium",
+                                    "high",
+                                    "xhigh"
+                                ],
+                                "type": "string"
+                            },
                             "envelope": {
                                 "type": "boolean"
                             },
@@ -56252,6 +56429,9 @@ var __webpack_modules__ = {
                                 "type": "number"
                             },
                             "message": {
+                                "type": "string"
+                            },
+                            "model": {
                                 "type": "string"
                             },
                             "replyTo": {
@@ -56289,13 +56469,13 @@ var __webpack_modules__ = {
                         "type": "object"
                     },
                     "render": {
-                        "maxElapsedMs": 660000
+                        "maxElapsedMs": 7260000
                     },
                     "title": "Codex send"
                 },
                 id: "tool:grok-bot/codex_send",
                 kind: "tool",
-                module: route1,
+                module: route2,
                 name: "codex_send"
             }),
             "tool:grok-bot/codex_threads": Object.freeze({
@@ -56328,7 +56508,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/codex_threads",
                 kind: "tool",
-                module: route2,
+                module: route3,
                 name: "codex_threads"
             }),
             "tool:grok-bot/codex_wait": Object.freeze({
@@ -56357,7 +56537,7 @@ var __webpack_modules__ = {
                                 "type": "string"
                             },
                             "timeoutMs": {
-                                "description": "Observation timeout: 1-600000 milliseconds.",
+                                "description": "Observation timeout: 1-7200000 milliseconds.",
                                 "type": "number"
                             },
                             "turnId": {
@@ -56371,13 +56551,13 @@ var __webpack_modules__ = {
                         "type": "object"
                     },
                     "render": {
-                        "maxElapsedMs": 660000
+                        "maxElapsedMs": 7260000
                     },
                     "title": "Codex wait"
                 },
                 id: "tool:grok-bot/codex_wait",
                 kind: "tool",
-                module: route3,
+                module: route4,
                 name: "codex_wait"
             }),
             "tool:grok-bot/codex_watch": Object.freeze({
@@ -56419,7 +56599,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/codex_watch",
                 kind: "tool",
-                module: route4,
+                module: route5,
                 name: "codex_watch"
             }),
             "tool:grok-bot/gbot_bridge_start": Object.freeze({
@@ -56460,7 +56640,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_bridge_start",
                 kind: "tool",
-                module: route5,
+                module: route6,
                 name: "gbot_bridge_start"
             }),
             "tool:grok-bot/gbot_bridge_status": Object.freeze({
@@ -56485,7 +56665,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_bridge_status",
                 kind: "tool",
-                module: route6,
+                module: route7,
                 name: "gbot_bridge_status"
             }),
             "tool:grok-bot/gbot_bridge_stop": Object.freeze({
@@ -56513,7 +56693,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_bridge_stop",
                 kind: "tool",
-                module: route7,
+                module: route8,
                 name: "gbot_bridge_stop"
             }),
             "tool:grok-bot/gbot_codex_respond": Object.freeze({
@@ -56571,7 +56751,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_codex_respond",
                 kind: "tool",
-                module: route8,
+                module: route9,
                 name: "gbot_codex_respond"
             }),
             "tool:grok-bot/gbot_grok_approvals": Object.freeze({
@@ -56601,7 +56781,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_grok_approvals",
                 kind: "tool",
-                module: route9,
+                module: route10,
                 name: "gbot_grok_approvals"
             }),
             "tool:grok-bot/gbot_grok_respond": Object.freeze({
@@ -56647,7 +56827,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_grok_respond",
                 kind: "tool",
-                module: route10,
+                module: route11,
                 name: "gbot_grok_respond"
             }),
             "tool:grok-bot/gbot_send": Object.freeze({
@@ -56707,7 +56887,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_send",
                 kind: "tool",
-                module: route11,
+                module: route12,
                 name: "gbot_send"
             }),
             "tool:grok-bot/gbot_thread": Object.freeze({
@@ -56752,7 +56932,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_thread",
                 kind: "tool",
-                module: route12,
+                module: route13,
                 name: "gbot_thread"
             })
         });
@@ -57228,7 +57408,7 @@ var __webpack_modules__ = {
         var _codex_contract_js__rspack_import_7 = __webpack_require__("./src/core/codex/contract.js");
         var _desktop_shim_js__rspack_import_8 = __webpack_require__("./src/core/desktop-shim.js");
         var _user_machine_guidance_js__rspack_import_9 = __webpack_require__("./src/core/user-machine-guidance.js");
-        const PINNED_CODEX_VERSION = "0.154.0";
+        const PINNED_CODEX_VERSION = "0.158.0";
         const UPSTREAM_DESKTOP_ISSUES = [
             "https://github.com/openai/codex/issues/41014",
             "https://github.com/openai/codex/issues/41112"
@@ -57288,7 +57468,7 @@ var __webpack_modules__ = {
                 "Either no daemon is running (start one with `codex app-server daemon start` or bootstrap),",
                 "or ChatGPT Desktop is running a private stdio app-server that external clients cannot reach",
                 "(" + UPSTREAM_DESKTOP_ISSUES.join(", ") + ").",
-                "gbot connects only to this machine's local socket; it has no remote transport.",
+                "Codex must run on the same machine as gbot. Set CODEX_APP_SERVER_SOCK to an existing local control socket if it is elsewhere; gbot has no remote transport.",
                 "gbot codex targets daemon-managed threads only."
             ].join("\n");
         }
@@ -57932,6 +58112,47 @@ var __webpack_modules__ = {
             };
         }
         const openSession = openCodexSession;
+        async function startCodexThread({ cwd, expectedCwd, model, effort, message, env = process.env, signal } = {}) {
+            validateModelEffort(model, effort);
+            if (typeof cwd !== "string" || !cwd.trim()) throw new RangeError("--cwd is required for a new Codex thread");
+            const resolvedCwd = (0, node_fs__rspack_import_1.realpathSync)(cwd);
+            if (expectedCwd !== undefined && (0, node_fs__rspack_import_1.realpathSync)(expectedCwd) !== resolvedCwd) throw new RangeError("New Codex thread cwd does not match expectedCwd");
+            if (message !== undefined && (typeof message !== "string" || !message.trim())) throw new RangeError("Message must contain text");
+            const { client } = await openSession(env, {
+                signal
+            });
+            let threadId, started;
+            try {
+                started = await client.request("thread/start", {
+                    cwd: resolvedCwd,
+                    ...model ? {
+                        model
+                    } : {},
+                    ...effort ? {
+                        config: {
+                            model_reasoning_effort: effort
+                        }
+                    } : {}
+                });
+                threadId = started?.thread?.id;
+                if (typeof threadId !== "string" || !ID_PATTERN.test(threadId)) throw new CodexProtocolError("thread/start", "missing `thread.id`");
+            } finally{
+                client.close();
+            }
+            if (message === undefined) return {
+                threadId,
+                cwd: resolvedCwd,
+                model: started.model ?? model,
+                exitCode: 0
+            };
+            return await sendToCodexThread(threadId, message, {
+                env,
+                expectedCwd: resolvedCwd,
+                model,
+                effort,
+                signal
+            });
+        }
         const CODEX_VERSION_PROBE_TIMEOUT_MS = 3000;
         function probeLocalCodexVersion(timeoutMs = CODEX_VERSION_PROBE_TIMEOUT_MS) {
             const out = spawnSync("codex", [
@@ -58230,7 +58451,7 @@ var __webpack_modules__ = {
         }
         function requireExperimental(env, what) {
             if (experimentalEnabled(env)) return;
-            throw new CodexSendError(what + " uses Codex's experimental app-server API (thread/queue/*), which is off by default. " + "Set GROK_BOT_CODEX_EXPERIMENTAL=1 to opt in; method names are pinned to Codex " + PINNED_CODEX_VERSION + ".", {
+            throw new CodexSendError(what + " needs thread/queue/add, which is experimental and absent from Codex " + PINNED_CODEX_VERSION + "'s stable API. " + "Use --when-busy steer with an expected turn ID, wait until the thread is idle, or opt in with GROK_BOT_CODEX_EXPERIMENTAL=1 on a Codex daemon that supports the experimental queue API.", {
                 delivery: "rejected",
                 reason: "experimental-disabled"
             });
@@ -58238,7 +58459,7 @@ var __webpack_modules__ = {
         function unsupportedOrRpc(err, method, threadId, envelope, turnId) {
             const guarded = method === "turn/steer";
             if (err instanceof CodexRpcError && err.rpc && err.rpc.code === -32601) {
-                return new CodexSendError("Codex app-server does not offer " + method + " (daemon predates it, or experimentalApi was not granted). " + (guarded ? "Upgrade Codex before retrying guarded steering." : "Upgrade Codex or send without --when-busy queue."), {
+                return new CodexSendError("Codex app-server does not offer " + method + " (daemon predates it, or experimentalApi was not granted). " + (guarded ? "Upgrade Codex before retrying guarded steering." : "Use --when-busy steer with an expected turn ID, wait for idle, or use a Codex daemon with experimental queue support and GROK_BOT_CODEX_EXPERIMENTAL=1."), {
                     delivery: "rejected",
                     reason: "unsupported",
                     threadId,
@@ -58295,7 +58516,7 @@ var __webpack_modules__ = {
         }
         async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({
             env
-        }), whenBusy = "reject", session, expectedTurnId, expectedCwd, signal } = {}) {
+        }), whenBusy = "reject", session, expectedTurnId, expectedCwd, model, effort, signal } = {}) {
             try {
                 const receipt = await sendToCodexThreadInner(threadId, text, {
                     env,
@@ -58304,6 +58525,8 @@ var __webpack_modules__ = {
                     session,
                     expectedTurnId,
                     expectedCwd,
+                    model,
+                    effort,
                     signal
                 });
                 return (0, _codex_contract_js__rspack_import_7.Dz)(receipt);
@@ -58315,7 +58538,19 @@ var __webpack_modules__ = {
                 return (0, _codex_contract_js__rspack_import_7.DG)(err);
             }
         }
-        async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, signal }) {
+        function validateModelEffort(model, effort) {
+            if (model !== undefined && (typeof model !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(model))) throw new RangeError("--model must be a nonempty model ID");
+            if (effort !== undefined && ![
+                "none",
+                "minimal",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+            ].includes(effort)) throw new RangeError("--effort must be none, minimal, low, medium, high, or xhigh");
+        }
+        async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, model, effort, signal }) {
+            validateModelEffort(model, effort);
             if (![
                 "reject",
                 "queue",
@@ -58361,7 +58596,15 @@ var __webpack_modules__ = {
                 try {
                     resumed = await client.request("thread/resume", {
                         threadId,
-                        excludeTurns: true
+                        excludeTurns: true,
+                        ...model ? {
+                            model
+                        } : {},
+                        ...effort ? {
+                            config: {
+                                model_reasoning_effort: effort
+                            }
+                        } : {}
                     });
                 } catch (err) {
                     assertNotCancelled();
@@ -58494,7 +58737,13 @@ var __webpack_modules__ = {
                             }
                         ],
                         clientUserMessageId: envelope.messageId,
-                        turnTrigger: "gbot"
+                        turnTrigger: "gbot",
+                        ...model ? {
+                            model
+                        } : {},
+                        ...effort ? {
+                            effort
+                        } : {}
                     });
                 } catch (err) {
                     if (err instanceof CodexSendError) throw err;
@@ -58551,6 +58800,7 @@ var __webpack_modules__ = {
         __webpack_require__.d(__webpack_exports__, {
             $3: ()=>assertThreadAllowed,
             Mr: ()=>withEnvelopeHeader,
+            QC: ()=>startCodexThread,
             X$: ()=>listCodexThreads,
             ZS: ()=>sendToCodexThread,
             e0: ()=>experimentalEnabled,
@@ -58765,10 +59015,10 @@ var __webpack_modules__ = {
                 ];
                 if (afterMessageId !== undefined) boundedInteger(anchors.length, 200, 'afterMessageId count');
                 for (const anchor of anchors)conversationId(anchor, 'afterMessageId');
-                boundedInteger(timeoutMs, 600000, 'timeoutMs');
+                boundedInteger(timeoutMs, 7200000, 'timeoutMs');
                 boundedInteger(maxOutputBytes, BUDGET, 'maxOutputBytes');
                 if (waitSignal !== undefined && !(waitSignal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
-                let done = false, status = acceptedTurns.has(turnId) ? 'inProgress' : undefined, error, historyError, itemBytes = 0, truncated = overflow;
+                let done = false, status = acceptedTurns.has(turnId) ? 'inProgress' : undefined, error, historyError, itemBytes = 0, truncated = false;
                 const items = new Map();
                 const add = (item)=>{
                     if (!item || typeof item.id !== 'string' || typeof item.type !== 'string') throw new Error('Invalid history item');
@@ -58815,6 +59065,7 @@ var __webpack_modules__ = {
                 };
                 const result = (state, detail)=>{
                     const interactions = scan();
+                    const overflowUncertain = state === 'unknown' && /Notification coverage overflow/.test(detail ?? '');
                     const candidates = [
                         ...items.values()
                     ].map((x)=>x.item);
@@ -58823,7 +59074,7 @@ var __webpack_modules__ = {
                     const reply = {
                         text: '',
                         items: [],
-                        truncated: truncated || overflow
+                        truncated: truncated || overflowUncertain
                     };
                     for (const item of selected){
                         const text = reply.text ? `${reply.text}\n${item.text}` : item.text;
@@ -58856,7 +59107,7 @@ var __webpack_modules__ = {
                         interactions
                     };
                 };
-                let timer, notify;
+                let timer, pollTimer, notify;
                 const abortSignals = [
                     signal,
                     waitSignal
@@ -58872,10 +59123,18 @@ var __webpack_modules__ = {
                             'Codex connection closed'
                         ]);
                     };
-                    timer = setTimeout(()=>resolve([
+                    timer = setTimeout(()=>resolve(overflow ? [
+                            'unknown',
+                            'Notification coverage overflow; pending interaction status is uncertain'
+                        ] : [
                             'timeout',
                             'Observation deadline reached'
                         ]), timeoutMs);
+                    pollTimer = setInterval(()=>{
+                        for (const listener of [
+                            ...wake
+                        ])listener();
+                    }, 2000);
                     for (const s of abortSignals)s.addEventListener('abort', notify, {
                         once: true
                     });
@@ -58946,19 +59205,51 @@ var __webpack_modules__ = {
                             historyError
                         ];
                     }
+                    let lastPoll = 0;
                     while(!done){
                         const interactions = scan();
                         if (terminal(status)) return [
                             status,
                             error ?? historyError
                         ];
-                        if (historyError || overflow) return [
+                        if (historyError) return [
                             'unknown',
-                            historyError ?? 'Notification coverage overflow'
+                            historyError
                         ];
                         if (interactions.length) return [
                             'waiting-for-input'
                         ];
+                        if (Date.now() - lastPoll >= 2000) {
+                            lastPoll = Date.now();
+                            try {
+                                await visitCodexHistory(session, threadId, 'thread/turns/list', {}, (data)=>{
+                                    const turn = data.find((t)=>t?.id === turnId);
+                                    if (!turn) return false;
+                                    if (terminal(turn.status)) {
+                                        status = turn.status;
+                                        error = turn.error;
+                                    }
+                                    return true;
+                                }, {
+                                    stopped: ()=>done
+                                });
+                                if (terminal(status)) {
+                                    await visitCodexHistory(session, threadId, 'thread/items/list', {
+                                        turnId,
+                                        sortDirection: 'asc'
+                                    }, (data)=>{
+                                        for (const row of data)if (row?.turnId === turnId && row.item) add(row.item);
+                                        return false;
+                                    }, {
+                                        stopped: ()=>done
+                                    });
+                                    continue;
+                                }
+                            } catch (err) {
+                                historyError = err.message;
+                                truncated = true;
+                            }
+                        }
                         await new Promise((resolve)=>{
                             const listener = ()=>{
                                 wake.delete(listener);
@@ -58981,6 +59272,7 @@ var __webpack_modules__ = {
                 } finally{
                     done = true;
                     clearTimeout(timer);
+                    clearInterval(pollTimer);
                     wake.delete(notify);
                     for (const s of abortSignals)s.removeEventListener('abort', notify);
                     for (const listener of [
@@ -59028,7 +59320,7 @@ var __webpack_modules__ = {
                 close,
                 async send (text, { envelope = (0, _codex_bridge_js__rspack_import_2.nq)({
                     env
-                }), whenBusy = 'reject', expectedTurnId, signal: sendSignal } = {}) {
+                }), whenBusy = 'reject', expectedTurnId, model, effort, signal: sendSignal } = {}) {
                     if (closed) return (0, _contract_js__rspack_import_0.DG)(Object.assign(new Error('Conversation closed'), {
                         delivery: 'rejected',
                         reason: 'closed',
@@ -59047,6 +59339,8 @@ var __webpack_modules__ = {
                         expectedTurnId,
                         session,
                         expectedCwd,
+                        model,
+                        effort,
                         signal: submissionSignal
                     });
                     if (receipt.delivery === 'accepted' && receipt.turnId) {
@@ -60951,7 +61245,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
     "./src/core/user-machine-guidance.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         const USER_MACHINE_CODEX_CLAUDE_GUIDANCE = [
             "Codex and Claude sessions live on the user's registered machines (for example their Linux desktop or Mac), not on the Grok Bot agent box (/home/box).",
-            "gbot connects only to a local Unix socket ($CODEX_HOME/app-server-control/app-server-control.sock, or CODEX_APP_SERVER_SOCK). There is no remote transport.",
+            "Codex must run on the same machine as gbot. Set CODEX_APP_SERVER_SOCK to an existing local control socket, or use $CODEX_HOME/app-server-control/app-server-control.sock. There is no remote transport.",
             "When running on the box (HOME=/home/box), do not call codex_* or claude_send there. Run the gbot CLI on the user's machine through Grok Bot Shell with a machineId (the host's machine-targeted shell).",
             "On that machine, provide the socket with `codex app-server daemon start` (or bootstrap). Auth stays with each machine's native Codex or Claude login; gbot does not store or export credentials."
         ].join("\n");

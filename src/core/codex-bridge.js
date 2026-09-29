@@ -15,7 +15,7 @@ export { looksLikeGrokBotBox } from "./user-machine-guidance.js";
 // Method and param names below come from `codex app-server generate-json-schema`
 // of this Codex release. Newer daemons usually keep them; `gbot codex status`
 // reports the running daemon's version next to this one.
-const PINNED_CODEX_VERSION = "0.154.0";
+const PINNED_CODEX_VERSION = "0.158.0";
 const UPSTREAM_DESKTOP_ISSUES = [
   "https://github.com/openai/codex/issues/41014",
   "https://github.com/openai/codex/issues/41112",
@@ -88,7 +88,7 @@ export function unreachableMessage(path, desktopAttached = "unknown", env = proc
     "Either no daemon is running (start one with `codex app-server daemon start` or bootstrap),",
     "or ChatGPT Desktop is running a private stdio app-server that external clients cannot reach",
     "(" + UPSTREAM_DESKTOP_ISSUES.join(", ") + ").",
-    "gbot connects only to this machine's local socket; it has no remote transport.",
+    "Codex must run on the same machine as gbot. Set CODEX_APP_SERVER_SOCK to an existing local control socket if it is elsewhere; gbot has no remote transport.",
     "gbot codex targets daemon-managed threads only.",
   ].join("\n");
 }
@@ -695,6 +695,26 @@ export async function openCodexSession(env = process.env, { experimental = false
 
 const openSession = openCodexSession;
 
+/** Start a thread on this machine, optionally submitting its first message.
+ * @param {{cwd: string, expectedCwd?: string, model?: string, effort?: string, message?: string, env?: NodeJS.ProcessEnv, signal?: AbortSignal}} options */
+export async function startCodexThread({ cwd, expectedCwd, model, effort, message, env = process.env, signal } = {}) {
+  validateModelEffort(model, effort);
+  if (typeof cwd !== "string" || !cwd.trim()) throw new RangeError("--cwd is required for a new Codex thread");
+  const resolvedCwd = realpathSync(cwd);
+  if (expectedCwd !== undefined && realpathSync(expectedCwd) !== resolvedCwd) throw new RangeError("New Codex thread cwd does not match expectedCwd");
+  if (message !== undefined && (typeof message !== "string" || !message.trim())) throw new RangeError("Message must contain text");
+  const { client } = await openSession(env, { signal });
+  let threadId, started;
+  try {
+    started = await client.request("thread/start", { cwd: resolvedCwd,
+      ...(model ? { model } : {}), ...(effort ? { config: { model_reasoning_effort: effort } } : {}) });
+    threadId = started?.thread?.id;
+    if (typeof threadId !== "string" || !ID_PATTERN.test(threadId)) throw new CodexProtocolError("thread/start", "missing `thread.id`");
+  } finally { client.close(); }
+  if (message === undefined) return { threadId, cwd: resolvedCwd, model: started.model ?? model, exitCode: 0 };
+  return await sendToCodexThread(threadId, message, { env, expectedCwd: resolvedCwd, model, effort, signal });
+}
+
 const CODEX_VERSION_PROBE_TIMEOUT_MS = 3000;
 
 /** Bounded `codex --version` probe: `{ version, probe }` where probe is ok | missing | timeout | error. */
@@ -962,7 +982,7 @@ export function assertThreadAllowed(threadId, env = process.env) {
 }
 
 /**
- * Busy destinations. In app-server 0.154.0 `turn/start` on a thread with an active turn steers
+ * Busy destinations. In app-server 0.158.0 `turn/start` on a thread with an active turn steers
  * that turn instead of queueing (TurnStartParams.turnTrigger: "Ignored when this request steers
  * an already-active turn"). gbot never steers or interrupts human work: an `active` thread is
  * refused with a `busy` receipt, or, with `whenBusy: "queue"`, handed to the daemon's own queue
@@ -990,8 +1010,8 @@ export function experimentalEnabled(env = process.env) {
 
 function requireExperimental(env, what) {
   if (experimentalEnabled(env)) return;
-  throw new CodexSendError(what + " uses Codex's experimental app-server API (thread/queue/*), which is off by default. "
-    + "Set GROK_BOT_CODEX_EXPERIMENTAL=1 to opt in; method names are pinned to Codex " + PINNED_CODEX_VERSION + ".",
+  throw new CodexSendError(what + " needs thread/queue/add, which is experimental and absent from Codex " + PINNED_CODEX_VERSION + "'s stable API. "
+    + "Use --when-busy steer with an expected turn ID, wait until the thread is idle, or opt in with GROK_BOT_CODEX_EXPERIMENTAL=1 on a Codex daemon that supports the experimental queue API.",
     { delivery: "rejected", reason: "experimental-disabled" });
 }
 
@@ -999,7 +1019,7 @@ function unsupportedOrRpc(err, method, threadId, envelope, turnId) {
   const guarded = method === "turn/steer";
   if (err instanceof CodexRpcError && err.rpc && err.rpc.code === -32601) {
     return new CodexSendError("Codex app-server does not offer " + method + " (daemon predates it, or experimentalApi was not granted). "
-      + (guarded ? "Upgrade Codex before retrying guarded steering." : "Upgrade Codex or send without --when-busy queue."),
+      + (guarded ? "Upgrade Codex before retrying guarded steering." : "Use --when-busy steer with an expected turn ID, wait for idle, or use a Codex daemon with experimental queue support and GROK_BOT_CODEX_EXPERIMENTAL=1."),
       { delivery: "rejected", reason: "unsupported", threadId, turnId, ...envelope });
   }
   if (err instanceof CodexRpcError) return new CodexSendError(err.message, { delivery: "rejected", reason: "rejected", threadId, turnId, ...envelope });
@@ -1038,11 +1058,11 @@ export async function listCodexQueue(threadId, { env = process.env, limit = 50, 
 /**
  * @param {string} threadId
  * @param {string} text
- * @param {{ env?: NodeJS.ProcessEnv, envelope?: object, whenBusy?: "reject"|"queue"|"steer", session?: object, expectedTurnId?: string, expectedCwd?: string, signal?: AbortSignal }} [opts]
+ * @param {{ env?: NodeJS.ProcessEnv, envelope?: object, whenBusy?: "reject"|"queue"|"steer", session?: object, expectedTurnId?: string, expectedCwd?: string, model?: string, effort?: string, signal?: AbortSignal }} [opts]
  */
-export async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({ env }), whenBusy = "reject", session, expectedTurnId, expectedCwd, signal } = {}) {
+export async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({ env }), whenBusy = "reject", session, expectedTurnId, expectedCwd, model, effort, signal } = {}) {
   try {
-    const receipt = await sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, signal });
+    const receipt = await sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, model, effort, signal });
     return outcomeFromReceipt(receipt);
   } catch (err) {
     // Every receipt names the message, including refusals that never reached the daemon.
@@ -1054,7 +1074,13 @@ export async function sendToCodexThread(threadId, text, { env = process.env, env
   }
 }
 
-async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, signal }) {
+function validateModelEffort(model, effort) {
+  if (model !== undefined && (typeof model !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(model))) throw new RangeError("--model must be a nonempty model ID");
+  if (effort !== undefined && !["none", "minimal", "low", "medium", "high", "xhigh"].includes(effort)) throw new RangeError("--effort must be none, minimal, low, medium, high, or xhigh");
+}
+
+async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, model, effort, signal }) {
+  validateModelEffort(model, effort);
   if (!["reject", "queue", ...(session ? ["steer"] : [])].includes(whenBusy)) throw new RangeError("--when-busy must be reject, queue, or persistent steer");
   if (whenBusy === "steer" && (typeof expectedTurnId !== "string" || !ID_PATTERN.test(expectedTurnId))) throw new RangeError("steer requires expectedTurnId");
   if (typeof threadId !== "string" || !ID_PATTERN.test(threadId)) throw new RangeError("Invalid threadId");
@@ -1076,7 +1102,8 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy,
   try {
     let resumed;
     try {
-      resumed = await client.request("thread/resume", { threadId, excludeTurns: true });
+      resumed = await client.request("thread/resume", { threadId, excludeTurns: true,
+        ...(model ? { model } : {}), ...(effort ? { config: { model_reasoning_effort: effort } } : {}) });
     } catch (err) {
       assertNotCancelled();
       if (err instanceof CodexSendError) throw err;
@@ -1164,6 +1191,7 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy,
         input: [{ type: "text", text: body }],
         clientUserMessageId: envelope.messageId,
         turnTrigger: "gbot",
+        ...(model ? { model } : {}), ...(effort ? { effort } : {}),
       });
     } catch (err) {
       if (err instanceof CodexSendError) throw err;

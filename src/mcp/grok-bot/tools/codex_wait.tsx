@@ -5,7 +5,7 @@ export { inputSchema };
 export default defineTool({
   excludeClients: ['codex'],
   description: 'Explicit diagnostic observation of one Codex turn; returns execution and final reply without interrupting it. Runs on the user\'s registered machine via its local socket, not the Grok Bot box. From the box, use Grok Bot Shell with a machineId to run gbot there after codex app-server daemon start or bootstrap; gbot has no remote transport.', title: 'Codex wait', annotations: { readOnlyHint: true },
-  render: { maxElapsedMs: 660000 },
+  render: { maxElapsedMs: 7260000 },
   inputSchema, resultSchema,
   inputJsonSchema: { type: 'object', additionalProperties: false, properties: {
       "threadId": {
@@ -16,7 +16,7 @@ export default defineTool({
       },
       "timeoutMs": {
         "type": "number",
-        "description": "Observation timeout: 1-600000 milliseconds."
+        "description": "Observation timeout: 1-7200000 milliseconds."
       },
       "turnId": {
         "type": "string"

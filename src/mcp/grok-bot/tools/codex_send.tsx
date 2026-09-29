@@ -24,7 +24,7 @@ export default defineTool(
     description: 'Send to a Codex thread. Runs on the user\'s registered machine via its local socket, not the Grok Bot box. From the box, use Grok Bot Shell with a machineId to run gbot there after codex app-server daemon start or bootstrap; gbot has no remote transport. With replyToGrok or bindingId, managed delivery returns the terminal answer to Grok automatically. Otherwise optional wait observes completion and explicit steer requires expectedTurnId. Acceptance is not completion.',
     title: 'Codex send',
     annotations: { readOnlyHint: false },
-    render: { maxElapsedMs: 660000 },
+    render: { maxElapsedMs: 7260000 },
     inputSchema,
     resultSchema,
     inputJsonSchema: {
@@ -33,6 +33,8 @@ export default defineTool(
         expectedCwd: {
           type: 'string',
         },
+        model: { type: 'string' },
+        effort: { type: 'string', enum: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] },
         threadId: {
           type: 'string',
         },

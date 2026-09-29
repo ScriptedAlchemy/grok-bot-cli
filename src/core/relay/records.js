@@ -92,6 +92,8 @@ export function createRecordFactory({ env, clock }) {
       threadId: r.threadId,
       expectedCwd: r.expectedCwd,
       busyPolicy: r.busyPolicy,
+      ...(input.model ? { model: input.model } : {}),
+      ...(input.effort ? { effort: input.effort } : {}),
       bindingId: r.bindingId ?? (r.id?.startsWith("binding:") ? r.id : null),
       text,
       sourceIds: input.sourceIds ?? [],

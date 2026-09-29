@@ -37,6 +37,8 @@ const recordSchema = z.strictObject({
   threadId: relayId,
   expectedCwd: z.string().max(4096),
   busyPolicy: z.enum(["steer", "reject"]),
+  model: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/).optional(),
+  effort: z.enum(["none", "minimal", "low", "medium", "high", "xhigh"]).optional(),
   bindingId: relayId.nullable(),
   text,
   sourceIds: z.array(relayId).max(200),
