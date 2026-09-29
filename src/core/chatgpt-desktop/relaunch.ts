@@ -7,8 +7,10 @@ export const CHATGPT_BUNDLE_ID = 'com.openai.codex';
 
 /**
  * Shell command that quits ChatGPT Desktop and relaunches it with a local
- * Chromium `--remote-debugging-port`. The Electron fuses block Node inspect /
+ * Chromium `--remote-debugging-port`. Electron fuses block Node inspect /
  * RunAsNode, but not this Chromium flag. The port binds to 127.0.0.1 only.
+ * Do not depend on `@electron/fuses read` — the framework is renamed
+ * (`Codex Framework.framework`) and that tool fails.
  */
 export function chatgptDesktopRelaunchCommand({
   port = DEFAULT_CDP_PORT,
@@ -18,7 +20,7 @@ export function chatgptDesktopRelaunchCommand({
   appPath?: string;
 } = {}): string {
   const resolved = resolveCdpPort(process.env, port);
-  // Prefer `open -a` with --args so the debug port is on Chromium's argv.
+  // Match explored launch: quit, then `open -a … --args --remote-debugging-port=N`.
   return [
     `osascript -e 'tell application "ChatGPT" to quit'`,
     `open -a ${shellQuote(appPath)} --args --remote-debugging-port=${resolved}`,

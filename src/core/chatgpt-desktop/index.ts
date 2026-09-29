@@ -2,8 +2,12 @@ export type { ChatGptDesktopAdapter } from './adapter.js';
 export { CdpChatGptDesktopAdapter } from './cdp-adapter.js';
 export {
   ATTR,
+  COMPOSER_SELECTORS,
+  IGNORED_TARGET_URL_MARKERS,
+  MAIN_CONTENT_SURFACE_CLASS_PREFIX,
   MAIN_WINDOW_URL,
   SELECTORS,
+  SEND_BUTTON_SELECTORS,
   isMainWindowTarget,
   pickMainWindowTarget,
   summarizeTargetInfos,

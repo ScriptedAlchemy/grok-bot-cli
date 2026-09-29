@@ -9,6 +9,8 @@ stay inside `src/core/chatgpt-desktop/`; MCP tools and CLI commands call the
 
 Electron fuses on ChatGPT.app block Node inspect / `RunAsNode`, but they do
 **not** block Chromium's `--remote-debugging-port`. The port binds to loopback.
+Do not depend on `@electron/fuses read` — the framework is renamed
+(`Codex Framework.framework`) and that tool fails.
 
 ```sh
 # Helper-printed command (also available from the module):
@@ -17,8 +19,7 @@ osascript -e 'tell application "ChatGPT" to quit' \
   && open -a /Applications/ChatGPT.app --args --remote-debugging-port=9222
 ```
 
-Bundle id: `com.openai.codex`. Do not depend on `@electron/fuses read` — the
-framework is renamed (`Codex Framework.framework`) and that tool fails.
+Bundle id: `com.openai.codex` (ChatGPT.app v26.924.22138 / Chrome 154 explored).
 
 Override the port with `CHATGPT_DESKTOP_CDP_PORT` or `--port`.
 

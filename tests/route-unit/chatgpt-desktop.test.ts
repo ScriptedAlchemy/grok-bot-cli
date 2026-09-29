@@ -114,6 +114,41 @@ describe('chatgpt-desktop loopback + relaunch helpers', () => {
     expect(chatgptDesktopRelaunchCommand({ port: 9333 })).toContain(
       '--remote-debugging-port=9333',
     );
+    expect(chatgptDesktopRelaunchCommand({ port: 9222 })).toContain(
+      'open -a /Applications/ChatGPT.app --args --remote-debugging-port=9222',
+    );
+  });
+
+  it('selects only the exact main window URL and ignores overlays/webviews', async () => {
+    const {
+      IGNORED_TARGET_URL_MARKERS,
+      MAIN_WINDOW_URL,
+      COMPOSER_SELECTORS,
+      SEND_BUTTON_SELECTORS,
+      isMainWindowTarget,
+      pickMainWindowTarget,
+      summarizeTargetInfos,
+    } = await import('../../src/core/chatgpt-desktop/cdp-dom.js');
+
+    expect(isMainWindowTarget({ type: 'page', url: MAIN_WINDOW_URL })).toBe(true);
+    expect(
+      isMainWindowTarget({
+        type: 'page',
+        url: 'app://-/index.html?initialRoute=%2Favatar-overlay',
+      }),
+    ).toBe(false);
+    expect(isMainWindowTarget({ type: 'page', url: 'app://-/detached-window.html' })).toBe(false);
+    expect(isMainWindowTarget({ type: 'page', url: 'https://chatgpt.com/pricing' })).toBe(false);
+    expect(IGNORED_TARGET_URL_MARKERS.length).toBeGreaterThan(0);
+    expect(COMPOSER_SELECTORS[0]).toContain('contenteditable');
+    expect(SEND_BUTTON_SELECTORS.length).toBeGreaterThan(0);
+
+    const targets = summarizeTargetInfos([
+      { targetId: 'overlay', type: 'page', url: 'app://-/index.html?initialRoute=%2Favatar-overlay' },
+      { targetId: 'main', type: 'page', title: 'ChatGPT', url: MAIN_WINDOW_URL },
+      { targetId: 'web', type: 'page', url: 'https://chatgpt.com/pricing' },
+    ]);
+    expect(pickMainWindowTarget(targets)?.targetId).toBe('main');
   });
 });
 

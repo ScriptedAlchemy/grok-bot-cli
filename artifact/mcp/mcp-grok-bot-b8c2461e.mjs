@@ -6838,6 +6838,12 @@ var __webpack_modules__ = {
     },
     "./src/core/chatgpt-desktop/cdp-dom.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
         const MAIN_WINDOW_URL = 'app://-/index.html';
+        const IGNORED_TARGET_URL_MARKERS = [
+            'initialRoute=%2Favatar-overlay',
+            'detached-window.html',
+            'chatgpt.com',
+            'codex-sandbox'
+        ];
         const ATTR = {
             threadRow: 'data-app-action-sidebar-thread-row',
             threadId: 'data-app-action-sidebar-thread-id',
@@ -6850,29 +6856,35 @@ var __webpack_modules__ = {
             timelineScroll: 'data-app-action-timeline-scroll',
             virtualizedTurn: 'data-virtualized-turn-content'
         };
+        const MAIN_CONTENT_SURFACE_CLASS_PREFIX = '_MainContentSurface';
+        const COMPOSER_SELECTORS = [
+            'main [contenteditable="true"]',
+            'main textarea',
+            '[data-app-action-composer] [contenteditable="true"]',
+            '[data-app-action-composer] textarea',
+            'form [contenteditable="true"]',
+            'form textarea'
+        ];
+        const SEND_BUTTON_SELECTORS = [
+            'button[data-app-action-send]',
+            'button[aria-label="Send"]',
+            'button[aria-label="Send message"]',
+            'main button[type="submit"]'
+        ];
         const SELECTORS = {
             threadRow: `[role="button"][${ATTR.threadRow}]`,
             turn: `[${ATTR.turnKey}]`,
             userBubble: `[${ATTR.userBubble}]`,
             timelineScroll: `[${ATTR.timelineScroll}]`,
             mainSurface: 'main',
-            composerCandidates: [
-                'main [contenteditable="true"]',
-                'main textarea',
-                '[data-app-action-composer] [contenteditable="true"]',
-                '[data-app-action-composer] textarea',
-                'form [contenteditable="true"]',
-                'form textarea'
-            ],
-            sendButtonCandidates: [
-                'button[data-app-action-send]',
-                'button[aria-label="Send"]',
-                'button[aria-label="Send message"]',
-                'main button[type="submit"]'
-            ]
+            composerCandidates: COMPOSER_SELECTORS,
+            sendButtonCandidates: SEND_BUTTON_SELECTORS
         };
         function isMainWindowTarget(target) {
-            return target.type === 'page' && target.url === MAIN_WINDOW_URL;
+            if (target.type !== 'page') return false;
+            const url = typeof target.url === 'string' ? target.url : '';
+            if (url !== MAIN_WINDOW_URL) return false;
+            return !IGNORED_TARGET_URL_MARKERS.some((marker)=>url.includes(marker));
         }
         function summarizeTargetInfos(targetInfos) {
             return targetInfos.filter((t)=>typeof t.targetId === 'string' && typeof t.type === 'string').map((t)=>({
@@ -6907,9 +6919,16 @@ var __webpack_modules__ = {
   })()`;
         }
         const READ_THREAD_EXPRESSION = `(() => {
-  const scroll = document.querySelector(${JSON.stringify(SELECTORS.timelineScroll)});
+  const surfacePrefix = ${JSON.stringify(MAIN_CONTENT_SURFACE_CLASS_PREFIX)};
   const mains = Array.from(document.querySelectorAll('main'));
-  const surface = mains.length >= 2 ? mains[1] : (mains[0] || document.body);
+  const surface =
+    mains.find((el) => typeof el.className === 'string' && el.className.includes(surfacePrefix))
+    || (mains.length >= 2 ? mains[1] : null)
+    || mains[0]
+    || document.body;
+  const scroll =
+    surface.querySelector(${JSON.stringify(SELECTORS.timelineScroll)})
+    || document.querySelector(${JSON.stringify(SELECTORS.timelineScroll)});
   const root = scroll || surface;
   const collected = new Map();
   const statusRe = /^Worked for \\d+s$/i;
@@ -6949,16 +6968,24 @@ var __webpack_modules__ = {
   harvest();
   return Array.from(collected.values());
 })()`;
-        function sendMessageExpression(text) {
-            const composers = JSON.stringify([
-                ...SELECTORS.composerCandidates
-            ]);
-            const buttons = JSON.stringify([
-                ...SELECTORS.sendButtonCandidates
-            ]);
+        const FOCUS_COMPOSER_EXPRESSION = `(() => {
+  const composers = ${JSON.stringify([
+            ...COMPOSER_SELECTORS
+        ])};
+  for (const sel of composers) {
+    const composer = document.querySelector(sel);
+    if (!composer) continue;
+    composer.focus();
+    return { ok: true, selector: sel, contentEditable: !!composer.isContentEditable };
+  }
+  return { ok: false, error: 'composer-not-found' };
+})()`;
+        function fillComposerExpression(text) {
             return `(() => {
     const text = ${JSON.stringify(text)};
-    const composers = ${composers};
+    const composers = ${JSON.stringify([
+                ...COMPOSER_SELECTORS
+            ])};
     let composer = null;
     for (const sel of composers) {
       composer = document.querySelector(sel);
@@ -6975,18 +7002,35 @@ var __webpack_modules__ = {
     } else {
       return { ok: false, error: 'composer-unsupported' };
     }
-    const buttons = ${buttons};
-    let sent = false;
-    for (const sel of buttons) {
-      const btn = document.querySelector(sel);
-      if (btn && !btn.disabled) { btn.click(); sent = true; break; }
-    }
-    if (!sent) {
-      composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-      composer.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
-    }
-    return { ok: true, sentVia: sent ? 'button' : 'enter' };
+    return { ok: true };
   })()`;
+        }
+        const SUBMIT_COMPOSER_EXPRESSION = `(() => {
+  const buttons = ${JSON.stringify([
+            ...SEND_BUTTON_SELECTORS
+        ])};
+  for (const sel of buttons) {
+    const btn = document.querySelector(sel);
+    if (btn && !btn.disabled) {
+      btn.click();
+      return { ok: true, sentVia: 'button', selector: sel };
+    }
+  }
+  const composers = ${JSON.stringify([
+            ...COMPOSER_SELECTORS
+        ])};
+  let composer = null;
+  for (const sel of composers) {
+    composer = document.querySelector(sel);
+    if (composer) break;
+  }
+  if (!composer) return { ok: false, error: 'composer-not-found' };
+  composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+  composer.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+  return { ok: true, sentVia: 'enter' };
+})()`;
+        function sendMessageExpression(text) {
+            return fillComposerExpression(text);
         }
         async function listThreadsFromDom(session, sessionId, { limit = 50 } = {}) {
             const rows = await session.evaluate(LIST_THREADS_EXPRESSION, {
@@ -7021,21 +7065,39 @@ var __webpack_modules__ = {
                 }));
         }
         async function sendMessageInDom(session, sessionId, text) {
+            const focused = await session.evaluate(FOCUS_COMPOSER_EXPRESSION, {
+                sessionId
+            });
+            if (!focused?.ok) {
+                throw new Error('ChatGPT Desktop composer not found (experimental send path)');
+            }
+            let inserted = false;
             try {
                 await session.send('Input.insertText', {
                     text
                 }, {
                     sessionId
                 });
-            } catch  {}
-            const result = await session.evaluate(sendMessageExpression(text), {
+                inserted = true;
+            } catch  {
+                inserted = false;
+            }
+            if (!inserted) {
+                const filled = await session.evaluate(fillComposerExpression(text), {
+                    sessionId
+                });
+                if (!filled?.ok) {
+                    throw new Error(filled?.error === 'composer-not-found' ? 'ChatGPT Desktop composer not found (experimental send path)' : `ChatGPT Desktop send failed: ${filled?.error ?? 'fill-failed'}`);
+                }
+            }
+            const submitted = await session.evaluate(SUBMIT_COMPOSER_EXPRESSION, {
                 sessionId
             });
-            if (!result?.ok) {
-                throw new Error(result?.error === 'composer-not-found' ? 'ChatGPT Desktop composer not found (experimental send path)' : `ChatGPT Desktop send failed: ${result?.error ?? 'unknown'}`);
+            if (!submitted?.ok) {
+                throw new Error(`ChatGPT Desktop send submit failed: ${submitted?.error ?? 'unknown'}`);
             }
             return {
-                sentVia: result.sentVia ?? 'unknown'
+                sentVia: submitted.sentVia ?? (inserted ? 'insertText' : 'dom')
             };
         }
         __webpack_require__.d(__webpack_exports__, {

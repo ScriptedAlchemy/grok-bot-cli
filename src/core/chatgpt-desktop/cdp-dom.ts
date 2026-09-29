@@ -4,22 +4,42 @@
  * ALL selector and in-page data extraction lives in this module. The adapter
  * and tools must not invent additional DOM selectors.
  *
- * Evidence (macOS ChatGPT.app / Codex Desktop, Electron, Chrome 154,
- * bundle com.openai.codex, v26.924.22138):
- * - Main window URL is exactly `app://-/index.html` (no query).
+ * Evidence (macOS ChatGPT.app, bundle id com.openai.codex, v26.924.22138,
+ * Electron with renamed `Codex Framework.framework`, Chrome 154):
+ * - Launch with `--remote-debugging-port` (fuses block Node inspect / RunAsNode
+ *   but not this Chromium flag). Port binds to 127.0.0.1. Do not use
+ *   `@electron/fuses read` (fails on the renamed framework).
+ * - Prefer CDP `Target.getTargets` (`/json/list` is incomplete + order-unstable).
+ * - Main window: type `page`, url exactly `app://-/index.html` (no query).
+ *   Ignore avatar-overlay, detached-window, and chatgpt.com / codex-sandbox webviews.
  * - Sidebar rows: `[role=button][data-app-action-sidebar-thread-row]` with
- *   `data-app-action-sidebar-thread-{id,title,pinned,selected,kind}`.
- * - Thread surface is the second `<main>` (`_MainContentSurface…`).
- * - Turns: `[data-turn-key]`; user bubbles: `[data-user-message-bubble]`.
- * - Timeline scroll: `[data-app-action-timeline-scroll]` (virtualized).
- * - send/waitForReply composer path is experimental (not fully explored).
+ *   `data-app-action-sidebar-thread-{id,title,pinned,selected,kind}` (ids like
+ *   `local:<uuid>`; kind seen: local). Rows are not links — click to open; URL
+ *   does not change.
+ * - Thread surface: second `<main>` whose class starts with `_MainContentSurface`.
+ * - Turns: `[data-turn-key]`; user bubbles: `[data-user-message-bubble]`;
+ *   timeline scroll: `[data-app-action-timeline-scroll]` (virtualized via
+ *   `data-virtualized-turn-content`). Scroll top→bottom until turn keys stabilize.
+ *   Voice turns that only show "Worked for Xs" → role `status`.
+ * - send/waitForReply: not fully explored — experimental composer constants below.
  */
 
 import type { ChatGptDesktopTarget, ChatGptDesktopThread, ChatGptDesktopTurn } from './types.js';
 import type { CdpSession } from './cdp-session.js';
 
-/** Exact main-window URL; ignore avatar-overlay, detached-window, webviews. */
+/** Exact main-window URL; ignore everything else. */
 export const MAIN_WINDOW_URL = 'app://-/index.html';
+
+/**
+ * URL fragments that must never be treated as the main ChatGPT window.
+ * Selection still uses exact `MAIN_WINDOW_URL` equality; these document rejects.
+ */
+export const IGNORED_TARGET_URL_MARKERS = [
+  'initialRoute=%2Favatar-overlay',
+  'detached-window.html',
+  'chatgpt.com',
+  'codex-sandbox',
+] as const;
 
 export const ATTR = {
   threadRow: 'data-app-action-sidebar-thread-row',
@@ -34,37 +54,50 @@ export const ATTR = {
   virtualizedTurn: 'data-virtualized-turn-content',
 } as const;
 
+/** Class-name prefix on the thread's `<main>` (second main in the document). */
+export const MAIN_CONTENT_SURFACE_CLASS_PREFIX = '_MainContentSurface';
+
+/**
+ * Experimental composer selectors (send/waitForReply not explored on-device yet).
+ * Prefer a contenteditable / textarea inside the main surface.
+ */
+export const COMPOSER_SELECTORS = [
+  'main [contenteditable="true"]',
+  'main textarea',
+  '[data-app-action-composer] [contenteditable="true"]',
+  '[data-app-action-composer] textarea',
+  'form [contenteditable="true"]',
+  'form textarea',
+] as const;
+
+/** Experimental send-button selectors used after Input.insertText. */
+export const SEND_BUTTON_SELECTORS = [
+  'button[data-app-action-send]',
+  'button[aria-label="Send"]',
+  'button[aria-label="Send message"]',
+  'main button[type="submit"]',
+] as const;
+
 export const SELECTORS = {
   threadRow: `[role="button"][${ATTR.threadRow}]`,
   turn: `[${ATTR.turnKey}]`,
   userBubble: `[${ATTR.userBubble}]`,
   timelineScroll: `[${ATTR.timelineScroll}]`,
   mainSurface: 'main',
-  /**
-   * Experimental composer candidates (send/waitForReply not fully explored).
-   * Prefer a contenteditable / textarea inside the main surface.
-   */
-  composerCandidates: [
-    'main [contenteditable="true"]',
-    'main textarea',
-    '[data-app-action-composer] [contenteditable="true"]',
-    '[data-app-action-composer] textarea',
-    'form [contenteditable="true"]',
-    'form textarea',
-  ],
-  sendButtonCandidates: [
-    'button[data-app-action-send]',
-    'button[aria-label="Send"]',
-    'button[aria-label="Send message"]',
-    'main button[type="submit"]',
-  ],
+  composerCandidates: COMPOSER_SELECTORS,
+  sendButtonCandidates: SEND_BUTTON_SELECTORS,
 } as const;
 
 export function isMainWindowTarget(target: {
   type?: string;
   url?: string;
 }): boolean {
-  return target.type === 'page' && target.url === MAIN_WINDOW_URL;
+  if (target.type !== 'page') return false;
+  const url = typeof target.url === 'string' ? target.url : '';
+  if (url !== MAIN_WINDOW_URL) return false;
+  // Exact match already excludes query overlays / detached / webviews; markers
+  // are a belt-and-suspenders guard if a caller passes a looser URL later.
+  return !IGNORED_TARGET_URL_MARKERS.some((marker) => url.includes(marker));
 }
 
 export function summarizeTargetInfos(
@@ -119,13 +152,21 @@ export function openThreadExpression(threadId: string): string {
 
 /**
  * Scroll the virtualized timeline and collect turns keyed by data-turn-key.
+ * Prefer the second `<main>` whose class starts with `_MainContentSurface`.
  * User turns contain [data-user-message-bubble]; other turns are assistant/status.
  * Voice turns that only show "Worked for Xs" become status.
  */
 export const READ_THREAD_EXPRESSION = `(() => {
-  const scroll = document.querySelector(${JSON.stringify(SELECTORS.timelineScroll)});
+  const surfacePrefix = ${JSON.stringify(MAIN_CONTENT_SURFACE_CLASS_PREFIX)};
   const mains = Array.from(document.querySelectorAll('main'));
-  const surface = mains.length >= 2 ? mains[1] : (mains[0] || document.body);
+  const surface =
+    mains.find((el) => typeof el.className === 'string' && el.className.includes(surfacePrefix))
+    || (mains.length >= 2 ? mains[1] : null)
+    || mains[0]
+    || document.body;
+  const scroll =
+    surface.querySelector(${JSON.stringify(SELECTORS.timelineScroll)})
+    || document.querySelector(${JSON.stringify(SELECTORS.timelineScroll)});
   const root = scroll || surface;
   const collected = new Map();
   const statusRe = /^Worked for \\d+s$/i;
@@ -166,13 +207,23 @@ export const READ_THREAD_EXPRESSION = `(() => {
   return Array.from(collected.values());
 })()`;
 
-/** Experimental: insert text into the composer and submit (Enter / send button). */
-export function sendMessageExpression(text: string): string {
-  const composers = JSON.stringify([...SELECTORS.composerCandidates]);
-  const buttons = JSON.stringify([...SELECTORS.sendButtonCandidates]);
+/** Experimental: focus the first matching composer; returns whether it was found. */
+export const FOCUS_COMPOSER_EXPRESSION = `(() => {
+  const composers = ${JSON.stringify([...COMPOSER_SELECTORS])};
+  for (const sel of composers) {
+    const composer = document.querySelector(sel);
+    if (!composer) continue;
+    composer.focus();
+    return { ok: true, selector: sel, contentEditable: !!composer.isContentEditable };
+  }
+  return { ok: false, error: 'composer-not-found' };
+})()`;
+
+/** Experimental: fill composer via DOM when Input.insertText is unavailable. */
+export function fillComposerExpression(text: string): string {
   return `(() => {
     const text = ${JSON.stringify(text)};
-    const composers = ${composers};
+    const composers = ${JSON.stringify([...COMPOSER_SELECTORS])};
     let composer = null;
     for (const sel of composers) {
       composer = document.querySelector(sel);
@@ -189,18 +240,35 @@ export function sendMessageExpression(text: string): string {
     } else {
       return { ok: false, error: 'composer-unsupported' };
     }
-    const buttons = ${buttons};
-    let sent = false;
-    for (const sel of buttons) {
-      const btn = document.querySelector(sel);
-      if (btn && !btn.disabled) { btn.click(); sent = true; break; }
-    }
-    if (!sent) {
-      composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-      composer.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
-    }
-    return { ok: true, sentVia: sent ? 'button' : 'enter' };
+    return { ok: true };
   })()`;
+}
+
+/** Experimental: click send or press Enter on the focused composer. */
+export const SUBMIT_COMPOSER_EXPRESSION = `(() => {
+  const buttons = ${JSON.stringify([...SEND_BUTTON_SELECTORS])};
+  for (const sel of buttons) {
+    const btn = document.querySelector(sel);
+    if (btn && !btn.disabled) {
+      btn.click();
+      return { ok: true, sentVia: 'button', selector: sel };
+    }
+  }
+  const composers = ${JSON.stringify([...COMPOSER_SELECTORS])};
+  let composer = null;
+  for (const sel of composers) {
+    composer = document.querySelector(sel);
+    if (composer) break;
+  }
+  if (!composer) return { ok: false, error: 'composer-not-found' };
+  composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+  composer.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+  return { ok: true, sentVia: 'enter' };
+})()`;
+
+/** @deprecated Prefer FOCUS + Input.insertText + SUBMIT; kept for tests/callers. */
+export function sendMessageExpression(text: string): string {
+  return fillComposerExpression(text);
 }
 
 export async function listThreadsFromDom(
@@ -249,27 +317,50 @@ export async function readTurnsFromDom(
   }));
 }
 
+/**
+ * Experimental send: focus composer → CDP Input.insertText → submit
+ * (send button or Enter). Falls back to DOM fill when insertText fails.
+ */
 export async function sendMessageInDom(
   session: CdpSession,
   sessionId: string,
   text: string,
 ): Promise<{ sentVia: string }> {
-  // Prefer CDP Input.insertText when focused; fall back to DOM script.
-  try {
-    await session.send('Input.insertText', { text }, { sessionId });
-  } catch {
-    // Composer may not be focused yet; the evaluate path focuses + fills.
-  }
-  const result = await session.evaluate<{ ok: boolean; error?: string; sentVia?: string }>(
-    sendMessageExpression(text),
+  const focused = await session.evaluate<{ ok: boolean; error?: string }>(
+    FOCUS_COMPOSER_EXPRESSION,
     { sessionId },
   );
-  if (!result?.ok) {
-    throw new Error(
-      result?.error === 'composer-not-found'
-        ? 'ChatGPT Desktop composer not found (experimental send path)'
-        : `ChatGPT Desktop send failed: ${result?.error ?? 'unknown'}`,
-    );
+  if (!focused?.ok) {
+    throw new Error('ChatGPT Desktop composer not found (experimental send path)');
   }
-  return { sentVia: result.sentVia ?? 'unknown' };
+
+  let inserted = false;
+  try {
+    await session.send('Input.insertText', { text }, { sessionId });
+    inserted = true;
+  } catch {
+    inserted = false;
+  }
+  if (!inserted) {
+    const filled = await session.evaluate<{ ok: boolean; error?: string }>(
+      fillComposerExpression(text),
+      { sessionId },
+    );
+    if (!filled?.ok) {
+      throw new Error(
+        filled?.error === 'composer-not-found'
+          ? 'ChatGPT Desktop composer not found (experimental send path)'
+          : `ChatGPT Desktop send failed: ${filled?.error ?? 'fill-failed'}`,
+      );
+    }
+  }
+
+  const submitted = await session.evaluate<{ ok: boolean; sentVia?: string; error?: string }>(
+    SUBMIT_COMPOSER_EXPRESSION,
+    { sessionId },
+  );
+  if (!submitted?.ok) {
+    throw new Error(`ChatGPT Desktop send submit failed: ${submitted?.error ?? 'unknown'}`);
+  }
+  return { sentVia: submitted.sentVia ?? (inserted ? 'insertText' : 'dom') };
 }
