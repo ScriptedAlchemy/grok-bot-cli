@@ -17,6 +17,7 @@ export const config = {
     additionalProperties: false,
     properties: {
       full: { default: false, type: 'boolean' },
+      cursor: { description: 'Opaque nextCursor from the prior read page', type: 'string' },
       limit: { description: 'Recent default 100; full default 2000', type: 'number' },
       openTimeoutMs: { default: 90000, type: 'number' },
       port: { type: 'number' },
@@ -31,6 +32,7 @@ export const config = {
 export const inputSchema = z
   .object({
     full: z.boolean().default(false),
+    cursor: z.string().min(1).max(4096).optional(),
     limit: z.number().int().min(1).max(2000).optional(),
     openTimeoutMs: z.number().int().min(1).max(600_000).default(90_000),
     port: z.number().int().min(1).max(65535).optional(),

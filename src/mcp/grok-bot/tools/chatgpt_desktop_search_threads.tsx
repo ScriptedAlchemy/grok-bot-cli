@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop search threads',
     description:
-      'Search Desktop thread metadata by case-insensitive substring. Dynamic hostId/hostName, modelProvider, and project filters apply. Search scans bounded app-server pages and reports warnings if incomplete; use list_threads cursor for exhaustive paging. Remote results identify hostId and cannot be read on this Mac.',
+      'Search full Desktop thread metadata by case-insensitive substring. Display titles are capped at 200 characters with titleTruncated:true. Pass nextCursor as cursor with unchanged query and filters to retrieve all matches. Dynamic hostId/hostName, modelProvider, and project filters apply. Remote results identify hostId and cannot be read on this Mac.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -24,6 +24,7 @@ export default defineTool(
         port: { type: 'number' },
         query: { type: 'string', description: 'Case-insensitive substring over thread metadata.' },
         limit: { type: 'number', default: 50, description: 'Maximum matches.' },
+        cursor: { type: 'string', description: 'Opaque nextCursor from the previous search page; keep query and filters unchanged.' },
         host: {
           type: 'string',
           description:

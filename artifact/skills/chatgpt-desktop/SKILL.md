@@ -19,12 +19,18 @@ another machine.
    host name from a project label. Managed SSH hosts may have no threads.
 3. Use `chatgpt_desktop_list_threads` with `host`, `modelProvider`, or `project`
    as needed. Pass `nextCursor` back as `cursor` with the same filters until it
-   is `null`. `chatgpt_desktop_search_threads` scans metadata for a substring;
-   inspect `warnings` if a source failed or the scan was capped.
+   is `null`. Pages can stop before `limit` to stay under the MCP document cap.
+   `chatgpt_desktop_search_threads` also accepts `cursor`; keep its query and
+   filters unchanged. Search matches the full title even when the display row
+   has a 200-character `title` and `titleTruncated: true`.
 4. Read with `chatgpt_desktop_read_thread`. `full: false` gets the recent tail;
-   `full: true` pages from the start (up to 2,000 turns unless `limit` is set).
-   Check `complete` and `warnings` before treating it as full history. A turn
-   may contain both `userText` and `assistantText`.
+   `full: true` pages chronologically from the start. Pass `nextCursor` back
+   as `cursor` with the same thread ID and `full` value until `complete: true`.
+   The byte budget can stop before `limit`. An oversized turn is returned as
+   ordered fragments with one stable `turnKey`; use `continuation.field`,
+   `offsetChars`, and `totalChars` to reassemble `text`, `userText`, and
+   `assistantText`. `textTruncated: true` signals a fragment, not missing text.
+   Check `complete` and `warnings` before treating a page as full history.
 
 Durable local IDs are `local:<conversationId>` (a bare conversation ID also
 works). `local:client-new-thread:*` is temporary and works only while that

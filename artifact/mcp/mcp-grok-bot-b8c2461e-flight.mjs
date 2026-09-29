@@ -8088,64 +8088,173 @@ var __webpack_modules__ = {
         var _codex_bridge_js__rspack_import_0 = __webpack_require__("./src/core/codex-bridge.js");
         var _errors_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
         var _remote_threads_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/remote-threads.ts");
+        var _payload_budget_js__rspack_import_4 = __webpack_require__("./src/core/chatgpt-desktop/payload-budget.ts");
         var _thread_ids_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
+        const LIST_PAGE_PREFIX = 'desktop-list-v1:';
+        const SEARCH_PAGE_PREFIX = 'desktop-search-v1:';
+        const READ_PAGE_PREFIX = 'desktop-read-v1:';
         async function appServerListThreads({ limit = 50, cursor, modelProviders = [] } = {}) {
+            let sourceCursor = cursor;
+            let skip = 0;
+            let fetchLimit = Math.min(limit, 25);
+            if (cursor?.startsWith(LIST_PAGE_PREFIX)) {
+                const state = (0, _payload_budget_js__rspack_import_4.i3)(LIST_PAGE_PREFIX, cursor);
+                if (!Number.isSafeInteger(state.skip) || state.skip < 1 || !Number.isSafeInteger(state.fetchLimit) || state.fetchLimit < 1 || state.fetchLimit > 25 || state.cursor !== null && typeof state.cursor !== 'string') {
+                    throw new Error('Invalid ChatGPT Desktop list page cursor');
+                }
+                sourceCursor = state.cursor ?? undefined;
+                skip = state.skip;
+                fetchLimit = state.fetchLimit;
+            }
             const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
-                limit,
-                cursor,
+                limit: fetchLimit,
+                cursor: sourceCursor,
                 modelProviders
             });
-            return {
+            if (skip > out.threads.length) throw new Error('ChatGPT Desktop list page cursor is stale');
+            const base = {
                 backend: 'app-server',
-                limit: out.limit,
-                nextCursor: out.nextCursor ?? null,
-                threads: out.threads.map(mapListedThread),
+                limit,
                 modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined
             };
+            const threads = [];
+            let consumed = skip;
+            for (const raw of out.threads.slice(skip)){
+                if (threads.length >= limit) break;
+                let row = (0, _payload_budget_js__rspack_import_4.eX)(mapListedThread(raw));
+                const probe = {
+                    ...base,
+                    threads: [
+                        ...threads,
+                        row
+                    ],
+                    nextCursor: LIST_PAGE_PREFIX,
+                    exitCode: 0
+                };
+                if ((0, _payload_budget_js__rspack_import_4.sQ)(probe) > 614400) {
+                    if (threads.length) break;
+                    row = (0, _payload_budget_js__rspack_import_4.MH)(row);
+                    if ((0, _payload_budget_js__rspack_import_4.sQ)({
+                        ...base,
+                        threads: [
+                            row
+                        ],
+                        nextCursor: LIST_PAGE_PREFIX,
+                        exitCode: 0
+                    }) > 614400) {
+                        throw new Error('ChatGPT Desktop thread row exceeds the MCP result byte budget');
+                    }
+                }
+                threads.push(row);
+                consumed++;
+            }
+            const nextCursor = consumed < out.threads.length ? (0, _payload_budget_js__rspack_import_4.oI)(LIST_PAGE_PREFIX, {
+                cursor: sourceCursor ?? null,
+                skip: consumed,
+                fetchLimit
+            }) : out.nextCursor ?? null;
+            return {
+                ...base,
+                threads,
+                nextCursor,
+                ...consumed < out.threads.length ? {
+                    warnings: [
+                        'List page stopped at the MCP byte budget; continue with nextCursor'
+                    ]
+                } : {}
+            };
         }
-        async function appServerSearchThreads({ query, limit = 50, modelProviders = [], project }) {
+        async function appServerSearchThreads({ query, limit = 50, cursor, modelProviders = [], project }) {
             const needle = query.trim().toLowerCase();
             if (!needle) {
                 return appServerListThreads({
                     limit,
+                    cursor,
                     modelProviders
                 });
             }
             const matched = [];
-            let cursor;
-            let exhausted = false;
-            for(let page = 0; page < 400 && matched.length < limit; page++){
-                const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
-                    limit: 25,
-                    cursor,
+            let sourceCursor;
+            let skip = 0;
+            if (cursor) {
+                const state = (0, _payload_budget_js__rspack_import_4.i3)(SEARCH_PAGE_PREFIX, cursor);
+                if (state.query !== query || state.project !== project || JSON.stringify(state.modelProviders) !== JSON.stringify(modelProviders) || !Number.isSafeInteger(state.skip) || state.skip < 0) {
+                    throw new Error('Search cursor does not match this query and its filters');
+                }
+                sourceCursor = state.cursor ?? undefined;
+                skip = state.skip;
+            }
+            const pageCursor = (rpcCursor, offset)=>(0, _payload_budget_js__rspack_import_4.oI)(SEARCH_PAGE_PREFIX, {
+                    cursor: rpcCursor ?? null,
+                    skip: offset,
+                    query,
+                    project,
                     modelProviders
                 });
-                for (const thread of out.threads){
-                    const mapped = mapListedThread(thread);
-                    if (threadMatchesQuery(mapped, needle) && (!project || [
-                        mapped.project,
-                        mapped.projectId
-                    ].some((value)=>typeof value === 'string' && value.toLowerCase().includes(project.trim().toLowerCase())))) matched.push(mapped);
-                    if (matched.length >= limit) break;
-                }
-                if (out.nextCursor == null || typeof out.nextCursor !== 'string') {
-                    exhausted = true;
-                    break;
-                }
-                cursor = out.nextCursor;
-            }
-            return {
+            const base = {
                 backend: 'app-server',
                 limit,
                 query,
-                nextCursor: null,
-                threads: matched.slice(0, limit),
-                modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined,
-                ...!exhausted && matched.length < limit ? {
-                    warnings: [
-                        'Search stopped after 400 app-server pages; results may be incomplete'
-                    ]
-                } : {}
+                modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined
+            };
+            for(let page = 0; page < 400; page++){
+                const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
+                    limit: 25,
+                    cursor: sourceCursor,
+                    modelProviders
+                });
+                if (skip > out.threads.length) throw new Error('ChatGPT Desktop search cursor is stale');
+                for(let index = skip; index < out.threads.length; index++){
+                    const mapped = mapListedThread(out.threads[index]);
+                    if (!threadMatchesQuery(mapped, needle) || project && ![
+                        mapped.project,
+                        mapped.projectId
+                    ].some((value)=>typeof value === 'string' && value.toLowerCase().includes(project.trim().toLowerCase()))) continue;
+                    let row = (0, _payload_budget_js__rspack_import_4.eX)(mapped);
+                    if ((0, _payload_budget_js__rspack_import_4.sQ)({
+                        ...base,
+                        threads: [
+                            ...matched,
+                            row
+                        ],
+                        nextCursor: SEARCH_PAGE_PREFIX,
+                        exitCode: 0
+                    }) > 614400) {
+                        if (matched.length) return {
+                            ...base,
+                            threads: matched,
+                            nextCursor: pageCursor(sourceCursor, index),
+                            warnings: [
+                                'Search page stopped at the MCP byte budget; continue with nextCursor'
+                            ]
+                        };
+                        row = (0, _payload_budget_js__rspack_import_4.MH)(row);
+                    }
+                    matched.push(row);
+                    if (matched.length >= limit) {
+                        const nextCursor = index + 1 < out.threads.length ? pageCursor(sourceCursor, index + 1) : out.nextCursor ? pageCursor(out.nextCursor, 0) : null;
+                        return {
+                            ...base,
+                            threads: matched,
+                            nextCursor
+                        };
+                    }
+                }
+                if (out.nextCursor == null) return {
+                    ...base,
+                    threads: matched,
+                    nextCursor: null
+                };
+                sourceCursor = out.nextCursor;
+                skip = 0;
+            }
+            return {
+                ...base,
+                threads: matched,
+                nextCursor: pageCursor(sourceCursor, 0),
+                warnings: [
+                    'Search stopped after 400 app-server pages; continue with nextCursor'
+                ]
             };
         }
         async function discoverModelProviders() {
@@ -8180,7 +8289,7 @@ var __webpack_modules__ = {
                 complete
             };
         }
-        async function appServerReadThread({ threadId, limit, full = false }) {
+        async function appServerReadThread({ threadId, limit, full = false, cursor }) {
             limit ??= full ? 2000 : 100;
             const bare = (0, _thread_ids_js__rspack_import_3.NM)(threadId);
             const remote = (0, _remote_threads_js__rspack_import_2.KI)(bare);
@@ -8188,7 +8297,8 @@ var __webpack_modules__ = {
                 try {
                     return await readLocalThread(bare, {
                         limit,
-                        full
+                        full,
+                        cursor
                     });
                 } catch (error) {
                     if (isThreadNotLoaded(error) || isUnknownThread(error)) {
@@ -8200,7 +8310,8 @@ var __webpack_modules__ = {
             try {
                 return await readLocalThread(bare, {
                     limit,
-                    full
+                    full,
+                    cursor
                 });
             } catch (error) {
                 throw maybeRemoteThreadError(error, bare);
@@ -8220,13 +8331,15 @@ var __webpack_modules__ = {
                 client.close();
             }
         }
-        async function readLocalThread(bare, { limit, full }) {
+        async function readLocalThread(bare, { limit, full, cursor }) {
             const { client } = await (0, _codex_bridge_js__rspack_import_0.eC)();
             try {
                 const meta = await readThreadMetadata(client, bare);
-                const { turns, complete } = await listTurnsFull(client, bare, {
+                const { turns, complete, nextCursor } = await listTurnsFull(client, bare, {
                     limit,
-                    full
+                    full,
+                    cursor,
+                    title: meta.title
                 });
                 return {
                     threadId: (0, _thread_ids_js__rspack_import_3.BS)(bare),
@@ -8235,7 +8348,13 @@ var __webpack_modules__ = {
                     limit,
                     full,
                     complete,
-                    title: meta.title,
+                    nextCursor,
+                    ...complete ? {} : {
+                        warnings: [
+                            'Read page stopped before the end of the thread; continue with nextCursor to retrieve every turn and text fragment'
+                        ]
+                    },
+                    ...meta.title ? (0, _payload_budget_js__rspack_import_4.aA)(meta.title) : {},
                     cwd: meta.cwd,
                     status: meta.status,
                     modelProvider: meta.modelProvider,
@@ -8317,56 +8436,200 @@ var __webpack_modules__ = {
                 throw maybeRemoteThreadError(error, threadId);
             }
         }
-        async function listTurnsFull(client, threadId, { limit, full }) {
-            const collected = [];
-            let cursor;
+        async function listTurnsFull(client, threadId, { limit, full, cursor, title }) {
+            const state = cursor ? (0, _payload_budget_js__rspack_import_4.i3)(READ_PAGE_PREFIX, cursor) : null;
+            if (state && (state.threadId !== threadId || state.full !== full || !Number.isSafeInteger(state.skip) || state.skip < 0 || state.rpcCursor !== null && typeof state.rpcCursor !== 'string' || state.field !== undefined && ![
+                'text',
+                'userText',
+                'assistantText'
+            ].includes(state.field) || state.offset !== undefined && (!Number.isSafeInteger(state.offset) || state.offset < 0))) {
+                throw new Error('Read cursor does not match this thread or mode');
+            }
+            let rpcCursor = state?.rpcCursor ?? undefined;
+            let skip = state?.skip ?? 0;
+            let fragmentField = state?.field;
+            let fragmentOffset = state?.offset ?? 0;
             let itemsView = true;
             let method = 'thread/turns/list';
             const seen = new Set();
-            let complete = false;
-            while(collected.length < limit){
+            const turns = [];
+            const pageCursor = (source, index, field, offset)=>(0, _payload_budget_js__rspack_import_4.oI)(READ_PAGE_PREFIX, {
+                    threadId,
+                    full,
+                    rpcCursor: source ?? null,
+                    skip: index,
+                    ...field ? {
+                        field,
+                        offset
+                    } : {}
+                });
+            const fits = (candidate)=>(0, _payload_budget_js__rspack_import_4.sQ)({
+                    threadId,
+                    turns: [
+                        ...turns,
+                        candidate
+                    ],
+                    backend: 'app-server',
+                    limit,
+                    full,
+                    complete: false,
+                    nextCursor: READ_PAGE_PREFIX,
+                    title: title ? (0, _payload_budget_js__rspack_import_4.aA)(title).title : undefined,
+                    warnings: [
+                        'Read page stopped before the end of the thread; continue with nextCursor to retrieve every turn and text fragment'
+                    ],
+                    exitCode: 0
+                }) <= 614400;
+            while(turns.length < limit){
                 let result;
                 try {
                     result = await client.request(method, {
                         threadId,
-                        limit: Math.min(10, limit - collected.length),
+                        limit: Math.min(10, Math.max(limit - turns.length, skip + 1)),
                         sortDirection: full ? 'asc' : 'desc',
                         ...method === 'thread/turns/list' && itemsView ? {
                             itemsView: 'full'
                         } : {},
-                        ...cursor !== undefined ? {
-                            cursor
+                        ...rpcCursor !== undefined ? {
+                            cursor: rpcCursor
                         } : {}
                     });
                 } catch (error) {
                     const code = error?.rpc?.code;
-                    if (collected.length === 0 && code === -32602 && itemsView) {
+                    if (turns.length === 0 && code === -32602 && itemsView) {
                         itemsView = false;
                         continue;
                     }
-                    if (collected.length === 0 && code === -32601 && method === 'thread/turns/list') {
+                    if (turns.length === 0 && code === -32601 && method === 'thread/turns/list') {
                         method = 'thread/items/list';
                         continue;
                     }
                     throw maybeRemoteThreadError(error, threadId);
                 }
                 if (!Array.isArray(result?.data)) throw new Error(`${method} missing data array for ${threadId}`);
-                collected.push(...result.data);
-                if (result.nextCursor == null) {
-                    complete = true;
-                    break;
+                if (skip > result.data.length) throw new Error('Read cursor is stale');
+                const pageTurns = normalizeTurns(result.data);
+                for(let index = skip; index < pageTurns.length; index++){
+                    const turn = pageTurns[index];
+                    if (!fragmentField && turns.length && !fits(turn)) {
+                        return {
+                            turns: chronologicalPage(turns, full),
+                            complete: false,
+                            nextCursor: pageCursor(rpcCursor, index)
+                        };
+                    }
+                    if (!fragmentField && fits(turn)) {
+                        turns.push(turn);
+                    } else {
+                        const fields = [
+                            'text',
+                            'userText',
+                            'assistantText'
+                        ].filter((field)=>typeof turn[field] === 'string' && turn[field].length > 0);
+                        let fieldIndex = fragmentField ? fields.indexOf(fragmentField) : 0;
+                        if (fieldIndex < 0) throw new Error('Read fragment cursor is stale');
+                        for(; fieldIndex < fields.length; fieldIndex++){
+                            const field = fields[fieldIndex];
+                            const value = turn[field];
+                            let offset = field === fragmentField ? fragmentOffset : 0;
+                            if (offset > value.length) throw new Error('Read fragment cursor is stale');
+                            while(offset < value.length){
+                                let size = Math.min(value.length - offset, 32768);
+                                let fragment;
+                                do {
+                                    let end = offset + size;
+                                    if (end < value.length && /[\uD800-\uDBFF]/u.test(value[end - 1])) end--;
+                                    const chunk = value.slice(offset, end);
+                                    fragment = {
+                                        turnKey: turn.turnKey,
+                                        role: turn.role,
+                                        text: field === 'text' ? chunk : '',
+                                        ...field === 'userText' ? {
+                                            userText: chunk
+                                        } : {},
+                                        ...field === 'assistantText' ? {
+                                            assistantText: chunk
+                                        } : {},
+                                        startedAt: turn.startedAt,
+                                        endedAt: turn.endedAt,
+                                        textTruncated: true,
+                                        continuation: {
+                                            field,
+                                            offsetChars: offset,
+                                            totalChars: value.length,
+                                            fieldComplete: end === value.length,
+                                            turnComplete: end === value.length && fieldIndex === fields.length - 1
+                                        }
+                                    };
+                                    if (fits(fragment)) {
+                                        size = end - offset;
+                                        break;
+                                    }
+                                    size = Math.floor(size / 2);
+                                }while (size > 0);
+                                if (size === 0) {
+                                    if (turns.length) return {
+                                        turns: chronologicalPage(turns, full),
+                                        complete: false,
+                                        nextCursor: pageCursor(rpcCursor, index, field, offset)
+                                    };
+                                    throw new Error('Read fragment metadata exceeds the MCP result byte budget');
+                                }
+                                turns.push(fragment);
+                                offset += size;
+                                if (turns.length >= limit || offset < value.length && !fits({
+                                    ...fragment,
+                                    text: 'x'.repeat(32768)
+                                })) {
+                                    return {
+                                        turns: chronologicalPage(turns, full),
+                                        complete: false,
+                                        nextCursor: pageCursor(rpcCursor, index, field, offset)
+                                    };
+                                }
+                            }
+                        }
+                        fragmentField = undefined;
+                        fragmentOffset = 0;
+                    }
+                    if (turns.length >= limit) {
+                        const nextCursor = index + 1 < pageTurns.length ? pageCursor(rpcCursor, index + 1) : result.nextCursor ? pageCursor(result.nextCursor, 0) : null;
+                        return {
+                            turns: chronologicalPage(turns, full),
+                            complete: nextCursor === null,
+                            nextCursor
+                        };
+                    }
                 }
+                if (result.nextCursor == null) return {
+                    turns: chronologicalPage(turns, full),
+                    complete: true,
+                    nextCursor: null
+                };
                 if (typeof result.nextCursor !== 'string' || !result.nextCursor || seen.has(result.nextCursor)) {
                     throw new Error(`${method} returned an invalid or repeated cursor`);
                 }
                 seen.add(result.nextCursor);
-                cursor = result.nextCursor;
+                rpcCursor = result.nextCursor;
+                skip = 0;
             }
-            const turns = normalizeTurns(collected.slice(0, limit));
             return {
-                turns: full ? turns : turns.reverse(),
-                complete
+                turns: chronologicalPage(turns, full),
+                complete: false,
+                nextCursor: pageCursor(rpcCursor, skip)
             };
+        }
+        function chronologicalPage(turns, full) {
+            if (full) return turns;
+            const groups = [];
+            for (const turn of turns){
+                const last = groups.at(-1);
+                if (last?.[0]?.turnKey === turn.turnKey) last.push(turn);
+                else groups.push([
+                    turn
+                ]);
+            }
+            return groups.reverse().flat();
         }
         function normalizeTurns(raw) {
             const turns = [];
@@ -9666,6 +9929,7 @@ var __webpack_modules__ = {
         var _errors_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
         var _loopback_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
         var _remote_threads_js__rspack_import_4 = __webpack_require__("./src/core/chatgpt-desktop/remote-threads.ts");
+        var _payload_budget_js__rspack_import_6 = __webpack_require__("./src/core/chatgpt-desktop/payload-budget.ts");
         var _thread_ids_js__rspack_import_5 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
         const defaultFallbacks = {
             listThreads: _app_server_fallback_js__rspack_import_1.OI,
@@ -9745,7 +10009,28 @@ var __webpack_modules__ = {
                     });
                     const offset = remoteOffset ?? 0;
                     if (remoteOffset !== null || remoteInventory.threads.length >= limit) {
-                        const page = remoteInventory.threads.slice(offset, offset + limit);
+                        const page = [];
+                        for (const thread of remoteInventory.threads.slice(offset, offset + limit)){
+                            const row = (0, _payload_budget_js__rspack_import_6.eX)(thread);
+                            if ((0, _payload_budget_js__rspack_import_6.sQ)({
+                                ...remoteInventory,
+                                threads: [
+                                    ...page,
+                                    row
+                                ],
+                                nextCursor: REMOTE_PAGE_CURSOR,
+                                ...options.groupBy === 'host' ? {
+                                    groups: groupThreadsByHost([
+                                        ...page,
+                                        row
+                                    ])
+                                } : {}
+                            }) > 614400) {
+                                if (!page.length) throw new Error('ChatGPT Desktop remote thread row exceeds the MCP result byte budget');
+                                break;
+                            }
+                            page.push(row);
+                        }
                         const nextOffset = offset + page.length;
                         const nextCursor = nextOffset < remoteInventory.threads.length ? `${REMOTE_PAGE_CURSOR}${nextOffset}` : host === 'all' ? APP_START_CURSOR : null;
                         return {
@@ -9857,16 +10142,16 @@ var __webpack_modules__ = {
                 }
                 const hostsSource = 'local+remote-thread-summaries-v3+managed-connections' + (cdpRows.length ? '+cdp' : '');
                 const remoteCounts = new Map();
-                for (const thread of remotes){
-                    remoteCounts.set(thread.hostId, (remoteCounts.get(thread.hostId) ?? 0) + 1);
-                }
-                const remoteIds = new Set(remotes.map((thread)=>(0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId));
-                for (const thread of cdpRows){
-                    if (thread.location !== 'remote' || !thread.hostId) continue;
-                    const id = (0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId;
-                    if (remoteIds.has(id)) continue;
-                    remoteIds.add(id);
-                    remoteCounts.set(thread.hostId, (remoteCounts.get(thread.hostId) ?? 0) + 1);
+                const remoteInventory = finalizeThreadList({
+                    backend: cdpRows.length ? 'cdp' : 'remote-state',
+                    limit: 10000,
+                    threads: cdpRows.filter((thread)=>thread.location === 'remote')
+                }, {
+                    limit: 10000,
+                    remotes
+                });
+                for (const thread of remoteInventory.threads){
+                    if (thread.hostId) remoteCounts.set(thread.hostId, (remoteCounts.get(thread.hostId) ?? 0) + 1);
                 }
                 const withCounts = [
                     ...byId.values()
@@ -9907,10 +10192,21 @@ var __webpack_modules__ = {
                     ])
                 ].sort();
                 return {
-                    hosts: withCounts.map((host)=>host.hostId === 'local' ? {
+                    hosts: withCounts.map((host)=>{
+                        const counted = host.hostId === 'local' ? {
                             ...host,
                             threadCount: localThreadCount
-                        } : host),
+                        } : host;
+                        if (!counted.hostName) return counted;
+                        const name = (0, _payload_budget_js__rspack_import_6.aA)(counted.hostName);
+                        return {
+                            ...counted,
+                            hostName: name.title,
+                            ...name.titleTruncated ? {
+                                hostNameTruncated: true
+                            } : {}
+                        };
+                    }),
                     hostsSource,
                     modelProviders,
                     modelProvidersSource,
@@ -9928,25 +10224,27 @@ var __webpack_modules__ = {
                     const appList = await this.#fallbacks.searchThreads({
                         query: options.query,
                         limit,
+                        cursor: options.cursor,
                         modelProviders,
                         project: options.project
                     });
-                    const cdpList = await this.#tryCdpList({
+                    const cdpList = options.cursor ? null : await this.#tryCdpList({
                         limit
                     });
                     const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
+                    const appMatches = new Set(appList.threads.map((thread)=>thread.threadId));
                     const withRemotes = finalizeThreadList(base, {
                         limit: 10000,
                         host,
                         modelProvider: options.modelProvider?.trim() || undefined,
                         project: options.project,
-                        remotes: this.#listRemotes()
+                        remotes: options.cursor ? [] : this.#listRemotes()
                     });
                     const needle = options.query.trim().toLowerCase();
                     const filtered = {
                         ...withRemotes,
                         query: options.query,
-                        threads: withRemotes.threads.filter((thread)=>threadMatchesQuery(thread, needle))
+                        threads: withRemotes.threads.filter((thread)=>appMatches.has(thread.threadId) || threadMatchesQuery(thread, needle))
                     };
                     const result = finalizeThreadList(filtered, {
                         limit,
@@ -9958,6 +10256,7 @@ var __webpack_modules__ = {
                     });
                     return result;
                 } catch (appError) {
+                    if (options.cursor) throw appError;
                     const cdpList = await this.#tryCdpList({
                         limit
                     });
@@ -9992,6 +10291,7 @@ var __webpack_modules__ = {
                 const limit = options.limit ?? (options.full ? 2000 : 100);
                 const full = options.full ?? false;
                 if ((0, _thread_ids_js__rspack_import_5.vr)(options.threadId)) {
+                    if (options.cursor) throw new Error('Temporary Desktop threads do not support read cursors');
                     await this.#ensureCdp();
                     return this.#cdp.readThread({
                         ...options,
@@ -10003,10 +10303,12 @@ var __webpack_modules__ = {
                     return await this.#fallbacks.readThread({
                         threadId: options.threadId,
                         limit,
-                        full
+                        full,
+                        cursor: options.cursor
                     });
                 } catch (appError) {
                     if (appError instanceof _errors_js__rspack_import_2.Rg) throw appError;
+                    if (options.cursor) throw appError;
                     const cdpConnected = await this.#tryEnsureCdp();
                     if (!cdpConnected) throw appError;
                     const fallback = await this.#cdp.readThread({
@@ -10198,7 +10500,7 @@ var __webpack_modules__ = {
                 if (!projectMatches(thread, project)) return false;
                 return true;
             });
-            const limited = filtered.slice(0, limit);
+            const limited = filtered.slice(0, limit).map(_payload_budget_js__rspack_import_6.eX);
             const result = {
                 backend: remotes.length ? base.backend === 'app-server+cdp' ? 'app-server+cdp+remote-state' : base.backend === 'app-server' ? 'app-server+remote-state' : base.backend === 'cdp' ? 'cdp+remote-state' : base.backend : base.backend,
                 limit,
@@ -10372,6 +10674,100 @@ var __webpack_modules__ = {
             L0: ()=>resolveCdpPort,
             NJ: ()=>cdpHttpBase,
             jv: ()=>forceLoopbackWebSocketUrl
+        });
+    },
+    "./src/core/chatgpt-desktop/payload-budget.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        const DESKTOP_RESULT_BUDGET_BYTES = 600 * 1024;
+        const DESKTOP_THREAD_TITLE_CHARS = 200;
+        function serializedBytes(value) {
+            return Buffer.byteLength(JSON.stringify(value), 'utf8');
+        }
+        function compact(value, maxChars) {
+            const normalized = value.replace(/\s+/gu, ' ').trim();
+            const chars = Array.from(normalized);
+            return {
+                value: chars.slice(0, maxChars).join(''),
+                clipped: chars.length > maxChars
+            };
+        }
+        function compactThreadRow(thread) {
+            const title = compact(thread.title, DESKTOP_THREAD_TITLE_CHARS);
+            const preview = typeof thread.preview === 'string' ? compact(thread.preview, 200) : null;
+            const cwd = typeof thread.cwd === 'string' ? compact(thread.cwd, 2048) : null;
+            const project = typeof thread.project === 'string' ? compact(thread.project, 256) : null;
+            const hostName = typeof thread.hostName === 'string' ? compact(thread.hostName, 256) : null;
+            return {
+                ...thread,
+                title: title.value,
+                ...title.clipped ? {
+                    titleTruncated: true
+                } : {},
+                ...preview ? {
+                    preview: preview.value,
+                    ...preview.clipped ? {
+                        previewTruncated: true
+                    } : {}
+                } : {},
+                ...cwd ? {
+                    cwd: cwd.value,
+                    ...cwd.clipped ? {
+                        cwdTruncated: true
+                    } : {}
+                } : {},
+                ...project ? {
+                    project: project.value,
+                    ...project.clipped ? {
+                        projectTruncated: true
+                    } : {}
+                } : {},
+                ...hostName ? {
+                    hostName: hostName.value,
+                    ...hostName.clipped ? {
+                        hostNameTruncated: true
+                    } : {}
+                } : {}
+            };
+        }
+        function compactThreadTitle(title) {
+            const out = compact(title, DESKTOP_THREAD_TITLE_CHARS);
+            return {
+                title: out.value,
+                titleTruncated: out.clipped
+            };
+        }
+        function minimalThreadRow(thread) {
+            return {
+                threadId: thread.threadId,
+                title: compact(thread.title, DESKTOP_THREAD_TITLE_CHARS).value,
+                titleTruncated: true,
+                pinned: thread.pinned,
+                selected: thread.selected,
+                kind: thread.kind,
+                location: thread.location,
+                hostId: thread.hostId,
+                hostName: thread.hostName,
+                modelProvider: thread.modelProvider,
+                metadataTruncated: true
+            };
+        }
+        function encodePageCursor(prefix, value) {
+            return prefix + Buffer.from(JSON.stringify(value)).toString('base64url');
+        }
+        function decodePageCursor(prefix, cursor) {
+            if (!cursor.startsWith(prefix)) throw new Error('Invalid ChatGPT Desktop page cursor');
+            try {
+                return JSON.parse(Buffer.from(cursor.slice(prefix.length), 'base64url').toString('utf8'));
+            } catch  {
+                throw new Error('Invalid ChatGPT Desktop page cursor');
+            }
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            MH: ()=>minimalThreadRow,
+            aA: ()=>compactThreadTitle,
+            eX: ()=>compactThreadRow,
+            i3: ()=>decodePageCursor,
+            oI: ()=>encodePageCursor,
+            sQ: ()=>serializedBytes
         });
     },
     "./src/core/chatgpt-desktop/remote-threads.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
@@ -10811,6 +11207,7 @@ var __webpack_modules__ = {
             port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
             query: zod__rspack_import_4.YjP().min(1).max(512),
             limit: zod__rspack_import_4.aig().int().min(1).max(200).default(50),
+            cursor: zod__rspack_import_4.YjP().min(1).max(4096).optional(),
             host: zod__rspack_import_4.YjP().min(1).max(256).optional(),
             modelProvider: zod__rspack_import_4.YjP().min(1).max(256).optional(),
             project: zod__rspack_import_4.YjP().min(1).max(256).optional(),
@@ -10824,6 +11221,7 @@ var __webpack_modules__ = {
             threadId,
             limit: zod__rspack_import_4.aig().int().min(1).max(2000).optional(),
             full: zod__rspack_import_4.zMY().default(false),
+            cursor: zod__rspack_import_4.YjP().min(1).max(4096).optional(),
             openTimeoutMs: zod__rspack_import_4.aig().int().min(1).max(600000).default(90000)
         }).strict();
         const openThreadSchema = zod__rspack_import_4.Ikc({
@@ -10953,6 +11351,7 @@ var __webpack_modules__ = {
                     return adapter.searchThreads({
                         query: input.query,
                         limit: input.limit,
+                        cursor: input.cursor,
                         host: input.host,
                         modelProvider: input.modelProvider,
                         project: input.project,
@@ -10989,6 +11388,7 @@ var __webpack_modules__ = {
                         threadId: input.threadId,
                         limit: input.limit ?? (input.full ? 2000 : 100),
                         full: input.full,
+                        cursor: input.cursor,
                         openTimeoutMs: input.openTimeoutMs
                     }));
                 return asResult({
@@ -11773,7 +12173,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop list threads',
-            description: 'List Desktop threads, then pass nextCursor as cursor until null. Filter by dynamic hostId/hostName, modelProvider, or project label/projectId. Rows expose local:<conversationId>, location, hostId, and provider; remote rows require their owning host for reading or sending. Backend and warnings identify partial sources.',
+            description: 'List Desktop threads, then pass nextCursor as cursor until null. Pages may stop early at the MCP byte budget. Display titles are capped at 200 characters with titleTruncated:true. Filter by dynamic hostId/hostName, modelProvider, or project label/projectId. Rows expose local:<conversationId>, location, hostId, and provider; remote rows require their owning host for reading or sending. Backend and warnings identify partial sources.',
             annotations: {
                 readOnlyHint: true
             },
@@ -11890,7 +12290,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop read thread',
-            description: 'Read a local:<conversationId>, bare durable id, or selected temporary local:client-new-thread:* id. Recent defaults to 100 turns; full pages up to 2000 from the start. Archived threads remain readable. complete:false means partial history; warnings preserve app-server/frame errors. REMOTE_THREAD_NOT_LOADED includes the owning hostId: call on that host.',
+            description: 'Read a local:<conversationId>, bare durable id, or selected temporary local:client-new-thread:* id. Pass nextCursor back as cursor with the same threadId/full mode until complete:true. Pages stop at a byte budget; oversized turns use ordered continuation fragments with stable turnKey and field offsets, without dropping text. Archived threads remain readable. Warnings explain partial pages or app-server errors. REMOTE_THREAD_NOT_LOADED includes the owning hostId: call on that host.',
             annotations: {
                 readOnlyHint: true
             },
@@ -11912,6 +12312,10 @@ var __webpack_modules__ = {
                     },
                     limit: {
                         type: 'number'
+                    },
+                    cursor: {
+                        type: 'string',
+                        description: 'Opaque nextCursor from the prior read page. Keep threadId and full unchanged.'
                     },
                     full: {
                         type: 'boolean',
@@ -11949,7 +12353,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop search threads',
-            description: 'Search Desktop thread metadata by case-insensitive substring. Dynamic hostId/hostName, modelProvider, and project filters apply. Search scans bounded app-server pages and reports warnings if incomplete; use list_threads cursor for exhaustive paging. Remote results identify hostId and cannot be read on this Mac.',
+            description: 'Search full Desktop thread metadata by case-insensitive substring. Display titles are capped at 200 characters with titleTruncated:true. Pass nextCursor as cursor with unchanged query and filters to retrieve all matches. Dynamic hostId/hostName, modelProvider, and project filters apply. Remote results identify hostId and cannot be read on this Mac.',
             annotations: {
                 readOnlyHint: true
             },
@@ -11970,6 +12374,10 @@ var __webpack_modules__ = {
                         type: 'number',
                         default: 50,
                         description: 'Maximum matches.'
+                    },
+                    cursor: {
+                        type: 'string',
+                        description: 'Opaque nextCursor from the previous search page; keep query and filters unchanged.'
                     },
                     host: {
                         type: 'string',
@@ -28247,7 +28655,7 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": true
             },
-            "description": "List Desktop threads, then pass nextCursor as cursor until null. Filter by dynamic hostId/hostName, modelProvider, or project label/projectId. Rows expose local:<conversationId>, location, hostId, and provider; remote rows require their owning host for reading or sending. Backend and warnings identify partial sources.",
+            "description": "List Desktop threads, then pass nextCursor as cursor until null. Pages may stop early at the MCP byte budget. Display titles are capped at 200 characters with titleTruncated:true. Filter by dynamic hostId/hostName, modelProvider, or project label/projectId. Rows expose local:<conversationId>, location, hostId, and provider; remote rows require their owning host for reading or sending. Backend and warnings identify partial sources.",
             "inputJsonSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -28334,10 +28742,14 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": true
             },
-            "description": "Read a local:<conversationId>, bare durable id, or selected temporary local:client-new-thread:* id. Recent defaults to 100 turns; full pages up to 2000 from the start. Archived threads remain readable. complete:false means partial history; warnings preserve app-server/frame errors. REMOTE_THREAD_NOT_LOADED includes the owning hostId: call on that host.",
+            "description": "Read a local:<conversationId>, bare durable id, or selected temporary local:client-new-thread:* id. Pass nextCursor back as cursor with the same threadId/full mode until complete:true. Pages stop at a byte budget; oversized turns use ordered continuation fragments with stable turnKey and field offsets, without dropping text. Archived threads remain readable. Warnings explain partial pages or app-server errors. REMOTE_THREAD_NOT_LOADED includes the owning hostId: call on that host.",
             "inputJsonSchema": {
                 "additionalProperties": false,
                 "properties": {
+                    "cursor": {
+                        "description": "Opaque nextCursor from the prior read page. Keep threadId and full unchanged.",
+                        "type": "string"
+                    },
                     "full": {
                         "description": "When true, page from the start through the complete history (up to 2000 turns by default); otherwise return the most recent 100 turns by default. Explicit limit bounds either mode.",
                         "type": "boolean"
@@ -28378,10 +28790,14 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": true
             },
-            "description": "Search Desktop thread metadata by case-insensitive substring. Dynamic hostId/hostName, modelProvider, and project filters apply. Search scans bounded app-server pages and reports warnings if incomplete; use list_threads cursor for exhaustive paging. Remote results identify hostId and cannot be read on this Mac.",
+            "description": "Search full Desktop thread metadata by case-insensitive substring. Display titles are capped at 200 characters with titleTruncated:true. Pass nextCursor as cursor with unchanged query and filters to retrieve all matches. Dynamic hostId/hostName, modelProvider, and project filters apply. Remote results identify hostId and cannot be read on this Mac.",
             "inputJsonSchema": {
                 "additionalProperties": false,
                 "properties": {
+                    "cursor": {
+                        "description": "Opaque nextCursor from the previous search page; keep query and filters unchanged.",
+                        "type": "string"
+                    },
                     "groupBy": {
                         "description": "When \"host\", also return groups[] keyed by host (grouping mode, not a host id).",
                         "enum": [

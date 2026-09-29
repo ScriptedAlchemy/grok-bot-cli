@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop list threads',
     description:
-      'List Desktop threads, then pass nextCursor as cursor until null. Filter by dynamic hostId/hostName, modelProvider, or project label/projectId. Rows expose local:<conversationId>, location, hostId, and provider; remote rows require their owning host for reading or sending. Backend and warnings identify partial sources.',
+      'List Desktop threads, then pass nextCursor as cursor until null. Pages may stop early at the MCP byte budget. Display titles are capped at 200 characters with titleTruncated:true. Filter by dynamic hostId/hostName, modelProvider, or project label/projectId. Rows expose local:<conversationId>, location, hostId, and provider; remote rows require their owning host for reading or sending. Backend and warnings identify partial sources.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,

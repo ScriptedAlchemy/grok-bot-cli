@@ -40,6 +40,7 @@ export const searchThreadsSchema = z
     port: z.number().int().min(1).max(65535).optional(),
     query: z.string().min(1).max(512),
     limit: z.number().int().min(1).max(200).default(50),
+    cursor: z.string().min(1).max(4096).optional(),
     /** Any string; see `chatgpt_desktop_list_hosts`. Not an enum. */
     host: z.string().min(1).max(256).optional(),
     /** Any modelProvider id; see `chatgpt_desktop_list_hosts`. Not an enum. */
@@ -61,6 +62,7 @@ export const readThreadSchema = z
     threadId,
     limit: z.number().int().min(1).max(2000).optional(),
     full: z.boolean().default(false),
+    cursor: z.string().min(1).max(4096).optional(),
     openTimeoutMs: z.number().int().min(1).max(600_000).default(90_000),
   })
   .strict();
@@ -205,6 +207,7 @@ export async function searchThreadsOperation(
       return adapter.searchThreads({
         query: input.query,
         limit: input.limit,
+        cursor: input.cursor,
         host: input.host,
         modelProvider: input.modelProvider,
         project: input.project,
@@ -242,6 +245,7 @@ export async function readThreadOperation(
         threadId: input.threadId,
         limit: input.limit ?? (input.full ? 2000 : 100),
         full: input.full,
+        cursor: input.cursor,
         openTimeoutMs: input.openTimeoutMs,
       }),
     );

@@ -39,6 +39,7 @@ gbot chatgpt-desktop threads --host <hostId> --model-provider <providerId>
 gbot chatgpt-desktop threads --project <projectLabelOrId>
 gbot chatgpt-desktop search "launch" --host all
 gbot chatgpt-desktop read <threadId>
+gbot chatgpt-desktop read <threadId> --full --cursor <nextCursor>
 gbot chatgpt-desktop send --thread-id <threadId> "hello"
 gbot chatgpt-desktop send --thread-id <archivedThreadId> --unarchive "hello"
 gbot chatgpt-desktop send --project <projectLabel> "new chat in project"
@@ -89,7 +90,11 @@ DOM (tool calls, reasoning, timing, and sometimes more turns).
 3. Page history with `thread/turns/list` (`itemsView: "full"`, `cursor` /
    `nextCursor`); `thread/items/list` is a fallback only for unsupported RPCs.
    Recent reads request descending pages and return chronological turns;
-   `full` reads request ascending pages, bounded by `limit`. Empty history is valid.
+   `full` reads request ascending pages, bounded by `limit`. Return pages below
+   the Agent Bundle 1 MiB document cap. Pass `nextCursor` back as `cursor` until
+   `complete: true`. A large turn uses ordered `continuation` fragments with
+   a stable `turnKey` and field offsets, so all text remains retrievable.
+   Empty history is valid.
 4. **Do not** `thread/resume` for reads — resume attaches a live session
 
 `thread/list` filters to the current model provider by default. Pass
@@ -102,6 +107,10 @@ Surfaced list fields: `id`, `name`, `preview`, `cwd`, `createdAt` /
 `updatedAt` (unix s), `section {id,name}` (Pinned → `pinned: true`),
 `projectId`, `status`, `modelProvider`, `model`, `originator`. `archived` is a
 list filter, not a field.
+List and search pages can stop before `limit` to stay under the document cap.
+Display titles collapse whitespace and stop at 200 characters with
+`titleTruncated: true`; search still matches the full source title. Pass
+`nextCursor` back with unchanged filters and query.
 
 ### Host and modelProvider filters (separate)
 

@@ -30,6 +30,7 @@ export interface ChatGptDesktopAdapter {
   searchThreads?(options: {
     query: string;
     limit?: number;
+    cursor?: string;
     /** Any string; see list_hosts. Not an enum. */
     host?: string;
     /** Any modelProvider id; see list_hosts. Not an enum. */
@@ -48,6 +49,7 @@ export interface ChatGptDesktopAdapter {
     threadId: string;
     limit?: number;
     full?: boolean;
+    cursor?: string;
     openTimeoutMs?: number;
   }): Promise<ReadThreadResult>;
   /**

@@ -11,6 +11,7 @@ import {
 import { ArchivedThreadError, CdpUnreachableError, NotImplementedError, RemoteThreadNotLoadedError } from './errors.js';
 import { resolveCdpPort } from './loopback.js';
 import { findRemoteThread, listDiscoveredHosts, listRemoteThreadsFromState } from './remote-threads.js';
+import { compactThreadRow, compactThreadTitle, DESKTOP_RESULT_BUDGET_BYTES, serializedBytes } from './payload-budget.js';
 import {
   isTemporaryDesktopThreadId,
   threadIdsEquivalent,
@@ -149,7 +150,16 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       }, { limit: 10_000, host, modelProvider: options.modelProvider, project: options.project, remotes });
       const offset = remoteOffset ?? 0;
       if (remoteOffset !== null || remoteInventory.threads.length >= limit) {
-        const page = remoteInventory.threads.slice(offset, offset + limit);
+        const page: ChatGptDesktopThread[] = [];
+        for (const thread of remoteInventory.threads.slice(offset, offset + limit)) {
+          const row = compactThreadRow(thread);
+          if (serializedBytes({ ...remoteInventory, threads: [...page, row], nextCursor: REMOTE_PAGE_CURSOR,
+            ...(options.groupBy === 'host' ? { groups: groupThreadsByHost([...page, row]) } : {}) }) > DESKTOP_RESULT_BUDGET_BYTES) {
+            if (!page.length) throw new Error('ChatGPT Desktop remote thread row exceeds the MCP result byte budget');
+            break;
+          }
+          page.push(row);
+        }
         const nextOffset = offset + page.length;
         const nextCursor = nextOffset < remoteInventory.threads.length
           ? `${REMOTE_PAGE_CURSOR}${nextOffset}` : host === 'all' ? APP_START_CURSOR : null;
@@ -244,16 +254,12 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
 
     // Recount remotes from the parsed summary rows for accuracy.
     const remoteCounts = new Map<string, number>();
-    for (const thread of remotes) {
-      remoteCounts.set(thread.hostId, (remoteCounts.get(thread.hostId) ?? 0) + 1);
-    }
-    const remoteIds = new Set(remotes.map((thread) => toAppServerThreadId(thread.threadId) ?? thread.threadId));
-    for (const thread of cdpRows) {
-      if (thread.location !== 'remote' || !thread.hostId) continue;
-      const id = toAppServerThreadId(thread.threadId) ?? thread.threadId;
-      if (remoteIds.has(id)) continue;
-      remoteIds.add(id);
-      remoteCounts.set(thread.hostId, (remoteCounts.get(thread.hostId) ?? 0) + 1);
+    const remoteInventory = finalizeThreadList({
+      backend: cdpRows.length ? 'cdp' : 'remote-state', limit: 10_000,
+      threads: cdpRows.filter((thread) => thread.location === 'remote'),
+    }, { limit: 10_000, remotes });
+    for (const thread of remoteInventory.threads) {
+      if (thread.hostId) remoteCounts.set(thread.hostId, (remoteCounts.get(thread.hostId) ?? 0) + 1);
     }
     const withCounts = [...byId.values()]
       .map((host) =>
@@ -291,7 +297,13 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       ...remotes.map((thread) => thread.modelProvider).filter((value): value is string => Boolean(value)),
     ])].sort();
     return {
-      hosts: withCounts.map((host) => host.hostId === 'local' ? { ...host, threadCount: localThreadCount } : host),
+      hosts: withCounts.map((host) => {
+        const counted = host.hostId === 'local' ? { ...host, threadCount: localThreadCount } : host;
+        if (!counted.hostName) return counted;
+        const name = compactThreadTitle(counted.hostName);
+        return { ...counted, hostName: name.title,
+          ...(name.titleTruncated ? { hostNameTruncated: true } : {}) };
+      }),
       hostsSource,
       modelProviders,
       modelProvidersSource,
@@ -305,6 +317,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
   async searchThreads(options: {
     query: string;
     limit?: number;
+    cursor?: string;
     host?: string;
     modelProvider?: string;
     project?: string;
@@ -317,23 +330,25 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       const appList = await this.#fallbacks.searchThreads({
         query: options.query,
         limit,
+        cursor: options.cursor,
         modelProviders,
         project: options.project,
       });
-      const cdpList = await this.#tryCdpList({ limit });
+      const cdpList = options.cursor ? null : await this.#tryCdpList({ limit });
       const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
+      const appMatches = new Set(appList.threads.map((thread) => thread.threadId));
       const withRemotes = finalizeThreadList(base, {
         limit: 10_000,
         host,
         modelProvider: options.modelProvider?.trim() || undefined,
         project: options.project,
-        remotes: this.#listRemotes(),
+        remotes: options.cursor ? [] : this.#listRemotes(),
       });
       const needle = options.query.trim().toLowerCase();
       const filtered = {
         ...withRemotes,
         query: options.query,
-        threads: withRemotes.threads.filter((thread) => threadMatchesQuery(thread, needle)),
+        threads: withRemotes.threads.filter((thread) => appMatches.has(thread.threadId) || threadMatchesQuery(thread, needle)),
       };
       const result = finalizeThreadList(filtered, {
         limit,
@@ -345,6 +360,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       });
       return result;
     } catch (appError) {
+      if (options.cursor) throw appError;
       const cdpList = await this.#tryCdpList({ limit });
       const remotes = this.#listRemotes();
       if (!cdpList && !remotes.length) throw appError;
@@ -370,12 +386,14 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     threadId: string;
     limit?: number;
     full?: boolean;
+    cursor?: string;
     openTimeoutMs?: number;
   }): Promise<ReadThreadResult> {
     const limit = options.limit ?? (options.full ? 2000 : 100);
     const full = options.full ?? false;
 
     if (isTemporaryDesktopThreadId(options.threadId)) {
+      if (options.cursor) throw new Error('Temporary Desktop threads do not support read cursors');
       await this.#ensureCdp();
       return this.#cdp.readThread({ ...options, limit, full });
     }
@@ -385,9 +403,11 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
         threadId: options.threadId,
         limit,
         full,
+        cursor: options.cursor,
       });
     } catch (appError) {
       if (appError instanceof RemoteThreadNotLoadedError) throw appError;
+      if (options.cursor) throw appError;
       const cdpConnected = await this.#tryEnsureCdp();
       if (!cdpConnected) throw appError;
       const fallback = await this.#cdp.readThread({ ...options, limit, full });
@@ -606,7 +626,7 @@ export function finalizeThreadList(
     if (!projectMatches(thread, project)) return false;
     return true;
   });
-  const limited = filtered.slice(0, limit);
+  const limited = filtered.slice(0, limit).map(compactThreadRow);
   const result: ListThreadsResult = {
     backend: remotes.length
       ? (base.backend === 'app-server+cdp' ? 'app-server+cdp+remote-state'

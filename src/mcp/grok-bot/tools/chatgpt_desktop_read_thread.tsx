@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop read thread',
     description:
-      'Read a local:<conversationId>, bare durable id, or selected temporary local:client-new-thread:* id. Recent defaults to 100 turns; full pages up to 2000 from the start. Archived threads remain readable. complete:false means partial history; warnings preserve app-server/frame errors. REMOTE_THREAD_NOT_LOADED includes the owning hostId: call on that host.',
+      'Read a local:<conversationId>, bare durable id, or selected temporary local:client-new-thread:* id. Pass nextCursor back as cursor with the same threadId/full mode until complete:true. Pages stop at a byte budget; oversized turns use ordered continuation fragments with stable turnKey and field offsets, without dropping text. Archived threads remain readable. Warnings explain partial pages or app-server errors. REMOTE_THREAD_NOT_LOADED includes the owning hostId: call on that host.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -29,6 +29,7 @@ export default defineTool(
             'local:<conversationId>, bare durable id, or selected local:client-new-thread:* temporary id. Remote ids return REMOTE_THREAD_NOT_LOADED with hostId.',
         },
         limit: { type: 'number' },
+        cursor: { type: 'string', description: 'Opaque nextCursor from the prior read page. Keep threadId and full unchanged.' },
         full: {
           type: 'boolean',
           description:

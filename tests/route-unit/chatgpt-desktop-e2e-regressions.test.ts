@@ -5,9 +5,10 @@ import { afterEach, expect, it, rstest } from '@rstest/core';
 import { findRemoteThreadHost } from '../../src/core/codex/remote-control.js';
 import { listDiscoveredHosts, listRemoteThreadsFromState } from '../../src/core/chatgpt-desktop/remote-threads.js';
 import { ChatGptDesktopFacade, finalizeThreadList } from '../../src/core/chatgpt-desktop/facade.js';
-import { appServerReadThread, appServerSearchThreads, discoverModelProviders } from '../../src/core/chatgpt-desktop/app-server-fallback.js';
+import { appServerListThreads, appServerReadThread, appServerSearchThreads, discoverModelProviders } from '../../src/core/chatgpt-desktop/app-server-fallback.js';
+import { DESKTOP_RESULT_BUDGET_BYTES, serializedBytes } from '../../src/core/chatgpt-desktop/payload-budget.js';
 import { ARCHIVED_THREAD_EXPRESSION, CONVERSATION_ID_EXPRESSION, LOADING_TASK_GONE_EXPRESSION, navigateToThreadExpression, openThreadInDom, readTurnsFromDom, startNewChatExpression, startNewChatInDom, waitForLoadingTaskGone } from '../../src/core/chatgpt-desktop/cdp-dom.js';
-import { listThreadsOperation, listThreadsSchema, readThreadOperation, readThreadSchema, statusOperation } from '../../src/core/chatgpt-desktop/routes.js';
+import { listThreadsOperation, listThreadsSchema, readThreadOperation, readThreadSchema, searchThreadsSchema, statusOperation } from '../../src/core/chatgpt-desktop/routes.js';
 import { setChatGptDesktopAdapterForTests } from '../../src/core/chatgpt-desktop/facade.js';
 import type { ChatGptDesktopAdapter } from '../../src/core/chatgpt-desktop/adapter.js';
 
@@ -61,6 +62,25 @@ it('counts CDP-only remote rows in host discovery', async () => {
     discoverModelProviders: async () => ({ providers: [], source: 'thread/list-distinct', threadCount: 0, complete: true }),
   } as never);
   expect((await facade.listHosts()).hosts).toEqual(expect.arrayContaining([expect.objectContaining({ hostId: 'remote:dynamic', threadCount: 1 })]));
+});
+
+it('uses the same deduplicated remote rows for host count and host-filtered list', async () => {
+  const row = (id: string) => ({ threadId: `local:${id}`, title: id, pinned: false, selected: false,
+    kind: 'remote', location: 'remote' as const, hostId: 'remote:one', hostName: null });
+  const facade = new ChatGptDesktopFacade({
+    connect: async () => {}, listThreads: async () => ({ backend: 'cdp', limit: 200,
+      threads: [row('shared'), row('cdp-only')] }),
+  } as unknown as ChatGptDesktopAdapter, 9222, {
+    listThreads: async () => ({ backend: 'app-server', limit: 25, threads: [] }),
+    listRemoteThreads: () => [row('shared'), row('state-only')],
+    listHosts: () => [{ hostId: 'remote:one', hostName: 'host'.repeat(2000), location: 'remote', threadCount: 2 }],
+    discoverModelProviders: async () => ({ providers: [], source: 'thread/list-distinct', threadCount: 0, complete: true }),
+  } as never);
+  const hosts = await facade.listHosts();
+  const listed = await facade.listThreads({ host: 'remote:one', limit: 100 });
+  expect(hosts.hosts.find((host) => host.hostId === 'remote:one')?.threadCount).toBe(listed.threads.length);
+  expect(hosts.hosts.find((host) => host.hostId === 'remote:one')).toMatchObject({ hostNameTruncated: true });
+  expect(listed.threads.map((thread) => thread.threadId).sort()).toEqual(['local:cdp-only', 'local:shared', 'local:state-only']);
 });
 
 it('surfaces provider discovery errors with the remote fallback', async () => {
@@ -127,6 +147,90 @@ it('completes a 146-turn full read in bounded pages', async () => {
   expect(out.complete).toBe(true);
   expect(pages).toHaveLength(15);
   expect(Math.max(...pages)).toBe(10);
+});
+
+it('pages a serialized history above the document budget without losing turns', async () => {
+  const bridge = await import('../../src/core/codex-bridge.js');
+  rstest.spyOn(bridge, 'openCodexSession').mockResolvedValue({ client: {
+    close() {},
+    async request(method: string, params: Record<string, unknown>) {
+      if (method === 'thread/read') return { thread: { id: 'huge' } };
+      const offset = Number(params.cursor ?? 0);
+      return { data: Array.from({ length: Math.min(10, 30 - offset) }, (_, i) => ({
+        id: `turn-${offset + i}`, items: [{ type: 'agentMessage', text: 'x'.repeat(30_000) }],
+      })), nextCursor: offset + 10 < 30 ? String(offset + 10) : null };
+    },
+  } } as never);
+  const keys: string[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 20; page++) {
+    const out = await appServerReadThread({ threadId: 'huge', full: true, cursor });
+    expect(serializedBytes(out)).toBeLessThan(DESKTOP_RESULT_BUDGET_BYTES);
+    keys.push(...out.turns.map((turn) => turn.turnKey));
+    if (out.complete) break;
+    expect(out.nextCursor).toBeTruthy();
+    cursor = out.nextCursor!;
+  }
+  expect(keys).toEqual(Array.from({ length: 30 }, (_, i) => `history-content:turn:turn-${i}`));
+});
+
+it('splits one oversized turn into lossless ordered field fragments with a stable key', async () => {
+  const bridge = await import('../../src/core/codex-bridge.js');
+  const userText = 'u'.repeat(700_000);
+  const assistantText = 'a'.repeat(700_000);
+  rstest.spyOn(bridge, 'openCodexSession').mockResolvedValue({ client: {
+    close() {},
+    async request(method: string) {
+      if (method === 'thread/read') return { thread: { id: 'giant' } };
+      return { data: [{ id: 'giant-turn', items: [
+        { type: 'userMessage', text: userText }, { type: 'agentMessage', text: assistantText },
+      ] }], nextCursor: null };
+    },
+  } } as never);
+  const fields = { text: '', userText: '', assistantText: '' };
+  let cursor: string | undefined;
+  for (let page = 0; page < 100; page++) {
+    const out = await appServerReadThread({ threadId: 'giant', full: true, cursor });
+    expect(serializedBytes(out)).toBeLessThan(DESKTOP_RESULT_BUDGET_BYTES);
+    for (const turn of out.turns) {
+      expect(turn.turnKey).toBe('history-content:turn:giant-turn');
+      expect(turn.textTruncated).toBe(true);
+      const field = turn.continuation!.field;
+      expect(turn.continuation!.offsetChars).toBe(fields[field].length);
+      fields[field] += turn[field] ?? '';
+    }
+    if (out.complete) break;
+    cursor = out.nextCursor!;
+  }
+  expect(fields).toEqual({ text: assistantText, userText, assistantText });
+});
+
+it('compacts oversized list titles across pages and searches the original full title', async () => {
+  const bridge = await import('../../src/core/codex-bridge.js');
+  const title = `${'x'.repeat(7_400)} unique-tail`;
+  rstest.spyOn(bridge, 'listCodexThreads').mockImplementation(async ({ cursor } = {}) => {
+    const offset = Number(cursor ?? 0);
+    return { limit: 25, threads: Array.from({ length: Math.min(25, 60 - offset) }, (_, i) => ({
+      id: `id-${offset + i}`, name: title,
+    })), nextCursor: offset + 25 < 60 ? String(offset + 25) : null } as never;
+  });
+  const ids: string[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 10; page++) {
+    const out = await appServerListThreads({ limit: 100, cursor });
+    expect(serializedBytes(out)).toBeLessThan(DESKTOP_RESULT_BUDGET_BYTES);
+    expect(out.threads.every((row) => row.title.length <= 200 && row.titleTruncated)).toBe(true);
+    ids.push(...out.threads.map((row) => row.threadId));
+    if (!out.nextCursor) break;
+    cursor = out.nextCursor;
+  }
+  expect(ids).toEqual(Array.from({ length: 60 }, (_, i) => `local:id-${i}`));
+  const search = await appServerSearchThreads({ query: 'unique-tail', limit: 10 });
+  expect(search.threads).toHaveLength(10);
+  expect(search.threads[0].titleTruncated).toBe(true);
+  expect((await appServerSearchThreads({ query: 'unique-tail', limit: 10, cursor: search.nextCursor! })).threads[0].threadId).toBe('local:id-10');
+  expect(searchThreadsSchema.parse({ query: 'unique-tail', cursor: search.nextCursor }).cursor).toBe(search.nextCursor);
+  expect(readThreadSchema.parse({ threadId: 'giant', cursor: 'opaque' }).cursor).toBe('opaque');
 });
 
 it('defaults full reads to the bounded complete-history limit', async () => {

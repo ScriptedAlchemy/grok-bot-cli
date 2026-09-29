@@ -4,6 +4,7 @@ export type ChatGptDesktopTarget = {
   readonly targetId: string;
   readonly type: string;
   readonly title: string;
+  readonly titleTruncated?: boolean;
   readonly url: string;
   readonly attached: boolean;
 };
@@ -18,6 +19,7 @@ export type ChatGptDesktopThreadSection = {
 export type ChatGptDesktopThread = {
   readonly threadId: string;
   readonly title: string;
+  readonly titleTruncated?: boolean;
   readonly pinned: boolean;
   /** CDP-only: currently selected sidebar row. */
   readonly selected: boolean;
@@ -25,7 +27,9 @@ export type ChatGptDesktopThread = {
   /** Project folder name when known (CDP sidebar or app-server projectId). */
   readonly project?: string;
   readonly preview?: string;
+  readonly previewTruncated?: boolean;
   readonly cwd?: string | null;
+  readonly cwdTruncated?: boolean;
   readonly createdAt?: number | null;
   readonly updatedAt?: number | null;
   readonly section?: ChatGptDesktopThreadSection | null;
@@ -40,6 +44,9 @@ export type ChatGptDesktopThread = {
   readonly hostId?: string | null;
   /** Friendly host / env name from Desktop global state when known. */
   readonly hostName?: string | null;
+  readonly projectTruncated?: boolean;
+  readonly hostNameTruncated?: boolean;
+  readonly metadataTruncated?: boolean;
 };
 
 export type ChatGptDesktopHostGroup = {
@@ -58,6 +65,15 @@ export type ChatGptDesktopTurn = {
   readonly userText?: string;
   /** Final assistant markdown when present on the same turn. */
   readonly assistantText?: string;
+  /** A large turn is split into ordered fragments sharing this stable turnKey. */
+  readonly textTruncated?: boolean;
+  readonly continuation?: {
+    readonly field: 'text' | 'userText' | 'assistantText';
+    readonly offsetChars: number;
+    readonly totalChars: number;
+    readonly fieldComplete: boolean;
+    readonly turnComplete: boolean;
+  };
   readonly startedAt?: number | null;
   readonly endedAt?: number | null;
 };
@@ -101,6 +117,7 @@ export type ListHostsResult = {
   readonly hosts: readonly {
     readonly hostId: string;
     readonly hostName: string | null;
+    readonly hostNameTruncated?: boolean;
     readonly location: ChatGptDesktopThreadLocation;
     readonly threadCount: number;
   }[];
@@ -119,6 +136,8 @@ export type ReadThreadResult = {
   readonly backend: ChatGptDesktopBackend;
   readonly limit: number;
   readonly full: boolean;
+  readonly nextCursor?: string | null;
+  readonly titleTruncated?: boolean;
   readonly complete?: boolean;
   readonly warnings?: readonly string[];
   readonly title?: string;
