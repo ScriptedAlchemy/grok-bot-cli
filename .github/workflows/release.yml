@@ -17,7 +17,8 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-26.04
-    timeout-minutes: 15
+    # Allow ~20 minutes of npm registry propagation retries after publish.
+    timeout-minutes: 35
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -82,13 +83,15 @@ jobs:
           set -euo pipefail
           name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
-          for attempt in 1 2 3 4 5 6 7 8; do
+          # npm can take several minutes to show a just-published version.
+          # Retry for ~20 minutes (40 × 30s) before failing.
+          for attempt in $(seq 1 40); do
             if [ "$(npm view "$name@$version" version 2>/dev/null || true)" = "$version" ]; then
               echo "registry $name@$version"
               exit 0
             fi
             echo "attempt $attempt: $name@$version not on npm yet"
-            sleep 15
+            sleep 30
           done
           echo "::error::$name@$version is not on npm; the release did not publish."
           exit 1
