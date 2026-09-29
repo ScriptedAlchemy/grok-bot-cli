@@ -1,5 +1,5 @@
 import type { ChatGptDesktopAdapter } from './adapter.js';
-import { CdpUnreachableError } from './errors.js';
+import { ArchivedThreadError, CdpUnreachableError } from './errors.js';
 import { CdpSession } from './cdp-session.js';
 import {
   DEFAULT_CONVERSATION_RESOLVE_MS,
@@ -224,7 +224,12 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
     { openTimeoutMs = DEFAULT_OPEN_TIMEOUT_MS }: { openTimeoutMs?: number } = {},
   ): Promise<OpenThreadResult> {
     const sessionId = await this.#ensurePageSession();
-    await this.#openAndWait(sessionId, threadId, openTimeoutMs);
+    try {
+      await this.#openAndWait(sessionId, threadId, openTimeoutMs);
+    } catch (error) {
+      if (error instanceof ArchivedThreadError) return { threadId, backend: 'cdp', archived: true };
+      throw error;
+    }
     return { threadId, backend: 'cdp' };
   }
 

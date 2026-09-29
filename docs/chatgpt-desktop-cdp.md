@@ -36,9 +36,12 @@ gbot chatgpt-desktop threads --limit 20
 gbot chatgpt-desktop threads --limit 20 --cursor <nextCursor>
 gbot chatgpt-desktop threads --host local
 gbot chatgpt-desktop threads --host <hostId> --model-provider <providerId>
+gbot chatgpt-desktop threads --project <projectLabelOrId>
 gbot chatgpt-desktop search "launch" --host all
 gbot chatgpt-desktop read <threadId>
 gbot chatgpt-desktop send --thread-id <threadId> "hello"
+gbot chatgpt-desktop send --thread-id <archivedThreadId> --unarchive "hello"
+gbot chatgpt-desktop send --project <projectLabel> "new chat in project"
 gbot chatgpt-desktop send "start a new chat with this text"
 ```
 
@@ -52,12 +55,14 @@ allowed values with `gbot chatgpt-desktop hosts` / `chatgpt_desktop_list_hosts`.
 | `chatgpt_desktop_status` | CDP `/json/version` (+ optional attach) and app-server probe |
 | `chatgpt_desktop_list_hosts` | Discover hosts + modelProviders (no hardcoding) |
 | `chatgpt_desktop_list_threads` | App-server `thread/list`; merge CDP UI + remotes |
+| `chatgpt_desktop_open_thread` | Navigate an existing local thread by conversation id; report archived routes |
 | `chatgpt_desktop_search_threads` | App-server list + metadata filter |
 | `chatgpt_desktop_read_thread` | App-server `thread/read` + `thread/turns/list` (`itemsView: "full"`) |
-| `chatgpt_desktop_send` | Composer submit over CDP (new-thread-in-project included) |
+| `chatgpt_desktop_send` | Composer submit over CDP; omit `threadId` for a new chat inside or outside a project |
 | `chatgpt_desktop_wait_reply` | Poll for a new assistant turn over CDP |
 
-Every list/read/send/wait/open result includes `backend: "cdp" | "app-server"`.
+Results identify the contributing backends, including `app-server+cdp` and
+`remote-state` when applicable.
 
 ## Thread id mapping
 
@@ -100,12 +105,13 @@ list filter, not a field.
 
 ### Host and modelProvider filters (separate)
 
-`chatgpt_desktop_list_threads` / search take two independent filters:
+`chatgpt_desktop_list_threads` / search accept these independent filters:
 
 | Filter | Values (any string — not an enum) | Default | Effect |
 | --- | --- | --- | --- |
 | `host` | `all` \| `local` \| any hostId / friendly name from `list_hosts` | `all` | Machine/location from remote summaries + local |
 | `modelProvider` | any provider id from `list_hosts` | omit / `[]` = all | Passed through to app-server `modelProviders` |
+| `project` | Desktop project label or app-server projectId | omit = all | Match rows with that project |
 
 New machines or connections appear in `list_hosts` with **no code change**.
 
@@ -163,6 +169,13 @@ cannot be mistaken for a complete app-server read. A turn may contain both
 `userText` and `assistantText`; `endedAt` uses the app-server `completedAt`.
 Full reads page from the oldest turn until completion, with a default cap of
 2000 turns; an explicit `limit` can lower that cap.
+Archived local threads remain readable through app-server. The open tool
+navigates to their route and returns `archived: true`. Send returns
+`ARCHIVED_THREAD` before submitting. Only `unarchive: true` with an existing
+thread ID explicitly calls app-server `thread/unarchive`, then retries the
+send once; neither open nor read changes archive state. New-thread sends return
+a durable `local:<conversationId>` once resolved and include the temporary
+`local:client-new-thread:*` ID when the sidebar exposes one.
 Archived conversations can be read through app-server, but Desktop requires
 an explicit unarchive before opening them for interaction.
 

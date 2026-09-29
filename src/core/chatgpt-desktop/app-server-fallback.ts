@@ -53,10 +53,12 @@ export async function appServerSearchThreads({
   query,
   limit = 50,
   modelProviders = [],
+  project,
 }: {
   query: string;
   limit?: number;
   modelProviders?: string[];
+  project?: string;
 }): Promise<ListThreadsResult> {
   const needle = query.trim().toLowerCase();
   if (!needle) {
@@ -69,7 +71,9 @@ export async function appServerSearchThreads({
     const out = await listCodexThreads({ limit: 25, cursor, modelProviders });
     for (const thread of out.threads) {
       const mapped = mapListedThread(thread);
-      if (threadMatchesQuery(mapped, needle)) matched.push(mapped);
+      if (threadMatchesQuery(mapped, needle)
+        && (!project || [mapped.project, mapped.projectId].some((value) =>
+          typeof value === 'string' && value.toLowerCase().includes(project.trim().toLowerCase())))) matched.push(mapped);
       if (matched.length >= limit) break;
     }
     if (out.nextCursor == null || typeof out.nextCursor !== 'string') { exhausted = true; break; }
@@ -149,6 +153,22 @@ export async function appServerReadThread({
     return await readLocalThread(bare, { limit, full });
   } catch (error) {
     throw maybeRemoteThreadError(error, bare);
+  }
+}
+
+/** Explicit opt-in only. The local app-server owns the archive mutation. */
+export async function appServerUnarchiveThread(threadId: string): Promise<void> {
+  const bare = requireAppServerThreadId(threadId);
+  const { client } = await openCodexSession();
+  try {
+    const result = await client.request('thread/unarchive', { threadId: bare });
+    if (!result || typeof result !== 'object' || !('thread' in result)
+      || !result.thread || typeof result.thread !== 'object'
+      || !('id' in result.thread) || result.thread.id !== bare) {
+      throw new Error(`thread/unarchive returned no thread for ${bare}`);
+    }
+  } finally {
+    client.close();
   }
 }
 

@@ -30,6 +30,7 @@ export const listThreadsSchema = z
      * `chatgpt_desktop_list_hosts`. Not an enum.
      */
     modelProvider: z.string().min(1).max(256).optional(),
+    project: z.string().min(1).max(256).optional(),
     groupBy: z.literal('host').optional(),
   })
   .strict();
@@ -43,6 +44,7 @@ export const searchThreadsSchema = z
     host: z.string().min(1).max(256).optional(),
     /** Any modelProvider id; see `chatgpt_desktop_list_hosts`. Not an enum. */
     modelProvider: z.string().min(1).max(256).optional(),
+    project: z.string().min(1).max(256).optional(),
     groupBy: z.literal('host').optional(),
   })
   .strict();
@@ -63,15 +65,28 @@ export const readThreadSchema = z
   })
   .strict();
 
+export const openThreadSchema = z.object({
+  port: z.number().int().min(1).max(65535).optional(),
+  threadId,
+  openTimeoutMs: z.number().int().min(1).max(600_000).default(90_000),
+}).strict();
+
 export const sendSchema = z
   .object({
     port: z.number().int().min(1).max(65535).optional(),
     threadId: threadId.optional(),
     text: z.string().trim().min(1).max(100_000),
     project: z.string().min(1).max(256).optional(),
+    unarchive: z.boolean().default(false),
     openTimeoutMs: z.number().int().min(1).max(600_000).default(90_000),
   })
-  .strict();
+  .strict()
+  .refine((value) => !value.unarchive || Boolean(value.threadId), {
+    message: 'unarchive requires an existing threadId', path: ['unarchive'],
+  })
+  .refine((value) => !value.threadId || !value.project, {
+    message: 'project is only for a new thread; omit threadId', path: ['project'],
+  });
 
 export const waitReplySchema = z
   .object({
@@ -169,6 +184,7 @@ export async function listThreadsOperation(
         cursor: input.cursor,
         host: input.host,
         modelProvider: input.modelProvider,
+        project: input.project,
         groupBy: input.groupBy,
       }),
     );
@@ -191,6 +207,7 @@ export async function searchThreadsOperation(
         limit: input.limit,
         host: input.host,
         modelProvider: input.modelProvider,
+        project: input.project,
         groupBy: input.groupBy,
       });
     });
@@ -234,6 +251,15 @@ export async function readThreadOperation(
   }
 }
 
+export async function openThreadOperation(input: z.infer<typeof openThreadSchema>): Promise<OperationResult> {
+  try {
+    const out = await withAdapter(input.port, (adapter) => adapter.openThread(input.threadId, { openTimeoutMs: input.openTimeoutMs }));
+    return asResult({ ...out, exitCode: 0 as const });
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
 export async function sendOperation(input: z.infer<typeof sendSchema>): Promise<OperationResult> {
   try {
     input = sendSchema.parse(input);
@@ -242,6 +268,7 @@ export async function sendOperation(input: z.infer<typeof sendSchema>): Promise<
         threadId: input.threadId,
         text: input.text,
         project: input.project,
+        unarchive: input.unarchive,
         openTimeoutMs: input.openTimeoutMs,
       }),
     );

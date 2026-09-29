@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop list hosts',
     description:
-      'Discover local, remote-control, and managed SSH hosts from Desktop state, including nested remote-thread summaries. Host names are null when Desktop has no display name. Providers come from paged app-server inventory and remote summaries. Result includes sources and discovery warnings.',
+      'Discover local, remote-control environment ids, managed SSH hosts, and modelProvider ids. hostName is null when Desktop has no real display name. Use hostId or label in list/search filters; remote thread ids must be read on the owning host. warnings report provider discovery failures.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,

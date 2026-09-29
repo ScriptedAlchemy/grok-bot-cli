@@ -19,6 +19,7 @@ import { ChatGptDesktopFacade } from '../../src/core/chatgpt-desktop/facade.js';
 const desktopTools = [
   'chatgpt_desktop_list_hosts',
   'chatgpt_desktop_list_threads',
+  'chatgpt_desktop_open_thread',
   'chatgpt_desktop_read_thread',
   'chatgpt_desktop_search_threads',
   'chatgpt_desktop_send',

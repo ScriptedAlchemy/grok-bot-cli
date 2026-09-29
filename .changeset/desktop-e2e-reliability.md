@@ -2,4 +2,4 @@
 "grok-bot-cli": patch
 ---
 
-Fix ChatGPT Desktop host discovery, bounded thread reads and searches, list pagination, CDP navigation and project clicks, status reachability, and result provenance.
+Fix ChatGPT Desktop host discovery, bounded thread reads and searches, list pagination, CDP navigation and project clicks, status reachability, and result provenance. Add complete MCP and skill guidance, project filters, archived-thread reads and explicit unarchive-on-send support.

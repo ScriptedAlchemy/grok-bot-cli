@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop status',
     description:
-      'Probe the local ChatGPT Desktop Chrome DevTools endpoint on 127.0.0.1 (no remote transport). Reports CDP reachability and whether the Codex app-server is available for list/deep-read. From the Grok Bot box, run gbot on the user machine via Grok Bot Shell with a machineId.',
+      'Check local ChatGPT Desktop CDP before send, wait, or open. reachable:false and exitCode:1 mean CDP is down even if appServerFallback.reachable is true; list/search/read may still work through app-server. There is no remote CDP transport.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,

@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop wait for reply',
     description:
-      'Wait until main Stop is gone and a new [data-local-conversation-final-assistant=true] exists, then return assistant markdown text. Also returns conversationId from data-response-annotation-conversation (resolves temporary local:client-new-thread ids). CDP only — does not use app-server.',
+      'After chatgpt_desktop_send, wait for the selected Desktop reply over CDP. Accept the returned durable local:<conversationId> or the temporary local:client-new-thread:* while selected; omit threadId only when staying on the same selected chat. Returns reply, durable threadId and conversationId. timeout is not proof the send failed; CDP_UNREACHABLE requires Desktop recovery. Remote ids must be handled on their hostId.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -23,8 +23,8 @@ export default defineTool(
       additionalProperties: false,
       properties: {
         port: { type: 'number' },
-        threadId: { type: 'string' },
-        timeoutMs: { type: 'number' },
+        threadId: { type: 'string', description: 'Durable local:<conversationId>, bare id, or selected local:client-new-thread:* from send.' },
+        timeoutMs: { type: 'number', default: 120000 },
       },
       required: [],
     },

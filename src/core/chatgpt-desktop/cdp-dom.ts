@@ -7,6 +7,7 @@
 
 import type { ChatGptDesktopTarget, ChatGptDesktopThread, ChatGptDesktopTurn } from './types.js';
 import type { CdpSession } from './cdp-session.js';
+import { ArchivedThreadError, ComposerDraftError } from './errors.js';
 import {
   LOCAL_THREAD_ID_PREFIX,
   isTemporaryDesktopThreadId,
@@ -461,7 +462,7 @@ export async function waitForLoadingTaskGone(
     if (threadId && threadId !== 'new' && await session.evaluate<boolean>(ARCHIVED_THREAD_EXPRESSION, { sessionId }) === true) {
       archivedSince ??= Date.now();
       if (Date.now() - archivedSince >= 500) {
-        throw new Error(`ChatGPT Desktop thread ${JSON.stringify(threadId)} is archived; unarchive it in Desktop before opening`);
+        throw new ArchivedThreadError(threadId);
       }
     } else {
       archivedSince = null;
@@ -529,6 +530,7 @@ export async function focusComposer(
     { sessionId },
   );
   if (!focused?.ok) {
+    if (focused?.error === 'composer-has-draft') throw new ComposerDraftError();
     throw new Error(`ChatGPT Desktop composer unavailable: ${focused?.error || 'not found'}`);
   }
 }

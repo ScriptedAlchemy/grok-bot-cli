@@ -42,6 +42,15 @@ it('joins a CDP row to remote ownership and reports mixed backends', () => {
   expect(out).toMatchObject({ backend: 'app-server+cdp+remote-state', threads: [{ location: 'remote', hostId: 'remote-control:env_dynamic', selected: true }] });
 });
 
+it('filters thread rows by dynamic project label or projectId', () => {
+  const row = (id: string, project: string, projectId: string) => ({
+    threadId: `local:${id}`, title: id, project, projectId, pinned: false, selected: false, kind: 'codex',
+  });
+  const base = { backend: 'app-server' as const, limit: 10, threads: [row('one', 'core', 'project-1'), row('two', 'other', 'project-2')] };
+  expect(finalizeThreadList(base, { limit: 10, project: 'core', remotes: [] }).threads.map((thread) => thread.threadId)).toEqual(['local:one']);
+  expect(finalizeThreadList(base, { limit: 10, project: 'project-2', remotes: [] }).threads.map((thread) => thread.threadId)).toEqual(['local:two']);
+});
+
 it('counts CDP-only remote rows in host discovery', async () => {
   const row = { threadId: 'local:cdp-only', title: 'remote', pinned: false, selected: false, kind: 'remote', location: 'remote' as const, hostId: 'remote:dynamic', hostName: null };
   const facade = new ChatGptDesktopFacade({

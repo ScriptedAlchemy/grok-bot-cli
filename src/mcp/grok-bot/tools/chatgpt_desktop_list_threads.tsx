@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop list threads',
     description:
-      'Page ChatGPT Desktop / Codex threads with cursor and nextCursor. Merges local app-server rows, CDP sidebar rows, and nested remote-control summaries. Discover dynamic host and modelProvider filters via chatgpt_desktop_list_hosts. Optional groupBy=host. Result reports the contributing backends and warnings.',
+      'List Desktop threads, then pass nextCursor as cursor until null. Filter by dynamic hostId/hostName, modelProvider, or project label/projectId. Rows expose local:<conversationId>, location, hostId, and provider; remote rows require their owning host for reading or sending. Backend and warnings identify partial sources.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -22,8 +22,8 @@ export default defineTool(
       additionalProperties: false,
       properties: {
         port: { type: 'number' },
-        limit: { type: 'number', description: 'Maximum threads (1-200).' },
-        cursor: { type: 'string', description: 'Opaque nextCursor from a previous page.' },
+        limit: { type: 'number', default: 50, description: 'Maximum threads per page.' },
+        cursor: { type: 'string', description: 'Opaque nextCursor from the prior page; keep filters unchanged.' },
         host: {
           type: 'string',
           description:
@@ -34,6 +34,7 @@ export default defineTool(
           description:
             'Any modelProvider id string (passed through to app-server modelProviders). Omit for all providers. Discovered values: see chatgpt_desktop_list_hosts. Not an enum.',
         },
+        project: { type: 'string', description: 'Match a Desktop project label or app-server projectId. Dynamic string, not an enum.' },
         groupBy: {
           type: 'string',
           enum: ['host'],

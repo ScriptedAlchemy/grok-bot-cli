@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop search threads',
     description:
-      'Search ChatGPT Desktop / Codex threads through the local app-server and remote-control summaries. Separate filters host and modelProvider accept any string (not enums) — discover allowed values via chatgpt_desktop_list_hosts. Optional groupBy=host. Result includes backend.',
+      'Search Desktop thread metadata by case-insensitive substring. Dynamic hostId/hostName, modelProvider, and project filters apply. Search scans bounded app-server pages and reports warnings if incomplete; use list_threads cursor for exhaustive paging. Remote results identify hostId and cannot be read on this Mac.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -23,7 +23,7 @@ export default defineTool(
       properties: {
         port: { type: 'number' },
         query: { type: 'string', description: 'Case-insensitive substring over thread metadata.' },
-        limit: { type: 'number', description: 'Maximum matches (1-200).' },
+        limit: { type: 'number', default: 50, description: 'Maximum matches.' },
         host: {
           type: 'string',
           description:
@@ -34,6 +34,7 @@ export default defineTool(
           description:
             'Any modelProvider id string (passed through to app-server modelProviders). Omit for all providers. Discovered values: see chatgpt_desktop_list_hosts. Not an enum.',
         },
+        project: { type: 'string', description: 'Match a Desktop project label or app-server projectId.' },
         groupBy: {
           type: 'string',
           enum: ['host'],

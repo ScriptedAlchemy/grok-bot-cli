@@ -7174,6 +7174,10 @@ var __webpack_modules__ = {
                         description: 'Any modelProvider id (app-server modelProviders pass-through). Omit = all. See `gbot chatgpt-desktop hosts`. Not an enum.',
                         type: 'string'
                     },
+                    project: {
+                        description: 'Project label or projectId filter.',
+                        type: 'string'
+                    },
                     port: {
                         description: 'Local CDP port',
                         type: 'number'
@@ -7193,6 +7197,7 @@ var __webpack_modules__ = {
             host: zod__rspack_import_2.YjP().min(1).max(256).optional(),
             limit: zod__rspack_import_2.aig().int().min(1).max(200).default(50),
             modelProvider: zod__rspack_import_2.YjP().min(1).max(256).optional(),
+            project: zod__rspack_import_2.YjP().min(1).max(256).optional(),
             port: zod__rspack_import_2.aig().int().min(1).max(65535).optional(),
             query: zod__rspack_import_2.YjP().min(1).max(512)
         }).strict();
@@ -7245,6 +7250,10 @@ var __webpack_modules__ = {
                     },
                     threadId: {
                         type: 'string'
+                    },
+                    unarchive: {
+                        type: 'boolean',
+                        description: 'Explicitly unarchive an existing archived thread before sending.'
                     }
                 },
                 required: [
@@ -7261,7 +7270,8 @@ var __webpack_modules__ = {
             port: zod__rspack_import_2.aig().int().min(1).max(65535).optional(),
             project: zod__rspack_import_2.YjP().min(1).max(256).optional(),
             text: zod__rspack_import_2.YOg(zod__rspack_import_2.YjP()).min(1),
-            threadId: zod__rspack_import_2.YjP().min(1).max(256).optional()
+            threadId: zod__rspack_import_2.YjP().min(1).max(256).optional(),
+            unarchive: zod__rspack_import_2.zMY().default(false)
         }).strict();
         async function chatgptDesktopSend({ input }) {
             const out = await (0, _core_chatgpt_desktop_routes_js__rspack_import_1.UP)({
@@ -7269,6 +7279,7 @@ var __webpack_modules__ = {
                 threadId: input.threadId,
                 text: input.text.join(' ').trim(),
                 project: input.project,
+                unarchive: input.unarchive,
                 openTimeoutMs: input.openTimeoutMs
             });
             return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Result, {
@@ -7362,6 +7373,10 @@ var __webpack_modules__ = {
                         description: 'Any modelProvider id (app-server modelProviders pass-through). Omit = all. See `gbot chatgpt-desktop hosts`. Not an enum.',
                         type: 'string'
                     },
+                    project: {
+                        description: 'Project label or projectId filter.',
+                        type: 'string'
+                    },
                     port: {
                         description: 'Local CDP port',
                         type: 'number'
@@ -7376,6 +7391,7 @@ var __webpack_modules__ = {
             limit: zod__rspack_import_2.aig().int().min(1).max(200).default(50),
             cursor: zod__rspack_import_2.YjP().min(1).max(4096).optional(),
             modelProvider: zod__rspack_import_2.YjP().min(1).max(256).optional(),
+            project: zod__rspack_import_2.YjP().min(1).max(256).optional(),
             port: zod__rspack_import_2.aig().int().min(1).max(65535).optional()
         }).strict();
         async function chatgptDesktopThreads({ input }) {
@@ -9701,7 +9717,7 @@ var __webpack_modules__ = {
                 modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined
             };
         }
-        async function appServerSearchThreads({ query, limit = 50, modelProviders = [] }) {
+        async function appServerSearchThreads({ query, limit = 50, modelProviders = [], project }) {
             const needle = query.trim().toLowerCase();
             if (!needle) {
                 return appServerListThreads({
@@ -9720,7 +9736,10 @@ var __webpack_modules__ = {
                 });
                 for (const thread of out.threads){
                     const mapped = mapListedThread(thread);
-                    if (threadMatchesQuery(mapped, needle)) matched.push(mapped);
+                    if (threadMatchesQuery(mapped, needle) && (!project || [
+                        mapped.project,
+                        mapped.projectId
+                    ].some((value)=>typeof value === 'string' && value.toLowerCase().includes(project.trim().toLowerCase())))) matched.push(mapped);
                     if (matched.length >= limit) break;
                 }
                 if (out.nextCursor == null || typeof out.nextCursor !== 'string') {
@@ -9799,6 +9818,20 @@ var __webpack_modules__ = {
                 });
             } catch (error) {
                 throw maybeRemoteThreadError(error, bare);
+            }
+        }
+        async function appServerUnarchiveThread(threadId) {
+            const bare = (0, _thread_ids_js__rspack_import_3.NM)(threadId);
+            const { client } = await (0, _codex_bridge_js__rspack_import_0.eC)();
+            try {
+                const result = await client.request('thread/unarchive', {
+                    threadId: bare
+                });
+                if (!result || typeof result !== 'object' || !('thread' in result) || !result.thread || typeof result.thread !== 'object' || !('id' in result.thread) || result.thread.id !== bare) {
+                    throw new Error(`thread/unarchive returned no thread for ${bare}`);
+                }
+            } finally{
+                client.close();
             }
         }
         async function readLocalThread(bare, { limit, full }) {
@@ -10073,7 +10106,8 @@ var __webpack_modules__ = {
             OI: ()=>appServerListThreads,
             X: ()=>discoverModelProviders,
             aI: ()=>appServerSearchThreads,
-            dM: ()=>appServerStatusProbe
+            dM: ()=>appServerStatusProbe,
+            qL: ()=>appServerUnarchiveThread
         });
     },
     "./src/core/chatgpt-desktop/cdp-adapter.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
@@ -10230,7 +10264,16 @@ var __webpack_modules__ = {
             }
             async openThread(threadId, { openTimeoutMs = 90000 } = {}) {
                 const sessionId = await this.#ensurePageSession();
-                await this.#openAndWait(sessionId, threadId, openTimeoutMs);
+                try {
+                    await this.#openAndWait(sessionId, threadId, openTimeoutMs);
+                } catch (error) {
+                    if (error instanceof _errors_js__rspack_import_0.fw) return {
+                        threadId,
+                        backend: 'cdp',
+                        archived: true
+                    };
+                    throw error;
+                }
                 return {
                     threadId,
                     backend: 'cdp'
@@ -10318,7 +10361,8 @@ var __webpack_modules__ = {
         });
     },
     "./src/core/chatgpt-desktop/cdp-dom.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
-        var _codex_thread_id_js__rspack_import_0 = __webpack_require__("./src/core/codex/thread-id.js");
+        var _errors_js__rspack_import_0 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
+        var _codex_thread_id_js__rspack_import_1 = __webpack_require__("./src/core/codex/thread-id.js");
         const MAIN_WINDOW_URL = 'app://-/index.html';
         const IGNORED_TARGET_URL_MARKERS = [
             'initialRoute=%2Favatar-overlay',
@@ -10408,20 +10452,20 @@ var __webpack_modules__ = {
             ];
         }
         function durableThreadKey(threadId) {
-            if ((0, _codex_thread_id_js__rspack_import_0.vr)(threadId)) return threadId;
+            if ((0, _codex_thread_id_js__rspack_import_1.vr)(threadId)) return threadId;
             try {
-                return (0, _codex_thread_id_js__rspack_import_0.SX)(threadId);
+                return (0, _codex_thread_id_js__rspack_import_1.SX)(threadId);
             } catch  {
                 return threadId.startsWith("local:") ? threadId.slice("local:".length) || threadId : threadId;
             }
         }
         function toDesktopForm(threadId) {
-            if (!threadId || (0, _codex_thread_id_js__rspack_import_0.vr)(threadId)) return threadId;
+            if (!threadId || (0, _codex_thread_id_js__rspack_import_1.vr)(threadId)) return threadId;
             if (threadId.startsWith("local:")) return threadId;
             return `${"local:"}${threadId}`;
         }
         function preferThreadRow(left, right) {
-            const score = (row)=>(row.selected ? 4 : 0) + (row.pinned ? 2 : 0) + (row.threadId.startsWith("local:") && !(0, _codex_thread_id_js__rspack_import_0.vr)(row.threadId) ? 1 : 0);
+            const score = (row)=>(row.selected ? 4 : 0) + (row.pinned ? 2 : 0) + (row.threadId.startsWith("local:") && !(0, _codex_thread_id_js__rspack_import_1.vr)(row.threadId) ? 1 : 0);
             return score(right) > score(left) ? right : left;
         }
         const LIST_THREADS_EXPRESSION = `(() => {
@@ -10659,7 +10703,7 @@ var __webpack_modules__ = {
         async function openThreadInDom(session, sessionId, threadId) {
             const current = await readConversationIdFromDom(session, sessionId);
             if (current && durableThreadKey(current) === durableThreadKey(threadId)) return;
-            if ((0, _codex_thread_id_js__rspack_import_0.vr)(threadId)) {
+            if ((0, _codex_thread_id_js__rspack_import_1.vr)(threadId)) {
                 const rows = await listThreadsFromDom(session, sessionId, {
                     limit: 200
                 });
@@ -10669,7 +10713,7 @@ var __webpack_modules__ = {
                 sessionId
             });
             if (!result?.ok) {
-                if (result?.error === 'thread-not-found' && !(0, _codex_thread_id_js__rspack_import_0.vr)(threadId)) {
+                if (result?.error === 'thread-not-found' && !(0, _codex_thread_id_js__rspack_import_1.vr)(threadId)) {
                     const navigated = await session.evaluate(navigateToThreadExpression(threadId), {
                         sessionId
                     });
@@ -10689,7 +10733,7 @@ var __webpack_modules__ = {
                 }) === true) {
                     archivedSince ??= Date.now();
                     if (Date.now() - archivedSince >= 500) {
-                        throw new Error(`ChatGPT Desktop thread ${JSON.stringify(threadId)} is archived; unarchive it in Desktop before opening`);
+                        throw new _errors_js__rspack_import_0.fw(threadId);
                     }
                 } else {
                     archivedSince = null;
@@ -10702,12 +10746,12 @@ var __webpack_modules__ = {
                     const current = threadId ? await readConversationIdFromDom(session, sessionId) : '';
                     lastConversationId = current;
                     if (!threadId) return;
-                    if (threadId === 'new' || (0, _codex_thread_id_js__rspack_import_0.vr)(threadId)) {
+                    if (threadId === 'new' || (0, _codex_thread_id_js__rspack_import_1.vr)(threadId)) {
                         const rows = await listThreadsFromDom(session, sessionId, {
                             limit: 200
                         });
                         const selected = rows.find((row)=>row.selected);
-                        if (!current && (!selected || (0, _codex_thread_id_js__rspack_import_0.vr)(selected.threadId))) return;
+                        if (!current && (!selected || (0, _codex_thread_id_js__rspack_import_1.vr)(selected.threadId))) return;
                     } else if (current && durableThreadKey(current) === durableThreadKey(threadId)) return;
                 }
                 await delay(250);
@@ -10776,6 +10820,7 @@ var __webpack_modules__ = {
                 sessionId
             });
             if (!focused?.ok) {
+                if (focused?.error === 'composer-has-draft') throw new _errors_js__rspack_import_0.oN();
                 throw new Error(`ChatGPT Desktop composer unavailable: ${focused?.error || 'not found'}`);
             }
         }
@@ -10853,7 +10898,7 @@ var __webpack_modules__ = {
             const deadline = Date.now() + timeoutMs;
             while(Date.now() < deadline){
                 const id = await readConversationIdFromDom(session, sessionId);
-                if (id && !(0, _codex_thread_id_js__rspack_import_0.vr)(id) && !id.startsWith(TEMP_THREAD_ID_PREFIX)) {
+                if (id && !(0, _codex_thread_id_js__rspack_import_1.vr)(id) && !id.startsWith(TEMP_THREAD_ID_PREFIX)) {
                     return id;
                 }
                 await delay(200);
@@ -10861,10 +10906,10 @@ var __webpack_modules__ = {
             throw new Error(`ChatGPT Desktop conversation id did not appear on [data-response-annotation-conversation] within ${timeoutMs}ms`);
         }
         function resolveDurableThreadId(conversationId, fallbackThreadId) {
-            if (conversationId && !(0, _codex_thread_id_js__rspack_import_0.vr)(conversationId)) {
+            if (conversationId && !(0, _codex_thread_id_js__rspack_import_1.vr)(conversationId)) {
                 return toDesktopForm(conversationId);
             }
-            if (fallbackThreadId && !(0, _codex_thread_id_js__rspack_import_0.vr)(fallbackThreadId) && fallbackThreadId !== 'new') {
+            if (fallbackThreadId && !(0, _codex_thread_id_js__rspack_import_1.vr)(fallbackThreadId) && fallbackThreadId !== 'new') {
                 return toDesktopForm(fallbackThreadId);
             }
             return null;
@@ -11173,6 +11218,26 @@ var __webpack_modules__ = {
     },
     "./src/core/chatgpt-desktop/errors.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
         var _codex_remote_control_js__rspack_import_0 = __webpack_require__("./src/core/codex/remote-control.js");
+        class ArchivedThreadError extends Error {
+            code = 'ARCHIVED_THREAD';
+            reason = 'archived-thread';
+            delivery = 'rejected';
+            threadId;
+            constructor(threadId){
+                super(`ChatGPT Desktop thread ${JSON.stringify(threadId)} is archived. Read it through app-server, or pass unarchive: true on send to unarchive before sending.`);
+                this.name = 'ArchivedThreadError';
+                this.threadId = threadId;
+            }
+        }
+        class ComposerDraftError extends Error {
+            code = 'COMPOSER_HAS_DRAFT';
+            reason = 'composer-has-draft';
+            delivery = 'rejected';
+            constructor(){
+                super('ChatGPT Desktop composer contains an unsent draft; inspect it in Desktop before sending.');
+                this.name = 'ComposerDraftError';
+            }
+        }
         class NotImplementedError extends Error {
             code = 'NOT_IMPLEMENTED';
             delivery = 'rejected';
@@ -11204,6 +11269,8 @@ var __webpack_modules__ = {
             EH: ()=>NotImplementedError,
             Rg: ()=>_codex_remote_control_js__rspack_import_0.Rg,
             c$: ()=>CdpHostRejectedError,
+            fw: ()=>ArchivedThreadError,
+            oN: ()=>ComposerDraftError,
             sO: ()=>CdpUnreachableError
         });
     },
@@ -11218,6 +11285,7 @@ var __webpack_modules__ = {
             listThreads: _app_server_fallback_js__rspack_import_1.OI,
             searchThreads: _app_server_fallback_js__rspack_import_1.aI,
             readThread: _app_server_fallback_js__rspack_import_1.Jf,
+            unarchiveThread: _app_server_fallback_js__rspack_import_1.qL,
             statusProbe: _app_server_fallback_js__rspack_import_1.dM,
             listRemoteThreads: _remote_threads_js__rspack_import_4.Hx,
             listHosts: _remote_threads_js__rspack_import_4.Kl,
@@ -11286,6 +11354,7 @@ var __webpack_modules__ = {
                         limit: 10000,
                         host,
                         modelProvider: options.modelProvider,
+                        project: options.project,
                         remotes
                     });
                     const offset = remoteOffset ?? 0;
@@ -11306,7 +11375,7 @@ var __webpack_modules__ = {
                     }
                 }
                 const remoteKeys = new Set(remotes.map((thread)=>(0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId));
-                const reservedRemoteRows = host === 'all' && inventoryPage ? remotes.filter((thread)=>modelProviderMatches(thread, options.modelProvider)).length + (cdpList?.threads.filter((thread)=>thread.location === 'remote' && modelProviderMatches(thread, options.modelProvider) && !remoteKeys.has((0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId)).length ?? 0) : 0;
+                const reservedRemoteRows = host === 'all' && inventoryPage ? remotes.filter((thread)=>modelProviderMatches(thread, options.modelProvider) && projectMatches(thread, options.project)).length + (cdpList?.threads.filter((thread)=>thread.location === 'remote' && modelProviderMatches(thread, options.modelProvider) && projectMatches(thread, options.project) && !remoteKeys.has((0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId)).length ?? 0) : 0;
                 const appLimit = Math.max(1, limit - Math.min(limit - 1, reservedRemoteRows));
                 let appList = null;
                 let appError;
@@ -11335,6 +11404,7 @@ var __webpack_modules__ = {
                     limit,
                     host,
                     modelProvider: options.modelProvider?.trim() || undefined,
+                    project: options.project,
                     groupBy: options.groupBy,
                     remotes
                 });
@@ -11472,7 +11542,8 @@ var __webpack_modules__ = {
                     const appList = await this.#fallbacks.searchThreads({
                         query: options.query,
                         limit,
-                        modelProviders
+                        modelProviders,
+                        project: options.project
                     });
                     const cdpList = await this.#tryCdpList({
                         limit
@@ -11482,6 +11553,7 @@ var __webpack_modules__ = {
                         limit: 10000,
                         host,
                         modelProvider: options.modelProvider?.trim() || undefined,
+                        project: options.project,
                         remotes: this.#listRemotes()
                     });
                     const needle = options.query.trim().toLowerCase();
@@ -11494,6 +11566,7 @@ var __webpack_modules__ = {
                         limit,
                         host,
                         modelProvider: options.modelProvider?.trim() || undefined,
+                        project: options.project,
                         groupBy: options.groupBy,
                         remotes: []
                     });
@@ -11517,6 +11590,7 @@ var __webpack_modules__ = {
                         limit,
                         host,
                         modelProvider: options.modelProvider?.trim() || undefined,
+                        project: options.project,
                         groupBy: options.groupBy,
                         remotes: remotes.filter((thread)=>threadMatchesQuery(thread, needle))
                     });
@@ -11564,14 +11638,29 @@ var __webpack_modules__ = {
                 }
             }
             async sendMessage(options) {
+                if (options.threadId) {
+                    const remote = (0, _remote_threads_js__rspack_import_4.KI)(options.threadId);
+                    if (remote) throw new _errors_js__rspack_import_2.Rg(options.threadId, remote.hostId, remote.hostName);
+                }
                 await this.#ensureCdp();
-                return this.#cdp.sendMessage(options);
+                try {
+                    return await this.#cdp.sendMessage(options);
+                } catch (error) {
+                    if (!(error instanceof _errors_js__rspack_import_2.fw) || !options.unarchive || !options.threadId) throw error;
+                    await (this.#fallbacks.unarchiveThread ?? _app_server_fallback_js__rspack_import_1.qL)(options.threadId);
+                    return this.#cdp.sendMessage({
+                        ...options,
+                        unarchive: false
+                    });
+                }
             }
             async waitForReply(options) {
                 await this.#ensureCdp();
                 return this.#cdp.waitForReply(options);
             }
             async openThread(threadId, options) {
+                const remote = (0, _remote_threads_js__rspack_import_4.KI)(threadId);
+                if (remote) throw new _errors_js__rspack_import_2.Rg(threadId, remote.hostId, remote.hostName);
                 await this.#ensureCdp();
                 return this.#cdp.openThread(threadId, options);
             }
@@ -11679,7 +11768,7 @@ var __webpack_modules__ = {
                 threads: merged
             };
         }
-        function finalizeThreadList(base, { limit, host = 'all', modelProvider, groupBy, remotes }) {
+        function finalizeThreadList(base, { limit, host = 'all', modelProvider, project, groupBy, remotes }) {
             const remoteById = new Map(remotes.map((thread)=>[
                     (0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId,
                     thread
@@ -11720,6 +11809,7 @@ var __webpack_modules__ = {
             const filtered = merged.filter((thread)=>{
                 if (!hostMatches(thread, host)) return false;
                 if (!modelProviderMatches(thread, modelProvider)) return false;
+                if (!projectMatches(thread, project)) return false;
                 return true;
             });
             const limited = filtered.slice(0, limit);
@@ -11736,6 +11826,9 @@ var __webpack_modules__ = {
                 host,
                 ...modelProvider ? {
                     modelProvider
+                } : {},
+                ...project ? {
+                    project
                 } : {}
             };
             if (groupBy === 'host') {
@@ -11793,6 +11886,14 @@ var __webpack_modules__ = {
         function modelProviderMatches(thread, modelProvider) {
             if (!modelProvider) return true;
             return thread.modelProvider === modelProvider;
+        }
+        function projectMatches(thread, project) {
+            if (!project) return true;
+            const needle = project.trim().toLowerCase();
+            return [
+                thread.project,
+                thread.projectId
+            ].some((value)=>typeof value === 'string' && value.toLowerCase().includes(needle));
         }
         function threadMatchesQuery(thread, needle) {
             if (!needle) return true;
@@ -12317,6 +12418,7 @@ var __webpack_modules__ = {
             cursor: zod__rspack_import_4.YjP().min(1).max(4096).optional(),
             host: zod__rspack_import_4.YjP().min(1).max(256).optional(),
             modelProvider: zod__rspack_import_4.YjP().min(1).max(256).optional(),
+            project: zod__rspack_import_4.YjP().min(1).max(256).optional(),
             groupBy: zod__rspack_import_4.euz('host').optional()
         }).strict();
         const searchThreadsSchema = zod__rspack_import_4.Ikc({
@@ -12325,6 +12427,7 @@ var __webpack_modules__ = {
             limit: zod__rspack_import_4.aig().int().min(1).max(200).default(50),
             host: zod__rspack_import_4.YjP().min(1).max(256).optional(),
             modelProvider: zod__rspack_import_4.YjP().min(1).max(256).optional(),
+            project: zod__rspack_import_4.YjP().min(1).max(256).optional(),
             groupBy: zod__rspack_import_4.euz('host').optional()
         }).strict();
         const listHostsSchema = zod__rspack_import_4.Ikc({
@@ -12337,13 +12440,29 @@ var __webpack_modules__ = {
             full: zod__rspack_import_4.zMY().default(false),
             openTimeoutMs: zod__rspack_import_4.aig().int().min(1).max(600000).default(90000)
         }).strict();
+        const openThreadSchema = zod__rspack_import_4.Ikc({
+            port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
+            threadId,
+            openTimeoutMs: zod__rspack_import_4.aig().int().min(1).max(600000).default(90000)
+        }).strict();
         const sendSchema = zod__rspack_import_4.Ikc({
             port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
             threadId: threadId.optional(),
             text: zod__rspack_import_4.YjP().trim().min(1).max(100000),
             project: zod__rspack_import_4.YjP().min(1).max(256).optional(),
+            unarchive: zod__rspack_import_4.zMY().default(false),
             openTimeoutMs: zod__rspack_import_4.aig().int().min(1).max(600000).default(90000)
-        }).strict();
+        }).strict().refine((value)=>!value.unarchive || Boolean(value.threadId), {
+            message: 'unarchive requires an existing threadId',
+            path: [
+                'unarchive'
+            ]
+        }).refine((value)=>!value.threadId || !value.project, {
+            message: 'project is only for a new thread; omit threadId',
+            path: [
+                'project'
+            ]
+        });
         const waitReplySchema = zod__rspack_import_4.Ikc({
             port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
             threadId: threadId.optional(),
@@ -12428,6 +12547,7 @@ var __webpack_modules__ = {
                         cursor: input.cursor,
                         host: input.host,
                         modelProvider: input.modelProvider,
+                        project: input.project,
                         groupBy: input.groupBy
                     }));
                 return asResult({
@@ -12449,6 +12569,7 @@ var __webpack_modules__ = {
                         limit: input.limit,
                         host: input.host,
                         modelProvider: input.modelProvider,
+                        project: input.project,
                         groupBy: input.groupBy
                     });
                 });
@@ -12492,6 +12613,19 @@ var __webpack_modules__ = {
                 return mapError(error);
             }
         }
+        async function openThreadOperation(input) {
+            try {
+                const out = await withAdapter(input.port, (adapter)=>adapter.openThread(input.threadId, {
+                        openTimeoutMs: input.openTimeoutMs
+                    }));
+                return asResult({
+                    ...out,
+                    exitCode: 0
+                });
+            } catch (error) {
+                return mapError(error);
+            }
+        }
         async function sendOperation(input) {
             try {
                 input = sendSchema.parse(input);
@@ -12499,6 +12633,7 @@ var __webpack_modules__ = {
                         threadId: input.threadId,
                         text: input.text,
                         project: input.project,
+                        unarchive: input.unarchive,
                         openTimeoutMs: input.openTimeoutMs
                     }));
                 return asResult({
@@ -40988,6 +41123,14 @@ var __webpack_modules__ = {
                                 "required": false
                             },
                             {
+                                "description": "Project label or projectId filter.",
+                                "key": "project",
+                                "kind": "string",
+                                "option": "project",
+                                "repeated": false,
+                                "required": false
+                            },
+                            {
                                 "key": "query",
                                 "kind": "string",
                                 "option": "query",
@@ -41041,6 +41184,14 @@ var __webpack_modules__ = {
                                 "key": "threadId",
                                 "kind": "string",
                                 "option": "thread-id",
+                                "repeated": false,
+                                "required": false
+                            },
+                            {
+                                "description": "Explicitly unarchive an existing archived thread before sending.",
+                                "key": "unarchive",
+                                "kind": "boolean",
+                                "option": "unarchive",
                                 "repeated": false,
                                 "required": false
                             }
@@ -41130,6 +41281,14 @@ var __webpack_modules__ = {
                                 "key": "port",
                                 "kind": "number",
                                 "option": "port",
+                                "repeated": false,
+                                "required": false
+                            },
+                            {
+                                "description": "Project label or projectId filter.",
+                                "key": "project",
+                                "kind": "string",
+                                "option": "project",
                                 "repeated": false,
                                 "required": false
                             }

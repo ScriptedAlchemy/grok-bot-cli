@@ -91,6 +91,7 @@ export type ListThreadsResult = {
   readonly host?: string;
   /** Model-provider filter (any string; see list_hosts). Passed through to app-server `modelProviders`. */
   readonly modelProvider?: string;
+  readonly project?: string;
   readonly groupBy?: 'host';
   /** Present when `groupBy: "host"`. */
   readonly groups?: readonly ChatGptDesktopHostGroup[];
@@ -158,4 +159,5 @@ export type WaitForReplyResult = {
 export type OpenThreadResult = {
   readonly threadId: string;
   readonly backend: ChatGptDesktopBackend;
+  readonly archived?: boolean;
 };

@@ -21,6 +21,7 @@ export const config = {
       project: { type: 'string' },
       text: { type: 'array', items: { type: 'string' } },
       threadId: { type: 'string' },
+      unarchive: { type: 'boolean', description: 'Explicitly unarchive an existing archived thread before sending.' },
     },
     required: ['text'],
     type: 'object',
@@ -35,6 +36,7 @@ export const inputSchema = z
     project: z.string().min(1).max(256).optional(),
     text: z.array(z.string()).min(1),
     threadId: z.string().min(1).max(256).optional(),
+    unarchive: z.boolean().default(false),
   })
   .strict();
 export { resultSchema };
@@ -47,6 +49,7 @@ export default async function chatgptDesktopSend({
     threadId: input.threadId,
     text: input.text.join(' ').trim(),
     project: input.project,
+    unarchive: input.unarchive,
     openTimeoutMs: input.openTimeoutMs,
   });
   return (

@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop read thread',
     description:
-      'Read paged ChatGPT Desktop turns through app-server, including userText, assistantText, and completedAt as endedAt. Remote-only threads return REMOTE_THREAD_NOT_LOADED with hostId. CDP fallback reports complete:false and a warning when app-server fails. Result includes backend.',
+      'Read a local:<conversationId>, bare durable id, or selected temporary local:client-new-thread:* id. Recent defaults to 100 turns; full pages up to 2000 from the start. Archived threads remain readable. complete:false means partial history; warnings preserve app-server/frame errors. REMOTE_THREAD_NOT_LOADED includes the owning hostId: call on that host.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -26,7 +26,7 @@ export default defineTool(
         threadId: {
           type: 'string',
           description:
-            'Desktop sidebar id (local:<conversationId>) or bare app-server thread id.',
+            'local:<conversationId>, bare durable id, or selected local:client-new-thread:* temporary id. Remote ids return REMOTE_THREAD_NOT_LOADED with hostId.',
         },
         limit: { type: 'number' },
         full: {

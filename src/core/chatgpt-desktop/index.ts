@@ -28,6 +28,8 @@ export {
 } from './cdp-dom.js';
 export { CdpSession } from './cdp-session.js';
 export {
+  ArchivedThreadError,
+  ComposerDraftError,
   CdpHostRejectedError,
   CdpUnreachableError,
   NotImplementedError,

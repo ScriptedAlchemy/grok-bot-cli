@@ -32,6 +32,7 @@ export const config = {
           'Any modelProvider id (app-server modelProviders pass-through). Omit = all. See `gbot chatgpt-desktop hosts`. Not an enum.',
         type: 'string',
       },
+      project: { description: 'Project label or projectId filter.', type: 'string' },
       port: { description: 'Local CDP port', type: 'number' },
       query: { type: 'string' },
     },
@@ -46,6 +47,7 @@ export const inputSchema = z
     host: z.string().min(1).max(256).optional(),
     limit: z.number().int().min(1).max(200).default(50),
     modelProvider: z.string().min(1).max(256).optional(),
+    project: z.string().min(1).max(256).optional(),
     port: z.number().int().min(1).max(65535).optional(),
     query: z.string().min(1).max(512),
   })

@@ -23,6 +23,7 @@ export interface ChatGptDesktopAdapter {
     host?: string;
     /** Any modelProvider id (app-server modelProviders). Omit = all. See list_hosts. Not an enum. */
     modelProvider?: string;
+    project?: string;
     groupBy?: 'host';
   }): Promise<ListThreadsResult>;
   /** Optional; facades that support app-server search implement this. */
@@ -33,6 +34,7 @@ export interface ChatGptDesktopAdapter {
     host?: string;
     /** Any modelProvider id; see list_hosts. Not an enum. */
     modelProvider?: string;
+    project?: string;
     groupBy?: 'host';
   }): Promise<ListThreadsResult>;
   /**
@@ -56,6 +58,7 @@ export interface ChatGptDesktopAdapter {
     threadId?: string;
     text: string;
     project?: string;
+    unarchive?: boolean;
     openTimeoutMs?: number;
   }): Promise<SendMessageResult>;
   waitForReply(options: {

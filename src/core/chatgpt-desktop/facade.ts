@@ -3,13 +3,14 @@ import { CdpChatGptDesktopAdapter } from './cdp-adapter.js';
 import {
   appServerListThreads,
   appServerReadThread,
+  appServerUnarchiveThread,
   appServerSearchThreads,
   appServerStatusProbe,
   discoverModelProviders,
 } from './app-server-fallback.js';
-import { CdpUnreachableError, NotImplementedError, RemoteThreadNotLoadedError } from './errors.js';
+import { ArchivedThreadError, CdpUnreachableError, NotImplementedError, RemoteThreadNotLoadedError } from './errors.js';
 import { resolveCdpPort } from './loopback.js';
-import { listDiscoveredHosts, listRemoteThreadsFromState } from './remote-threads.js';
+import { findRemoteThread, listDiscoveredHosts, listRemoteThreadsFromState } from './remote-threads.js';
 import {
   isTemporaryDesktopThreadId,
   threadIdsEquivalent,
@@ -33,6 +34,7 @@ export type ChatGptDesktopFallbacks = {
   listThreads: typeof appServerListThreads;
   searchThreads: typeof appServerSearchThreads;
   readThread: typeof appServerReadThread;
+  unarchiveThread?: typeof appServerUnarchiveThread;
   statusProbe: typeof appServerStatusProbe;
   listRemoteThreads?: typeof listRemoteThreadsFromState;
   listHosts?: typeof listDiscoveredHosts;
@@ -43,6 +45,7 @@ const defaultFallbacks: ChatGptDesktopFallbacks = {
   listThreads: appServerListThreads,
   searchThreads: appServerSearchThreads,
   readThread: appServerReadThread,
+  unarchiveThread: appServerUnarchiveThread,
   statusProbe: appServerStatusProbe,
   listRemoteThreads: listRemoteThreadsFromState,
   listHosts: listDiscoveredHosts,
@@ -67,6 +70,8 @@ export type ListThreadsOptions = {
    * see `listHosts` / `chatgpt_desktop_list_hosts`.
    */
   modelProvider?: string;
+  /** Match a Desktop project label or app-server projectId. */
+  project?: string;
   /** When `"host"`, also return `groups` keyed by host (grouping mode). */
   groupBy?: 'host';
 };
@@ -141,7 +146,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       const remoteInventory = finalizeThreadList({
         backend: cdpList?.backend ?? 'remote-state', limit: 10_000,
         threads: cdpList?.threads.filter((thread) => thread.location === 'remote') ?? [],
-      }, { limit: 10_000, host, modelProvider: options.modelProvider, remotes });
+      }, { limit: 10_000, host, modelProvider: options.modelProvider, project: options.project, remotes });
       const offset = remoteOffset ?? 0;
       if (remoteOffset !== null || remoteInventory.threads.length >= limit) {
         const page = remoteInventory.threads.slice(offset, offset + limit);
@@ -155,9 +160,11 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
 
     const remoteKeys = new Set(remotes.map((thread) => toAppServerThreadId(thread.threadId) ?? thread.threadId));
     const reservedRemoteRows = host === 'all' && inventoryPage
-      ? remotes.filter((thread) => modelProviderMatches(thread, options.modelProvider)).length
+      ? remotes.filter((thread) => modelProviderMatches(thread, options.modelProvider)
+        && projectMatches(thread, options.project)).length
         + (cdpList?.threads.filter((thread) => thread.location === 'remote'
           && modelProviderMatches(thread, options.modelProvider)
+          && projectMatches(thread, options.project)
           && !remoteKeys.has(toAppServerThreadId(thread.threadId) ?? thread.threadId)).length ?? 0)
       : 0;
     const appLimit = Math.max(1, limit - Math.min(limit - 1, reservedRemoteRows));
@@ -183,6 +190,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       limit,
       host,
       modelProvider: options.modelProvider?.trim() || undefined,
+      project: options.project,
       groupBy: options.groupBy,
       remotes,
     });
@@ -299,6 +307,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     limit?: number;
     host?: string;
     modelProvider?: string;
+    project?: string;
     groupBy?: 'host';
   }): Promise<ListThreadsResult> {
     const limit = options.limit ?? 50;
@@ -309,6 +318,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
         query: options.query,
         limit,
         modelProviders,
+        project: options.project,
       });
       const cdpList = await this.#tryCdpList({ limit });
       const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
@@ -316,6 +326,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
         limit: 10_000,
         host,
         modelProvider: options.modelProvider?.trim() || undefined,
+        project: options.project,
         remotes: this.#listRemotes(),
       });
       const needle = options.query.trim().toLowerCase();
@@ -328,6 +339,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
         limit,
         host,
         modelProvider: options.modelProvider?.trim() || undefined,
+        project: options.project,
         groupBy: options.groupBy,
         remotes: [],
       });
@@ -346,6 +358,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
         limit,
         host,
         modelProvider: options.modelProvider?.trim() || undefined,
+        project: options.project,
         groupBy: options.groupBy,
         remotes: remotes.filter((thread) => threadMatchesQuery(thread, needle)),
       });
@@ -386,10 +399,21 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     threadId?: string;
     text: string;
     project?: string;
+    unarchive?: boolean;
     openTimeoutMs?: number;
   }): Promise<SendMessageResult> {
+    if (options.threadId) {
+      const remote = findRemoteThread(options.threadId);
+      if (remote) throw new RemoteThreadNotLoadedError(options.threadId, remote.hostId, remote.hostName);
+    }
     await this.#ensureCdp();
-    return this.#cdp.sendMessage(options);
+    try {
+      return await this.#cdp.sendMessage(options);
+    } catch (error) {
+      if (!(error instanceof ArchivedThreadError) || !options.unarchive || !options.threadId) throw error;
+      await (this.#fallbacks.unarchiveThread ?? appServerUnarchiveThread)(options.threadId);
+      return this.#cdp.sendMessage({ ...options, unarchive: false });
+    }
   }
 
   async waitForReply(options: {
@@ -404,6 +428,8 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     threadId: string,
     options?: { openTimeoutMs?: number },
   ): Promise<OpenThreadResult> {
+    const remote = findRemoteThread(threadId);
+    if (remote) throw new RemoteThreadNotLoadedError(threadId, remote.hostId, remote.hostName);
     await this.#ensureCdp();
     return this.#cdp.openThread(threadId, options);
   }
@@ -529,12 +555,14 @@ export function finalizeThreadList(
     limit,
     host = 'all',
     modelProvider,
+    project,
     groupBy,
     remotes,
   }: {
     limit: number;
     host?: string;
     modelProvider?: string;
+    project?: string;
     groupBy?: 'host';
     remotes: readonly ChatGptDesktopThread[];
   },
@@ -575,6 +603,7 @@ export function finalizeThreadList(
   const filtered = merged.filter((thread) => {
     if (!hostMatches(thread, host)) return false;
     if (!modelProviderMatches(thread, modelProvider)) return false;
+    if (!projectMatches(thread, project)) return false;
     return true;
   });
   const limited = filtered.slice(0, limit);
@@ -590,6 +619,7 @@ export function finalizeThreadList(
     ...(base.query !== undefined ? { query: base.query } : {}),
     host,
     ...(modelProvider ? { modelProvider } : {}),
+    ...(project ? { project } : {}),
   };
   if (groupBy === 'host') {
     return { ...result, groupBy: 'host', groups: groupThreadsByHost(limited) };
@@ -641,6 +671,13 @@ function hostMatches(thread: ChatGptDesktopThread, host: string): boolean {
 function modelProviderMatches(thread: ChatGptDesktopThread, modelProvider?: string): boolean {
   if (!modelProvider) return true;
   return thread.modelProvider === modelProvider;
+}
+
+function projectMatches(thread: ChatGptDesktopThread, project?: string): boolean {
+  if (!project) return true;
+  const needle = project.trim().toLowerCase();
+  return [thread.project, thread.projectId].some((value) =>
+    typeof value === 'string' && value.toLowerCase().includes(needle));
 }
 
 function threadMatchesQuery(thread: ChatGptDesktopThread, needle: string): boolean {
