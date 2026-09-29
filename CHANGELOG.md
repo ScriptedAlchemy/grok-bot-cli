@@ -1,5 +1,16 @@
 # grok-bot-cli
 
+## 0.10.2
+
+### Patch Changes
+
+- e746891: Explain local Codex socket placement, CODEX_APP_SERVER_SOCK, and machine-targeted Grok Bot Shell use in missing-socket errors.
+- e746891: Support model and reasoning effort overrides for Codex sends and add local new-thread CLI and MCP routes.
+- e746891: Add Claude Code and Cursor slash commands for sending to, listing, and waiting on Codex threads.
+- e746891: Update Codex queue guidance and API pin for 0.158.0, with clear experimental-gate and unsupported-method errors.
+- e746891: Keep Codex wait observing through notification floods, reconcile completion from turn history, and allow two-hour caller timeouts.
+- 09e977c: Bump `@rstest/core` to 0.12.2.
+
 ## 0.10.1
 
 ### Patch Changes

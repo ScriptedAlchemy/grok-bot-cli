@@ -26111,7 +26111,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
     },
     "./package.json" (module) {
         module.exports = {
-            "rE": "0.10.1"
+            "rE": "0.10.2"
         };
     }
 };
