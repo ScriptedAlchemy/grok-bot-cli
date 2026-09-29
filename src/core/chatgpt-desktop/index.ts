@@ -27,9 +27,18 @@ export {
 export {
   ChatGptDesktopFacade,
   getChatGptDesktopAdapter,
+  mergeThreadLists,
   setChatGptDesktopAdapterForTests,
 } from './facade.js';
 export type { ChatGptDesktopFallbacks } from './facade.js';
+export {
+  LOCAL_THREAD_ID_PREFIX,
+  appServerThreadIdCandidates,
+  isTemporaryDesktopThreadId,
+  threadIdsEquivalent,
+  toAppServerThreadId,
+  toDesktopThreadId,
+} from './thread-ids.js';
 export {
   CDP_LOOPBACK_HOST,
   DEFAULT_CDP_PORT,

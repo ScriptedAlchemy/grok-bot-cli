@@ -38,12 +38,46 @@ gbot chatgpt-desktop send "start a new chat with this text"
 | Tool | Role |
 | --- | --- |
 | `chatgpt_desktop_status` | CDP `/json/version` (+ optional attach) and app-server probe |
-| `chatgpt_desktop_list_threads` | Sidebar threads via CDP; app-server `thread/list` fallback |
-| `chatgpt_desktop_read_thread` | Virtualized timeline harvest; app-server read/items fallback |
-| `chatgpt_desktop_send` | Experimental composer submit; app-server send fallback |
-| `chatgpt_desktop_wait_reply` | Experimental poll for a new assistant turn |
+| `chatgpt_desktop_list_threads` | App-server `thread/list` when available; merges CDP sidebar fields |
+| `chatgpt_desktop_read_thread` | Visible turns via CDP; deep/full history via app-server |
+| `chatgpt_desktop_send` | Composer submit over CDP (new-thread-in-project included) |
+| `chatgpt_desktop_wait_reply` | Poll for a new assistant turn over CDP |
 
-Every mutating/list/read result includes `backend: "cdp" | "app-server"`.
+Every list/read/send/wait/open result includes `backend: "cdp" | "app-server"`.
+
+## Thread id mapping
+
+Desktop sidebar rows expose `data-app-action-sidebar-thread-id` as
+`local:<conversationId>`. The Codex app-server uses the bare `<conversationId>`
+for `thread/list`, `thread/read`, and `thread/resume`.
+
+| Form | Example | Where |
+| --- | --- | --- |
+| Desktop sidebar | `local:11111111-1111-1111-1111-111111111111` | CDP DOM |
+| App-server | `11111111-1111-1111-1111-111111111111` | `codex-bridge` / app-server |
+| Temporary (CDP-only) | `local:client-new-thread:…` | Composer before first reply |
+
+Helpers in `thread-ids.ts` (`toAppServerThreadId`, `toDesktopThreadId`,
+`appServerThreadIdCandidates`) accept either durable form. Temporary
+`local:client-new-thread:…` ids do **not** map until
+`data-response-annotation-conversation` resolves a real conversation id.
+List/read results prefer the Desktop `local:…` form so callers can round-trip
+the same id into send/wait.
+
+## Backend capability matrix
+
+| Operation | CDP | App-server |
+| --- | --- | --- |
+| `status` | `/json/version` + attach | daemon probe (`codexStatus`) |
+| `list_threads` | sidebar DOM (pinned/selected/project/kind) | primary inventory (`thread/list`) |
+| `read_thread` (visible / limit ≤ on-screen) | harvest rendered turns | — |
+| `read_thread` (full / limit > visible) | wheel crawl **fallback only** | primary (`thread/read`, resume+turns, turns/items list) |
+| `open_thread` | click sidebar row | `thread/resume` fallback when CDP down |
+| `send` / new-thread-in-project | composer + Enter / project button | **not used** |
+| `wait_reply` | Stop gone + final-assistant | **not used** |
+
+List merges app-server rows with CDP-only fields (`pinned`, `selected`,
+`project`, `kind`) when CDP is connected, and appends CDP-only temporary rows.
 
 ## Target selection
 
@@ -63,13 +97,12 @@ All selectors live in `src/core/chatgpt-desktop/cdp-dom.ts`:
 - New chat: `button[aria-label="Start new chat in <project>"]` (preferred) or sidebar “New chat”
 - Conversation id: `[data-response-annotation-conversation]` (resolves `local:client-new-thread:…`)
 - Open: click sidebar row, wait until “Loading task…” clears (default 90s)
-- Full read: mouseWheel (negative deltaY) on `[data-app-action-timeline-scroll]` (column-reverse); skip `history-gap:` keys
+- Visible read: harvest currently rendered turns (no wheel)
+- Full-read fallback: mouseWheel (negative deltaY) on `[data-app-action-timeline-scroll]` (column-reverse); skip `history-gap:` keys — only when app-server misses the thread or is unreachable
 
-## Fallback
+## App-server reuse
 
-CDP is the primary path for `chatgpt_desktop_*` because Desktop can do more
-than the Codex app-server. When CDP is unreachable, list/read/send/wait/open
-reuse the existing client in `codex-bridge.js` (`listCodexThreads`,
-`openCodexSession`, `sendToCodexThread`, `codexStatus`) — no duplicated
-JSON-RPC stack. Each of those results includes `backend: "cdp" | "app-server"`.
-Starting a brand-new Desktop thread without a `threadId` still needs CDP.
+Deep history and thread listing reuse the existing client in `codex-bridge.js`
+(`listCodexThreads`, `openCodexSession`, `codexStatus`) — no duplicated
+JSON-RPC stack. Send / new-thread-in-project / wait-for-reply stay on CDP
+because those Desktop UI actions are not app-server operations in this adapter.

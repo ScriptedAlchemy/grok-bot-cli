@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop read thread',
     description:
-      'Open a ChatGPT Desktop sidebar thread (waits for Loading task… up to openTimeoutMs, default 90s) and harvest turns via local CDP. Default is visible turns only; full=true mouse-wheels the column-reverse timeline for history (skips history-gap placeholders). Falls back to Codex app-server when CDP is unreachable; result includes backend.',
+      'Read a ChatGPT Desktop thread. Visible/recent turns use local CDP DOM harvest. full=true or a limit above the on-screen turns uses the Codex app-server (thread/read / resume); Desktop local:<conversationId> maps to the bare app-server id. DOM wheel crawl is only a fallback when app-server misses the thread. Result includes backend.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -23,11 +23,16 @@ export default defineTool(
       additionalProperties: false,
       properties: {
         port: { type: 'number' },
-        threadId: { type: 'string' },
+        threadId: {
+          type: 'string',
+          description:
+            'Desktop sidebar id (local:<conversationId>) or bare app-server thread id.',
+        },
         limit: { type: 'number' },
         full: {
           type: 'boolean',
-          description: 'When true, wheel-crawl older history (slow). Default false = visible turns only.',
+          description:
+            'When true, read full history via app-server (CDP wheel only if app-server unavailable). Default false = visible CDP turns when that satisfies limit.',
         },
         openTimeoutMs: {
           type: 'number',

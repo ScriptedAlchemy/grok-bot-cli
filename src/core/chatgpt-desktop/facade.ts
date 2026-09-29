@@ -4,15 +4,19 @@ import {
   appServerListThreads,
   appServerOpenThread,
   appServerReadThread,
-  appServerSendMessage,
   appServerStatusProbe,
-  appServerWaitForReply,
 } from './app-server-fallback.js';
 import { CdpUnreachableError, NotImplementedError } from './errors.js';
 import { resolveCdpPort } from './loopback.js';
+import {
+  isTemporaryDesktopThreadId,
+  threadIdsEquivalent,
+  toAppServerThreadId,
+} from './thread-ids.js';
 import type {
   ChatGptDesktopStatus,
   ChatGptDesktopTarget,
+  ChatGptDesktopThread,
   ListThreadsResult,
   OpenThreadResult,
   ReadThreadResult,
@@ -20,12 +24,10 @@ import type {
   WaitForReplyResult,
 } from './types.js';
 
-/** Optional overrides so tests can prove CDP→app-server fallback without a live daemon. */
+/** Optional overrides so tests can prove app-server / CDP routing without a live daemon. */
 export type ChatGptDesktopFallbacks = {
   listThreads: typeof appServerListThreads;
   readThread: typeof appServerReadThread;
-  sendMessage: typeof appServerSendMessage;
-  waitForReply: typeof appServerWaitForReply;
   openThread: typeof appServerOpenThread;
   statusProbe: typeof appServerStatusProbe;
 };
@@ -33,17 +35,20 @@ export type ChatGptDesktopFallbacks = {
 const defaultFallbacks: ChatGptDesktopFallbacks = {
   listThreads: appServerListThreads,
   readThread: appServerReadThread,
-  sendMessage: appServerSendMessage,
-  waitForReply: appServerWaitForReply,
   openThread: appServerOpenThread,
   statusProbe: appServerStatusProbe,
 };
 
 /**
- * Prefer CDP for ChatGPT Desktop (Desktop can do more than app-server).
- * When CDP is unreachable, reuse the existing Codex app-server client for
- * operations it already serves — never duplicate that JSON-RPC stack.
- * Every list/read/send/wait/open result reports `backend: "cdp" | "app-server"`.
+ * ChatGPT Desktop facade.
+ *
+ * - List: app-server when available; merge CDP-only fields (pinned/selected/project).
+ * - Read: visible/recent stays on CDP DOM; deep / full-history uses app-server
+ *   (`thread/read` / resume with turns). DOM wheel crawl is last-resort only.
+ * - Send, new-thread-in-project, wait-for-reply: CDP only.
+ * - Every list/read/send/wait/open result reports `backend: "cdp" | "app-server"`.
+ *
+ * Reuses the existing Codex app-server client — never duplicates that JSON-RPC stack.
  */
 export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
   #cdp: ChatGptDesktopAdapter;
@@ -78,13 +83,36 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
   }
 
   async listThreads(options?: { limit?: number }): Promise<ListThreadsResult> {
+    let appList: ListThreadsResult | null = null;
+    let appError: unknown;
+    try {
+      appList = await this.#fallbacks.listThreads(options);
+    } catch (error) {
+      appError = error;
+    }
+
+    let cdpList: ListThreadsResult | null = null;
+    let cdpError: unknown;
     try {
       await this.#ensureCdp();
-      return await this.#cdp.listThreads(options);
+      cdpList = await this.#cdp.listThreads(options);
     } catch (error) {
-      if (!isCdpFailure(error)) throw error;
-      return this.#fallbacks.listThreads(options);
+      if (isCdpFailure(error)) {
+        this.#cdpConnected = false;
+      } else {
+        cdpError = error;
+      }
     }
+
+    if (appList && cdpList) {
+      return mergeThreadLists(appList, cdpList);
+    }
+    // App-server is primary; CDP merge is best-effort (skip NotImplemented / other DOM gaps).
+    if (appList) return appList;
+    if (cdpList) return cdpList;
+    if (cdpError) throw cdpError;
+    if (appError) throw appError;
+    throw new CdpUnreachableError('ChatGPT Desktop listThreads: CDP and app-server unreachable');
   }
 
   async readThread(options: {
@@ -93,12 +121,44 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     full?: boolean;
     openTimeoutMs?: number;
   }): Promise<ReadThreadResult> {
+    const limit = options.limit ?? 100;
+    const full = options.full ?? false;
+    const cdpConnected = await this.#tryEnsureCdp();
+
+    // Temporary sidebar rows have no app-server mapping — CDP only.
+    if (isTemporaryDesktopThreadId(options.threadId)) {
+      if (!cdpConnected) {
+        throw new CdpUnreachableError(
+          `ChatGPT Desktop temporary thread ${options.threadId} requires CDP`,
+        );
+      }
+      return this.#cdp.readThread({ ...options, limit, full });
+    }
+
+    // Quick visible/recent read via CDP when that is enough.
+    if (cdpConnected && !full) {
+      const visible = await this.#cdp.readThread({ ...options, limit, full: false });
+      if (limit <= visible.turns.length) {
+        return visible;
+      }
+      // Requested more turns than the DOM shows — escalate to app-server.
+    }
+
+    // Deep / full-history: app-server first.
     try {
-      await this.#ensureCdp();
-      return await this.#cdp.readThread(options);
-    } catch (error) {
-      if (!isCdpFailure(error)) throw error;
-      return this.#fallbacks.readThread(options);
+      return await this.#fallbacks.readThread({
+        threadId: options.threadId,
+        limit,
+        // Preserve caller intent: full=true takes history from the start;
+        // otherwise return the most recent `limit` turns from full history.
+        full,
+      });
+    } catch (appError) {
+      // DOM wheel crawl only when app-server does not know the thread / is unreachable.
+      if (cdpConnected) {
+        return this.#cdp.readThread({ ...options, limit, full: true });
+      }
+      throw appError;
     }
   }
 
@@ -108,29 +168,16 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     project?: string;
     openTimeoutMs?: number;
   }): Promise<SendMessageResult> {
-    try {
-      await this.#ensureCdp();
-      return await this.#cdp.sendMessage(options);
-    } catch (error) {
-      if (!isCdpFailure(error)) throw error;
-      return this.#fallbacks.sendMessage(options);
-    }
+    await this.#ensureCdp();
+    return this.#cdp.sendMessage(options);
   }
 
   async waitForReply(options: {
     threadId?: string;
     timeoutMs?: number;
   }): Promise<WaitForReplyResult> {
-    try {
-      await this.#ensureCdp();
-      return await this.#cdp.waitForReply(options);
-    } catch (error) {
-      if (!isCdpFailure(error)) throw error;
-      return this.#fallbacks.waitForReply({
-        threadId: options.threadId ?? 'unknown',
-        timeoutMs: options.timeoutMs,
-      });
-    }
+    await this.#ensureCdp();
+    return this.#cdp.waitForReply(options);
   }
 
   async openThread(
@@ -163,7 +210,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       message: cdpStatus.reachable
         ? cdpStatus.message
         : appServerFallback?.reachable
-          ? 'CDP unreachable; Codex app-server fallback is available'
+          ? 'CDP unreachable; Codex app-server available for list/deep-read'
           : cdpStatus.message,
       exitCode: reachable ? 0 : 1,
     };
@@ -179,6 +226,55 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     await this.#cdp.connect({ port: this.#port });
     this.#cdpConnected = true;
   }
+
+  async #tryEnsureCdp(): Promise<boolean> {
+    try {
+      await this.#ensureCdp();
+      return true;
+    } catch (error) {
+      if (!isCdpFailure(error)) throw error;
+      this.#cdpConnected = false;
+      return false;
+    }
+  }
+}
+
+/** Merge app-server thread inventory with CDP-only sidebar fields. */
+export function mergeThreadLists(
+  appList: ListThreadsResult,
+  cdpList: ListThreadsResult,
+): ListThreadsResult {
+  const cdpByKey = new Map<string, ChatGptDesktopThread>();
+  for (const thread of cdpList.threads) {
+    const key = toAppServerThreadId(thread.threadId) ?? thread.threadId;
+    cdpByKey.set(key, thread);
+  }
+
+  const merged: ChatGptDesktopThread[] = appList.threads.map((thread) => {
+    const key = toAppServerThreadId(thread.threadId) ?? thread.threadId;
+    const cdp = cdpByKey.get(key);
+    if (!cdp) return thread;
+    return {
+      ...thread,
+      title: thread.title || cdp.title,
+      pinned: cdp.pinned,
+      selected: cdp.selected,
+      kind: cdp.kind || thread.kind,
+      ...(cdp.project !== undefined ? { project: cdp.project } : {}),
+    };
+  });
+
+  // Keep CDP-only rows (e.g. temporary local:client-new-thread:…) visible.
+  for (const thread of cdpList.threads) {
+    if (merged.some((row) => threadIdsEquivalent(row.threadId, thread.threadId))) continue;
+    merged.push(thread);
+  }
+
+  return {
+    backend: 'app-server',
+    limit: appList.limit,
+    threads: merged.slice(0, appList.limit),
+  };
 }
 
 function isCdpFailure(error: unknown): boolean {

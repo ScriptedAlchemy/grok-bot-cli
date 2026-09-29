@@ -132,6 +132,18 @@ export function dedupeThreadsById(
 }
 
 export const LIST_THREADS_EXPRESSION = `(() => {
+  const skipProjectLabels = new Set(['Recent', 'Pinned', 'Threads', 'Chats']);
+  const projectFor = (row) => {
+    let el = row.parentElement;
+    for (let i = 0; i < 8 && el; i += 1, el = el.parentElement) {
+      const attr =
+        el.getAttribute('data-app-action-sidebar-project') ||
+        el.getAttribute('data-app-action-sidebar-project-name') ||
+        el.getAttribute('data-app-action-sidebar-section-title');
+      if (attr && !skipProjectLabels.has(attr)) return attr;
+    }
+    return undefined;
+  };
   const rows = Array.from(document.querySelectorAll(${JSON.stringify(SELECTORS.threadRow)}));
   const seen = new Set();
   const out = [];
@@ -139,12 +151,14 @@ export const LIST_THREADS_EXPRESSION = `(() => {
     const threadId = row.getAttribute(${JSON.stringify(ATTR.threadId)}) || '';
     if (!threadId || seen.has(threadId)) continue;
     seen.add(threadId);
+    const project = projectFor(row);
     out.push({
       threadId,
       title: row.getAttribute(${JSON.stringify(ATTR.threadTitle)}) || (row.textContent || '').trim(),
       pinned: row.getAttribute(${JSON.stringify(ATTR.threadPinned)}) === 'true',
       selected: row.getAttribute(${JSON.stringify(ATTR.threadSelected)}) === 'true',
       kind: row.getAttribute(${JSON.stringify(ATTR.threadKind)}) || 'unknown',
+      ...(project ? { project } : {}),
     });
   }
   return out;
@@ -297,6 +311,7 @@ export async function listThreadsFromDom(
     pinned: Boolean(row.pinned),
     selected: Boolean(row.selected),
     kind: String(row.kind ?? 'unknown'),
+    ...(row.project ? { project: String(row.project) } : {}),
   }));
 }
 

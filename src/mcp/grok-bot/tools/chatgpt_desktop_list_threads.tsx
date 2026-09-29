@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop list threads',
     description:
-      'List ChatGPT Desktop sidebar threads via local CDP (127.0.0.1 only). Falls back to the Codex app-server daemon when CDP is unreachable; the result includes backend "cdp" or "app-server".',
+      'List ChatGPT Desktop threads via the Codex app-server when available (thread/list), merging CDP-only sidebar fields (pinned, selected, project, kind) when CDP is connected. Desktop local:<conversationId> maps to bare app-server ids. Result includes backend.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,

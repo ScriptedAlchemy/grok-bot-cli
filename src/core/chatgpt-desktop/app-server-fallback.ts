@@ -1,21 +1,23 @@
 /**
- * App-server fallback for ChatGPT Desktop operations that also exist on the
- * managed Codex daemon. Reuses the existing codex-bridge client — does not
- * duplicate the WebSocket/JSON-RPC stack.
+ * App-server path for ChatGPT Desktop list/deep-read/open.
+ * Reuses the existing codex-bridge client — does not duplicate the WebSocket/JSON-RPC stack.
+ *
+ * Send, new-thread-in-project, and wait-for-reply stay on CDP (see facade).
  */
 
 import {
   codexStatus,
   listCodexThreads,
   openCodexSession,
-  sendToCodexThread,
 } from '../codex-bridge.js';
+import {
+  appServerThreadIdCandidates,
+  toDesktopThreadId,
+} from './thread-ids.js';
 import type {
   ListThreadsResult,
   OpenThreadResult,
   ReadThreadResult,
-  SendMessageResult,
-  WaitForReplyResult,
 } from './types.js';
 
 export async function appServerListThreads({
@@ -32,13 +34,17 @@ export async function appServerListThreads({
       name?: string;
       preview?: string;
       cwd?: string;
-    }) => ({
-      threadId: String(thread.id ?? ''),
-      title: String(thread.name || thread.preview || thread.cwd || thread.id || ''),
-      pinned: false,
-      selected: false,
-      kind: 'codex',
-    })),
+    }) => {
+      const bare = String(thread.id ?? '');
+      return {
+        // Present Desktop-form ids so callers can pass them straight back to read/send.
+        threadId: bare ? toDesktopThreadId(bare) : '',
+        title: String(thread.name || thread.preview || thread.cwd || thread.id || ''),
+        pinned: false,
+        selected: false,
+        kind: 'codex',
+      };
+    }),
   };
 }
 
@@ -51,108 +57,59 @@ export async function appServerReadThread({
   limit?: number;
   full?: boolean;
 }): Promise<ReadThreadResult> {
+  const candidates = appServerThreadIdCandidates(threadId);
+  if (candidates.length === 0) {
+    throw new Error(
+      `No app-server thread id mapping for ${threadId} (temporary Desktop rows need CDP)`,
+    );
+  }
+
   const { client } = await openCodexSession();
   try {
-    let turns: ReadThreadResult['turns'] = [];
-    try {
-      const read = await client.request('thread/read', { threadId }) as {
-        thread?: { turns?: unknown[]; items?: unknown[] };
-        turns?: unknown[];
-        items?: unknown[];
-      };
-      const raw = read.thread?.turns ?? read.turns ?? read.thread?.items ?? read.items ?? [];
-      turns = normalizeTurns(raw).slice(full ? 0 : -limit);
-      if (full && limit > 0) turns = turns.slice(0, limit);
-      else if (!full) turns = turns.slice(-limit);
-    } catch {
-      const items = await client.request('thread/items/list', {
-        threadId,
-        limit: Math.min(limit, 100),
-      }) as { data?: unknown[] };
-      turns = normalizeTurns(items.data ?? []).slice(-limit);
+    let lastError: unknown;
+    for (const candidate of candidates) {
+      try {
+        const turns = await readTurnsForId(client, candidate, { limit, full });
+        return {
+          threadId: toDesktopThreadId(candidate),
+          turns,
+          backend: 'app-server',
+          limit,
+          full,
+        };
+      } catch (error) {
+        lastError = error;
+      }
     }
-    return { threadId, turns, backend: 'app-server', limit, full };
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(`app-server thread read failed for ${threadId}`);
   } finally {
     client.close();
   }
 }
 
-export async function appServerSendMessage({
-  threadId,
-  text,
-}: {
-  threadId?: string;
-  text: string;
-}): Promise<SendMessageResult> {
-  if (!threadId) {
-    return {
-      threadId: 'new',
-      backend: 'app-server',
-      experimental: false,
-      delivery: 'rejected',
-      message:
-        'app-server fallback requires an existing threadId; starting a new Desktop thread needs CDP',
-    };
-  }
-  const receipt = await sendToCodexThread(threadId, text);
-  return {
-    threadId,
-    backend: 'app-server',
-    experimental: false,
-    delivery: (receipt.delivery as SendMessageResult['delivery']) ?? 'accepted',
-    message: typeof receipt.turnId === 'string' ? `turn ${receipt.turnId}` : undefined,
-  };
-}
-
-export async function appServerWaitForReply({
-  threadId = 'unknown',
-  timeoutMs = 60000,
-}: {
-  threadId?: string;
-  timeoutMs?: number;
-}): Promise<WaitForReplyResult> {
-  if (!threadId || threadId === 'unknown' || threadId === 'new') {
-    return {
-      threadId: threadId || 'unknown',
-      reply: '',
-      backend: 'app-server',
-      experimental: false,
-      delivery: 'rejected',
-    };
-  }
-  // Reuse the existing session client; poll thread/items/list for a fresh agent message.
-  const baseline = await appServerReadThread({ threadId, limit: 200 });
-  const seen = new Set(baseline.turns.map((turn) => turn.turnKey));
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    const page = await appServerReadThread({ threadId, limit: 200 });
-    const fresh = page.turns.filter((turn) => !seen.has(turn.turnKey) && turn.role === 'assistant' && turn.text);
-    const reply = fresh.at(-1)?.text ?? '';
-    if (reply) {
-      return {
-        threadId,
-        reply,
-        backend: 'app-server',
-        experimental: false,
-        delivery: 'replied',
-      };
-    }
-  }
-  return {
-    threadId,
-    reply: '',
-    backend: 'app-server',
-    experimental: false,
-    delivery: 'timeout',
-  };
-}
-
 export async function appServerOpenThread(threadId: string): Promise<OpenThreadResult> {
+  const candidates = appServerThreadIdCandidates(threadId);
+  if (candidates.length === 0) {
+    throw new Error(
+      `No app-server thread id mapping for ${threadId} (temporary Desktop rows need CDP)`,
+    );
+  }
   const { client } = await openCodexSession();
   try {
-    await client.request('thread/resume', { threadId, excludeTurns: true });
-    return { threadId, backend: 'app-server' };
+    let lastError: unknown;
+    for (const candidate of candidates) {
+      try {
+        await client.request('thread/resume', { threadId: candidate, excludeTurns: true });
+        return { threadId: toDesktopThreadId(candidate), backend: 'app-server' };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(`app-server thread/resume failed for ${threadId}`);
   } finally {
     client.close();
   }
@@ -173,6 +130,83 @@ export async function appServerStatusProbe(): Promise<{
     mode: typeof status.mode === 'string' ? status.mode : undefined,
     socketPath: typeof status.socketPath === 'string' ? status.socketPath : undefined,
   };
+}
+
+type AppServerClient = {
+  request: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
+};
+
+async function readTurnsForId(
+  client: AppServerClient,
+  threadId: string,
+  { limit, full }: { limit: number; full: boolean },
+): Promise<ReadThreadResult['turns']> {
+  // Prefer thread/read (full history inspection). Fall back to resume-with-turns,
+  // then paginated turns/items lists — same client, no duplicated transport.
+  try {
+    const read = await client.request('thread/read', { threadId }) as {
+      thread?: { turns?: unknown[]; items?: unknown[] };
+      turns?: unknown[];
+      items?: unknown[];
+    };
+    const raw = read.thread?.turns ?? read.turns ?? read.thread?.items ?? read.items ?? [];
+    if (Array.isArray(raw) && raw.length > 0) {
+      return sliceTurns(normalizeTurns(raw), { limit, full });
+    }
+  } catch {
+    // try resume / list below
+  }
+
+  try {
+    const resumed = await client.request('thread/resume', {
+      threadId,
+      excludeTurns: false,
+    }) as {
+      thread?: { turns?: unknown[]; items?: unknown[] };
+      turns?: unknown[];
+    };
+    const raw = resumed.thread?.turns ?? resumed.turns ?? resumed.thread?.items ?? [];
+    if (Array.isArray(raw) && raw.length > 0) {
+      return sliceTurns(normalizeTurns(raw), { limit, full });
+    }
+  } catch {
+    // try list below
+  }
+
+  for (const method of ['thread/turns/list', 'thread/items/list'] as const) {
+    try {
+      const collected: unknown[] = [];
+      let cursor: string | undefined;
+      for (let page = 0; page < 20; page++) {
+        const result = await client.request(method, {
+          threadId,
+          limit: 100,
+          ...(cursor ? { cursor } : {}),
+        }) as { data?: unknown[]; nextCursor?: string | null };
+        if (!Array.isArray(result.data)) break;
+        collected.push(...result.data);
+        if (result.nextCursor == null || typeof result.nextCursor !== 'string') break;
+        cursor = result.nextCursor;
+        if (!full && collected.length >= limit) break;
+      }
+      if (collected.length > 0) {
+        return sliceTurns(normalizeTurns(collected), { limit, full });
+      }
+    } catch {
+      // try next method
+    }
+  }
+
+  throw new Error(`app-server has no turn history for thread ${threadId}`);
+}
+
+function sliceTurns(
+  turns: ReadThreadResult['turns'],
+  { limit, full }: { limit: number; full: boolean },
+): ReadThreadResult['turns'] {
+  if (limit <= 0) return turns;
+  if (full) return turns.slice(0, limit);
+  return turns.slice(-limit);
 }
 
 function normalizeTurns(raw: unknown[]): ReadThreadResult['turns'] {

@@ -14,6 +14,8 @@ export type ChatGptDesktopThread = {
   readonly pinned: boolean;
   readonly selected: boolean;
   readonly kind: string;
+  /** CDP-only: project folder from the sidebar when known. */
+  readonly project?: string;
 };
 
 export type ChatGptDesktopTurn = {

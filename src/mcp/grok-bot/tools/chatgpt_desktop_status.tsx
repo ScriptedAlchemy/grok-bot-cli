@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop status',
     description:
-      'Probe the local ChatGPT Desktop Chrome DevTools endpoint on 127.0.0.1 (no remote transport). Reports CDP reachability and whether the Codex app-server fallback is available. From the Grok Bot box, run gbot on the user machine via Grok Bot Shell with a machineId.',
+      'Probe the local ChatGPT Desktop Chrome DevTools endpoint on 127.0.0.1 (no remote transport). Reports CDP reachability and whether the Codex app-server is available for list/deep-read. From the Grok Bot box, run gbot on the user machine via Grok Bot Shell with a machineId.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,

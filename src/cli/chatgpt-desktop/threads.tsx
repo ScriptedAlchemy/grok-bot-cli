@@ -9,7 +9,8 @@ import {
 } from '../../core/chatgpt-desktop/routes.js';
 
 export const config = {
-  description: 'List ChatGPT Desktop threads via CDP (app-server fallback when CDP is down).',
+  description:
+    'List ChatGPT Desktop threads via app-server when available; merge CDP pinned/selected/project.',
   exitCode: 'result',
   inputJsonSchema: {
     additionalProperties: false,

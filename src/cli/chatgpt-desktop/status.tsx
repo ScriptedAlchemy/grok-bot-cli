@@ -10,7 +10,7 @@ import {
 
 export const config = {
   description:
-    'Probe local ChatGPT Desktop CDP on 127.0.0.1 and report app-server fallback availability.',
+    'Probe local ChatGPT Desktop CDP on 127.0.0.1 and report app-server availability for list/deep-read.',
   exitCode: 'result',
   inputJsonSchema: {
     additionalProperties: false,

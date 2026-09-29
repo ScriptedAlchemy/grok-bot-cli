@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop wait for reply',
     description:
-      'Wait until main Stop is gone and a new [data-local-conversation-final-assistant=true] exists, then return assistant markdown text. Also returns conversationId from data-response-annotation-conversation (resolves temporary local:client-new-thread ids). Falls back to app-server polling when CDP is unreachable.',
+      'Wait until main Stop is gone and a new [data-local-conversation-final-assistant=true] exists, then return assistant markdown text. Also returns conversationId from data-response-annotation-conversation (resolves temporary local:client-new-thread ids). CDP only — does not use app-server.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,

@@ -65,7 +65,7 @@ async function withAdapter<T>(
   try {
     await adapter.connect({ port: resolved });
   } catch {
-    // status/list may still succeed via HTTP probe or app-server fallback.
+    // status/list may still succeed via HTTP probe or app-server list/deep-read.
   }
   return run(adapter);
 }
