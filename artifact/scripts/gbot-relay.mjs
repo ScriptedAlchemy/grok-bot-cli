@@ -23001,17 +23001,20 @@ var __webpack_modules__ = {
             };
         }
         const THREAD_LIST_MAX_LIMIT = 200;
-        async function listCodexThreads({ limit = 20, cursor, env = process.env } = {}) {
+        async function listCodexThreads({ limit = 20, cursor, modelProviders = [], env = process.env } = {}) {
             if (!Number.isInteger(limit) || limit < 1 || limit > THREAD_LIST_MAX_LIMIT) {
                 throw new RangeError("--limit must be an integer 1-" + THREAD_LIST_MAX_LIMIT);
             }
             if (cursor !== undefined && (typeof cursor !== "string" || !cursor)) throw new RangeError("--cursor must be a non-empty string");
+            if (!Array.isArray(modelProviders) || modelProviders.some((p)=>typeof p !== "string")) {
+                throw new RangeError("modelProviders must be an array of strings (empty = all providers)");
+            }
             const { client } = await openSession(env);
             try {
                 const params = {
                     limit,
                     useStateDbOnly: true,
-                    modelProviders: [],
+                    modelProviders,
                     ...cursor !== undefined ? {
                         cursor
                     } : {}

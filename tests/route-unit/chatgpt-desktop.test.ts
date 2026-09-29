@@ -42,7 +42,7 @@ function fakeAdapter(overrides: Partial<ChatGptDesktopAdapter> = {}): ChatGptDes
     },
     async listThreads({ limit = 50 } = {}) {
       return {
-        backend: 'cdp',
+        backend: 'cdp' as const,
         limit,
         host: 'all',
         threads: [
@@ -52,7 +52,7 @@ function fakeAdapter(overrides: Partial<ChatGptDesktopAdapter> = {}): ChatGptDes
             pinned: false,
             selected: true,
             kind: 'local',
-            location: 'local',
+            location: 'local' as const,
             hostId: null,
             hostName: null,
           },
@@ -61,16 +61,16 @@ function fakeAdapter(overrides: Partial<ChatGptDesktopAdapter> = {}): ChatGptDes
     },
     async listHosts() {
       return {
-        backend: 'app-server',
+        backend: 'app-server' as const,
         hostsSource: 'remote-thread-summaries-v3+local',
         modelProviders: ['openai'],
         modelProvidersSource: 'thread/list-distinct',
         hosts: [
-          { hostId: 'local', hostName: 'local', location: 'local', threadCount: 1 },
+          { hostId: 'local', hostName: 'local', location: 'local' as const, threadCount: 1 },
           {
             hostId: 'host-macbook',
             hostName: "Zack's MacBook",
-            location: 'remote',
+            location: 'remote' as const,
             threadCount: 2,
           },
         ],

@@ -163,6 +163,25 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     const fromState = listHosts(process.env, { localThreadCount });
     const byId = new Map(fromState.map((host) => [host.hostId, { ...host }]));
 
+    // Ensure every host seen in merged remotes is present (tests / custom
+    // listRemoteThreads may supply rows without a matching global-state file).
+    for (const thread of remotes) {
+      const existing = byId.get(thread.hostId);
+      if (existing) {
+        byId.set(thread.hostId, {
+          ...existing,
+          hostName: existing.hostName ?? thread.hostName,
+        });
+      } else {
+        byId.set(thread.hostId, {
+          hostId: thread.hostId,
+          hostName: thread.hostName,
+          location: 'remote',
+          threadCount: 0,
+        });
+      }
+    }
+
     let hostsSource = 'remote-thread-summaries-v3+local';
     try {
       const discoverEnvs =

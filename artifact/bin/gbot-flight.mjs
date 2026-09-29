@@ -8609,6 +8609,52 @@ var __webpack_modules__ = {
             resultSchema: resultSchema
         });
     },
+    "./src/cli/chatgpt-desktop/hosts.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        __webpack_require__.r(__webpack_exports__);
+        var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.react-server.js");
+        var _agent_bundle_runtime__rspack_import_3 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
+        var zod__rspack_import_2 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
+        var _core_chatgpt_desktop_routes_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
+        const config = {
+            description: 'List discovered ChatGPT Desktop hosts (local + remote-thread-summaries-v3) with thread counts, friendly names, and modelProviders.',
+            exitCode: 'result',
+            inputJsonSchema: {
+                additionalProperties: false,
+                properties: {
+                    port: {
+                        description: 'Local CDP port',
+                        type: 'number'
+                    }
+                },
+                type: 'object'
+            }
+        };
+        const inputSchema = zod__rspack_import_2.Ikc({
+            port: zod__rspack_import_2.aig().int().min(1).max(65535).optional()
+        }).strict();
+        async function chatgptDesktopHosts({ input }) {
+            const out = await (0, _core_chatgpt_desktop_routes_js__rspack_import_1.Bm)(input);
+            const hosts = Array.isArray(out.hosts) ? out.hosts : [];
+            const text = hosts.length > 0 ? hosts.map((host)=>{
+                const row = host;
+                const name = row.hostName && row.hostName !== row.hostId ? ` (${row.hostName})` : '';
+                return `${row.hostId ?? '?'}${name}  [${row.location ?? '?'}]  threads=${row.threadCount ?? 0}`;
+            }).join('\n') + `\n\nhostsSource: ${String(out.hostsSource ?? '')}` + `\nmodelProviders: ${JSON.stringify(out.modelProviders ?? [])}` + `\nmodelProvidersSource: ${String(out.modelProvidersSource ?? '')}` : (0, _core_chatgpt_desktop_routes_js__rspack_import_1.D6)(out);
+            return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Result, {
+                value: out,
+                children: (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Text, {
+                    children: text
+                })
+            });
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            "default": ()=>chatgptDesktopHosts,
+            resultSchema: ()=>_core_chatgpt_desktop_routes_js__rspack_import_1.FD
+        }, {
+            config: config,
+            inputSchema: inputSchema
+        });
+    },
     "./src/cli/chatgpt-desktop/read.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
         __webpack_require__.r(__webpack_exports__);
         var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.react-server.js");
@@ -8692,7 +8738,7 @@ var __webpack_modules__ = {
         var zod__rspack_import_2 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
         var _core_chatgpt_desktop_routes_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const config = {
-            description: 'Search ChatGPT Desktop threads via app-server (full provider list); merge CDP selected/pinned.',
+            description: 'Search ChatGPT Desktop threads; --host and --model-provider are separate filters.',
             exitCode: 'result',
             positionals: [
                 'query'
@@ -8700,10 +8746,25 @@ var __webpack_modules__ = {
             inputJsonSchema: {
                 additionalProperties: false,
                 properties: {
+                    groupBy: {
+                        description: 'Group results by host',
+                        enum: [
+                            'host'
+                        ],
+                        type: 'string'
+                    },
+                    host: {
+                        description: 'Filter: all (default) | local | hostId or friendly name',
+                        type: 'string'
+                    },
                     limit: {
                         default: 50,
                         description: 'Max matches (1-200)',
                         type: 'number'
+                    },
+                    modelProvider: {
+                        description: 'Pass-through to app-server modelProviders (omit = all)',
+                        type: 'string'
                     },
                     port: {
                         description: 'Local CDP port',
@@ -8720,7 +8781,10 @@ var __webpack_modules__ = {
             }
         };
         const inputSchema = zod__rspack_import_2.Ikc({
+            groupBy: zod__rspack_import_2.euz('host').optional(),
+            host: zod__rspack_import_2.YjP().min(1).max(256).optional(),
             limit: zod__rspack_import_2.aig().int().min(1).max(200).default(50),
+            modelProvider: zod__rspack_import_2.YjP().min(1).max(256).optional(),
             port: zod__rspack_import_2.aig().int().min(1).max(65535).optional(),
             query: zod__rspack_import_2.YjP().min(1).max(512)
         }).strict();
@@ -8861,7 +8925,7 @@ var __webpack_modules__ = {
         var zod__rspack_import_2 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
         var _core_chatgpt_desktop_routes_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const config = {
-            description: 'List local + remote-control ChatGPT Desktop threads; optional --host and --group-by host.',
+            description: 'List local + remote-control ChatGPT Desktop threads; --host and --model-provider are separate filters.',
             exitCode: 'result',
             inputJsonSchema: {
                 additionalProperties: false,
@@ -8874,13 +8938,17 @@ var __webpack_modules__ = {
                         type: 'string'
                     },
                     host: {
-                        description: 'Filter by hostId or friendly name (local for local-only)',
+                        description: 'Filter: all (default) | local | hostId or friendly name',
                         type: 'string'
                     },
                     limit: {
                         default: 50,
                         description: 'Max threads (1-200)',
                         type: 'number'
+                    },
+                    modelProvider: {
+                        description: 'Pass-through to app-server modelProviders (omit = all)',
+                        type: 'string'
                     },
                     port: {
                         description: 'Local CDP port',
@@ -8894,6 +8962,7 @@ var __webpack_modules__ = {
             groupBy: zod__rspack_import_2.euz('host').optional(),
             host: zod__rspack_import_2.YjP().min(1).max(256).optional(),
             limit: zod__rspack_import_2.aig().int().min(1).max(200).default(50),
+            modelProvider: zod__rspack_import_2.YjP().min(1).max(256).optional(),
             port: zod__rspack_import_2.aig().int().min(1).max(65535).optional()
         }).strict();
         async function chatgptDesktopThreads({ input }) {
@@ -8902,7 +8971,8 @@ var __webpack_modules__ = {
             const text = threads.length > 0 ? threads.map((thread)=>{
                 const row = thread;
                 const where = row.location === 'remote' ? ` [remote ${row.hostName || row.hostId || '?'}]` : ' [local]';
-                return `${row.selected ? '* ' : '  '}${row.threadId ?? ''}  ${row.title ?? ''}` + (row.pinned ? ' (pinned)' : '') + where;
+                const provider = row.modelProvider ? ` {${row.modelProvider}}` : '';
+                return `${row.selected ? '* ' : '  '}${row.threadId ?? ''}  ${row.title ?? ''}` + (row.pinned ? ' (pinned)' : '') + where + provider;
             }).join('\n') + `\n\nbackend: ${String(out.backend ?? '')}` : (0, _core_chatgpt_desktop_routes_js__rspack_import_1.D6)(out);
             return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Result, {
                 value: out,
@@ -11203,23 +11273,26 @@ var __webpack_modules__ = {
         var _errors_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
         var _remote_threads_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/remote-threads.ts");
         var _thread_ids_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
-        async function appServerListThreads({ limit = 50, cursor } = {}) {
+        async function appServerListThreads({ limit = 50, cursor, modelProviders = [] } = {}) {
             const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
                 limit,
-                cursor
+                cursor,
+                modelProviders
             });
             return {
                 backend: 'app-server',
                 limit: out.limit,
                 nextCursor: out.nextCursor ?? null,
-                threads: out.threads.map(mapListedThread)
+                threads: out.threads.map(mapListedThread),
+                modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined
             };
         }
-        async function appServerSearchThreads({ query, limit = 50 }) {
+        async function appServerSearchThreads({ query, limit = 50, modelProviders = [] }) {
             const needle = query.trim().toLowerCase();
             if (!needle) {
                 return appServerListThreads({
-                    limit
+                    limit,
+                    modelProviders
                 });
             }
             const matched = [];
@@ -11227,7 +11300,8 @@ var __webpack_modules__ = {
             for(let page = 0; page < 20 && matched.length < limit; page++){
                 const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
                     limit: 200,
-                    cursor
+                    cursor,
+                    modelProviders
                 });
                 for (const thread of out.threads){
                     const mapped = mapListedThread(thread);
@@ -11242,8 +11316,179 @@ var __webpack_modules__ = {
                 limit,
                 query,
                 nextCursor: null,
-                threads: matched.slice(0, limit)
+                threads: matched.slice(0, limit),
+                modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined
             };
+        }
+        const MODEL_PROVIDER_LIST_METHODS = [
+            'modelProvider/list',
+            'model/providers/list',
+            'models/providers/list',
+            'account/modelProviders/list',
+            'config/modelProviders/list',
+            'provider/list'
+        ];
+        const REMOTE_ENVIRONMENT_LIST_METHODS = [
+            'remoteEnvironment/list',
+            'remote/environments/list',
+            'environment/list',
+            'remoteControl/hosts/list',
+            'remote/hosts/list',
+            'hosts/list'
+        ];
+        async function discoverModelProviders() {
+            const { client } = await (0, _codex_bridge_js__rspack_import_0.eC)();
+            try {
+                for (const method of MODEL_PROVIDER_LIST_METHODS){
+                    try {
+                        const result = await client.request(method, {});
+                        const providers = normalizeNamedList(result, [
+                            'id',
+                            'name',
+                            'provider',
+                            'modelProvider',
+                            'slug'
+                        ]);
+                        if (providers.length > 0) {
+                            return {
+                                providers,
+                                source: `app-server:${method}`
+                            };
+                        }
+                    } catch  {}
+                }
+            } finally{
+                client.close();
+            }
+            const providers = new Set();
+            let cursor;
+            for(let page = 0; page < 20; page++){
+                const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
+                    limit: 200,
+                    cursor,
+                    modelProviders: []
+                });
+                for (const thread of out.threads){
+                    if (typeof thread.modelProvider === 'string' && thread.modelProvider) {
+                        providers.add(thread.modelProvider);
+                    }
+                }
+                if (out.nextCursor == null || typeof out.nextCursor !== 'string') break;
+                cursor = out.nextCursor;
+            }
+            return {
+                providers: [
+                    ...providers
+                ].sort(),
+                source: 'thread/list-distinct'
+            };
+        }
+        async function discoverRemoteEnvironments() {
+            const { client } = await (0, _codex_bridge_js__rspack_import_0.eC)();
+            try {
+                for (const method of REMOTE_ENVIRONMENT_LIST_METHODS){
+                    try {
+                        const result = await client.request(method, {});
+                        const hosts = normalizeHostEntries(result);
+                        if (hosts.length > 0) {
+                            return {
+                                hosts,
+                                source: `app-server:${method}`
+                            };
+                        }
+                    } catch  {}
+                }
+            } finally{
+                client.close();
+            }
+            return {
+                hosts: [],
+                source: null
+            };
+        }
+        function normalizeNamedList(result, idKeys) {
+            const raw = listPayload(result);
+            const out = [];
+            for (const entry of raw){
+                if (typeof entry === 'string' && entry) out.push(entry);
+                else if (entry && typeof entry === 'object') {
+                    const row = entry;
+                    for (const key of idKeys){
+                        if (typeof row[key] === 'string' && row[key]) {
+                            out.push(String(row[key]));
+                            break;
+                        }
+                    }
+                }
+            }
+            return [
+                ...new Set(out)
+            ].sort();
+        }
+        function normalizeHostEntries(result) {
+            const raw = listPayload(result);
+            const out = [];
+            for (const entry of raw){
+                if (typeof entry === 'string' && entry) {
+                    out.push({
+                        hostId: entry,
+                        hostName: null
+                    });
+                    continue;
+                }
+                if (!entry || typeof entry !== 'object') continue;
+                const row = entry;
+                let hostId = null;
+                for (const key of [
+                    'hostId',
+                    'id',
+                    'uuid',
+                    'environmentId',
+                    'envId'
+                ]){
+                    if (typeof row[key] === 'string' && row[key]) {
+                        hostId = String(row[key]);
+                        break;
+                    }
+                }
+                if (!hostId) continue;
+                let hostName = null;
+                for (const key of [
+                    'hostName',
+                    'name',
+                    'displayName',
+                    'envName',
+                    'label',
+                    'title'
+                ]){
+                    if (typeof row[key] === 'string' && row[key]) {
+                        hostName = String(row[key]);
+                        break;
+                    }
+                }
+                out.push({
+                    hostId,
+                    hostName
+                });
+            }
+            return out;
+        }
+        function listPayload(result) {
+            if (Array.isArray(result)) return result;
+            if (!result || typeof result !== 'object') return [];
+            const record = result;
+            for (const key of [
+                'data',
+                'providers',
+                'modelProviders',
+                'hosts',
+                'environments',
+                'remoteEnvironments',
+                'items'
+            ]){
+                if (Array.isArray(record[key])) return record[key];
+            }
+            return [];
         }
         async function appServerReadThread({ threadId, limit = 100, full = false }) {
             const bare = (0, _thread_ids_js__rspack_import_3.NM)(threadId);
@@ -11570,6 +11815,8 @@ var __webpack_modules__ = {
         __webpack_require__.d(__webpack_exports__, {
             Jf: ()=>appServerReadThread,
             OI: ()=>appServerListThreads,
+            OP: ()=>discoverRemoteEnvironments,
+            X: ()=>discoverModelProviders,
             aI: ()=>appServerSearchThreads,
             dM: ()=>appServerStatusProbe
         });
@@ -12482,7 +12729,10 @@ var __webpack_modules__ = {
             searchThreads: _app_server_fallback_js__rspack_import_1.aI,
             readThread: _app_server_fallback_js__rspack_import_1.Jf,
             statusProbe: _app_server_fallback_js__rspack_import_1.dM,
-            listRemoteThreads: _remote_threads_js__rspack_import_4.Hx
+            listRemoteThreads: _remote_threads_js__rspack_import_4.Hx,
+            listHosts: _remote_threads_js__rspack_import_4.Kl,
+            discoverModelProviders: _app_server_fallback_js__rspack_import_1.X,
+            discoverRemoteEnvironments: _app_server_fallback_js__rspack_import_1.OP
         };
         class ChatGptDesktopFacade {
             #cdp;
@@ -12512,11 +12762,14 @@ var __webpack_modules__ = {
             }
             async listThreads(options = {}) {
                 const limit = options.limit ?? 50;
+                const host = normalizeHostFilter(options.host);
+                const modelProviders = modelProvidersFromFilter(options.modelProvider);
                 let appList = null;
                 let appError;
                 try {
                     appList = await this.#fallbacks.listThreads({
-                        limit
+                        limit,
+                        modelProviders
                     });
                 } catch (error) {
                     appError = error;
@@ -12544,17 +12797,107 @@ var __webpack_modules__ = {
                 else throw new _errors_js__rspack_import_2.sO('ChatGPT Desktop listThreads: CDP and app-server unreachable');
                 return finalizeThreadList(base, {
                     limit,
-                    host: options.host,
+                    host,
+                    modelProvider: options.modelProvider,
                     groupBy: options.groupBy,
                     remotes: this.#listRemotes()
                 });
             }
+            async listHosts() {
+                const remotes = this.#listRemotes();
+                let localThreadCount = 0;
+                try {
+                    const local = await this.#fallbacks.listThreads({
+                        limit: 200,
+                        modelProviders: []
+                    });
+                    localThreadCount = local.threads.length;
+                } catch  {
+                    localThreadCount = 0;
+                }
+                const listHosts = this.#fallbacks.listHosts ?? _remote_threads_js__rspack_import_4.Kl;
+                const fromState = listHosts(process.env, {
+                    localThreadCount
+                });
+                const byId = new Map(fromState.map((host)=>[
+                        host.hostId,
+                        {
+                            ...host
+                        }
+                    ]));
+                let hostsSource = 'remote-thread-summaries-v3+local';
+                try {
+                    const discoverEnvs = this.#fallbacks.discoverRemoteEnvironments ?? _app_server_fallback_js__rspack_import_1.OP;
+                    const appHosts = await discoverEnvs();
+                    if (appHosts.source && appHosts.hosts.length > 0) {
+                        for (const host of appHosts.hosts){
+                            const existing = byId.get(host.hostId);
+                            if (existing) {
+                                byId.set(host.hostId, {
+                                    ...existing,
+                                    hostName: existing.hostName ?? host.hostName
+                                });
+                            } else {
+                                byId.set(host.hostId, {
+                                    hostId: host.hostId,
+                                    hostName: host.hostName,
+                                    location: 'remote',
+                                    threadCount: 0
+                                });
+                            }
+                        }
+                        hostsSource = `${appHosts.source}+remote-thread-summaries-v3+local`;
+                    }
+                } catch  {}
+                const remoteCounts = new Map();
+                for (const thread of remotes){
+                    remoteCounts.set(thread.hostId, (remoteCounts.get(thread.hostId) ?? 0) + 1);
+                }
+                const withCounts = [
+                    ...byId.values()
+                ].map((host)=>host.hostId === 'local' ? {
+                        ...host,
+                        threadCount: localThreadCount
+                    } : {
+                        ...host,
+                        threadCount: remoteCounts.get(host.hostId) ?? host.threadCount
+                    }).sort((a, b)=>{
+                    if (a.hostId === 'local') return -1;
+                    if (b.hostId === 'local') return 1;
+                    return a.hostId.localeCompare(b.hostId);
+                });
+                let modelProviders = [];
+                let modelProvidersSource = 'thread/list-distinct';
+                try {
+                    const discover = this.#fallbacks.discoverModelProviders ?? _app_server_fallback_js__rspack_import_1.X;
+                    const discovered = await discover();
+                    modelProviders = [
+                        ...discovered.providers
+                    ];
+                    modelProvidersSource = discovered.source;
+                } catch  {
+                    modelProviders = [
+                        ...new Set(remotes.map((thread)=>thread.modelProvider).filter((value)=>typeof value === 'string' && Boolean(value)))
+                    ].sort();
+                    modelProvidersSource = 'remote-summaries-distinct';
+                }
+                return {
+                    hosts: withCounts,
+                    hostsSource,
+                    modelProviders,
+                    modelProvidersSource,
+                    backend: 'app-server'
+                };
+            }
             async searchThreads(options) {
                 const limit = options.limit ?? 50;
+                const host = normalizeHostFilter(options.host);
+                const modelProviders = modelProvidersFromFilter(options.modelProvider);
                 try {
                     const appList = await this.#fallbacks.searchThreads({
                         query: options.query,
-                        limit
+                        limit,
+                        modelProviders
                     });
                     const cdpList = await this.#tryCdpList({
                         limit
@@ -12562,7 +12905,8 @@ var __webpack_modules__ = {
                     const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
                     const withRemotes = finalizeThreadList(base, {
                         limit: 10000,
-                        host: options.host,
+                        host,
+                        modelProvider: options.modelProvider,
                         remotes: this.#listRemotes()
                     });
                     const needle = options.query.trim().toLowerCase();
@@ -12573,7 +12917,8 @@ var __webpack_modules__ = {
                     };
                     return finalizeThreadList(filtered, {
                         limit,
-                        host: options.host,
+                        host,
+                        modelProvider: options.modelProvider,
                         groupBy: options.groupBy,
                         remotes: []
                     });
@@ -12590,7 +12935,8 @@ var __webpack_modules__ = {
                     };
                     return finalizeThreadList(filtered, {
                         limit,
-                        host: options.host,
+                        host,
+                        modelProvider: options.modelProvider,
                         groupBy: options.groupBy,
                         remotes: this.#listRemotes()
                     });
@@ -12742,7 +13088,7 @@ var __webpack_modules__ = {
                 threads: merged
             };
         }
-        function finalizeThreadList(base, { limit, host, groupBy, remotes }) {
+        function finalizeThreadList(base, { limit, host = 'all', modelProvider, groupBy, remotes }) {
             const locals = base.threads.map((thread)=>{
                 const location = thread.location ?? 'local';
                 return {
@@ -12766,7 +13112,11 @@ var __webpack_modules__ = {
                     hostName: remote.hostName ?? null
                 });
             }
-            const filtered = host ? merged.filter((thread)=>hostMatches(thread, host)) : merged;
+            const filtered = merged.filter((thread)=>{
+                if (!hostMatches(thread, host)) return false;
+                if (!modelProviderMatches(thread, modelProvider)) return false;
+                return true;
+            });
             const limited = filtered.slice(0, limit);
             const result = {
                 backend: base.backend,
@@ -12778,8 +13128,9 @@ var __webpack_modules__ = {
                 ...base.query !== undefined ? {
                     query: base.query
                 } : {},
-                ...host ? {
-                    host
+                host,
+                ...modelProvider ? {
+                    modelProvider
                 } : {}
             };
             if (groupBy === 'host') {
@@ -12815,14 +13166,31 @@ var __webpack_modules__ = {
                 ...groups.values()
             ];
         }
+        function normalizeHostFilter(host) {
+            const value = (host ?? 'all').trim();
+            return value || 'all';
+        }
+        function modelProvidersFromFilter(modelProvider) {
+            if (!modelProvider || !modelProvider.trim()) return [];
+            return [
+                modelProvider.trim()
+            ];
+        }
         function hostMatches(thread, host) {
             const needle = host.trim().toLowerCase();
-            if (!needle) return true;
+            if (!needle || needle === 'all') return true;
             if (needle === 'local') return (thread.location ?? 'local') === 'local';
             return [
                 thread.hostId,
                 thread.hostName
             ].some((value)=>typeof value === 'string' && value.toLowerCase().includes(needle));
+        }
+        function modelProviderMatches(thread, modelProvider) {
+            if (!modelProvider) return true;
+            if (!thread.modelProvider) {
+                return thread.location === 'remote';
+            }
+            return thread.modelProvider === modelProvider;
         }
         function threadMatchesQuery(thread, needle) {
             if (!needle) return true;
@@ -12987,6 +13355,57 @@ var __webpack_modules__ = {
         }
         function findRemoteThreadHostId(threadId, env = process.env) {
             return findRemoteThread(threadId, env)?.hostId ?? null;
+        }
+        function listDiscoveredHosts(env = process.env, { localThreadCount = 0 } = {}) {
+            const remotes = listRemoteThreadsFromState(env);
+            const byHost = new Map();
+            byHost.set('local', {
+                hostId: 'local',
+                hostName: 'local',
+                location: 'local',
+                threadCount: localThreadCount
+            });
+            const data = loadCodexGlobalState(env);
+            if (data) {
+                const hostNames = collectHostNames(data);
+                for (const key of Object.keys(data)){
+                    const match = REMOTE_SUMMARY_KEY.exec(key);
+                    if (!match?.[1]) continue;
+                    const hostId = match[1];
+                    const summary = data[key];
+                    const hostName = hostNames.get(hostId) ?? extractHostName(summary) ?? null;
+                    byHost.set(hostId, {
+                        hostId,
+                        hostName,
+                        location: 'remote',
+                        threadCount: 0
+                    });
+                }
+            }
+            for (const thread of remotes){
+                const existing = byHost.get(thread.hostId);
+                if (existing) {
+                    byHost.set(thread.hostId, {
+                        ...existing,
+                        hostName: existing.hostName ?? thread.hostName,
+                        threadCount: existing.threadCount + 1
+                    });
+                } else {
+                    byHost.set(thread.hostId, {
+                        hostId: thread.hostId,
+                        hostName: thread.hostName,
+                        location: 'remote',
+                        threadCount: 1
+                    });
+                }
+            }
+            return [
+                ...byHost.values()
+            ].sort((a, b)=>{
+                if (a.hostId === 'local') return -1;
+                if (b.hostId === 'local') return 1;
+                return a.hostId.localeCompare(b.hostId);
+            });
         }
         function collectHostNames(data) {
             const names = new Map();
@@ -13276,6 +13695,7 @@ var __webpack_modules__ = {
         __webpack_require__.d(__webpack_exports__, {
             Hx: ()=>listRemoteThreadsFromState,
             KI: ()=>findRemoteThread,
+            Kl: ()=>listDiscoveredHosts,
             XI: ()=>findRemoteThreadHostId
         });
     },
@@ -13293,6 +13713,7 @@ var __webpack_modules__ = {
             port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
             limit: zod__rspack_import_4.aig().int().min(1).max(200).default(50),
             host: zod__rspack_import_4.YjP().min(1).max(256).optional(),
+            modelProvider: zod__rspack_import_4.YjP().min(1).max(256).optional(),
             groupBy: zod__rspack_import_4.euz('host').optional()
         }).strict();
         const searchThreadsSchema = zod__rspack_import_4.Ikc({
@@ -13300,7 +13721,11 @@ var __webpack_modules__ = {
             query: zod__rspack_import_4.YjP().min(1).max(512),
             limit: zod__rspack_import_4.aig().int().min(1).max(200).default(50),
             host: zod__rspack_import_4.YjP().min(1).max(256).optional(),
+            modelProvider: zod__rspack_import_4.YjP().min(1).max(256).optional(),
             groupBy: zod__rspack_import_4.euz('host').optional()
+        }).strict();
+        const listHostsSchema = zod__rspack_import_4.Ikc({
+            port: zod__rspack_import_4.aig().int().min(1).max(65535).optional()
         }).strict();
         const readThreadSchema = zod__rspack_import_4.Ikc({
             port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
@@ -13390,6 +13815,7 @@ var __webpack_modules__ = {
                 const out = await withAdapter(input.port, (adapter)=>adapter.listThreads({
                         limit: input.limit,
                         host: input.host,
+                        modelProvider: input.modelProvider,
                         groupBy: input.groupBy
                     }));
                 return asResult({
@@ -13410,8 +13836,25 @@ var __webpack_modules__ = {
                         query: input.query,
                         limit: input.limit,
                         host: input.host,
+                        modelProvider: input.modelProvider,
                         groupBy: input.groupBy
                     });
+                });
+                return asResult({
+                    ...out,
+                    exitCode: 0
+                });
+            } catch (error) {
+                return mapError(error);
+            }
+        }
+        async function listHostsOperation(input) {
+            try {
+                const out = await withAdapter(input.port, async (adapter)=>{
+                    if (typeof adapter.listHosts !== 'function') {
+                        throw new _errors_js__rspack_import_1.EH('listHosts', 'adapter does not implement listHosts');
+                    }
+                    return adapter.listHosts();
                 });
                 return asResult({
                     ...out,
@@ -13474,9 +13917,15 @@ var __webpack_modules__ = {
                 return `ChatGPT Desktop CDP reachable on 127.0.0.1:${result.port}${backend}`;
             }
             if (result.reachable === false) return String(result.message ?? 'ChatGPT Desktop CDP unreachable');
+            if (Array.isArray(result.hosts)) {
+                const providers = Array.isArray(result.modelProviders) ? ` providers=${result.modelProviders.length} (${String(result.modelProvidersSource ?? '')})` : '';
+                return `${result.hosts.length} hosts via ${String(result.hostsSource ?? result.backend ?? 'unknown')}${providers}`;
+            }
             if (Array.isArray(result.threads)) {
                 const via = result.query ? ` matching ${JSON.stringify(result.query)}` : '';
-                return `${result.threads.length} threads${via} via ${result.backend ?? 'unknown'}`;
+                const host = result.host && result.host !== 'all' ? ` host=${result.host}` : '';
+                const provider = result.modelProvider ? ` provider=${result.modelProvider}` : '';
+                return `${result.threads.length} threads${via}${host}${provider} via ${result.backend ?? 'unknown'}`;
             }
             if (Array.isArray(result.turns)) {
                 const mode = result.full ? 'full' : 'page';
@@ -13493,6 +13942,7 @@ var __webpack_modules__ = {
             return JSON.stringify(result);
         }
         __webpack_require__.d(__webpack_exports__, {
+            Bm: ()=>listHostsOperation,
             D6: ()=>resultText,
             UK: ()=>readThreadOperation,
             UP: ()=>sendOperation,
@@ -25312,17 +25762,20 @@ var __webpack_modules__ = {
             };
         }
         const THREAD_LIST_MAX_LIMIT = 200;
-        async function listCodexThreads1({ limit = 20, cursor, env = process.env } = {}) {
+        async function listCodexThreads1({ limit = 20, cursor, modelProviders = [], env = process.env } = {}) {
             if (!Number.isInteger(limit) || limit < 1 || limit > THREAD_LIST_MAX_LIMIT) {
                 throw new RangeError("--limit must be an integer 1-" + THREAD_LIST_MAX_LIMIT);
             }
             if (cursor !== undefined && (typeof cursor !== "string" || !cursor)) throw new RangeError("--cursor must be a non-empty string");
+            if (!Array.isArray(modelProviders) || modelProviders.some((p)=>typeof p !== "string")) {
+                throw new RangeError("modelProviders must be an array of strings (empty = all providers)");
+            }
             const { client } = await openSession(env);
             try {
                 const params = {
                     limit,
                     useStateDbOnly: true,
-                    modelProviders: [],
+                    modelProviders,
                     ...cursor !== undefined ? {
                         cursor
                     } : {}
@@ -28610,9 +29063,9 @@ function __webpack_require__(moduleId) {
 var __webpack_exports__ = {};
 var node_worker_threads__rspack_import_0 = __webpack_require__("node:worker_threads");
 var react__rspack_import_1 = __webpack_require__("./node_modules/react/react.react-server.js");
-var _agent_bundle_runtime_flight_server__rspack_import_46 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/flight/server.js");
-var _agent_bundle_runtime__rspack_import_44 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
-var _agent_bundle_runtime__rspack_import_45 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
+var _agent_bundle_runtime_flight_server__rspack_import_47 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/flight/server.js");
+var _agent_bundle_runtime__rspack_import_45 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
+var _agent_bundle_runtime__rspack_import_46 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
 var node_url__rspack_import_2 = __webpack_require__("node:url");
 var _src_cli_approvals_list_tsx__rspack_import_3 = __webpack_require__("./src/cli/approvals/list.tsx");
 var _src_cli_approvals_respond_tsx__rspack_import_4 = __webpack_require__("./src/cli/approvals/respond.tsx");
@@ -28621,40 +29074,41 @@ var _src_cli_bots_delete_tsx__rspack_import_6 = __webpack_require__("./src/cli/b
 var _src_cli_bots_get_tsx__rspack_import_7 = __webpack_require__("./src/cli/bots/get.tsx");
 var _src_cli_bots_list_tsx__rspack_import_8 = __webpack_require__("./src/cli/bots/list.tsx");
 var _src_cli_bots_update_tsx__rspack_import_9 = __webpack_require__("./src/cli/bots/update.tsx");
-var _src_cli_chatgpt_desktop_read_tsx__rspack_import_10 = __webpack_require__("./src/cli/chatgpt-desktop/read.tsx");
-var _src_cli_chatgpt_desktop_search_tsx__rspack_import_11 = __webpack_require__("./src/cli/chatgpt-desktop/search.tsx");
-var _src_cli_chatgpt_desktop_send_tsx__rspack_import_12 = __webpack_require__("./src/cli/chatgpt-desktop/send.tsx");
-var _src_cli_chatgpt_desktop_status_tsx__rspack_import_13 = __webpack_require__("./src/cli/chatgpt-desktop/status.tsx");
-var _src_cli_chatgpt_desktop_threads_tsx__rspack_import_14 = __webpack_require__("./src/cli/chatgpt-desktop/threads.tsx");
-var _src_cli_claude_send_tsx__rspack_import_15 = __webpack_require__("./src/cli/claude/send.tsx");
-var _src_cli_codex_bridge_respond_tsx__rspack_import_16 = __webpack_require__("./src/cli/codex/bridge/respond.tsx");
-var _src_cli_codex_bridge_run_tsx__rspack_import_17 = __webpack_require__("./src/cli/codex/bridge/run.tsx");
-var _src_cli_codex_bridge_start_tsx__rspack_import_18 = __webpack_require__("./src/cli/codex/bridge/start.tsx");
-var _src_cli_codex_bridge_status_tsx__rspack_import_19 = __webpack_require__("./src/cli/codex/bridge/status.tsx");
-var _src_cli_codex_bridge_stop_tsx__rspack_import_20 = __webpack_require__("./src/cli/codex/bridge/stop.tsx");
-var _src_cli_codex_desktop_shim_tsx__rspack_import_21 = __webpack_require__("./src/cli/codex/desktop-shim.tsx");
-var _src_cli_codex_list_threads_tsx__rspack_import_22 = __webpack_require__("./src/cli/codex/list-threads.tsx");
-var _src_cli_codex_queue_tsx__rspack_import_23 = __webpack_require__("./src/cli/codex/queue.tsx");
-var _src_cli_codex_send_tsx__rspack_import_24 = __webpack_require__("./src/cli/codex/send.tsx");
-var _src_cli_codex_status_tsx__rspack_import_25 = __webpack_require__("./src/cli/codex/status.tsx");
-var _src_cli_codex_wait_tsx__rspack_import_26 = __webpack_require__("./src/cli/codex/wait.tsx");
-var _src_cli_codex_watch_tsx__rspack_import_27 = __webpack_require__("./src/cli/codex/watch.tsx");
-var _src_cli_doctor_tsx__rspack_import_28 = __webpack_require__("./src/cli/doctor.tsx");
-var _src_cli_groups_add_tsx__rspack_import_29 = __webpack_require__("./src/cli/groups/add.tsx");
-var _src_cli_groups_create_tsx__rspack_import_30 = __webpack_require__("./src/cli/groups/create.tsx");
-var _src_cli_groups_delete_tsx__rspack_import_31 = __webpack_require__("./src/cli/groups/delete.tsx");
-var _src_cli_groups_get_tsx__rspack_import_32 = __webpack_require__("./src/cli/groups/get.tsx");
-var _src_cli_groups_list_tsx__rspack_import_33 = __webpack_require__("./src/cli/groups/list.tsx");
-var _src_cli_groups_members_tsx__rspack_import_34 = __webpack_require__("./src/cli/groups/members.tsx");
-var _src_cli_groups_remove_tsx__rspack_import_35 = __webpack_require__("./src/cli/groups/remove.tsx");
-var _src_cli_groups_set_tsx__rspack_import_36 = __webpack_require__("./src/cli/groups/set.tsx");
-var _src_cli_groups_update_tsx__rspack_import_37 = __webpack_require__("./src/cli/groups/update.tsx");
-var _src_cli_history_tsx__rspack_import_38 = __webpack_require__("./src/cli/history.tsx");
-var _src_cli_send_tsx__rspack_import_39 = __webpack_require__("./src/cli/send.tsx");
-var _src_cli_skills_add_tsx__rspack_import_40 = __webpack_require__("./src/cli/skills/add.tsx");
-var _src_cli_skills_list_tsx__rspack_import_41 = __webpack_require__("./src/cli/skills/list.tsx");
-var _src_cli_skills_remove_tsx__rspack_import_42 = __webpack_require__("./src/cli/skills/remove.tsx");
-var _src_cli_thread_tsx__rspack_import_43 = __webpack_require__("./src/cli/thread.tsx");
+var _src_cli_chatgpt_desktop_hosts_tsx__rspack_import_10 = __webpack_require__("./src/cli/chatgpt-desktop/hosts.tsx");
+var _src_cli_chatgpt_desktop_read_tsx__rspack_import_11 = __webpack_require__("./src/cli/chatgpt-desktop/read.tsx");
+var _src_cli_chatgpt_desktop_search_tsx__rspack_import_12 = __webpack_require__("./src/cli/chatgpt-desktop/search.tsx");
+var _src_cli_chatgpt_desktop_send_tsx__rspack_import_13 = __webpack_require__("./src/cli/chatgpt-desktop/send.tsx");
+var _src_cli_chatgpt_desktop_status_tsx__rspack_import_14 = __webpack_require__("./src/cli/chatgpt-desktop/status.tsx");
+var _src_cli_chatgpt_desktop_threads_tsx__rspack_import_15 = __webpack_require__("./src/cli/chatgpt-desktop/threads.tsx");
+var _src_cli_claude_send_tsx__rspack_import_16 = __webpack_require__("./src/cli/claude/send.tsx");
+var _src_cli_codex_bridge_respond_tsx__rspack_import_17 = __webpack_require__("./src/cli/codex/bridge/respond.tsx");
+var _src_cli_codex_bridge_run_tsx__rspack_import_18 = __webpack_require__("./src/cli/codex/bridge/run.tsx");
+var _src_cli_codex_bridge_start_tsx__rspack_import_19 = __webpack_require__("./src/cli/codex/bridge/start.tsx");
+var _src_cli_codex_bridge_status_tsx__rspack_import_20 = __webpack_require__("./src/cli/codex/bridge/status.tsx");
+var _src_cli_codex_bridge_stop_tsx__rspack_import_21 = __webpack_require__("./src/cli/codex/bridge/stop.tsx");
+var _src_cli_codex_desktop_shim_tsx__rspack_import_22 = __webpack_require__("./src/cli/codex/desktop-shim.tsx");
+var _src_cli_codex_list_threads_tsx__rspack_import_23 = __webpack_require__("./src/cli/codex/list-threads.tsx");
+var _src_cli_codex_queue_tsx__rspack_import_24 = __webpack_require__("./src/cli/codex/queue.tsx");
+var _src_cli_codex_send_tsx__rspack_import_25 = __webpack_require__("./src/cli/codex/send.tsx");
+var _src_cli_codex_status_tsx__rspack_import_26 = __webpack_require__("./src/cli/codex/status.tsx");
+var _src_cli_codex_wait_tsx__rspack_import_27 = __webpack_require__("./src/cli/codex/wait.tsx");
+var _src_cli_codex_watch_tsx__rspack_import_28 = __webpack_require__("./src/cli/codex/watch.tsx");
+var _src_cli_doctor_tsx__rspack_import_29 = __webpack_require__("./src/cli/doctor.tsx");
+var _src_cli_groups_add_tsx__rspack_import_30 = __webpack_require__("./src/cli/groups/add.tsx");
+var _src_cli_groups_create_tsx__rspack_import_31 = __webpack_require__("./src/cli/groups/create.tsx");
+var _src_cli_groups_delete_tsx__rspack_import_32 = __webpack_require__("./src/cli/groups/delete.tsx");
+var _src_cli_groups_get_tsx__rspack_import_33 = __webpack_require__("./src/cli/groups/get.tsx");
+var _src_cli_groups_list_tsx__rspack_import_34 = __webpack_require__("./src/cli/groups/list.tsx");
+var _src_cli_groups_members_tsx__rspack_import_35 = __webpack_require__("./src/cli/groups/members.tsx");
+var _src_cli_groups_remove_tsx__rspack_import_36 = __webpack_require__("./src/cli/groups/remove.tsx");
+var _src_cli_groups_set_tsx__rspack_import_37 = __webpack_require__("./src/cli/groups/set.tsx");
+var _src_cli_groups_update_tsx__rspack_import_38 = __webpack_require__("./src/cli/groups/update.tsx");
+var _src_cli_history_tsx__rspack_import_39 = __webpack_require__("./src/cli/history.tsx");
+var _src_cli_send_tsx__rspack_import_40 = __webpack_require__("./src/cli/send.tsx");
+var _src_cli_skills_add_tsx__rspack_import_41 = __webpack_require__("./src/cli/skills/add.tsx");
+var _src_cli_skills_list_tsx__rspack_import_42 = __webpack_require__("./src/cli/skills/list.tsx");
+var _src_cli_skills_remove_tsx__rspack_import_43 = __webpack_require__("./src/cli/skills/remove.tsx");
+var _src_cli_thread_tsx__rspack_import_44 = __webpack_require__("./src/cli/thread.tsx");
 const route0 = Object.assign({}, Reflect.get(_src_cli_approvals_list_tsx__rspack_import_3, 'default'), _src_cli_approvals_list_tsx__rspack_import_3);
 const route1 = Object.assign({}, Reflect.get(_src_cli_approvals_respond_tsx__rspack_import_4, 'default'), _src_cli_approvals_respond_tsx__rspack_import_4);
 const route2 = Object.assign({}, Reflect.get(_src_cli_bots_create_tsx__rspack_import_5, 'default'), _src_cli_bots_create_tsx__rspack_import_5);
@@ -28662,41 +29116,42 @@ const route3 = Object.assign({}, Reflect.get(_src_cli_bots_delete_tsx__rspack_im
 const route4 = Object.assign({}, Reflect.get(_src_cli_bots_get_tsx__rspack_import_7, 'default'), _src_cli_bots_get_tsx__rspack_import_7);
 const route5 = Object.assign({}, Reflect.get(_src_cli_bots_list_tsx__rspack_import_8, 'default'), _src_cli_bots_list_tsx__rspack_import_8);
 const route6 = Object.assign({}, Reflect.get(_src_cli_bots_update_tsx__rspack_import_9, 'default'), _src_cli_bots_update_tsx__rspack_import_9);
-const route7 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_read_tsx__rspack_import_10, 'default'), _src_cli_chatgpt_desktop_read_tsx__rspack_import_10);
-const route8 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_search_tsx__rspack_import_11, 'default'), _src_cli_chatgpt_desktop_search_tsx__rspack_import_11);
-const route9 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_send_tsx__rspack_import_12, 'default'), _src_cli_chatgpt_desktop_send_tsx__rspack_import_12);
-const route10 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_status_tsx__rspack_import_13, 'default'), _src_cli_chatgpt_desktop_status_tsx__rspack_import_13);
-const route11 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_threads_tsx__rspack_import_14, 'default'), _src_cli_chatgpt_desktop_threads_tsx__rspack_import_14);
-const route12 = Object.assign({}, Reflect.get(_src_cli_claude_send_tsx__rspack_import_15, 'default'), _src_cli_claude_send_tsx__rspack_import_15);
-const route13 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_respond_tsx__rspack_import_16, 'default'), _src_cli_codex_bridge_respond_tsx__rspack_import_16);
-const route14 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_run_tsx__rspack_import_17, 'default'), _src_cli_codex_bridge_run_tsx__rspack_import_17);
-const route15 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_start_tsx__rspack_import_18, 'default'), _src_cli_codex_bridge_start_tsx__rspack_import_18);
-const route16 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_status_tsx__rspack_import_19, 'default'), _src_cli_codex_bridge_status_tsx__rspack_import_19);
-const route17 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_stop_tsx__rspack_import_20, 'default'), _src_cli_codex_bridge_stop_tsx__rspack_import_20);
-const route18 = Object.assign({}, Reflect.get(_src_cli_codex_desktop_shim_tsx__rspack_import_21, 'default'), _src_cli_codex_desktop_shim_tsx__rspack_import_21);
-const route19 = Object.assign({}, Reflect.get(_src_cli_codex_list_threads_tsx__rspack_import_22, 'default'), _src_cli_codex_list_threads_tsx__rspack_import_22);
-const route20 = Object.assign({}, Reflect.get(_src_cli_codex_queue_tsx__rspack_import_23, 'default'), _src_cli_codex_queue_tsx__rspack_import_23);
-const route21 = Object.assign({}, Reflect.get(_src_cli_codex_send_tsx__rspack_import_24, 'default'), _src_cli_codex_send_tsx__rspack_import_24);
-const route22 = Object.assign({}, Reflect.get(_src_cli_codex_status_tsx__rspack_import_25, 'default'), _src_cli_codex_status_tsx__rspack_import_25);
-const route23 = Object.assign({}, Reflect.get(_src_cli_codex_wait_tsx__rspack_import_26, 'default'), _src_cli_codex_wait_tsx__rspack_import_26);
-const route24 = Object.assign({}, Reflect.get(_src_cli_codex_watch_tsx__rspack_import_27, 'default'), _src_cli_codex_watch_tsx__rspack_import_27);
-const route25 = Object.assign({}, Reflect.get(_src_cli_doctor_tsx__rspack_import_28, 'default'), _src_cli_doctor_tsx__rspack_import_28);
-const route26 = Object.assign({}, Reflect.get(_src_cli_groups_add_tsx__rspack_import_29, 'default'), _src_cli_groups_add_tsx__rspack_import_29);
-const route27 = Object.assign({}, Reflect.get(_src_cli_groups_create_tsx__rspack_import_30, 'default'), _src_cli_groups_create_tsx__rspack_import_30);
-const route28 = Object.assign({}, Reflect.get(_src_cli_groups_delete_tsx__rspack_import_31, 'default'), _src_cli_groups_delete_tsx__rspack_import_31);
-const route29 = Object.assign({}, Reflect.get(_src_cli_groups_get_tsx__rspack_import_32, 'default'), _src_cli_groups_get_tsx__rspack_import_32);
-const route30 = Object.assign({}, Reflect.get(_src_cli_groups_list_tsx__rspack_import_33, 'default'), _src_cli_groups_list_tsx__rspack_import_33);
-const route31 = Object.assign({}, Reflect.get(_src_cli_groups_members_tsx__rspack_import_34, 'default'), _src_cli_groups_members_tsx__rspack_import_34);
-const route32 = Object.assign({}, Reflect.get(_src_cli_groups_remove_tsx__rspack_import_35, 'default'), _src_cli_groups_remove_tsx__rspack_import_35);
-const route33 = Object.assign({}, Reflect.get(_src_cli_groups_set_tsx__rspack_import_36, 'default'), _src_cli_groups_set_tsx__rspack_import_36);
-const route34 = Object.assign({}, Reflect.get(_src_cli_groups_update_tsx__rspack_import_37, 'default'), _src_cli_groups_update_tsx__rspack_import_37);
-const route35 = Object.assign({}, Reflect.get(_src_cli_history_tsx__rspack_import_38, 'default'), _src_cli_history_tsx__rspack_import_38);
-const route36 = Object.assign({}, Reflect.get(_src_cli_send_tsx__rspack_import_39, 'default'), _src_cli_send_tsx__rspack_import_39);
-const route37 = Object.assign({}, Reflect.get(_src_cli_skills_add_tsx__rspack_import_40, 'default'), _src_cli_skills_add_tsx__rspack_import_40);
-const route38 = Object.assign({}, Reflect.get(_src_cli_skills_list_tsx__rspack_import_41, 'default'), _src_cli_skills_list_tsx__rspack_import_41);
-const route39 = Object.assign({}, Reflect.get(_src_cli_skills_remove_tsx__rspack_import_42, 'default'), _src_cli_skills_remove_tsx__rspack_import_42);
-const route40 = Object.assign({}, Reflect.get(_src_cli_thread_tsx__rspack_import_43, 'default'), _src_cli_thread_tsx__rspack_import_43);
-const pluginRoot = (0, _agent_bundle_runtime__rspack_import_44.E7)({
+const route7 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_hosts_tsx__rspack_import_10, 'default'), _src_cli_chatgpt_desktop_hosts_tsx__rspack_import_10);
+const route8 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_read_tsx__rspack_import_11, 'default'), _src_cli_chatgpt_desktop_read_tsx__rspack_import_11);
+const route9 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_search_tsx__rspack_import_12, 'default'), _src_cli_chatgpt_desktop_search_tsx__rspack_import_12);
+const route10 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_send_tsx__rspack_import_13, 'default'), _src_cli_chatgpt_desktop_send_tsx__rspack_import_13);
+const route11 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_status_tsx__rspack_import_14, 'default'), _src_cli_chatgpt_desktop_status_tsx__rspack_import_14);
+const route12 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_threads_tsx__rspack_import_15, 'default'), _src_cli_chatgpt_desktop_threads_tsx__rspack_import_15);
+const route13 = Object.assign({}, Reflect.get(_src_cli_claude_send_tsx__rspack_import_16, 'default'), _src_cli_claude_send_tsx__rspack_import_16);
+const route14 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_respond_tsx__rspack_import_17, 'default'), _src_cli_codex_bridge_respond_tsx__rspack_import_17);
+const route15 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_run_tsx__rspack_import_18, 'default'), _src_cli_codex_bridge_run_tsx__rspack_import_18);
+const route16 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_start_tsx__rspack_import_19, 'default'), _src_cli_codex_bridge_start_tsx__rspack_import_19);
+const route17 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_status_tsx__rspack_import_20, 'default'), _src_cli_codex_bridge_status_tsx__rspack_import_20);
+const route18 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_stop_tsx__rspack_import_21, 'default'), _src_cli_codex_bridge_stop_tsx__rspack_import_21);
+const route19 = Object.assign({}, Reflect.get(_src_cli_codex_desktop_shim_tsx__rspack_import_22, 'default'), _src_cli_codex_desktop_shim_tsx__rspack_import_22);
+const route20 = Object.assign({}, Reflect.get(_src_cli_codex_list_threads_tsx__rspack_import_23, 'default'), _src_cli_codex_list_threads_tsx__rspack_import_23);
+const route21 = Object.assign({}, Reflect.get(_src_cli_codex_queue_tsx__rspack_import_24, 'default'), _src_cli_codex_queue_tsx__rspack_import_24);
+const route22 = Object.assign({}, Reflect.get(_src_cli_codex_send_tsx__rspack_import_25, 'default'), _src_cli_codex_send_tsx__rspack_import_25);
+const route23 = Object.assign({}, Reflect.get(_src_cli_codex_status_tsx__rspack_import_26, 'default'), _src_cli_codex_status_tsx__rspack_import_26);
+const route24 = Object.assign({}, Reflect.get(_src_cli_codex_wait_tsx__rspack_import_27, 'default'), _src_cli_codex_wait_tsx__rspack_import_27);
+const route25 = Object.assign({}, Reflect.get(_src_cli_codex_watch_tsx__rspack_import_28, 'default'), _src_cli_codex_watch_tsx__rspack_import_28);
+const route26 = Object.assign({}, Reflect.get(_src_cli_doctor_tsx__rspack_import_29, 'default'), _src_cli_doctor_tsx__rspack_import_29);
+const route27 = Object.assign({}, Reflect.get(_src_cli_groups_add_tsx__rspack_import_30, 'default'), _src_cli_groups_add_tsx__rspack_import_30);
+const route28 = Object.assign({}, Reflect.get(_src_cli_groups_create_tsx__rspack_import_31, 'default'), _src_cli_groups_create_tsx__rspack_import_31);
+const route29 = Object.assign({}, Reflect.get(_src_cli_groups_delete_tsx__rspack_import_32, 'default'), _src_cli_groups_delete_tsx__rspack_import_32);
+const route30 = Object.assign({}, Reflect.get(_src_cli_groups_get_tsx__rspack_import_33, 'default'), _src_cli_groups_get_tsx__rspack_import_33);
+const route31 = Object.assign({}, Reflect.get(_src_cli_groups_list_tsx__rspack_import_34, 'default'), _src_cli_groups_list_tsx__rspack_import_34);
+const route32 = Object.assign({}, Reflect.get(_src_cli_groups_members_tsx__rspack_import_35, 'default'), _src_cli_groups_members_tsx__rspack_import_35);
+const route33 = Object.assign({}, Reflect.get(_src_cli_groups_remove_tsx__rspack_import_36, 'default'), _src_cli_groups_remove_tsx__rspack_import_36);
+const route34 = Object.assign({}, Reflect.get(_src_cli_groups_set_tsx__rspack_import_37, 'default'), _src_cli_groups_set_tsx__rspack_import_37);
+const route35 = Object.assign({}, Reflect.get(_src_cli_groups_update_tsx__rspack_import_38, 'default'), _src_cli_groups_update_tsx__rspack_import_38);
+const route36 = Object.assign({}, Reflect.get(_src_cli_history_tsx__rspack_import_39, 'default'), _src_cli_history_tsx__rspack_import_39);
+const route37 = Object.assign({}, Reflect.get(_src_cli_send_tsx__rspack_import_40, 'default'), _src_cli_send_tsx__rspack_import_40);
+const route38 = Object.assign({}, Reflect.get(_src_cli_skills_add_tsx__rspack_import_41, 'default'), _src_cli_skills_add_tsx__rspack_import_41);
+const route39 = Object.assign({}, Reflect.get(_src_cli_skills_list_tsx__rspack_import_42, 'default'), _src_cli_skills_list_tsx__rspack_import_42);
+const route40 = Object.assign({}, Reflect.get(_src_cli_skills_remove_tsx__rspack_import_43, 'default'), _src_cli_skills_remove_tsx__rspack_import_43);
+const route41 = Object.assign({}, Reflect.get(_src_cli_thread_tsx__rspack_import_44, 'default'), _src_cli_thread_tsx__rspack_import_44);
+const pluginRoot = (0, _agent_bundle_runtime__rspack_import_45.E7)({
     fallback: (0, node_url__rspack_import_2.fileURLToPath)(new URL('..', import.meta.url)),
     stateAnchor: 'user-data'
 });
@@ -28754,209 +29209,215 @@ const routes = Object.freeze({
         name: "bots update",
         module: route6
     }),
+    "cli:chatgpt-desktop/hosts": Object.freeze({
+        id: "cli:chatgpt-desktop/hosts",
+        kind: "cli",
+        name: "chatgpt-desktop hosts",
+        module: route7
+    }),
     "cli:chatgpt-desktop/read": Object.freeze({
         id: "cli:chatgpt-desktop/read",
         kind: "cli",
         name: "chatgpt-desktop read",
-        module: route7
+        module: route8
     }),
     "cli:chatgpt-desktop/search": Object.freeze({
         id: "cli:chatgpt-desktop/search",
         kind: "cli",
         name: "chatgpt-desktop search",
-        module: route8
+        module: route9
     }),
     "cli:chatgpt-desktop/send": Object.freeze({
         id: "cli:chatgpt-desktop/send",
         kind: "cli",
         name: "chatgpt-desktop send",
-        module: route9
+        module: route10
     }),
     "cli:chatgpt-desktop/status": Object.freeze({
         id: "cli:chatgpt-desktop/status",
         kind: "cli",
         name: "chatgpt-desktop status",
-        module: route10
+        module: route11
     }),
     "cli:chatgpt-desktop/threads": Object.freeze({
         id: "cli:chatgpt-desktop/threads",
         kind: "cli",
         name: "chatgpt-desktop threads",
-        module: route11
+        module: route12
     }),
     "cli:claude/send": Object.freeze({
         id: "cli:claude/send",
         kind: "cli",
         name: "claude send",
-        module: route12
+        module: route13
     }),
     "cli:codex/bridge/respond": Object.freeze({
         id: "cli:codex/bridge/respond",
         kind: "cli",
         name: "codex bridge respond",
-        module: route13
+        module: route14
     }),
     "cli:codex/bridge/run": Object.freeze({
         id: "cli:codex/bridge/run",
         kind: "cli",
         name: "codex bridge run",
-        module: route14
+        module: route15
     }),
     "cli:codex/bridge/start": Object.freeze({
         id: "cli:codex/bridge/start",
         kind: "cli",
         name: "codex bridge start",
-        module: route15
+        module: route16
     }),
     "cli:codex/bridge/status": Object.freeze({
         id: "cli:codex/bridge/status",
         kind: "cli",
         name: "codex bridge status",
-        module: route16
+        module: route17
     }),
     "cli:codex/bridge/stop": Object.freeze({
         id: "cli:codex/bridge/stop",
         kind: "cli",
         name: "codex bridge stop",
-        module: route17
+        module: route18
     }),
     "cli:codex/desktop-shim": Object.freeze({
         id: "cli:codex/desktop-shim",
         kind: "cli",
         name: "codex desktop-shim",
-        module: route18
+        module: route19
     }),
     "cli:codex/list-threads": Object.freeze({
         id: "cli:codex/list-threads",
         kind: "cli",
         name: "codex list-threads",
-        module: route19
+        module: route20
     }),
     "cli:codex/queue": Object.freeze({
         id: "cli:codex/queue",
         kind: "cli",
         name: "codex queue",
-        module: route20
+        module: route21
     }),
     "cli:codex/send": Object.freeze({
         id: "cli:codex/send",
         kind: "cli",
         name: "codex send",
-        module: route21
+        module: route22
     }),
     "cli:codex/status": Object.freeze({
         id: "cli:codex/status",
         kind: "cli",
         name: "codex status",
-        module: route22
+        module: route23
     }),
     "cli:codex/wait": Object.freeze({
         id: "cli:codex/wait",
         kind: "cli",
         name: "codex wait",
-        module: route23
+        module: route24
     }),
     "cli:codex/watch": Object.freeze({
         id: "cli:codex/watch",
         kind: "cli",
         name: "codex watch",
-        module: route24
+        module: route25
     }),
     "cli:doctor": Object.freeze({
         id: "cli:doctor",
         kind: "cli",
         name: "doctor",
-        module: route25
+        module: route26
     }),
     "cli:groups/add": Object.freeze({
         id: "cli:groups/add",
         kind: "cli",
         name: "groups add",
-        module: route26
+        module: route27
     }),
     "cli:groups/create": Object.freeze({
         id: "cli:groups/create",
         kind: "cli",
         name: "groups create",
-        module: route27
+        module: route28
     }),
     "cli:groups/delete": Object.freeze({
         id: "cli:groups/delete",
         kind: "cli",
         name: "groups delete",
-        module: route28
+        module: route29
     }),
     "cli:groups/get": Object.freeze({
         id: "cli:groups/get",
         kind: "cli",
         name: "groups get",
-        module: route29
+        module: route30
     }),
     "cli:groups/list": Object.freeze({
         id: "cli:groups/list",
         kind: "cli",
         name: "groups list",
-        module: route30
+        module: route31
     }),
     "cli:groups/members": Object.freeze({
         id: "cli:groups/members",
         kind: "cli",
         name: "groups members",
-        module: route31
+        module: route32
     }),
     "cli:groups/remove": Object.freeze({
         id: "cli:groups/remove",
         kind: "cli",
         name: "groups remove",
-        module: route32
+        module: route33
     }),
     "cli:groups/set": Object.freeze({
         id: "cli:groups/set",
         kind: "cli",
         name: "groups set",
-        module: route33
+        module: route34
     }),
     "cli:groups/update": Object.freeze({
         id: "cli:groups/update",
         kind: "cli",
         name: "groups update",
-        module: route34
+        module: route35
     }),
     "cli:history": Object.freeze({
         id: "cli:history",
         kind: "cli",
         name: "history",
-        module: route35
+        module: route36
     }),
     "cli:send": Object.freeze({
         id: "cli:send",
         kind: "cli",
         name: "send",
-        module: route36
+        module: route37
     }),
     "cli:skills/add": Object.freeze({
         id: "cli:skills/add",
         kind: "cli",
         name: "skills add",
-        module: route37
+        module: route38
     }),
     "cli:skills/list": Object.freeze({
         id: "cli:skills/list",
         kind: "cli",
         name: "skills list",
-        module: route38
+        module: route39
     }),
     "cli:skills/remove": Object.freeze({
         id: "cli:skills/remove",
         kind: "cli",
         name: "skills remove",
-        module: route39
+        module: route40
     }),
     "cli:thread": Object.freeze({
         id: "cli:thread",
         kind: "cli",
         name: "thread",
-        module: route40
+        module: route41
     })
 });
 const requests = new Map();
@@ -28991,18 +29452,18 @@ const render = async (message)=>{
     };
     try {
         const cwd = process.cwd();
-        await (0, _agent_bundle_runtime__rspack_import_45.iC)({
+        await (0, _agent_bundle_runtime__rspack_import_46.iC)({
             capabilities: {
-                command: (0, _agent_bundle_runtime__rspack_import_45.hU)(),
-                filesystem: (0, _agent_bundle_runtime__rspack_import_45.hU)(),
-                network: (0, _agent_bundle_runtime__rspack_import_45.hU)(),
-                projectRoot: (0, _agent_bundle_runtime__rspack_import_45.qC)({
+                command: (0, _agent_bundle_runtime__rspack_import_46.hU)(),
+                filesystem: (0, _agent_bundle_runtime__rspack_import_46.hU)(),
+                network: (0, _agent_bundle_runtime__rspack_import_46.hU)(),
+                projectRoot: (0, _agent_bundle_runtime__rspack_import_46.qC)({
                     root: cwd
                 }, 'derived')
             },
-            host: (0, _agent_bundle_runtime__rspack_import_45.hU)('unsupported-surface'),
+            host: (0, _agent_bundle_runtime__rspack_import_46.hU)('unsupported-surface'),
             invocation: message.request,
-            lineage: (0, _agent_bundle_runtime__rspack_import_45.hU)('unsupported-surface'),
+            lineage: (0, _agent_bundle_runtime__rspack_import_46.hU)('unsupported-surface'),
             plugin: pluginRoot.identity,
             progress: {
                 report: async (update)=>{
@@ -29015,8 +29476,8 @@ const render = async (message)=>{
             },
             process: processHit,
             signal: controller.signal,
-            terminal: message.terminal === undefined ? (0, _agent_bundle_runtime__rspack_import_45.hU)('not-provided') : (0, _agent_bundle_runtime__rspack_import_45.qC)(message.terminal, 'native'),
-            workspace: (0, _agent_bundle_runtime__rspack_import_45.qC)({
+            terminal: message.terminal === undefined ? (0, _agent_bundle_runtime__rspack_import_46.hU)('not-provided') : (0, _agent_bundle_runtime__rspack_import_46.qC)(message.terminal, 'native'),
+            workspace: (0, _agent_bundle_runtime__rspack_import_46.qC)({
                 root: cwd
             }, 'derived')
         }, async ()=>{
@@ -29025,7 +29486,7 @@ const render = async (message)=>{
                 type: 'observed-render-start'
             });
             const renderStartedAt = performance.now();
-            const flight = (0, _agent_bundle_runtime_flight_server__rspack_import_46.y)(composeLayouts(observedRoute, {
+            const flight = (0, _agent_bundle_runtime_flight_server__rspack_import_47.y)(composeLayouts(observedRoute, {
                 ...message.props,
                 signal: controller.signal
             }, controller.signal), {
