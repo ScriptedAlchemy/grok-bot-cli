@@ -1,5 +1,12 @@
 # grok-bot-cli
 
+## 0.11.1
+
+### Patch Changes
+
+- ddfdc9d: Update agent-bundle to the 0.3.2 release preview (854e79f16e) and rebuild the plugin artifact, so `gbot-install install grokbot`, `uninstall grokbot`, and `doctor --host grokbot` stage the Cursor projection as a Grok Bot marketplace repository.
+- 2c84000: Add `description` frontmatter to the `codex-send`, `codex-threads`, and `codex-wait` plugin commands so `claude plugin validate --strict` and `gbot-install doctor` no longer report AB6020 "No frontmatter block found".
+
 ## 0.11.0
 
 ### Minor Changes
