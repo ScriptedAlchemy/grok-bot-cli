@@ -1,5 +1,20 @@
 # grok-bot-cli
 
+## 0.11.0
+
+### Minor Changes
+
+- f581d51: Scaffold ChatGPT Desktop CDP adapter and MCP/CLI tools (`chatgpt_desktop_*`). List/search keep separate `host` / `modelProvider` filters; `list_hosts` discovers hosts and providers. Codex list-threads always passes `modelProviders: []`, pages via `nextCursor`, and falls back from `useStateDbOnly` when empty. Codex send/read/wait strip Desktop `local:` ids; remote-control "thread not loaded" maps to `REMOTE_THREAD_NOT_LOADED` with host. Thread reads use `thread/read` metadata + `thread/turns/list` (never deprecated `includeTurns`).
+  
+  Keep CDP loopback-only across discovery, bound and close sessions, serialize UI operations, distinguish partial replies and uncertain sends, and preserve dynamic remote/provider filtering and ordered empty-safe history reads.
+
+### Patch Changes
+
+- f581d51: Fix ChatGPT Desktop host discovery, bounded thread reads and searches, list pagination, CDP navigation and project clicks, status reachability, and result provenance. Add complete MCP and skill guidance, project filters, archived-thread reads and explicit unarchive-on-send support.
+  
+  Keep MCP Desktop results below the Agent Bundle document cap with resumable, lossless read fragments and byte-bounded list/search pages. Compact display titles while matching search against full titles, and align remote host counts with filtered inventory.
+- f581d51: Page ChatGPT Desktop threads from a stable, sorted merged inventory so CDP and remote rows appear once in their timestamp range and requested page sizes are filled. Resolve project labels from Desktop assignments and workspace roots. Verify new-chat navigation and project scope before sending, and report unavailable project roots promptly.
+
 ## 0.10.2
 
 ### Patch Changes
