@@ -143,20 +143,110 @@ test("codex list-threads passes --limit and prints threads", async () => {
     const text = await gbot(fake.home, "codex", "list-threads", "--limit", "1");
     assert.equal(text.code, 0, text.err);
     assert.equal(text.out, "t-1  idle - Fix the build\n    /repo/a\n    please fix the build\n\nmore: --cursor \"cursor-2\"\n");
-    assert.deepEqual(fake.received.find((m) => m.method === "thread/list").params, { limit: 1, useStateDbOnly: true });
+    assert.deepEqual(fake.received.find((m) => m.method === "thread/list").params, {
+      limit: 1,
+      useStateDbOnly: true,
+      modelProviders: [],
+    });
 
     const json = await gbot(fake.home, "codex", "list-threads", "--json");
     assert.equal(json.code, 0, json.err);
     assert.deepEqual(JSON.parse(json.out), {
       threads: [
-        { id: "t-1", status: "idle", activeFlags: [], name: "Fix the build", preview: "please fix the build", cwd: "/repo/a", source: "vscode", updatedAt: 1700000001 },
-        { id: "t-2", status: "notLoaded", activeFlags: [], name: null, preview: "second   thread\npreview", cwd: "/repo/b", source: "cli", updatedAt: 1700000000 },
+        {
+          id: "t-1",
+          status: "idle",
+          activeFlags: [],
+          name: "Fix the build",
+          preview: "please fix the build",
+          cwd: "/repo/a",
+          source: "vscode",
+          createdAt: null,
+          updatedAt: 1700000001,
+          section: null,
+          projectId: null,
+          modelProvider: null,
+          model: null,
+          originator: null,
+        },
+        {
+          id: "t-2",
+          status: "notLoaded",
+          activeFlags: [],
+          name: null,
+          preview: "second   thread\npreview",
+          cwd: "/repo/b",
+          source: "cli",
+          createdAt: null,
+          updatedAt: 1700000000,
+          section: null,
+          projectId: null,
+          modelProvider: null,
+          model: null,
+          originator: null,
+        },
       ],
       nextCursor: null,
       limit: 20,
+      useStateDbOnly: true,
       exitCode: 0,
     });
-    assert.deepEqual(fake.received.at(-1).params, { limit: 20, useStateDbOnly: true });
+    assert.deepEqual(fake.received.at(-1).params, {
+      limit: 20,
+      useStateDbOnly: true,
+      modelProviders: [],
+    });
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex list-threads passes modelProviders:[] so other providers are not filtered out", async () => {
+  const seen = [];
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "thread/list": (params, ok) => {
+      seen.push(params);
+      ok({
+        data: [
+          {
+            id: "openai-1",
+            status: { type: "idle" },
+            name: "OpenAI thread",
+            preview: "a",
+            cwd: "/a",
+            modelProvider: "openai",
+            updatedAt: 1,
+          },
+          {
+            id: "other-1",
+            status: { type: "idle" },
+            name: "Other provider",
+            preview: "b",
+            cwd: "/b",
+            modelProvider: "azure",
+            section: { id: "Pinned", name: "Pinned" },
+            projectId: "proj-1",
+            model: "gpt-x",
+            originator: "desktop",
+            createdAt: 10,
+            updatedAt: 20,
+          },
+        ],
+        nextCursor: null,
+      });
+    },
+  });
+  try {
+    const { code, out } = await gbot(fake.home, "codex", "list-threads", "--json");
+    assert.equal(code, 0, out);
+    assert.deepEqual(seen[0], { limit: 20, useStateDbOnly: true, modelProviders: [] });
+    const page = JSON.parse(out);
+    assert.deepEqual(page.threads.map((t) => t.id), ["openai-1", "other-1"]);
+    assert.equal(page.threads[1].modelProvider, "azure");
+    assert.deepEqual(page.threads[1].section, { id: "Pinned", name: "Pinned" });
+    assert.equal(page.threads[1].projectId, "proj-1");
+    assert.equal(page.threads[1].createdAt, 10);
   } finally {
     await fake.close();
   }
@@ -626,7 +716,7 @@ test("codex status rejects a complete oversized frame without buffering it", asy
     ...baseHandlers,
     initialize: (params, ok, err, send, socket) => {
       void params; void ok; void err; void send;
-      socket.write(encodeFrame(0x1, Buffer.alloc(5 * 1024 * 1024)));
+      socket.write(encodeFrame(0x1, Buffer.alloc(17 * 1024 * 1024)));
     },
   });
   try {
@@ -832,7 +922,7 @@ test("codex list-threads pages with --cursor, echoes nextCursor, and rejects unk
     const second = await gbot(fake.home, "codex", "list-threads", "--limit", "1", "--cursor", "page-2", "--json");
     assert.deepEqual(JSON.parse(second.out).threads.map((t) => t.id), ["t-2"]);
     assert.equal(JSON.parse(second.out).nextCursor, null);
-    assert.deepEqual(seen.at(-1), { limit: 1, useStateDbOnly: true, cursor: "page-2" });
+    assert.deepEqual(seen.at(-1), { limit: 1, useStateDbOnly: true, modelProviders: [], cursor: "page-2" });
 
     const unknown = await gbot(fake.home, "codex", "list-threads", "--all");
     assert.equal(unknown.code, 2);
@@ -875,8 +965,38 @@ test("codex list-threads sanitizes text fields, keeps structured source, and rej
     assert.equal(code, 0);
     const { threads } = JSON.parse(out);
     assert.deepEqual(threads, [
-      { id: "t-x line", status: "active", activeFlags: ["waitingOnApproval"], name: "a b", preview: "keep\nnewlines", cwd: "/r", source: { custom: "hauler\u001b[0m" }, updatedAt: null },
-      { id: "t-odd", status: "unknown", activeFlags: [], name: null, preview: "", cwd: null, source: "cli", updatedAt: null },
+      {
+        id: "t-x line",
+        status: "active",
+        activeFlags: ["waitingOnApproval"],
+        name: "a b",
+        preview: "keep\nnewlines",
+        cwd: "/r",
+        source: { custom: "hauler\u001b[0m" },
+        createdAt: null,
+        updatedAt: null,
+        section: null,
+        projectId: null,
+        modelProvider: null,
+        model: null,
+        originator: null,
+      },
+      {
+        id: "t-odd",
+        status: "unknown",
+        activeFlags: [],
+        name: null,
+        preview: "",
+        cwd: null,
+        source: "cli",
+        createdAt: null,
+        updatedAt: null,
+        section: null,
+        projectId: null,
+        modelProvider: null,
+        model: null,
+        originator: null,
+      },
     ]);
   } finally {
     await fake.close();
@@ -1449,3 +1569,154 @@ for (const whenBusy of ["reject", "queue"]) {
     }
   });
 }
+
+test("codex list-threads falls back to a full scan when useStateDbOnly returns nothing", async () => {
+  const seen = [];
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "thread/list": (params, ok) => {
+      seen.push(params);
+      if (params.useStateDbOnly) return ok({ data: [], nextCursor: null });
+      ok({ data: [THREADS[0]], nextCursor: null });
+    },
+  });
+  try {
+    const { code, out } = await gbot(fake.home, "codex", "list-threads", "--json");
+    assert.equal(code, 0, out);
+    const page = JSON.parse(out);
+    assert.deepEqual(page.threads.map((t) => t.id), ["t-1"]);
+    assert.equal(page.useStateDbOnly, false);
+    assert.deepEqual(seen, [
+      { limit: 20, modelProviders: [], useStateDbOnly: true },
+      { limit: 20, modelProviders: [], useStateDbOnly: false },
+    ]);
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send strips a Desktop local: thread id prefix before resume", async () => {
+  const fake = await fakeAppServer(baseHandlers);
+  try {
+    const { code, out } = await gbot(
+      fake.home,
+      "codex",
+      "send",
+      "local:t-1",
+      "hello",
+      "--json",
+    );
+    assert.equal(code, 0, out);
+    const receipt = JSON.parse(out);
+    assert.equal(receipt.threadId, "t-1");
+    const resume = fake.received.find((m) => m.method === "thread/resume");
+    assert.deepEqual(resume.params, { threadId: "t-1", excludeTurns: true });
+    const start = fake.received.find((m) => m.method === "turn/start");
+    assert.equal(start.params.threadId, "t-1");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex send maps remote-control thread not loaded to a typed host error", async () => {
+  const { copyFileSync } = await import("node:fs");
+  const home = mkdtempSync(join(tmpdir(), "gbot-remote-send-"));
+  mkdirSync(home, { recursive: true });
+  copyFileSync(
+    join(fileURLToPath(new URL(".", import.meta.url)), "../tests/fixtures/codex-global-state-remote.json"),
+    join(home, ".codex-global-state.json"),
+  );
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "thread/resume": (params, ok, err) =>
+      err({ code: -32600, message: "thread not loaded: " + params.threadId }),
+  });
+  // Point CODEX_HOME at the fixture home for global-state lookup, but use the
+  // fake socket via CODEX_APP_SERVER_SOCK.
+  try {
+    const envHome = fake.home;
+    const { readFileSync, writeFileSync } = await import("node:fs");
+    // Install the remote fixture into the fake home so findRemoteThreadHost sees it.
+    writeFileSync(
+      join(envHome, ".codex-global-state.json"),
+      readFileSync(join(home, ".codex-global-state.json")),
+    );
+    const { code, out } = await gbot(
+      envHome,
+      "codex",
+      "send",
+      "local:aaaa1111-1111-1111-1111-111111111111",
+      "hi",
+      "--json",
+    );
+    assert.equal(code, 1, out);
+    const failure = JSON.parse(out);
+    assert.equal(failure.reason, "remote-thread-not-loaded");
+    assert.equal(failure.code, "REMOTE_THREAD_NOT_LOADED");
+    assert.equal(failure.hostId, "host-macbook");
+    assert.equal(failure.hostName, "Zack's MacBook");
+    assert.match(failure.error, /host-macbook/);
+    assert.match(failure.hint, /host-macbook/);
+    assert.equal(failure.threadId, "aaaa1111-1111-1111-1111-111111111111");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("readCodexThread uses thread/read without includeTurns and pages thread/turns/list", async () => {
+  const { readCodexThread } = await import("../src/core/codex-bridge.js");
+  const seen = [];
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "thread/read": (params, ok) => {
+      seen.push({ method: "thread/read", params });
+      ok({ thread: { id: params.threadId, name: "History", status: { type: "idle" } } });
+    },
+    "thread/turns/list": (params, ok) => {
+      seen.push({ method: "thread/turns/list", params });
+      if (!params.cursor) {
+        return ok({
+          data: [{ id: "turn-a", status: "completed", items: [] }],
+          nextCursor: "page-2",
+        });
+      }
+      ok({
+        data: [{ id: "turn-b", status: "completed", items: [] }],
+        nextCursor: null,
+      });
+    },
+  });
+  try {
+    const out = await readCodexThread("local:t-1", { env: { CODEX_HOME: fake.home }, limit: 10 });
+    assert.equal(out.threadId, "t-1");
+    assert.equal(out.nextCursor, null);
+    assert.equal(out.thread.name, "History");
+    assert.deepEqual(out.turns.map((t) => t.id), ["turn-a", "turn-b"]);
+    assert.deepEqual(seen[0], { method: "thread/read", params: { threadId: "t-1" } });
+    assert.equal("includeTurns" in seen[0].params, false);
+    assert.deepEqual(seen[1].params, {
+      threadId: "t-1",
+      limit: 10,
+      itemsView: "full",
+      sortDirection: "desc",
+    });
+    assert.deepEqual(seen[2].params, {
+      threadId: "t-1",
+      limit: 9,
+      itemsView: "full",
+      sortDirection: "desc",
+      cursor: "page-2",
+    });
+  } finally {
+    await fake.close();
+  }
+});
+
+test("normalizeCodexThreadId strips local: and rejects temporary Desktop rows", async () => {
+  const { normalizeCodexThreadId, isTemporaryDesktopThreadId } = await import("../src/core/codex-bridge.js");
+  assert.equal(normalizeCodexThreadId("local:abc-123"), "abc-123");
+  assert.equal(normalizeCodexThreadId("abc-123"), "abc-123");
+  assert.equal(isTemporaryDesktopThreadId("local:client-new-thread:x"), true);
+  assert.throws(() => normalizeCodexThreadId("local:client-new-thread:x"), /Temporary Desktop/);
+  assert.throws(() => normalizeCodexThreadId("client-new-thread:x"), /Temporary Desktop/);
+});

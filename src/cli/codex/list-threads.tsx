@@ -8,13 +8,14 @@ import { formatCodexThread } from '../../core/format.js';
 import { failureDocumentSchema } from '../_shared.js';
 
 export const config = {
-  description: 'List Codex daemon-managed threads.',
+  description:
+    'List Codex daemon-managed threads (all modelProviders; pages via --cursor / nextCursor).',
   exitCode: 'result',
   inputJsonSchema: {
     additionalProperties: false,
     properties: {
       cursor: {
-        description: 'Opaque pagination cursor (may start with -)',
+        description: 'Opaque pagination cursor from a previous nextCursor (may start with -)',
         type: 'string',
       },
       limit: { default: 20, description: 'Max threads to list (1-200)', type: 'number' },
@@ -33,6 +34,7 @@ export const resultSchema = z.union([
     limit: z.number().int().min(1).max(200),
     nextCursor: z.string().nullable(),
     threads: z.array(z.record(z.string(), z.json())),
+    useStateDbOnly: z.boolean().optional(),
   }).strict(),
   failureDocumentSchema,
 ]);

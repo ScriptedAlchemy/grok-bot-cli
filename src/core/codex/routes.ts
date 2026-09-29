@@ -2,8 +2,21 @@ import { z } from 'zod';
 import { buildEnvelope, listCodexThreads, sendToCodexThread } from '../codex-bridge.js';
 import { outcomeFromError } from './contract.js';
 import { openCodexConversation } from './conversation.js';
+import { normalizeCodexThreadId } from './thread-id.js';
 
-const id = z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/);
+const bareId = z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/);
+/** Accept Desktop `local:<id>` and normalize before the bare-id check. */
+const id = z.string().min(1).max(160).transform((value, ctx) => {
+  try {
+    return normalizeCodexThreadId(value);
+  } catch (error) {
+    ctx.addIssue({
+      code: 'custom',
+      message: error instanceof Error ? error.message : 'Invalid threadId',
+    });
+    return z.NEVER;
+  }
+}).pipe(bareId);
 export const observationFields = {
   expectedCwd: z.string().min(1).optional(),
   threadId: id,
@@ -11,15 +24,15 @@ export const observationFields = {
 };
 export const sendFields = {
   ...observationFields,
-  correlationId: id.optional(), envelope: z.boolean().optional(), hop: z.number().int().min(0).optional(),
+  correlationId: bareId.optional(), envelope: z.boolean().optional(), hop: z.number().int().min(0).optional(),
   model: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/).optional(),
   effort: z.enum(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']).optional(),
-  replyTo: id.optional(), expectedTurnId: id.optional(),
+  replyTo: bareId.optional(), expectedTurnId: bareId.optional(),
   whenBusy: z.enum(['reject', 'queue', 'steer']).default('reject'), wait: z.boolean().default(false),
   maxOutputBytes: z.number().int().min(1).max(4194304).optional(),
 };
 export const sendSchema = z.object({ ...sendFields, message: z.string().min(1).max(4194304) }).strict();
-export const waitSchema = z.object({ ...observationFields, turnId: id, messageId: id.optional(), maxOutputBytes: z.number().int().min(1).max(4194304).optional() }).strict();
+export const waitSchema = z.object({ ...observationFields, turnId: bareId, messageId: bareId.optional(), maxOutputBytes: z.number().int().min(1).max(4194304).optional() }).strict();
 export const watchSchema = z.object({ expectedCwd: z.string().min(1).optional(), threadId: id, timeoutMs: z.number().int().min(1).max(600000).optional(), maxEvents: z.number().int().min(1).max(500).default(100) }).strict();
 export const threadsSchema = z.object({ limit: z.number().int().min(1).max(200).default(20), cursor: z.string().min(1).max(4096).optional() }).strict();
 export const resultSchema = z.object({

@@ -228,11 +228,27 @@ Residual risks, stated honestly: requests without both matching thread and turn 
 
 Current shim limitation: Desktop's spawn-time app-tools MCP `-c` overrides are not forwarded to the already-running managed daemon. No restoration path or app-tools parity has been demonstrated here; this is not a claim of permanent protocol impossibility. Fully quit and relaunch ChatGPT.app after install (or login) so it inherits `CODEX_CLI_PATH`. `status` reads the macOS GUI-domain value via `launchctl getenv` (what Desktop actually inherits) alongside the calling shell's value. LaunchAgent persistence is macOS-first; elsewhere install still writes the wrapper and bridge but leaves `CODEX_CLI_PATH` for you to export. `~/.codex/bin` holds scripts only — there is no extra revert note to clean up; revert is `gbot codex desktop-shim uninstall` plus this section.
 
+**ChatGPT Desktop over CDP (scaffold).** Prefer the Desktop UI surface via Chrome DevTools Protocol when you need more than the app-server socket. CDP is **local-only** (`127.0.0.1`); there is no remote transport. Relaunch the macOS app with a debug port (Electron fuses block Node inspect, not Chromium's flag):
+
+```sh
+osascript -e 'tell application "ChatGPT" to quit' \
+  && open -a /Applications/ChatGPT.app --args --remote-debugging-port=9222
+gbot chatgpt-desktop status
+gbot chatgpt-desktop threads --limit 20
+gbot chatgpt-desktop search "launch"
+gbot chatgpt-desktop read <threadId>
+gbot chatgpt-desktop read <threadId> --full --limit 200
+gbot chatgpt-desktop send --project Launch "hello"
+gbot chatgpt-desktop send --thread-id <threadId> "hello"
+```
+
+MCP tools: `chatgpt_desktop_status`, `chatgpt_desktop_list_threads`, `chatgpt_desktop_search_threads`, `chatgpt_desktop_read_thread`, `chatgpt_desktop_send`, `chatgpt_desktop_wait_reply`. List/search/read prefer the Codex app-server (`thread/list` with `modelProviders: []`, `thread/read` + `thread/turns/list`; never `thread/resume` for reads). Send / new-thread / wait / selected-thread stay on CDP; DOM read is fallback only. Desktop `local:<conversationId>` strips to the bare app-server id. Results report `backend: "cdp" | "app-server"`. Details: [docs/chatgpt-desktop-cdp.md](docs/chatgpt-desktop-cdp.md).
+
 **Status contract (`gbot codex status --json`).** `reachable` is endpoint reachability only. `socketState` is `socket`, `absent`, `permission-denied`, or `not-a-socket`; `mode` is `daemon` for a usable daemon, otherwise the failure: `socket-absent`, `permission-denied` (the file or the connect refused this user), `not-a-socket`, `connect-failed` (socket present, nothing completed the WebSocket upgrade), `handshake-failed` (upgrade or `initialize` failed), `windows-unsupported`, or `bad-response` (reachable, but `initialize` returned something off-schema — `reachable` stays `true`). `schema.compatibility` is `exact` when the daemon reports the pinned version, `unverified` when it differs (methods usually survive upgrades, but the shapes are not re-checked), or `unknown`. `cliVersionProbe` reports whether `codex --version` answered (`ok`, `missing`, `timeout` after 3 s, `error`). The document is always written to stdout and includes `exitCode`; it is `0` only for a usable daemon.
 
 `desktopShimConfigured` is true when the installed wrapper is selected by Desktop-facing `CODEX_CLI_PATH` (the GUI domain on macOS). This describes configuration for future launches; a running Desktop may not have inherited it, and the wrapper may have fallen back to stock Codex. `desktopAttached` is `"private-stdio"` when a Desktop-bundled app-server process is observed, otherwise `"unknown"`. That process observation and shim configuration can both be present. Neither a configured shim nor a reachable daemon proves Desktop is attached to that daemon. Verify actual attachment with a controlled shared-thread interaction and matching thread/turn IDs.
 
-**Thread discovery.** `list-threads --limit N` (1–200) pages with the opaque `--cursor` from the previous `nextCursor`; JSON keeps the cursor verbatim, text output prints a sanitized `more: --cursor …` hint. Text fields are stripped of terminal control sequences in both outputs (single-line fields also lose line breaks; `preview` keeps its newlines; a structured `source` such as `{ "custom": … }` passes through unchanged), `status` is one of `notLoaded | idle | active | systemError | unknown`, and non-numeric `updatedAt` becomes `null`. Unknown arguments are rejected before the socket is touched; a response that does not match the pinned schema (including an entry without a string `id`) fails with `reason: "bad-response"`.
+**Thread discovery.** `list-threads --limit N` (1–200) pages with the opaque `--cursor` from the previous `nextCursor`; JSON keeps the cursor verbatim, text output prints a sanitized `more: --cursor …` hint. Requests pass `modelProviders: []` so threads from every provider appear (the daemon otherwise filters to the current provider) and `useStateDbOnly: true` for a fast state-DB listing, falling back to a full scan when that first page is empty. Text fields are stripped of terminal control sequences in both outputs (single-line fields also lose line breaks; `preview` keeps its newlines; a structured `source` such as `{ "custom": … }` passes through unchanged), `status` is one of `notLoaded | idle | active | systemError | unknown`, and non-numeric `updatedAt` / `createdAt` become `null`. Extra fields when present: `section`, `projectId`, `modelProvider`, `model`, `originator`. Unknown arguments are rejected before the socket is touched; a response that does not match the pinned schema (including an entry without a string `id`) fails with `reason: "bad-response"`.
 
 **Routes, attribution, and loops.** `gbot codex send` runs on the machine that owns `CODEX_HOME`, as the user who owns the socket, with that user's Codex credentials; the socket path comes only from `CODEX_HOME` or `CODEX_APP_SERVER_SOCK`, never from the message or an agent-supplied argument. gbot has no remote transport. A cloud-hosted Grok Bot on the box cannot reach a desktop socket at `/home/box/.codex/...` — use Grok Bot Shell with a machineId to run `gbot` on the user's registered machine (after `codex app-server daemon start` / bootstrap there). `GROK_BOT_CODEX_THREADS=id,id` lets the operator pin `send` to approved threads (`reason: "route-not-allowed"` otherwise). Every send gets a delivery envelope: `messageId` (also sent as Codex's native `clientUserMessageId`), `correlationId` (defaults to the message id), optional `replyTo`, and `hop`. A reply passes the original correlation id and `hop` + 1:
 
@@ -262,7 +278,10 @@ The npm package is also an [Agent Bundle](https://scriptedalchemy.github.io/agen
 that gives Codex, Claude Code, and Cursor a `grok-bot` MCP server with messaging,
 Codex conversation, and managed bridge tools, plus a `talk-to-grok-bot` skill.
 `gbot_send` and `gbot_thread` handle Grok conversations; `codex_threads`,
-`codex_send`, `codex_new`, `codex_wait`, and `codex_watch` handle Codex conversations. Claude Code and Cursor bundles also include `/gbot:codex-send`, `/gbot:codex-threads`, and `/gbot:codex-wait` commands under `commands/`.
+`codex_send`, `codex_new`, `codex_wait`, and `codex_watch` handle Codex conversations.
+`chatgpt_desktop_*` tools drive ChatGPT Desktop over local CDP (with app-server
+fallback). Claude Code and Cursor bundles also include `/gbot:codex-send`,
+`/gbot:codex-threads`, and `/gbot:codex-wait` commands under `commands/`.
 `gbot_bridge_start`, `gbot_bridge_status`, `gbot_bridge_stop`, and
 `gbot_codex_respond` manage automatic delivery and scoped operator responses.
 The tools bundle this repository's gateway client and worker, so the installed

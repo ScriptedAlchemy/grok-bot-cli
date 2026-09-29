@@ -81,7 +81,10 @@ export function outcomeFromError(error, opts = {}) {
   const out = { error: message };
 
   if (error && typeof error === "object") {
-    for (const key of ["delivery", "reason", "mode", "threadId", "turnId", "targetId", "messageId", "correlationId", "refused", "hop"]) {
+    for (const key of [
+      "delivery", "reason", "mode", "threadId", "turnId", "targetId", "messageId",
+      "correlationId", "refused", "hop", "hostId", "hostName", "hint", "code",
+    ]) {
       if (error[key] !== undefined) out[key] = error[key];
     }
     if (out.reason === undefined && isUsage(error)) out.reason = "usage";

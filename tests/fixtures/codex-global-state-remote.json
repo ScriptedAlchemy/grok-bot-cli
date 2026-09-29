@@ -1,0 +1,56 @@
+{
+  "remote-hosts-v1": {
+    "host-macbook": {
+      "name": "Zack's MacBook",
+      "envName": "desktop"
+    },
+    "host-linux": {
+      "name": "build-box",
+      "envName": "ci"
+    }
+  },
+  "remote-thread-summaries-v3:host-macbook": {
+    "hostName": "Zack's MacBook",
+    "pinnedIds": [
+      "aaaa1111-1111-1111-1111-111111111111"
+    ],
+    "threads": [
+      {
+        "id": "aaaa1111-1111-1111-1111-111111111111",
+        "title": "Pinned remote chat",
+        "projectId": "proj-launch",
+        "projectName": "Launch",
+        "updatedAt": 1700000100,
+        "createdAt": 1700000000,
+        "modelProvider": "openai",
+        "model": "gpt-5"
+      },
+      {
+        "id": "bbbb2222-2222-2222-2222-222222222222",
+        "name": "Remote work thread",
+        "preview": "hello from remote",
+        "projectId": "proj-ops",
+        "updatedAt": 1700000200
+      }
+    ]
+  },
+  "remote-thread-summaries-v3:host-linux": [
+    {
+      "id": "cccc3333-3333-3333-3333-333333333333",
+      "title": "Linux CI thread",
+      "project": "Infra",
+      "updatedAt": 1700000300
+    }
+  ],
+  "unrelated-key": {
+    "should": "be ignored"
+  },
+  "remote-thread-summaries-v3:broken-host": {
+    "threads": [
+      {
+        "title": "missing id should be skipped"
+      },
+      "dddd4444-4444-4444-4444-444444444444"
+    ]
+  }
+}

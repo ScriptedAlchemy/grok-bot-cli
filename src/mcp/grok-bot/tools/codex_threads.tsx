@@ -10,10 +10,11 @@ export default defineTool({
   inputJsonSchema: { type: 'object', additionalProperties: false, properties: {
       "limit": {
         "type": "number",
-        "description": "Maximum threads in this page: 1-200."
+        "description": "Maximum threads in this page: 1-200. Pass modelProviders:[] internally so every provider is included; use cursor/nextCursor to page."
       },
       "cursor": {
-        "type": "string"
+        "type": "string",
+        "description": "Opaque nextCursor from a previous page."
       }
     }, required: [] },
 }, async input => {

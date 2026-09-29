@@ -7,10 +7,14 @@ import { spawnSync } from "node:child_process";
 import pkg from "../../package.json" with { type: "json" };
 
 import { outcomeFromError, outcomeFromReceipt, withStatusExitCode } from "./codex/contract.js";
+import { mapRemoteThreadError, RemoteThreadNotLoadedError } from "./codex/remote-control.js";
+import { normalizeCodexThreadId } from "./codex/thread-id.js";
 import { desktopShimStatus } from "./desktop-shim.js";
 import { looksLikeGrokBotBox, USER_MACHINE_CODEX_CLAUDE_GUIDANCE } from "./user-machine-guidance.js";
 
 export { looksLikeGrokBotBox } from "./user-machine-guidance.js";
+export { RemoteThreadNotLoadedError } from "./codex/remote-control.js";
+export { normalizeCodexThreadId, isTemporaryDesktopThreadId, LOCAL_THREAD_ID_PREFIX } from "./codex/thread-id.js";
 
 // Method and param names below come from `codex app-server generate-json-schema`
 // of this Codex release. Newer daemons usually keep them; `gbot codex status`
@@ -25,8 +29,9 @@ const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 // Transport budgets: fail fast instead of buffering unbounded attacker-controlled bytes.
 // ponytail: raise these only with streaming/pagination support; the app-server sends small JSON-RPC frames.
 const WS_MAX_HEADER_BYTES = 16 * 1024;
-const WS_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
-const WS_MAX_BUFFER_BYTES = 8 * 1024 * 1024;
+const WS_MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
+const WS_MAX_BUFFER_BYTES = 32 * 1024 * 1024;
+const CODEX_SEND_MAX_BYTES = 4 * 1024 * 1024;
 export const WS_MAX_WRITE_BYTES = 8 * 1024 * 1024;
 export const CODEX_MAX_REQUESTS = 128;
 export const CODEX_MAX_LISTENERS = 128;
@@ -847,6 +852,14 @@ function sourceField(value) {
   return typeof value === "string" ? singleLine(value) : value;
 }
 
+function summarizeSection(section) {
+  if (!isObject(section) || typeof section.id !== "string" || !section.id) return null;
+  return {
+    id: singleLine(section.id),
+    name: lineField(section.name),
+  };
+}
+
 function summarizeThread(t) {
   if (!isObject(t) || typeof t.id !== "string" || !t.id) throw new CodexProtocolError("thread/list", "entry without a string `id`");
   const type = isObject(t.status) && typeof t.status.type === "string" ? t.status.type : "unknown";
@@ -858,41 +871,83 @@ function summarizeThread(t) {
     preview: typeof t.preview === "string" ? stripTerminalControls(t.preview) : "",
     cwd: lineField(t.cwd),
     source: sourceField(t.source),
+    createdAt: typeof t.createdAt === "number" ? t.createdAt : null,
     updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : null,
+    section: summarizeSection(t.section),
+    projectId: lineField(t.projectId),
+    modelProvider: lineField(t.modelProvider),
+    model: lineField(t.model),
+    originator: lineField(t.originator),
   };
 }
 
 const THREAD_LIST_MAX_LIMIT = 200;
 
 /**
- * @param {{ limit?: number, cursor?: string, env?: NodeJS.ProcessEnv }} [opts]
+ * @param {{ limit?: number, cursor?: string, modelProviders?: string[], env?: NodeJS.ProcessEnv }} [opts]
  */
-export async function listCodexThreads({ limit = 20, cursor, env = process.env } = {}) {
+export async function listCodexThreads({
+  limit = 20,
+  cursor,
+  modelProviders = [],
+  env = process.env,
+} = {}) {
   if (!Number.isInteger(limit) || limit < 1 || limit > THREAD_LIST_MAX_LIMIT) {
     throw new RangeError("--limit must be an integer 1-" + THREAD_LIST_MAX_LIMIT);
   }
   if (cursor !== undefined && (typeof cursor !== "string" || !cursor)) throw new RangeError("--cursor must be a non-empty string");
+  if (!Array.isArray(modelProviders) || modelProviders.some((p) => typeof p !== "string")) {
+    throw new RangeError("modelProviders must be an array of strings (empty = all providers)");
+  }
   const { client } = await openSession(env);
   try {
-    // The default listing rescans every rollout file to repair metadata (26 s on a busy machine);
-    // the state DB already holds what we print.
-    const params = { limit, useStateDbOnly: true, ...(cursor !== undefined ? { cursor } : {}) };
+    // Default daemon filter is the current provider only. Pass modelProviders: [] for
+    // every provider, or a non-empty list to restrict. useStateDbOnly avoids a cold
+    // rollout rescan (tens of seconds); fall back to a full scan when the state DB
+    // returns nothing on the first page.
+    const baseParams = {
+      limit,
+      modelProviders,
+      ...(cursor !== undefined ? { cursor } : {}),
+    };
     let out;
+    let usedStateDbOnly = true;
     try {
-      out = await client.request("thread/list", params);
+      out = await client.request("thread/list", { ...baseParams, useStateDbOnly: true });
     } catch (err) {
       throw transportError(err);
     }
     if (!isObject(out) || !Array.isArray(out.data)) throw new CodexProtocolError("thread/list", "missing `data` array");
+    if (
+      out.data.length === 0
+      && cursor === undefined
+      && (out.nextCursor == null || out.nextCursor === "")
+    ) {
+      try {
+        out = await client.request("thread/list", { ...baseParams, useStateDbOnly: false });
+        usedStateDbOnly = false;
+      } catch (err) {
+        throw transportError(err);
+      }
+      if (!isObject(out) || !Array.isArray(out.data)) throw new CodexProtocolError("thread/list", "missing `data` array");
+    }
     if (out.nextCursor != null && typeof out.nextCursor !== "string") throw new CodexProtocolError("thread/list", "`nextCursor` is not a string");
     const threads = out.data.map(summarizeThread);
-    return { threads, nextCursor: out.nextCursor ?? null, limit };
+    return {
+      threads,
+      nextCursor: out.nextCursor ?? null,
+      limit,
+      useStateDbOnly: usedStateDbOnly,
+    };
   } finally {
     client.close();
   }
 }
 
-function explainSendError(err, threadId) {
+function explainSendError(err, threadId, env = process.env) {
+  if (err instanceof RemoteThreadNotLoadedError) return err;
+  const mapped = mapRemoteThreadError(err, threadId, env);
+  if (mapped instanceof RemoteThreadNotLoadedError) return mapped;
   if (!(err instanceof CodexRpcError)) return err;
   const msg = String(err.rpc && err.rpc.message || "");
   if (/no rollout found|thread not found/i.test(msg)) {
@@ -972,11 +1027,15 @@ export function withEnvelopeHeader(text, envelope, env = process.env) {
 export function assertThreadAllowed(threadId, env = process.env) {
   const raw = env.GROK_BOT_CODEX_THREADS;
   if (raw == null || raw.trim() === "") return;
-  const allowed = raw.split(",").map((s) => s.trim()).filter(Boolean);
-  if (!allowed.includes(threadId)) {
+  const bare = normalizeCodexThreadId(threadId);
+  const allowed = raw.split(",").map((s) => {
+    try { return normalizeCodexThreadId(s.trim()); }
+    catch { return s.trim(); }
+  }).filter(Boolean);
+  if (!allowed.includes(bare)) {
     throw new CodexSendError(
-      "Codex thread " + threadId + " is not in GROK_BOT_CODEX_THREADS; the operator allows only: " + allowed.join(", "),
-      { delivery: "rejected", reason: "route-not-allowed", threadId },
+      "Codex thread " + bare + " is not in GROK_BOT_CODEX_THREADS; the operator allows only: " + allowed.join(", "),
+      { delivery: "rejected", reason: "route-not-allowed", threadId: bare },
     );
   }
 }
@@ -1032,6 +1091,7 @@ function unsupportedOrRpc(err, method, threadId, envelope, turnId) {
 /** Read the daemon's queue for one thread (experimental `thread/queue/list`). */
 export async function listCodexQueue(threadId, { env = process.env, limit = 50, cursor } = {}) {
   requireExperimental(env, "gbot codex queue");
+  threadId = normalizeCodexThreadId(threadId);
   const { client } = await openSession(env, { experimental: true });
   try {
     let out;
@@ -1049,6 +1109,70 @@ export async function listCodexQueue(threadId, { env = process.env, limit = 50, 
         text: isObject(q) && Array.isArray(q.input) ? q.input.map((part) => (isObject(part) && typeof part.text === "string" ? part.text : "")).filter(Boolean).join("\n") : "",
       })),
       nextCursor: typeof out.nextCursor === "string" ? out.nextCursor : null,
+    };
+  } finally {
+    client.close();
+  }
+}
+
+/**
+ * Read a thread's history without `thread/resume` and without deprecated
+ * `includeTurns` on `thread/read`. Metadata via `thread/read`, turns via
+ * paginated `thread/turns/list` (`itemsView: "full"`).
+ *
+ * @param {string} threadId
+ * @param {{ limit?: number, env?: NodeJS.ProcessEnv }} [opts]
+ */
+export async function readCodexThread(threadId, { limit = 100, env = process.env } = {}) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 2000) {
+    throw new RangeError("limit must be an integer 1-2000");
+  }
+  const bare = normalizeCodexThreadId(threadId);
+  const { client } = await openSession(env);
+  try {
+    let meta;
+    try {
+      // Metadata only — never pass includeTurns (deprecated for paginated threads).
+      meta = await client.request("thread/read", { threadId: bare });
+    } catch (err) {
+      const mapped = explainSendError(err, bare, env);
+      if (mapped instanceof RemoteThreadNotLoadedError) throw mapped;
+      throw transportError(err);
+    }
+    const turns = [];
+    let cursor;
+    const seen = new Set();
+    for (let page = 0; page < 40 && turns.length < limit; page++) {
+      let out;
+      try {
+        out = await client.request("thread/turns/list", {
+          threadId: bare,
+          limit: Math.min(100, limit - turns.length),
+          itemsView: "full",
+          sortDirection: "desc",
+          ...(cursor !== undefined ? { cursor } : {}),
+        });
+      } catch (err) {
+        const mapped = explainSendError(err, bare, env);
+        if (mapped instanceof RemoteThreadNotLoadedError) throw mapped;
+        throw transportError(err);
+      }
+      if (!isObject(out) || !Array.isArray(out.data)) {
+        throw new CodexProtocolError("thread/turns/list", "missing `data` array");
+      }
+      for (const row of out.data) turns.push(row);
+      cursor = out.nextCursor ?? null;
+      if (cursor === null) break;
+      if (typeof cursor !== "string" || !cursor || seen.has(cursor)) {
+        throw new CodexProtocolError("thread/turns/list", "invalid or repeated cursor");
+      }
+      seen.add(cursor);
+    }
+    return {
+      threadId: bare,
+      thread: isObject(meta) && isObject(meta.thread) ? meta.thread : null,
+      turns: turns.slice(0, limit),
+      nextCursor: cursor ?? null,
     };
   } finally {
     client.close();
@@ -1083,8 +1207,8 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy,
   validateModelEffort(model, effort);
   if (!["reject", "queue", ...(session ? ["steer"] : [])].includes(whenBusy)) throw new RangeError("--when-busy must be reject, queue, or persistent steer");
   if (whenBusy === "steer" && (typeof expectedTurnId !== "string" || !ID_PATTERN.test(expectedTurnId))) throw new RangeError("steer requires expectedTurnId");
-  if (typeof threadId !== "string" || !ID_PATTERN.test(threadId)) throw new RangeError("Invalid threadId");
-  if (typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > WS_MAX_MESSAGE_BYTES) throw new RangeError("Message must contain text within 4 MiB");
+  threadId = normalizeCodexThreadId(threadId);
+  if (typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > CODEX_SEND_MAX_BYTES) throw new RangeError("Message must contain text within 4 MiB");
   if (!envelope || typeof envelope.messageId !== "string" || !ID_PATTERN.test(envelope.messageId)) throw new RangeError("Invalid envelope messageId");
   const validated = buildEnvelope({ correlationId: envelope.correlationId, replyTo: envelope.replyTo, hop: envelope.hop, env });
   envelope = { ...validated, messageId: envelope.messageId, header: Boolean(envelope.header) };
@@ -1106,8 +1230,10 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy,
         ...(model ? { model } : {}), ...(effort ? { config: { model_reasoning_effort: effort } } : {}) });
     } catch (err) {
       assertNotCancelled();
-      if (err instanceof CodexSendError) throw err;
-      throw new CodexSendError(explainSendError(err, threadId).message, {
+      if (err instanceof CodexSendError || err instanceof RemoteThreadNotLoadedError) throw err;
+      const explained = explainSendError(err, threadId, env);
+      if (explained instanceof RemoteThreadNotLoadedError) throw explained;
+      throw new CodexSendError(explained.message, {
         delivery: err instanceof CodexRpcError ? "rejected" : (err && err.delivery) || "unknown",
         reason: err instanceof CodexRpcError ? (/no rollout found|thread not found/i.test(String(err.rpc && err.rpc.message)) ? "unknown-thread"
           : /active writer/i.test(String(err.rpc && err.rpc.message)) ? "external-owner" : "rejected") : "transport",
