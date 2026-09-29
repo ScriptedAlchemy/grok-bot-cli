@@ -128,6 +128,16 @@ test('watch filters foreign events, reports overflow and supports cancellation',
  }finally{await c.close();await fake.close();}
 });
 
+test('notification overflow preserves uncertainty about pending interactions', async () => {
+ const fake=await fakeAppServer({...handlers,
+  'thread/resume':(p,ok,err,send)=>{for(let i=0;i<510;i++)send({method:'item/started',params:{threadId:p.threadId,turnId:'turn-1',item:{id:String(i),type:'reasoning'}}});handlers['thread/resume'](p,ok);},
+  'thread/turns/list':(_,ok)=>ok({data:[{id:'turn-1',status:'inProgress'}],nextCursor:null}),
+  'thread/items/list':(_,ok)=>ok({data:[],nextCursor:null}),
+ });
+ const c=await openCodexConversation('thread-1',{env:{CODEX_HOME:fake.home}});
+ try {const r=await c.wait({turnId:'turn-1',timeoutMs:10});assert.equal(r.execution.state,'unknown');assert.match(r.execution.error,/overflow.*uncertain/i);assert.equal(r.reply.truncated,true);assert.deepEqual(r.interactions,[]);}finally{await c.close();await fake.close();}
+});
+
 test('accepted turn remains observable while history has not caught up',async()=>{
  const fake=await fakeAppServer({...handlers,'turn/start':(_,ok)=>ok({turn:{id:'turn-1',status:'inProgress'}}),'thread/turns/list':(_,ok)=>ok({data:[],nextCursor:null}),'thread/items/list':(_,ok)=>ok({data:[],nextCursor:null})});
  const c=await openCodexConversation('thread-1',{env:{CODEX_HOME:fake.home}});

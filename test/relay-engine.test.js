@@ -495,6 +495,21 @@ for (const finalStatus of ["completed", "failed", "interrupted"])
     assert.equal(f.sent.length, 1);
     assert.match(f.sent[0].text, new RegExp(`status ${finalStatus}`));
   });
+test("managed Codex sends preserve requested model and effort", async (t) => {
+  const f = await fixture(t);
+  const out = await f.engine.sendToCodex({
+    grokTarget: "target",
+    codexThreadId: "thread",
+    message: "use the requested selection",
+    model: "gpt-6-astra",
+    effort: "xhigh",
+  });
+  assert.equal(out.delivery, "accepted");
+  const start = f.fake.received.find((request) => request.method === "turn/start");
+  assert.equal(start.params.model, "gpt-6-astra");
+  assert.equal(start.params.effort, "xhigh");
+});
+
 test("real socket disconnect after submission reconciles without replay", async (t) => {
   const f = await fixture(t, { disconnect: true });
   const r = await f.engine.sendToCodex({

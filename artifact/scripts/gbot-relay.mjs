@@ -23789,6 +23789,7 @@ var __webpack_modules__ = {
                 };
                 const result = (state, detail)=>{
                     const interactions = scan();
+                    const overflowUncertain = state === 'unknown' && /Notification coverage overflow/.test(detail ?? '');
                     const candidates = [
                         ...items.values()
                     ].map((x)=>x.item);
@@ -23797,7 +23798,7 @@ var __webpack_modules__ = {
                     const reply = {
                         text: '',
                         items: [],
-                        truncated
+                        truncated: truncated || overflowUncertain
                     };
                     for (const item of selected){
                         const text = reply.text ? `${reply.text}\n${item.text}` : item.text;
@@ -23846,7 +23847,10 @@ var __webpack_modules__ = {
                             'Codex connection closed'
                         ]);
                     };
-                    timer = setTimeout(()=>resolve([
+                    timer = setTimeout(()=>resolve(overflow ? [
+                            'unknown',
+                            'Notification coverage overflow; pending interaction status is uncertain'
+                        ] : [
                             'timeout',
                             'Observation deadline reached'
                         ]), timeoutMs);
@@ -25351,6 +25355,12 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                             whenBusy: active ? "steer" : "reject",
                             ...active ? {
                                 expectedTurnId: active
+                            } : {},
+                            ...record.model ? {
+                                model: record.model
+                            } : {},
+                            ...record.effort ? {
+                                effort: record.effort
                             } : {}
                         });
                         if (!active || receipt.delivery !== "rejected" || receipt.reason !== "rejected" || !/guard|expected.*turn|turn.*mismatch|stale/i.test(receipt.error ?? "")) return receipt;
@@ -26493,6 +26503,12 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     threadId: r.threadId,
                     expectedCwd: r.expectedCwd,
                     busyPolicy: r.busyPolicy,
+                    ...input.model ? {
+                        model: input.model
+                    } : {},
+                    ...input.effort ? {
+                        effort: input.effort
+                    } : {},
                     bindingId: r.bindingId ?? (r.id?.startsWith("binding:") ? r.id : null),
                     text,
                     sourceIds: input.sourceIds ?? [],
@@ -26585,6 +26601,15 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 "steer",
                 "reject"
             ]),
+            model: zod__rspack_import_3.YjP().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/).optional(),
+            effort: zod__rspack_import_3.k5n([
+                "none",
+                "minimal",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+            ]).optional(),
             bindingId: relayId.nullable(),
             text,
             sourceIds: zod__rspack_import_3.YOg(relayId).max(200),

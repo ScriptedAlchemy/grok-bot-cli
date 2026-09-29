@@ -20,7 +20,7 @@ export const sendFields = {
 };
 export const sendSchema = z.object({ ...sendFields, message: z.string().min(1).max(4194304) }).strict();
 export const waitSchema = z.object({ ...observationFields, turnId: id, messageId: id.optional(), maxOutputBytes: z.number().int().min(1).max(4194304).optional() }).strict();
-export const watchSchema = z.object({ ...observationFields, maxEvents: z.number().int().min(1).max(500).default(100) }).strict();
+export const watchSchema = z.object({ expectedCwd: z.string().min(1).optional(), threadId: id, timeoutMs: z.number().int().min(1).max(600000).optional(), maxEvents: z.number().int().min(1).max(500).default(100) }).strict();
 export const threadsSchema = z.object({ limit: z.number().int().min(1).max(200).default(20), cursor: z.string().min(1).max(4096).optional() }).strict();
 export const resultSchema = z.object({
   exitCode: z.number().int().min(0).max(1),

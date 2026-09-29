@@ -11082,7 +11082,9 @@ var __webpack_modules__ = {
             maxOutputBytes: zod__rspack_import_3.aig().int().min(1).max(4194304).optional()
         }).strict();
         const watchSchema = zod__rspack_import_3.Ikc({
-            ...observationFields,
+            expectedCwd: zod__rspack_import_3.YjP().min(1).optional(),
+            threadId: id,
+            timeoutMs: zod__rspack_import_3.aig().int().min(1).max(600000).optional(),
             maxEvents: zod__rspack_import_3.aig().int().min(1).max(500).default(100)
         }).strict();
         const threadsSchema = zod__rspack_import_3.Ikc({
@@ -11444,7 +11446,9 @@ var __webpack_modules__ = {
                     requestId: input.requestId,
                     busyPolicy: input.whenBusy,
                     hop: input.hop,
-                    correlationId: input.correlationId
+                    correlationId: input.correlationId,
+                    model: input.model,
+                    effort: input.effort
                 }, options(context)));
         }
         __webpack_require__.d(__webpack_exports__, {
@@ -23557,6 +23561,7 @@ var __webpack_modules__ = {
                 };
                 const result = (state, detail)=>{
                     const interactions = scan();
+                    const overflowUncertain = state === 'unknown' && /Notification coverage overflow/.test(detail ?? '');
                     const candidates = [
                         ...items.values()
                     ].map((x)=>x.item);
@@ -23565,7 +23570,7 @@ var __webpack_modules__ = {
                     const reply = {
                         text: '',
                         items: [],
-                        truncated
+                        truncated: truncated || overflowUncertain
                     };
                     for (const item of selected){
                         const text = reply.text ? `${reply.text}\n${item.text}` : item.text;
@@ -23614,7 +23619,10 @@ var __webpack_modules__ = {
                             'Codex connection closed'
                         ]);
                     };
-                    timer = setTimeout(()=>resolve([
+                    timer = setTimeout(()=>resolve(overflow ? [
+                            'unknown',
+                            'Notification coverage overflow; pending interaction status is uncertain'
+                        ] : [
                             'timeout',
                             'Observation deadline reached'
                         ]), timeoutMs);

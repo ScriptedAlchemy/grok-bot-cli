@@ -119,11 +119,12 @@ export async function openCodexConversation(threadId, options = {}) {
     };
     const result = (state, detail) => {
       const interactions = scan();
+      const overflowUncertain = state === 'unknown' && /Notification coverage overflow/.test(detail ?? '');
       const candidates = [...items.values()].map(x => x.item);
       const finals = candidates.filter(i => i.phase === 'final_answer');
       // Old app-servers omit phase; use their completed agent items only at terminal status.
       const selected = finals.length ? finals : terminal(state) ? candidates : [];
-      const reply = { text: '', items: [], truncated };
+      const reply = { text: '', items: [], truncated: truncated || overflowUncertain };
       for (const item of selected) {
         const text = reply.text ? `${reply.text}\n${item.text}` : item.text;
         if (Buffer.byteLength(JSON.stringify({ text, items: [...reply.items, item] })) > maxOutputBytes) { reply.truncated = true; break; }
@@ -138,7 +139,7 @@ export async function openCodexConversation(threadId, options = {}) {
         if (abortSignals.some(s => s.aborted) || closed) resolve(['unknown', 'Observation cancelled']);
         else if (disconnected) resolve(['disconnected', 'Codex connection closed']);
       };
-      timer = setTimeout(() => resolve(['timeout', 'Observation deadline reached']), timeoutMs);
+      timer = setTimeout(() => resolve(overflow ? ['unknown', 'Notification coverage overflow; pending interaction status is uncertain'] : ['timeout', 'Observation deadline reached']), timeoutMs);
       pollTimer = setInterval(() => { for (const listener of [...wake]) listener(); }, 2000);
       for (const s of abortSignals) s.addEventListener('abort', notify, { once: true });
       wake.add(notify); notify();
