@@ -60,6 +60,9 @@ bubbles, experimental composer candidates). Do not add selectors elsewhere.
 
 ## Fallback
 
-When CDP is unreachable, list/read/send/wait/open fall back to the existing
-Codex app-server client in `codex-bridge.js` (no duplicated JSON-RPC stack).
+CDP is the primary path for `chatgpt_desktop_*` because Desktop can do more
+than the Codex app-server. When CDP is unreachable, list/read/send/wait/open
+reuse the existing client in `codex-bridge.js` (`listCodexThreads`,
+`openCodexSession`, `sendToCodexThread`, `codexStatus`) — no duplicated
+JSON-RPC stack. Each of those results includes `backend: "cdp" | "app-server"`.
 Starting a brand-new Desktop thread without a `threadId` still needs CDP.

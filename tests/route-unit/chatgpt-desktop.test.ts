@@ -7,12 +7,14 @@ import { invokeCli, invokeMcpTool, listMcpSurface } from 'agent-bundle/test';
 import type { ChatGptDesktopAdapter } from '../../src/core/chatgpt-desktop/adapter.js';
 import {
   CdpHostRejectedError,
+  CdpUnreachableError,
   NotImplementedError,
   assertLoopbackHostname,
   chatgptDesktopRelaunchCommand,
   forceLoopbackWebSocketUrl,
   setChatGptDesktopAdapterForTests,
 } from '../../src/core/chatgpt-desktop/index.js';
+import { ChatGptDesktopFacade } from '../../src/core/chatgpt-desktop/facade.js';
 
 const desktopTools = [
   'chatgpt_desktop_list_threads',
@@ -299,6 +301,142 @@ describe('chatgpt-desktop CLI', () => {
       reason: 'not-implemented',
       code: 'NOT_IMPLEMENTED',
     });
+  });
+});
+
+describe('chatgpt-desktop CDP→app-server fallback', () => {
+  it('prefers CDP, then reuses app-server fallbacks with backend tagging', async () => {
+    const calls: string[] = [];
+    const unreachable = new CdpUnreachableError('CDP down');
+    const cdp = fakeAdapter({
+      async connect() {
+        calls.push('cdp.connect');
+        throw unreachable;
+      },
+      async listThreads() {
+        calls.push('cdp.listThreads');
+        throw unreachable;
+      },
+      async readThread() {
+        calls.push('cdp.readThread');
+        throw unreachable;
+      },
+      async sendMessage() {
+        calls.push('cdp.sendMessage');
+        throw unreachable;
+      },
+      async status() {
+        return {
+          reachable: false,
+          port: 9222,
+          host: '127.0.0.1',
+          message: 'CDP down',
+          exitCode: 1,
+        };
+      },
+    });
+
+    const facade = new ChatGptDesktopFacade(cdp, 9222, {
+      listThreads: async ({ limit = 50 } = {}) => {
+        calls.push('app-server.listThreads');
+        return {
+          backend: 'app-server',
+          limit,
+          threads: [
+            {
+              threadId: 'codex-1',
+              title: 'from app-server',
+              pinned: false,
+              selected: false,
+              kind: 'codex',
+            },
+          ],
+        };
+      },
+      readThread: async ({ threadId, limit = 100 }) => {
+        calls.push('app-server.readThread');
+        return {
+          threadId,
+          backend: 'app-server',
+          limit,
+          turns: [{ turnKey: 't1', role: 'assistant', text: 'fallback reply' }],
+        };
+      },
+      sendMessage: async ({ threadId, text }) => {
+        calls.push('app-server.sendMessage');
+        return {
+          threadId: threadId ?? 'missing',
+          backend: 'app-server',
+          experimental: false,
+          delivery: 'accepted',
+          message: text,
+        };
+      },
+      waitForReply: async ({ threadId }) => ({
+        threadId,
+        reply: 'fallback reply',
+        backend: 'app-server',
+        experimental: false,
+        delivery: 'replied' as const,
+      }),
+      openThread: async (threadId) => ({ threadId, backend: 'app-server' as const }),
+      statusProbe: async () => ({ reachable: true, mode: 'daemon', socketPath: '/tmp/fake.sock' }),
+    });
+
+    const listed = await facade.listThreads({ limit: 5 });
+    expect(listed).toMatchObject({ backend: 'app-server', threads: [{ threadId: 'codex-1' }] });
+
+    const read = await facade.readThread({ threadId: 'codex-1' });
+    expect(read).toMatchObject({ backend: 'app-server', turns: [{ text: 'fallback reply' }] });
+
+    const sent = await facade.sendMessage({ threadId: 'codex-1', text: 'hi' });
+    expect(sent).toMatchObject({ backend: 'app-server', delivery: 'accepted' });
+
+    const status = await facade.status();
+    expect(status).toMatchObject({
+      reachable: true,
+      appServerFallback: { reachable: true, mode: 'daemon' },
+      message: 'CDP unreachable; Codex app-server fallback is available',
+      exitCode: 0,
+    });
+
+    expect(calls.filter((c) => c.startsWith('app-server'))).toEqual([
+      'app-server.listThreads',
+      'app-server.readThread',
+      'app-server.sendMessage',
+    ]);
+    expect(calls.some((c) => c.startsWith('cdp.'))).toBe(true);
+  });
+
+  it('does not fall back for NotImplemented DOM gaps', async () => {
+    const facade = new ChatGptDesktopFacade(
+      fakeAdapter({
+        async connect() {},
+        async listThreads() {
+          throw new NotImplementedError('listThreads');
+        },
+      }),
+      9222,
+      {
+        listThreads: async () => {
+          throw new Error('app-server should not run');
+        },
+        readThread: async () => {
+          throw new Error('unused');
+        },
+        sendMessage: async () => {
+          throw new Error('unused');
+        },
+        waitForReply: async () => {
+          throw new Error('unused');
+        },
+        openThread: async () => {
+          throw new Error('unused');
+        },
+        statusProbe: async () => ({ reachable: false }),
+      },
+    );
+    await expect(facade.listThreads()).rejects.toBeInstanceOf(NotImplementedError);
   });
 });
 

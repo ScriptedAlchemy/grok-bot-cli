@@ -20,19 +20,45 @@ import type {
   WaitForReplyResult,
 } from './types.js';
 
+/** Optional overrides so tests can prove CDP→app-server fallback without a live daemon. */
+export type ChatGptDesktopFallbacks = {
+  listThreads: typeof appServerListThreads;
+  readThread: typeof appServerReadThread;
+  sendMessage: typeof appServerSendMessage;
+  waitForReply: typeof appServerWaitForReply;
+  openThread: typeof appServerOpenThread;
+  statusProbe: typeof appServerStatusProbe;
+};
+
+const defaultFallbacks: ChatGptDesktopFallbacks = {
+  listThreads: appServerListThreads,
+  readThread: appServerReadThread,
+  sendMessage: appServerSendMessage,
+  waitForReply: appServerWaitForReply,
+  openThread: appServerOpenThread,
+  statusProbe: appServerStatusProbe,
+};
+
 /**
- * Prefer CDP for ChatGPT Desktop; fall back to the existing Codex app-server
- * client when CDP is unreachable for operations that app-server can serve.
- * Every result reports `backend: "cdp" | "app-server"`.
+ * Prefer CDP for ChatGPT Desktop (Desktop can do more than app-server).
+ * When CDP is unreachable, reuse the existing Codex app-server client for
+ * operations it already serves — never duplicate that JSON-RPC stack.
+ * Every list/read/send/wait/open result reports `backend: "cdp" | "app-server"`.
  */
 export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
   #cdp: ChatGptDesktopAdapter;
   #port: number;
   #cdpConnected = false;
+  #fallbacks: ChatGptDesktopFallbacks;
 
-  constructor(cdp: ChatGptDesktopAdapter = new CdpChatGptDesktopAdapter(), port = resolveCdpPort()) {
+  constructor(
+    cdp: ChatGptDesktopAdapter = new CdpChatGptDesktopAdapter(),
+    port = resolveCdpPort(),
+    fallbacks: ChatGptDesktopFallbacks = defaultFallbacks,
+  ) {
     this.#cdp = cdp;
     this.#port = port;
+    this.#fallbacks = fallbacks;
   }
 
   async connect({ port }: { port: number }): Promise<void> {
@@ -57,7 +83,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       return await this.#cdp.listThreads(options);
     } catch (error) {
       if (!isCdpFailure(error)) throw error;
-      return appServerListThreads(options);
+      return this.#fallbacks.listThreads(options);
     }
   }
 
@@ -67,7 +93,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       return await this.#cdp.readThread(options);
     } catch (error) {
       if (!isCdpFailure(error)) throw error;
-      return appServerReadThread(options);
+      return this.#fallbacks.readThread(options);
     }
   }
 
@@ -77,7 +103,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       return await this.#cdp.sendMessage(options);
     } catch (error) {
       if (!isCdpFailure(error)) throw error;
-      return appServerSendMessage(options);
+      return this.#fallbacks.sendMessage(options);
     }
   }
 
@@ -90,7 +116,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       return await this.#cdp.waitForReply(options);
     } catch (error) {
       if (!isCdpFailure(error)) throw error;
-      return appServerWaitForReply(options);
+      return this.#fallbacks.waitForReply(options);
     }
   }
 
@@ -100,7 +126,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       return await this.#cdp.openThread(threadId);
     } catch (error) {
       if (!isCdpFailure(error)) throw error;
-      return appServerOpenThread(threadId);
+      return this.#fallbacks.openThread(threadId);
     }
   }
 
@@ -108,7 +134,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     const cdpStatus = await this.#cdp.status();
     let appServerFallback: ChatGptDesktopStatus['appServerFallback'];
     try {
-      appServerFallback = await appServerStatusProbe();
+      appServerFallback = await this.#fallbacks.statusProbe();
     } catch {
       appServerFallback = { reachable: false };
     }

@@ -10322,13 +10322,23 @@ var __webpack_modules__ = {
         var _app_server_fallback_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/app-server-fallback.ts");
         var _errors_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
         var _loopback_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
+        const defaultFallbacks = {
+            listThreads: _app_server_fallback_js__rspack_import_1.OI,
+            readThread: _app_server_fallback_js__rspack_import_1.Jf,
+            sendMessage: _app_server_fallback_js__rspack_import_1.Ab,
+            waitForReply: _app_server_fallback_js__rspack_import_1.bk,
+            openThread: _app_server_fallback_js__rspack_import_1.zu,
+            statusProbe: _app_server_fallback_js__rspack_import_1.dM
+        };
         class ChatGptDesktopFacade {
             #cdp;
             #port;
             #cdpConnected = false;
-            constructor(cdp = new _cdp_adapter_js__rspack_import_0.a(), port = (0, _loopback_js__rspack_import_3.L0)()){
+            #fallbacks;
+            constructor(cdp = new _cdp_adapter_js__rspack_import_0.a(), port = (0, _loopback_js__rspack_import_3.L0)(), fallbacks = defaultFallbacks){
                 this.#cdp = cdp;
                 this.#port = port;
+                this.#fallbacks = fallbacks;
             }
             async connect({ port }) {
                 this.#port = (0, _loopback_js__rspack_import_3.L0)(process.env, port);
@@ -10352,7 +10362,7 @@ var __webpack_modules__ = {
                     return await this.#cdp.listThreads(options);
                 } catch (error) {
                     if (!isCdpFailure(error)) throw error;
-                    return (0, _app_server_fallback_js__rspack_import_1.OI)(options);
+                    return this.#fallbacks.listThreads(options);
                 }
             }
             async readThread(options) {
@@ -10361,7 +10371,7 @@ var __webpack_modules__ = {
                     return await this.#cdp.readThread(options);
                 } catch (error) {
                     if (!isCdpFailure(error)) throw error;
-                    return (0, _app_server_fallback_js__rspack_import_1.Jf)(options);
+                    return this.#fallbacks.readThread(options);
                 }
             }
             async sendMessage(options) {
@@ -10370,7 +10380,7 @@ var __webpack_modules__ = {
                     return await this.#cdp.sendMessage(options);
                 } catch (error) {
                     if (!isCdpFailure(error)) throw error;
-                    return (0, _app_server_fallback_js__rspack_import_1.Ab)(options);
+                    return this.#fallbacks.sendMessage(options);
                 }
             }
             async waitForReply(options) {
@@ -10379,7 +10389,7 @@ var __webpack_modules__ = {
                     return await this.#cdp.waitForReply(options);
                 } catch (error) {
                     if (!isCdpFailure(error)) throw error;
-                    return (0, _app_server_fallback_js__rspack_import_1.bk)(options);
+                    return this.#fallbacks.waitForReply(options);
                 }
             }
             async openThread(threadId) {
@@ -10388,14 +10398,14 @@ var __webpack_modules__ = {
                     return await this.#cdp.openThread(threadId);
                 } catch (error) {
                     if (!isCdpFailure(error)) throw error;
-                    return (0, _app_server_fallback_js__rspack_import_1.zu)(threadId);
+                    return this.#fallbacks.openThread(threadId);
                 }
             }
             async status() {
                 const cdpStatus = await this.#cdp.status();
                 let appServerFallback;
                 try {
-                    appServerFallback = await (0, _app_server_fallback_js__rspack_import_1.dM)();
+                    appServerFallback = await this.#fallbacks.statusProbe();
                 } catch  {
                     appServerFallback = {
                         reachable: false

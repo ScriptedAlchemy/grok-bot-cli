@@ -23,6 +23,7 @@ export {
   getChatGptDesktopAdapter,
   setChatGptDesktopAdapterForTests,
 } from './facade.js';
+export type { ChatGptDesktopFallbacks } from './facade.js';
 export {
   CDP_LOOPBACK_HOST,
   DEFAULT_CDP_PORT,
