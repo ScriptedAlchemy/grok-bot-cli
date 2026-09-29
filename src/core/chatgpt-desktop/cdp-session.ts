@@ -1,6 +1,5 @@
 import { CdpUnreachableError } from './errors.js';
 import {
-  assertLoopbackHostname,
   cdpHttpBase,
   forceLoopbackWebSocketUrl,
 } from './loopback.js';
@@ -15,6 +14,7 @@ export type CdpVersionInfo = {
 type Pending = {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
 };
 
 /**
@@ -44,7 +44,10 @@ export class CdpSession {
     const base = cdpHttpBase(port);
     let response: Response;
     try {
-      response = await fetch(`${base}/json/version`, { signal });
+      response = await fetch(`${base}/json/version`, {
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5000)]) : AbortSignal.timeout(5000),
+        redirect: 'error',
+      });
     } catch (error) {
       throw new CdpUnreachableError(
         `ChatGPT Desktop CDP not reachable at ${base}/json/version: ` +
@@ -56,14 +59,21 @@ export class CdpSession {
         `ChatGPT Desktop CDP /json/version returned HTTP ${response.status}`,
       );
     }
-    return (await response.json()) as CdpVersionInfo;
+    const version = (await response.json()) as CdpVersionInfo;
+    if (typeof version.webSocketDebuggerUrl === 'string') {
+      forceLoopbackWebSocketUrl(version.webSocketDebuggerUrl);
+    }
+    return version;
   }
 
   static async fetchJsonList(port: number, { signal }: { signal?: AbortSignal } = {}): Promise<unknown[]> {
     const base = cdpHttpBase(port);
     let response: Response;
     try {
-      response = await fetch(`${base}/json/list`, { signal });
+      response = await fetch(`${base}/json/list`, {
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5000)]) : AbortSignal.timeout(5000),
+        redirect: 'error',
+      });
     } catch (error) {
       throw new CdpUnreachableError(
         `ChatGPT Desktop CDP not reachable at ${base}/json/list: ` +
@@ -89,30 +99,38 @@ export class CdpSession {
       throw new CdpUnreachableError('CDP /json/version omitted webSocketDebuggerUrl');
     }
     const url = forceLoopbackWebSocketUrl(rawUrl);
-    const parsed = new URL(url);
-    assertLoopbackHostname(parsed.hostname);
 
+    signal?.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(url);
       this.#ws = ws;
-      const onAbort = () => {
-        ws.close();
-        reject(new Error('CDP connect aborted'));
+      const cleanup = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
       };
+      const onAbort = () => {
+        cleanup();
+        ws.close();
+        reject(new CdpUnreachableError('CDP connect aborted or timed out'));
+      };
+      const timer = setTimeout(onAbort, 5000);
       signal?.addEventListener('abort', onAbort, { once: true });
       ws.addEventListener('open', () => {
-        signal?.removeEventListener('abort', onAbort);
+        cleanup();
         resolve();
       }, { once: true });
       ws.addEventListener('error', () => {
-        signal?.removeEventListener('abort', onAbort);
+        cleanup();
         reject(new CdpUnreachableError(`CDP WebSocket failed for ${url}`));
       }, { once: true });
       ws.addEventListener('message', (event) => this.#onMessage(event.data));
       ws.addEventListener('close', () => {
+        cleanup();
+        reject(new CdpUnreachableError('CDP WebSocket closed before connecting'));
         this.#closed = true;
         for (const [, pending] of this.#pending) {
-          pending.reject(new Error('CDP WebSocket closed'));
+          clearTimeout(pending.timer);
+          pending.reject(new CdpUnreachableError('CDP WebSocket closed'));
         }
         this.#pending.clear();
       });
@@ -134,11 +152,22 @@ export class CdpSession {
     if (params !== undefined) payload.params = params;
     if (sessionId !== undefined) payload.sessionId = sessionId;
     return await new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.#pending.delete(id);
+        reject(new CdpUnreachableError(`CDP ${method} timed out`));
+      }, 10000);
       this.#pending.set(id, {
+        timer,
         resolve: (value) => resolve(value as T),
         reject,
       });
-      this.#ws!.send(JSON.stringify(payload));
+      try {
+        this.#ws!.send(JSON.stringify(payload));
+      } catch (error) {
+        clearTimeout(timer);
+        this.#pending.delete(id);
+        reject(error);
+      }
     });
   }
 
@@ -166,6 +195,11 @@ export class CdpSession {
 
   close(): void {
     this.#closed = true;
+    for (const pending of this.#pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(new CdpUnreachableError('CDP session closed'));
+    }
+    this.#pending.clear();
     this.#ws?.close();
     this.#ws = null;
   }
@@ -177,10 +211,11 @@ export class CdpSession {
     } catch {
       return;
     }
-    if (typeof message.id !== 'number') return;
+    if (!message || typeof message !== 'object' || typeof message.id !== 'number') return;
     const pending = this.#pending.get(message.id);
     if (!pending) return;
     this.#pending.delete(message.id);
+    clearTimeout(pending.timer);
     if (message.error) {
       pending.reject(new Error(message.error.message || 'CDP error'));
       return;

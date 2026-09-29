@@ -10,7 +10,7 @@ import {
 
 export const config = {
   description:
-    'Discover ChatGPT Desktop hosts and modelProviders at runtime (never hardcode). Always includes local plus every remote-thread-summaries-v3:<hostId>; merges app-server remote-environment methods when present. Providers from app-server list or distinct thread/list values.',
+    'Discover ChatGPT Desktop hosts and modelProviders at runtime (never hardcode). Always includes local plus every remote-thread-summaries-v3:<hostId>; Providers come from distinct thread/list and remote-summary values.',
   exitCode: 'result',
   inputJsonSchema: {
     additionalProperties: false,

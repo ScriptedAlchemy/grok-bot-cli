@@ -1,4 +1,4 @@
-import { RemoteThreadNotLoadedError as SharedRemoteThreadNotLoadedError } from '../codex/remote-control.js';
+export { RemoteThreadNotLoadedError } from '../codex/remote-control.js';
 
 /** Typed failure when a ChatGPT Desktop CDP/DOM operation is not yet implemented. */
 export class NotImplementedError extends Error {
@@ -40,28 +40,5 @@ export class CdpUnreachableError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'CdpUnreachableError';
-  }
-}
-
-/**
- * Thread exists on a remote-control host and is not loaded on the local
- * app-server. Shared with codex send/read paths.
- */
-export class RemoteThreadNotLoadedError extends SharedRemoteThreadNotLoadedError {
-  declare readonly code: 'REMOTE_THREAD_NOT_LOADED';
-  declare readonly delivery: 'rejected';
-  declare readonly reason: 'remote-thread-not-loaded';
-  declare readonly threadId: string;
-  declare readonly hostId: string | null;
-  declare readonly hostName: string | null;
-  declare readonly hint: string;
-
-  constructor(
-    threadId: string,
-    hostId: string | null = null,
-    hostName: string | null = null,
-  ) {
-    super(threadId, hostId, hostName);
-    this.name = 'RemoteThreadNotLoadedError';
   }
 }

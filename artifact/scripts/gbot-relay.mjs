@@ -23265,6 +23265,7 @@ var __webpack_modules__ = {
                 }
                 const turns = [];
                 let cursor;
+                const seen = new Set();
                 for(let page = 0; page < 40 && turns.length < limit; page++){
                     let out;
                     try {
@@ -23272,6 +23273,7 @@ var __webpack_modules__ = {
                             threadId: bare,
                             limit: Math.min(100, limit - turns.length),
                             itemsView: "full",
+                            sortDirection: "desc",
                             ...cursor !== undefined ? {
                                 cursor
                             } : {}
@@ -23285,8 +23287,12 @@ var __webpack_modules__ = {
                         throw new CodexProtocolError("thread/turns/list", "missing `data` array");
                     }
                     for (const row of out.data)turns.push(row);
-                    if (out.nextCursor == null || typeof out.nextCursor !== "string") break;
-                    cursor = out.nextCursor;
+                    cursor = out.nextCursor ?? null;
+                    if (cursor === null) break;
+                    if (typeof cursor !== "string" || !cursor || seen.has(cursor)) {
+                        throw new CodexProtocolError("thread/turns/list", "invalid or repeated cursor");
+                    }
+                    seen.add(cursor);
                 }
                 return {
                     threadId: bare,
@@ -24307,7 +24313,7 @@ var __webpack_modules__ = {
         const TEMP_THREAD_ID_PREFIX = 'local:client-new-thread:';
         const ID_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
         function isTemporaryDesktopThreadId(threadId) {
-            return typeof threadId === 'string' && threadId.startsWith(TEMP_THREAD_ID_PREFIX);
+            return typeof threadId === 'string' && (threadId.startsWith(TEMP_THREAD_ID_PREFIX) || threadId.startsWith('client-new-thread:'));
         }
         function normalizeCodexThreadId1(threadId) {
             if (typeof threadId !== 'string' || !threadId) {
@@ -24321,9 +24327,6 @@ var __webpack_modules__ = {
                 throw new RangeError('Invalid threadId');
             }
             return bare;
-        }
-        function hasLocalThreadPrefix(threadId) {
-            return typeof threadId === 'string' && threadId.startsWith(LOCAL_THREAD_ID_PREFIX) && !isTemporaryDesktopThreadId(threadId);
         }
         __webpack_require__.d(__webpack_exports__, {
             SX: ()=>normalizeCodexThreadId1

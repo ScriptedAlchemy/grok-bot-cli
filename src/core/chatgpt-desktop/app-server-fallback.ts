@@ -84,68 +84,13 @@ export async function appServerSearchThreads({
   };
 }
 
-/** Candidate app-server RPCs that might list configured model providers. */
-const MODEL_PROVIDER_LIST_METHODS = [
-  'modelProvider/list',
-  'model/providers/list',
-  'models/providers/list',
-  'account/modelProviders/list',
-  'config/modelProviders/list',
-  'provider/list',
-] as const;
-
-/** Candidate app-server RPCs that might list remote-control environments/hosts. */
-const REMOTE_ENVIRONMENT_LIST_METHODS = [
-  'remoteEnvironment/list',
-  'remote/environments/list',
-  'environment/list',
-  'remoteControl/hosts/list',
-  'remote/hosts/list',
-  'hosts/list',
-] as const;
-
 export type ModelProvidersDiscovery = {
   readonly providers: readonly string[];
-  /** Which discovery path produced the list. */
-  readonly source:
-    | `app-server:${(typeof MODEL_PROVIDER_LIST_METHODS)[number]}`
-    | 'thread/list-distinct';
+  readonly source: 'thread/list-distinct';
 };
 
-export type RemoteEnvironmentsDiscovery = {
-  readonly hosts: readonly { hostId: string; hostName: string | null }[];
-  readonly source: `app-server:${(typeof REMOTE_ENVIRONMENT_LIST_METHODS)[number]}` | null;
-};
-
-/**
- * Discover configured model providers. Prefers a dedicated app-server list
- * method when present; otherwise distinct `modelProvider` values from
- * `thread/list` (`modelProviders: []`).
- */
+/** Discover provider IDs from the supported inventory, without guessing RPCs. */
 export async function discoverModelProviders(): Promise<ModelProvidersDiscovery> {
-  const { client } = await openCodexSession();
-  try {
-    for (const method of MODEL_PROVIDER_LIST_METHODS) {
-      try {
-        const result = await client.request(method, {}) as unknown;
-        const providers = normalizeNamedList(result, [
-          'id',
-          'name',
-          'provider',
-          'modelProvider',
-          'slug',
-        ]);
-        if (providers.length > 0) {
-          return { providers, source: `app-server:${method}` };
-        }
-      } catch {
-        // Method missing or rejected — try the next candidate.
-      }
-    }
-  } finally {
-    client.close();
-  }
-
   const providers = new Set<string>();
   let cursor: string | undefined;
   for (let page = 0; page < 20; page++) {
@@ -162,99 +107,6 @@ export async function discoverModelProviders(): Promise<ModelProvidersDiscovery>
     providers: [...providers].sort(),
     source: 'thread/list-distinct',
   };
-}
-
-/**
- * Probe app-server for a remote-environment / hosts list method.
- * Returns null source when no such method exists (callers fall back to
- * `remote-thread-summaries-v3:<hostId>` keys in global state).
- */
-export async function discoverRemoteEnvironments(): Promise<RemoteEnvironmentsDiscovery> {
-  const { client } = await openCodexSession();
-  try {
-    for (const method of REMOTE_ENVIRONMENT_LIST_METHODS) {
-      try {
-        const result = await client.request(method, {}) as unknown;
-        const hosts = normalizeHostEntries(result);
-        if (hosts.length > 0) {
-          return { hosts, source: `app-server:${method}` };
-        }
-      } catch {
-        // Method missing or rejected — try the next candidate.
-      }
-    }
-  } finally {
-    client.close();
-  }
-  return { hosts: [], source: null };
-}
-
-function normalizeNamedList(result: unknown, idKeys: string[]): string[] {
-  const raw = listPayload(result);
-  const out: string[] = [];
-  for (const entry of raw) {
-    if (typeof entry === 'string' && entry) out.push(entry);
-    else if (entry && typeof entry === 'object') {
-      const row = entry as Record<string, unknown>;
-      for (const key of idKeys) {
-        if (typeof row[key] === 'string' && row[key]) {
-          out.push(String(row[key]));
-          break;
-        }
-      }
-    }
-  }
-  return [...new Set(out)].sort();
-}
-
-function normalizeHostEntries(
-  result: unknown,
-): { hostId: string; hostName: string | null }[] {
-  const raw = listPayload(result);
-  const out: { hostId: string; hostName: string | null }[] = [];
-  for (const entry of raw) {
-    if (typeof entry === 'string' && entry) {
-      out.push({ hostId: entry, hostName: null });
-      continue;
-    }
-    if (!entry || typeof entry !== 'object') continue;
-    const row = entry as Record<string, unknown>;
-    let hostId: string | null = null;
-    for (const key of ['hostId', 'id', 'uuid', 'environmentId', 'envId']) {
-      if (typeof row[key] === 'string' && row[key]) {
-        hostId = String(row[key]);
-        break;
-      }
-    }
-    if (!hostId) continue;
-    let hostName: string | null = null;
-    for (const key of ['hostName', 'name', 'displayName', 'envName', 'label', 'title']) {
-      if (typeof row[key] === 'string' && row[key]) {
-        hostName = String(row[key]);
-        break;
-      }
-    }
-    out.push({ hostId, hostName });
-  }
-  return out;
-}
-
-function listPayload(result: unknown): unknown[] {
-  if (Array.isArray(result)) return result;
-  if (!result || typeof result !== 'object') return [];
-  const record = result as Record<string, unknown>;
-  for (const key of [
-    'data',
-    'providers',
-    'modelProviders',
-    'hosts',
-    'environments',
-    'remoteEnvironments',
-    'items',
-  ]) {
-    if (Array.isArray(record[key])) return record[key] as unknown[];
-  }
-  return [];
 }
 
 export async function appServerReadThread({
@@ -448,80 +300,42 @@ async function listTurnsFull(
 ): Promise<ChatGptDesktopTurn[]> {
   const collected: unknown[] = [];
   let cursor: string | undefined;
-  try {
-    for (let page = 0; page < 40; page++) {
-      const result = await client.request('thread/turns/list', {
-        threadId,
-        limit: 100,
-        itemsView: 'full',
-        ...(cursor ? { cursor } : {}),
-      }) as { data?: unknown[]; nextCursor?: string | null };
-      if (!Array.isArray(result.data)) {
-        throw new Error(`thread/turns/list missing data array for ${threadId}`);
-      }
-      collected.push(...result.data);
-      if (result.nextCursor == null || typeof result.nextCursor !== 'string') break;
-      cursor = result.nextCursor;
-      if (!full && collected.length >= limit) break;
-    }
-  } catch (error) {
-    if (isThreadNotLoaded(error)) throw maybeRemoteThreadError(error, threadId);
-    // Older daemons may lack itemsView; retry without it, then items/list.
-    if (collected.length === 0) {
-      return listTurnsFallback(client, threadId, { limit, full });
-    }
-    throw error;
-  }
-
-  if (collected.length === 0) {
-    return listTurnsFallback(client, threadId, { limit, full });
-  }
-  return sliceTurns(normalizeTurns(collected), { limit, full });
-}
-
-async function listTurnsFallback(
-  client: AppServerClient,
-  threadId: string,
-  { limit, full }: { limit: number; full: boolean },
-): Promise<ChatGptDesktopTurn[]> {
-  for (const method of ['thread/turns/list', 'thread/items/list'] as const) {
+  let itemsView = true;
+  let method = 'thread/turns/list';
+  const seen = new Set<string>();
+  while (collected.length < limit) {
+    let result: { data?: unknown[]; nextCursor?: string | null };
     try {
-      const collected: unknown[] = [];
-      let cursor: string | undefined;
-      for (let page = 0; page < 40; page++) {
-        const params: Record<string, unknown> = {
-          threadId,
-          limit: 100,
-          ...(cursor ? { cursor } : {}),
-        };
-        if (method === 'thread/turns/list') params.itemsView = 'full';
-        const result = await client.request(method, params) as {
-          data?: unknown[];
-          nextCursor?: string | null;
-        };
-        if (!Array.isArray(result.data)) break;
-        collected.push(...result.data);
-        if (result.nextCursor == null || typeof result.nextCursor !== 'string') break;
-        cursor = result.nextCursor;
-        if (!full && collected.length >= limit) break;
-      }
-      if (collected.length > 0) {
-        return sliceTurns(normalizeTurns(collected), { limit, full });
-      }
+      result = await client.request(method, {
+        threadId,
+        limit: Math.min(100, limit - collected.length),
+        sortDirection: full ? 'asc' : 'desc',
+        ...(method === 'thread/turns/list' && itemsView ? { itemsView: 'full' } : {}),
+        ...(cursor !== undefined ? { cursor } : {}),
+      }) as typeof result;
     } catch (error) {
-      if (isThreadNotLoaded(error)) throw maybeRemoteThreadError(error, threadId);
+      const code = (error as { rpc?: { code?: number } })?.rpc?.code;
+      if (collected.length === 0 && code === -32602 && itemsView) {
+        itemsView = false;
+        continue;
+      }
+      if (collected.length === 0 && code === -32601 && method === 'thread/turns/list') {
+        method = 'thread/items/list';
+        continue;
+      }
+      throw maybeRemoteThreadError(error, threadId);
     }
+    if (!Array.isArray(result?.data)) throw new Error(`${method} missing data array for ${threadId}`);
+    collected.push(...result.data);
+    if (result.nextCursor == null) break;
+    if (typeof result.nextCursor !== 'string' || !result.nextCursor || seen.has(result.nextCursor)) {
+      throw new Error(`${method} returned an invalid or repeated cursor`);
+    }
+    seen.add(result.nextCursor);
+    cursor = result.nextCursor;
   }
-  throw new Error(`app-server has no turn history for thread ${threadId}`);
-}
-
-function sliceTurns(
-  turns: ChatGptDesktopTurn[],
-  { limit, full }: { limit: number; full: boolean },
-): ChatGptDesktopTurn[] {
-  if (limit <= 0) return turns;
-  if (full) return turns.slice(0, limit);
-  return turns.slice(-limit);
+  const turns = normalizeTurns(collected.slice(0, limit));
+  return full ? turns : turns.reverse();
 }
 
 function normalizeTurns(raw: unknown[]): ChatGptDesktopTurn[] {

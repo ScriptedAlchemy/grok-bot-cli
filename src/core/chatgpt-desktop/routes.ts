@@ -66,7 +66,7 @@ export const sendSchema = z
   .object({
     port: z.number().int().min(1).max(65535).optional(),
     threadId: threadId.optional(),
-    text: z.string().min(1).max(100_000),
+    text: z.string().trim().min(1).max(100_000),
     project: z.string().min(1).max(256).optional(),
     openTimeoutMs: z.number().int().min(1).max(600_000).default(90_000),
   })
@@ -88,25 +88,35 @@ export const resultSchema = z
 
 export type OperationResult = z.infer<typeof resultSchema>;
 
+// The Desktop has one selected conversation and composer. Keep route calls
+// from closing each other's sessions or typing into each other's chats.
+let operationQueue: Promise<unknown> = Promise.resolve();
+
 async function withAdapter<T>(
   port: number | undefined,
   run: (adapter: ReturnType<typeof getChatGptDesktopAdapter>) => Promise<T>,
 ): Promise<T> {
-  const adapter = getChatGptDesktopAdapter();
-  const resolved = resolveCdpPort(process.env, port);
-  try {
-    await adapter.connect({ port: resolved });
-  } catch {
-    // status/list/search/read may still succeed via HTTP probe or app-server.
-  }
-  return run(adapter);
+  const operation = operationQueue.then(async () => {
+    const adapter = getChatGptDesktopAdapter();
+    const resolved = resolveCdpPort(process.env, port);
+    try {
+      try {
+        await adapter.connect({ port: resolved });
+      } catch {
+        // Reads may still succeed through the app-server.
+      }
+      return await run(adapter);
+    } finally {
+      await adapter.close();
+    }
+  });
+  operationQueue = operation.catch(() => {});
+  return operation;
 }
 
 function asResult(value: object): OperationResult {
-  const cleaned = Object.fromEntries(
-    Object.entries(value).filter(([, entry]) => entry !== undefined),
-  );
-  return resultSchema.parse(cleaned);
+  // Match the wire representation, including optional fields nested in turns.
+  return resultSchema.parse(JSON.parse(JSON.stringify(value)));
 }
 
 function mapError(error: unknown): OperationResult {
@@ -224,6 +234,7 @@ export async function readThreadOperation(
 
 export async function sendOperation(input: z.infer<typeof sendSchema>): Promise<OperationResult> {
   try {
+    input = sendSchema.parse(input);
     const out = await withAdapter(input.port, (adapter) =>
       adapter.sendMessage({
         threadId: input.threadId,
@@ -263,7 +274,7 @@ export function resultText(result: OperationResult): string {
     const backend = result.appServerFallback && typeof result.appServerFallback === 'object'
       ? ` cdp + app-server probe`
       : '';
-    return `ChatGPT Desktop CDP reachable on 127.0.0.1:${result.port}${backend}`;
+    return result.message ? String(result.message) : `ChatGPT Desktop CDP reachable on 127.0.0.1:${result.port}${backend}`;
   }
   if (result.reachable === false) return String(result.message ?? 'ChatGPT Desktop CDP unreachable');
   if (Array.isArray(result.hosts)) {

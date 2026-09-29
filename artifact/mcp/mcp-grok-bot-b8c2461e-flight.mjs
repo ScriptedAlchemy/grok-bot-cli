@@ -8136,46 +8136,7 @@ var __webpack_modules__ = {
                 modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined
             };
         }
-        const MODEL_PROVIDER_LIST_METHODS = [
-            'modelProvider/list',
-            'model/providers/list',
-            'models/providers/list',
-            'account/modelProviders/list',
-            'config/modelProviders/list',
-            'provider/list'
-        ];
-        const REMOTE_ENVIRONMENT_LIST_METHODS = [
-            'remoteEnvironment/list',
-            'remote/environments/list',
-            'environment/list',
-            'remoteControl/hosts/list',
-            'remote/hosts/list',
-            'hosts/list'
-        ];
         async function discoverModelProviders() {
-            const { client } = await (0, _codex_bridge_js__rspack_import_0.eC)();
-            try {
-                for (const method of MODEL_PROVIDER_LIST_METHODS){
-                    try {
-                        const result = await client.request(method, {});
-                        const providers = normalizeNamedList(result, [
-                            'id',
-                            'name',
-                            'provider',
-                            'modelProvider',
-                            'slug'
-                        ]);
-                        if (providers.length > 0) {
-                            return {
-                                providers,
-                                source: `app-server:${method}`
-                            };
-                        }
-                    } catch  {}
-                }
-            } finally{
-                client.close();
-            }
             const providers = new Set();
             let cursor;
             for(let page = 0; page < 20; page++){
@@ -8198,113 +8159,6 @@ var __webpack_modules__ = {
                 ].sort(),
                 source: 'thread/list-distinct'
             };
-        }
-        async function discoverRemoteEnvironments() {
-            const { client } = await (0, _codex_bridge_js__rspack_import_0.eC)();
-            try {
-                for (const method of REMOTE_ENVIRONMENT_LIST_METHODS){
-                    try {
-                        const result = await client.request(method, {});
-                        const hosts = normalizeHostEntries(result);
-                        if (hosts.length > 0) {
-                            return {
-                                hosts,
-                                source: `app-server:${method}`
-                            };
-                        }
-                    } catch  {}
-                }
-            } finally{
-                client.close();
-            }
-            return {
-                hosts: [],
-                source: null
-            };
-        }
-        function normalizeNamedList(result, idKeys) {
-            const raw = listPayload(result);
-            const out = [];
-            for (const entry of raw){
-                if (typeof entry === 'string' && entry) out.push(entry);
-                else if (entry && typeof entry === 'object') {
-                    const row = entry;
-                    for (const key of idKeys){
-                        if (typeof row[key] === 'string' && row[key]) {
-                            out.push(String(row[key]));
-                            break;
-                        }
-                    }
-                }
-            }
-            return [
-                ...new Set(out)
-            ].sort();
-        }
-        function normalizeHostEntries(result) {
-            const raw = listPayload(result);
-            const out = [];
-            for (const entry of raw){
-                if (typeof entry === 'string' && entry) {
-                    out.push({
-                        hostId: entry,
-                        hostName: null
-                    });
-                    continue;
-                }
-                if (!entry || typeof entry !== 'object') continue;
-                const row = entry;
-                let hostId = null;
-                for (const key of [
-                    'hostId',
-                    'id',
-                    'uuid',
-                    'environmentId',
-                    'envId'
-                ]){
-                    if (typeof row[key] === 'string' && row[key]) {
-                        hostId = String(row[key]);
-                        break;
-                    }
-                }
-                if (!hostId) continue;
-                let hostName = null;
-                for (const key of [
-                    'hostName',
-                    'name',
-                    'displayName',
-                    'envName',
-                    'label',
-                    'title'
-                ]){
-                    if (typeof row[key] === 'string' && row[key]) {
-                        hostName = String(row[key]);
-                        break;
-                    }
-                }
-                out.push({
-                    hostId,
-                    hostName
-                });
-            }
-            return out;
-        }
-        function listPayload(result) {
-            if (Array.isArray(result)) return result;
-            if (!result || typeof result !== 'object') return [];
-            const record = result;
-            for (const key of [
-                'data',
-                'providers',
-                'modelProviders',
-                'hosts',
-                'environments',
-                'remoteEnvironments',
-                'items'
-            ]){
-                if (Array.isArray(record[key])) return record[key];
-            }
-            return [];
         }
         async function appServerReadThread({ threadId, limit = 100, full = false }) {
             const bare = (0, _thread_ids_js__rspack_import_3.NM)(threadId);
@@ -8430,85 +8284,46 @@ var __webpack_modules__ = {
         async function listTurnsFull(client, threadId, { limit, full }) {
             const collected = [];
             let cursor;
-            try {
-                for(let page = 0; page < 40; page++){
-                    const result = await client.request('thread/turns/list', {
+            let itemsView = true;
+            let method = 'thread/turns/list';
+            const seen = new Set();
+            while(collected.length < limit){
+                let result;
+                try {
+                    result = await client.request(method, {
                         threadId,
-                        limit: 100,
-                        itemsView: 'full',
-                        ...cursor ? {
+                        limit: Math.min(100, limit - collected.length),
+                        sortDirection: full ? 'asc' : 'desc',
+                        ...method === 'thread/turns/list' && itemsView ? {
+                            itemsView: 'full'
+                        } : {},
+                        ...cursor !== undefined ? {
                             cursor
                         } : {}
                     });
-                    if (!Array.isArray(result.data)) {
-                        throw new Error(`thread/turns/list missing data array for ${threadId}`);
-                    }
-                    collected.push(...result.data);
-                    if (result.nextCursor == null || typeof result.nextCursor !== 'string') break;
-                    cursor = result.nextCursor;
-                    if (!full && collected.length >= limit) break;
-                }
-            } catch (error) {
-                if (isThreadNotLoaded(error)) throw maybeRemoteThreadError(error, threadId);
-                if (collected.length === 0) {
-                    return listTurnsFallback(client, threadId, {
-                        limit,
-                        full
-                    });
-                }
-                throw error;
-            }
-            if (collected.length === 0) {
-                return listTurnsFallback(client, threadId, {
-                    limit,
-                    full
-                });
-            }
-            return sliceTurns(normalizeTurns(collected), {
-                limit,
-                full
-            });
-        }
-        async function listTurnsFallback(client, threadId, { limit, full }) {
-            for (const method of [
-                'thread/turns/list',
-                'thread/items/list'
-            ]){
-                try {
-                    const collected = [];
-                    let cursor;
-                    for(let page = 0; page < 40; page++){
-                        const params = {
-                            threadId,
-                            limit: 100,
-                            ...cursor ? {
-                                cursor
-                            } : {}
-                        };
-                        if (method === 'thread/turns/list') params.itemsView = 'full';
-                        const result = await client.request(method, params);
-                        if (!Array.isArray(result.data)) break;
-                        collected.push(...result.data);
-                        if (result.nextCursor == null || typeof result.nextCursor !== 'string') break;
-                        cursor = result.nextCursor;
-                        if (!full && collected.length >= limit) break;
-                    }
-                    if (collected.length > 0) {
-                        return sliceTurns(normalizeTurns(collected), {
-                            limit,
-                            full
-                        });
-                    }
                 } catch (error) {
-                    if (isThreadNotLoaded(error)) throw maybeRemoteThreadError(error, threadId);
+                    const code = error?.rpc?.code;
+                    if (collected.length === 0 && code === -32602 && itemsView) {
+                        itemsView = false;
+                        continue;
+                    }
+                    if (collected.length === 0 && code === -32601 && method === 'thread/turns/list') {
+                        method = 'thread/items/list';
+                        continue;
+                    }
+                    throw maybeRemoteThreadError(error, threadId);
                 }
+                if (!Array.isArray(result?.data)) throw new Error(`${method} missing data array for ${threadId}`);
+                collected.push(...result.data);
+                if (result.nextCursor == null) break;
+                if (typeof result.nextCursor !== 'string' || !result.nextCursor || seen.has(result.nextCursor)) {
+                    throw new Error(`${method} returned an invalid or repeated cursor`);
+                }
+                seen.add(result.nextCursor);
+                cursor = result.nextCursor;
             }
-            throw new Error(`app-server has no turn history for thread ${threadId}`);
-        }
-        function sliceTurns(turns, { limit, full }) {
-            if (limit <= 0) return turns;
-            if (full) return turns.slice(0, limit);
-            return turns.slice(-limit);
+            const turns = normalizeTurns(collected.slice(0, limit));
+            return full ? turns : turns.reverse();
         }
         function normalizeTurns(raw) {
             const turns = [];
@@ -8631,7 +8446,6 @@ var __webpack_modules__ = {
         __webpack_require__.d(__webpack_exports__, {
             Jf: ()=>appServerReadThread,
             OI: ()=>appServerListThreads,
-            OP: ()=>discoverRemoteEnvironments,
             X: ()=>discoverModelProviders,
             aI: ()=>appServerSearchThreads,
             dM: ()=>appServerStatusProbe
@@ -8649,6 +8463,7 @@ var __webpack_modules__ = {
             #version = null;
             #pageSessionId = null;
             #mainTargetId = null;
+            #submittedTurn = null;
             async connect({ port }) {
                 await this.close();
                 this.#port = (0, _loopback_js__rspack_import_4.L0)(process.env, port);
@@ -8705,25 +8520,40 @@ var __webpack_modules__ = {
                     await (0, _cdp_dom_js__rspack_import_2.s0)(this.#requireSession(), sessionId, {
                         project
                     });
-                    await delay(300);
+                    await (0, _cdp_dom_js__rspack_import_2.Zx)(this.#requireSession(), sessionId, {
+                        timeoutMs: openTimeoutMs,
+                        threadId: 'new'
+                    });
                     const threads = await (0, _cdp_dom_js__rspack_import_2.AY)(this.#requireSession(), sessionId, {
                         limit: 20
                     });
                     const temp = threads.find((t)=>t.threadId.startsWith(_cdp_dom_js__rspack_import_2.hA) && t.selected) ?? threads.find((t)=>t.threadId.startsWith(_cdp_dom_js__rspack_import_2.hA));
                     if (temp) temporaryThreadId = temp.threadId;
                 }
+                const before = await (0, _cdp_dom_js__rspack_import_2.YX)(this.#requireSession(), sessionId);
                 const { sentVia } = await (0, _cdp_dom_js__rspack_import_2.lh)(this.#requireSession(), sessionId, text);
                 let conversationId;
                 if (startedNew || threadId && (0, _thread_ids_js__rspack_import_3.vr)(threadId)) {
                     const resolveMs = Math.min(openTimeoutMs, 60000);
-                    conversationId = await (0, _cdp_dom_js__rspack_import_2.z9)(this.#requireSession(), sessionId, {
-                        timeoutMs: resolveMs
-                    });
+                    try {
+                        conversationId = await (0, _cdp_dom_js__rspack_import_2.z9)(this.#requireSession(), sessionId, {
+                            timeoutMs: resolveMs
+                        });
+                    } catch (error) {
+                        throw Object.assign(new Error(error instanceof Error ? error.message : String(error)), {
+                            delivery: 'unknown',
+                            reason: 'conversation-id-unresolved'
+                        });
+                    }
                 }
                 const durable = (0, _cdp_dom_js__rspack_import_2.X8)(conversationId, threadId);
                 if (!durable) {
                     throw new Error('ChatGPT Desktop send accepted but no durable conversation id was available; ' + 'refusing to return a local:client-new-thread:* id as threadId');
                 }
+                this.#submittedTurn = {
+                    threadId: durable,
+                    turnKey: before.lastTurnKey
+                };
                 return {
                     threadId: durable,
                     temporaryThreadId,
@@ -8737,17 +8567,17 @@ var __webpack_modules__ = {
                 };
             }
             async waitForReply({ threadId, timeoutMs = 120000 }) {
+                const deadline = Date.now() + timeoutMs;
                 const sessionId = await this.#ensurePageSession();
+                const expectedId = threadId && threadId !== 'new' ? (0, _thread_ids_js__rspack_import_3.nn)(threadId) ?? undefined : this.#submittedTurn ? (0, _thread_ids_js__rspack_import_3.nn)(this.#submittedTurn.threadId) ?? undefined : undefined;
                 if (threadId && !(0, _thread_ids_js__rspack_import_3.vr)(threadId) && threadId !== 'new') {
-                    try {
-                        await this.#openAndWait(sessionId, threadId, 90000);
-                    } catch  {}
+                    await this.#openAndWait(sessionId, threadId, Math.min(timeoutMs, 90000));
                 }
-                const baseline = await (0, _cdp_dom_js__rspack_import_2.YX)(this.#requireSession(), sessionId);
                 try {
                     const done = await (0, _cdp_dom_js__rspack_import_2.FG)(this.#requireSession(), sessionId, {
-                        timeoutMs,
-                        baselineFinalCount: baseline.finalAssistantCount
+                        timeoutMs: Math.max(0, deadline - Date.now()),
+                        expectedConversationId: expectedId,
+                        baselineTurnKey: this.#submittedTurn && (!threadId || (0, _thread_ids_js__rspack_import_3.BS)(threadId) === this.#submittedTurn.threadId) ? this.#submittedTurn.turnKey : undefined
                     });
                     const durable = (0, _cdp_dom_js__rspack_import_2.X8)(done.conversationId, threadId) ?? (done.conversationId ? (0, _thread_ids_js__rspack_import_3.BS)(done.conversationId) : null);
                     if (!durable) {
@@ -8762,26 +8592,13 @@ var __webpack_modules__ = {
                         delivery: 'replied'
                     };
                 } catch (error) {
-                    const last = await (0, _cdp_dom_js__rspack_import_2.YX)(this.#requireSession(), sessionId);
-                    const durable = (0, _cdp_dom_js__rspack_import_2.X8)(last.conversationId, threadId);
-                    if (last.reply && durable) {
-                        return {
-                            threadId: durable,
-                            conversationId: last.conversationId || (0, _thread_ids_js__rspack_import_3.nn)(durable) || durable,
-                            reply: last.reply,
-                            backend: 'cdp',
-                            experimental: false,
-                            delivery: 'replied'
-                        };
-                    }
+                    if (!(error instanceof _cdp_dom_js__rspack_import_2.aw)) throw error;
                     return {
-                        threadId: durable ?? (threadId && !(0, _thread_ids_js__rspack_import_3.vr)(threadId) ? threadId : 'unknown'),
-                        conversationId: last.conversationId || undefined,
-                        reply: last.reply,
+                        threadId: threadId ?? 'unknown',
+                        reply: '',
                         backend: 'cdp',
                         experimental: false,
-                        delivery: last.reply ? 'replied' : 'timeout',
-                        ...error instanceof Error ? {} : {}
+                        delivery: 'timeout'
                     };
                 }
             }
@@ -8838,7 +8655,8 @@ var __webpack_modules__ = {
             async #openAndWait(sessionId, threadId, openTimeoutMs) {
                 await (0, _cdp_dom_js__rspack_import_2.Kl)(this.#requireSession(), sessionId, threadId);
                 await (0, _cdp_dom_js__rspack_import_2.Zx)(this.#requireSession(), sessionId, {
-                    timeoutMs: openTimeoutMs
+                    timeoutMs: openTimeoutMs,
+                    threadId
                 });
             }
             async #attachMainWindow() {
@@ -8868,9 +8686,6 @@ var __webpack_modules__ = {
                 }
                 return this.#session;
             }
-        }
-        function delay(ms) {
-            return new Promise((resolve)=>setTimeout(resolve, ms));
         }
         __webpack_require__.d(__webpack_exports__, {
             a: ()=>CdpChatGptDesktopAdapter
@@ -9046,6 +8861,7 @@ var __webpack_modules__ = {
         preferred.click();
         return { ok: true, via: 'project', project: ${JSON.stringify(project ?? null)} };
       }
+      return { ok: false, error: 'project-not-found' };
     }
     const buttons = Array.from(document.querySelectorAll('button'));
     const fallback = buttons.find((btn) => (btn.textContent || '').trim() === 'New chat');
@@ -9068,6 +8884,8 @@ var __webpack_modules__ = {
         const FOCUS_COMPOSER_EXPRESSION = `(() => {
   const composer = document.querySelector(${JSON.stringify(COMPOSER_SELECTOR)});
   if (!composer) return { ok: false, error: 'composer-not-found' };
+  if ((composer.textContent || '').trim()) return { ok: false, error: 'composer-has-draft' };
+  if (document.querySelector(${JSON.stringify(STOP_BUTTON_SELECTOR)})) return { ok: false, error: 'reply-in-progress' };
   composer.focus();
   return { ok: true };
 })()`;
@@ -9095,6 +8913,7 @@ var __webpack_modules__ = {
     conversationId,
     reply,
     lastTurnKey,
+    finalTurnKey: lastFinal?.closest(${JSON.stringify(SELECTORS.turn)})?.getAttribute(${JSON.stringify(ATTR.turnKey)}) || '',
   };
 })()`;
         const CONVERSATION_ID_EXPRESSION = `(() => {
@@ -9179,13 +8998,23 @@ var __webpack_modules__ = {
                 throw new Error(result?.error === 'thread-not-found' ? `ChatGPT Desktop thread not found: ${threadId}` : `Failed to open ChatGPT Desktop thread ${threadId}`);
             }
         }
-        async function waitForLoadingTaskGone(session, sessionId, { timeoutMs = DEFAULT_OPEN_TIMEOUT_MS } = {}) {
+        async function waitForLoadingTaskGone(session, sessionId, { timeoutMs = DEFAULT_OPEN_TIMEOUT_MS, threadId } = {}) {
             const deadline = Date.now() + timeoutMs;
             while(Date.now() < deadline){
                 const gone = await session.evaluate(LOADING_TASK_GONE_EXPRESSION, {
                     sessionId
                 });
-                if (gone) return;
+                if (gone) {
+                    const current = threadId ? await readConversationIdFromDom(session, sessionId) : '';
+                    if (!threadId) return;
+                    if (threadId === 'new' || (0, _codex_thread_id_js__rspack_import_0.vr)(threadId)) {
+                        const rows = await listThreadsFromDom(session, sessionId, {
+                            limit: 200
+                        });
+                        const selected = rows.find((row)=>row.selected);
+                        if (!current && (!selected || (0, _codex_thread_id_js__rspack_import_0.vr)(selected.threadId))) return;
+                    } else if (current && durableThreadKey(current) === durableThreadKey(threadId)) return;
+                }
                 await delay(250);
             }
             throw new Error(`ChatGPT Desktop thread still showing ${JSON.stringify(LOADING_TASK_TEXT)} after ${timeoutMs}ms`);
@@ -9206,7 +9035,7 @@ var __webpack_modules__ = {
                 sessionId
             });
             if (!focused?.ok) {
-                throw new Error('ChatGPT Desktop composer not found ([data-codex-composer=true])');
+                throw new Error(`ChatGPT Desktop composer unavailable: ${focused?.error || 'not found'}`);
             }
         }
         async function submitComposerWithEnter(session, sessionId) {
@@ -9224,28 +9053,11 @@ var __webpack_modules__ = {
                 sessionId
             });
             await session.send('Input.dispatchKeyEvent', {
-                type: 'char',
-                ...base
-            }, {
-                sessionId
-            });
-            await session.send('Input.dispatchKeyEvent', {
                 type: 'keyUp',
                 ...base
             }, {
                 sessionId
             });
-        }
-        async function submitComposerWithButton(session, sessionId) {
-            const result = await session.evaluate(`(() => {
-      const btn = document.querySelector(${JSON.stringify(SEND_BUTTON_SELECTOR)});
-      if (!btn || btn.disabled) return { ok: false };
-      btn.click();
-      return { ok: true };
-    })()`, {
-                sessionId
-            });
-            return Boolean(result?.ok);
         }
         async function sendMessageInDom(session, sessionId, text) {
             await focusComposer(session, sessionId);
@@ -9254,22 +9066,28 @@ var __webpack_modules__ = {
             }, {
                 sessionId
             });
-            await submitComposerWithEnter(session, sessionId);
-            const sendStillVisible = await session.evaluate(`(() => {
-      const btn = document.querySelector(${JSON.stringify(SEND_BUTTON_SELECTOR)});
-      return Boolean(btn && !btn.disabled);
-    })()`, {
-                sessionId
-            });
-            if (sendStillVisible) {
-                const clicked = await submitComposerWithButton(session, sessionId);
-                if (clicked) return {
-                    sentVia: 'button'
-                };
+            try {
+                await submitComposerWithEnter(session, sessionId);
+                const deadline = Date.now() + 3000;
+                while(Date.now() < deadline){
+                    const cleared = await session.evaluate(`(() => {
+        const composer = document.querySelector(${JSON.stringify(COMPOSER_SELECTOR)});
+        return Boolean(composer && !(composer.textContent || '').trim());
+      })()`, {
+                        sessionId
+                    });
+                    if (cleared) return {
+                        sentVia: 'enter'
+                    };
+                    await delay(100);
+                }
+                throw new Error('Desktop composer did not acknowledge submission');
+            } catch (error) {
+                throw Object.assign(new Error(error instanceof Error ? error.message : String(error)), {
+                    delivery: 'unknown',
+                    reason: 'submission-unconfirmed'
+                });
             }
-            return {
-                sentVia: 'enter'
-            };
         }
         async function readReplyState(session, sessionId) {
             const state = await session.evaluate(REPLY_STATE_EXPRESSION, {
@@ -9280,7 +9098,8 @@ var __webpack_modules__ = {
                 finalAssistantCount: Number(state?.finalAssistantCount ?? 0),
                 conversationId: String(state?.conversationId ?? ''),
                 reply: String(state?.reply ?? ''),
-                lastTurnKey: String(state?.lastTurnKey ?? '')
+                lastTurnKey: String(state?.lastTurnKey ?? ''),
+                finalTurnKey: String(state?.finalTurnKey ?? '')
             };
         }
         async function readConversationIdFromDom(session, sessionId) {
@@ -9309,14 +9128,21 @@ var __webpack_modules__ = {
             }
             return null;
         }
-        async function waitForReplyDone(session, sessionId, { timeoutMs = 120000, baselineFinalCount = 0 } = {}) {
+        class ReplyTimeoutError extends Error {
+        }
+        async function waitForReplyDone(session, sessionId, { timeoutMs = 120000, baselineFinalCount = 0, expectedConversationId, baselineTurnKey } = {}) {
             const deadline = Date.now() + timeoutMs;
             let sawStop = false;
             const started = Date.now();
             while(Date.now() < deadline){
                 const state = await readReplyState(session, sessionId);
                 if (state.stopVisible) sawStop = true;
-                const hasNewFinal = state.finalAssistantCount > baselineFinalCount && Boolean(state.reply);
+                expectedConversationId ??= state.conversationId || undefined;
+                if (expectedConversationId && state.conversationId && durableThreadKey(state.conversationId) !== durableThreadKey(expectedConversationId)) {
+                    throw new Error('ChatGPT Desktop selected conversation changed while waiting');
+                }
+                const latestIsFinal = Boolean(state.finalTurnKey) && state.finalTurnKey === state.lastTurnKey;
+                const hasNewFinal = (state.finalAssistantCount > baselineFinalCount || sawStop) && Boolean(state.reply) && latestIsFinal && (!baselineTurnKey || state.lastTurnKey !== baselineTurnKey);
                 if (!state.stopVisible && hasNewFinal && (sawStop || Date.now() - started > 1500)) {
                     return {
                         reply: state.reply,
@@ -9325,14 +9151,7 @@ var __webpack_modules__ = {
                 }
                 await delay(200);
             }
-            const last = await readReplyState(session, sessionId);
-            if (!last.stopVisible && last.finalAssistantCount > baselineFinalCount && last.reply) {
-                return {
-                    reply: last.reply,
-                    conversationId: last.conversationId
-                };
-            }
-            throw new Error(`ChatGPT Desktop reply did not finish within ${timeoutMs}ms`);
+            throw new ReplyTimeoutError(`ChatGPT Desktop reply did not finish within ${timeoutMs}ms`);
         }
         function normalizeTurn(raw) {
             const role = raw.role === 'user' || raw.role === 'status' || raw.role === 'assistant' ? raw.role : raw.assistantText ? 'assistant' : raw.userText ? 'user' : 'assistant';
@@ -9409,6 +9228,7 @@ var __webpack_modules__ = {
             X8: ()=>resolveDurableThreadId,
             YX: ()=>readReplyState,
             Zx: ()=>waitForLoadingTaskGone,
+            aw: ()=>ReplyTimeoutError,
             lh: ()=>sendMessageInDom,
             s0: ()=>startNewChatInDom,
             z9: ()=>waitForConversationId
@@ -9439,7 +9259,11 @@ var __webpack_modules__ = {
                 let response;
                 try {
                     response = await fetch(`${base}/json/version`, {
-                        signal
+                        signal: signal ? AbortSignal.any([
+                            signal,
+                            AbortSignal.timeout(5000)
+                        ]) : AbortSignal.timeout(5000),
+                        redirect: 'error'
                     });
                 } catch (error) {
                     throw new _errors_js__rspack_import_0.sO(`ChatGPT Desktop CDP not reachable at ${base}/json/version: ` + (error instanceof Error ? error.message : String(error)));
@@ -9447,14 +9271,22 @@ var __webpack_modules__ = {
                 if (!response.ok) {
                     throw new _errors_js__rspack_import_0.sO(`ChatGPT Desktop CDP /json/version returned HTTP ${response.status}`);
                 }
-                return await response.json();
+                const version = await response.json();
+                if (typeof version.webSocketDebuggerUrl === 'string') {
+                    (0, _loopback_js__rspack_import_1.jv)(version.webSocketDebuggerUrl);
+                }
+                return version;
             }
             static async fetchJsonList(port, { signal } = {}) {
                 const base = (0, _loopback_js__rspack_import_1.NJ)(port);
                 let response;
                 try {
                     response = await fetch(`${base}/json/list`, {
-                        signal
+                        signal: signal ? AbortSignal.any([
+                            signal,
+                            AbortSignal.timeout(5000)
+                        ]) : AbortSignal.timeout(5000),
+                        redirect: 'error'
                     });
                 } catch (error) {
                     throw new _errors_js__rspack_import_0.sO(`ChatGPT Desktop CDP not reachable at ${base}/json/list: ` + (error instanceof Error ? error.message : String(error)));
@@ -9477,35 +9309,43 @@ var __webpack_modules__ = {
                     throw new _errors_js__rspack_import_0.sO('CDP /json/version omitted webSocketDebuggerUrl');
                 }
                 const url = (0, _loopback_js__rspack_import_1.jv)(rawUrl);
-                const parsed = new URL(url);
-                (0, _loopback_js__rspack_import_1.tb)(parsed.hostname);
+                signal?.throwIfAborted();
                 await new Promise((resolve, reject)=>{
                     const ws = new WebSocket(url);
                     this.#ws = ws;
-                    const onAbort = ()=>{
-                        ws.close();
-                        reject(new Error('CDP connect aborted'));
+                    const cleanup = ()=>{
+                        clearTimeout(timer);
+                        signal?.removeEventListener('abort', onAbort);
                     };
+                    const onAbort = ()=>{
+                        cleanup();
+                        ws.close();
+                        reject(new _errors_js__rspack_import_0.sO('CDP connect aborted or timed out'));
+                    };
+                    const timer = setTimeout(onAbort, 5000);
                     signal?.addEventListener('abort', onAbort, {
                         once: true
                     });
                     ws.addEventListener('open', ()=>{
-                        signal?.removeEventListener('abort', onAbort);
+                        cleanup();
                         resolve();
                     }, {
                         once: true
                     });
                     ws.addEventListener('error', ()=>{
-                        signal?.removeEventListener('abort', onAbort);
+                        cleanup();
                         reject(new _errors_js__rspack_import_0.sO(`CDP WebSocket failed for ${url}`));
                     }, {
                         once: true
                     });
                     ws.addEventListener('message', (event)=>this.#onMessage(event.data));
                     ws.addEventListener('close', ()=>{
+                        cleanup();
+                        reject(new _errors_js__rspack_import_0.sO('CDP WebSocket closed before connecting'));
                         this.#closed = true;
                         for (const [, pending] of this.#pending){
-                            pending.reject(new Error('CDP WebSocket closed'));
+                            clearTimeout(pending.timer);
+                            pending.reject(new _errors_js__rspack_import_0.sO('CDP WebSocket closed'));
                         }
                         this.#pending.clear();
                     });
@@ -9525,11 +9365,22 @@ var __webpack_modules__ = {
                 if (params !== undefined) payload.params = params;
                 if (sessionId !== undefined) payload.sessionId = sessionId;
                 return await new Promise((resolve, reject)=>{
+                    const timer = setTimeout(()=>{
+                        this.#pending.delete(id);
+                        reject(new _errors_js__rspack_import_0.sO(`CDP ${method} timed out`));
+                    }, 10000);
                     this.#pending.set(id, {
+                        timer,
                         resolve: (value)=>resolve(value),
                         reject
                     });
-                    this.#ws.send(JSON.stringify(payload));
+                    try {
+                        this.#ws.send(JSON.stringify(payload));
+                    } catch (error) {
+                        clearTimeout(timer);
+                        this.#pending.delete(id);
+                        reject(error);
+                    }
                 });
             }
             async evaluate(expression, { sessionId, awaitPromise = true } = {}) {
@@ -9548,6 +9399,11 @@ var __webpack_modules__ = {
             }
             close() {
                 this.#closed = true;
+                for (const pending of this.#pending.values()){
+                    clearTimeout(pending.timer);
+                    pending.reject(new _errors_js__rspack_import_0.sO('CDP session closed'));
+                }
+                this.#pending.clear();
                 this.#ws?.close();
                 this.#ws = null;
             }
@@ -9558,10 +9414,11 @@ var __webpack_modules__ = {
                 } catch  {
                     return;
                 }
-                if (typeof message.id !== 'number') return;
+                if (!message || typeof message !== 'object' || typeof message.id !== 'number') return;
                 const pending = this.#pending.get(message.id);
                 if (!pending) return;
                 this.#pending.delete(message.id);
+                clearTimeout(pending.timer);
                 if (message.error) {
                     pending.reject(new Error(message.error.message || 'CDP error'));
                     return;
@@ -9602,15 +9459,9 @@ var __webpack_modules__ = {
                 this.name = 'CdpUnreachableError';
             }
         }
-        class RemoteThreadNotLoadedError1 extends _codex_remote_control_js__rspack_import_0.Rg {
-            constructor(threadId, hostId = null, hostName = null){
-                super(threadId, hostId, hostName);
-                this.name = 'RemoteThreadNotLoadedError';
-            }
-        }
         __webpack_require__.d(__webpack_exports__, {
             EH: ()=>NotImplementedError,
-            Rg: ()=>RemoteThreadNotLoadedError1,
+            Rg: ()=>_codex_remote_control_js__rspack_import_0.Rg,
             c$: ()=>CdpHostRejectedError,
             sO: ()=>CdpUnreachableError
         });
@@ -9629,8 +9480,7 @@ var __webpack_modules__ = {
             statusProbe: _app_server_fallback_js__rspack_import_1.dM,
             listRemoteThreads: _remote_threads_js__rspack_import_4.Hx,
             listHosts: _remote_threads_js__rspack_import_4.Kl,
-            discoverModelProviders: _app_server_fallback_js__rspack_import_1.X,
-            discoverRemoteEnvironments: _app_server_fallback_js__rspack_import_1.OP
+            discoverModelProviders: _app_server_fallback_js__rspack_import_1.X
         };
         class ChatGptDesktopFacade {
             #cdp;
@@ -9686,19 +9536,25 @@ var __webpack_modules__ = {
                         cdpError = error;
                     }
                 }
+                const remotes = this.#listRemotes();
                 let base = null;
                 if (appList && cdpList) base = mergeThreadLists(appList, cdpList);
                 else if (appList) base = appList;
                 else if (cdpList) base = cdpList;
+                else if (remotes.length) base = {
+                    backend: 'app-server',
+                    limit,
+                    threads: []
+                };
                 else if (cdpError) throw cdpError;
                 else if (appError) throw appError;
                 else throw new _errors_js__rspack_import_2.sO('ChatGPT Desktop listThreads: CDP and app-server unreachable');
                 return finalizeThreadList(base, {
                     limit,
                     host,
-                    modelProvider: options.modelProvider,
+                    modelProvider: options.modelProvider?.trim() || undefined,
                     groupBy: options.groupBy,
-                    remotes: this.#listRemotes()
+                    remotes
                 });
             }
             async listHosts() {
@@ -9739,30 +9595,7 @@ var __webpack_modules__ = {
                         });
                     }
                 }
-                let hostsSource = 'remote-thread-summaries-v3+local';
-                try {
-                    const discoverEnvs = this.#fallbacks.discoverRemoteEnvironments ?? _app_server_fallback_js__rspack_import_1.OP;
-                    const appHosts = await discoverEnvs();
-                    if (appHosts.source && appHosts.hosts.length > 0) {
-                        for (const host of appHosts.hosts){
-                            const existing = byId.get(host.hostId);
-                            if (existing) {
-                                byId.set(host.hostId, {
-                                    ...existing,
-                                    hostName: existing.hostName ?? host.hostName
-                                });
-                            } else {
-                                byId.set(host.hostId, {
-                                    hostId: host.hostId,
-                                    hostName: host.hostName,
-                                    location: 'remote',
-                                    threadCount: 0
-                                });
-                            }
-                        }
-                        hostsSource = `${appHosts.source}+remote-thread-summaries-v3+local`;
-                    }
-                } catch  {}
+                const hostsSource = 'remote-thread-summaries-v3+local';
                 const remoteCounts = new Map();
                 for (const thread of remotes){
                     remoteCounts.set(thread.hostId, (remoteCounts.get(thread.hostId) ?? 0) + 1);
@@ -9795,6 +9628,12 @@ var __webpack_modules__ = {
                     ].sort();
                     modelProvidersSource = 'remote-summaries-distinct';
                 }
+                modelProviders = [
+                    ...new Set([
+                        ...modelProviders,
+                        ...remotes.map((thread)=>thread.modelProvider).filter((value)=>Boolean(value))
+                    ])
+                ].sort();
                 return {
                     hosts: withCounts,
                     hostsSource,
@@ -9820,7 +9659,7 @@ var __webpack_modules__ = {
                     const withRemotes = finalizeThreadList(base, {
                         limit: 10000,
                         host,
-                        modelProvider: options.modelProvider,
+                        modelProvider: options.modelProvider?.trim() || undefined,
                         remotes: this.#listRemotes()
                     });
                     const needle = options.query.trim().toLowerCase();
@@ -9832,7 +9671,7 @@ var __webpack_modules__ = {
                     return finalizeThreadList(filtered, {
                         limit,
                         host,
-                        modelProvider: options.modelProvider,
+                        modelProvider: options.modelProvider?.trim() || undefined,
                         groupBy: options.groupBy,
                         remotes: []
                     });
@@ -9840,19 +9679,23 @@ var __webpack_modules__ = {
                     const cdpList = await this.#tryCdpList({
                         limit
                     });
-                    if (!cdpList) throw appError;
+                    const remotes = this.#listRemotes();
+                    if (!cdpList && !remotes.length) throw appError;
                     const needle = options.query.trim().toLowerCase();
                     const filtered = {
-                        ...cdpList,
+                        ...cdpList ?? {
+                            backend: 'app-server',
+                            limit
+                        },
                         query: options.query,
-                        threads: cdpList.threads.filter((thread)=>threadMatchesQuery(thread, needle))
+                        threads: (cdpList?.threads ?? []).filter((thread)=>threadMatchesQuery(thread, needle))
                     };
                     return finalizeThreadList(filtered, {
                         limit,
                         host,
-                        modelProvider: options.modelProvider,
+                        modelProvider: options.modelProvider?.trim() || undefined,
                         groupBy: options.groupBy,
-                        remotes: this.#listRemotes()
+                        remotes: remotes.filter((thread)=>threadMatchesQuery(thread, needle))
                     });
                 }
             }
@@ -9880,7 +9723,7 @@ var __webpack_modules__ = {
                     return this.#cdp.readThread({
                         ...options,
                         limit,
-                        full: full || true
+                        full
                     });
                 }
             }
@@ -9985,12 +9828,7 @@ var __webpack_modules__ = {
             });
             for (const thread of cdpList.threads){
                 if (merged.some((row)=>(0, _thread_ids_js__rspack_import_5.LV)(row.threadId, thread.threadId))) continue;
-                merged.push({
-                    ...thread,
-                    location: thread.location ?? 'local',
-                    hostId: thread.hostId ?? null,
-                    hostName: thread.hostName ?? null
-                });
+                merged.push(thread);
             }
             return {
                 backend: appList.backend,
@@ -10003,7 +9841,20 @@ var __webpack_modules__ = {
             };
         }
         function finalizeThreadList(base, { limit, host = 'all', modelProvider, groupBy, remotes }) {
+            const remoteById = new Map(remotes.map((thread)=>[
+                    (0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId,
+                    thread
+                ]));
             const locals = base.threads.map((thread)=>{
+                const remote = remoteById.get((0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId);
+                if (remote && thread.location === undefined) {
+                    return {
+                        ...thread,
+                        ...remote,
+                        selected: thread.selected,
+                        pinned: thread.pinned || remote.pinned
+                    };
+                }
                 const location = thread.location ?? 'local';
                 return {
                     ...thread,
@@ -10101,9 +9952,6 @@ var __webpack_modules__ = {
         }
         function modelProviderMatches(thread, modelProvider) {
             if (!modelProvider) return true;
-            if (!thread.modelProvider) {
-                return thread.location === 'remote';
-            }
             return thread.modelProvider === modelProvider;
         }
         function threadMatchesQuery(thread, needle) {
@@ -10170,6 +10018,7 @@ var __webpack_modules__ = {
                 throw new _errors_js__rspack_import_0.c$(String(raw));
             }
             assertLoopbackHostname(url.hostname);
+            if (url.username || url.password || url.hash) throw new _errors_js__rspack_import_0.c$(raw);
             if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
                 throw new Error(`Expected ws(s) debugger URL, got ${url.protocol}`);
             }
@@ -10186,7 +10035,7 @@ var __webpack_modules__ = {
             }
             const raw = (env.CHATGPT_DESKTOP_CDP_PORT || '').trim();
             if (!raw) return DEFAULT_CDP_PORT;
-            const port = Number.parseInt(raw, 10);
+            const port = /^\d+$/.test(raw) ? Number(raw) : NaN;
             if (!Number.isInteger(port) || port < 1 || port > 65535) {
                 throw new RangeError('CHATGPT_DESKTOP_CDP_PORT must be an integer 1-65535');
             }
@@ -10195,37 +10044,15 @@ var __webpack_modules__ = {
         __webpack_require__.d(__webpack_exports__, {
             L0: ()=>resolveCdpPort,
             NJ: ()=>cdpHttpBase,
-            jv: ()=>forceLoopbackWebSocketUrl,
-            tb: ()=>assertLoopbackHostname
+            jv: ()=>forceLoopbackWebSocketUrl
         });
     },
     "./src/core/chatgpt-desktop/remote-threads.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
-        var node_fs__rspack_import_0 = __webpack_require__("node:fs");
-        var node_os__rspack_import_1 = __webpack_require__("node:os");
-        var node_path__rspack_import_2 = __webpack_require__("node:path");
-        var _thread_ids_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
+        var _codex_remote_control_js__rspack_import_0 = __webpack_require__("./src/core/codex/remote-control.js");
+        var _thread_ids_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
         const REMOTE_SUMMARY_KEY = /^remote-thread-summaries-v3:(.+)$/;
-        function codexGlobalStatePath(env = process.env) {
-            const home = env.CODEX_HOME || (0, node_path__rspack_import_2.join)((0, node_os__rspack_import_1.homedir)(), '.codex');
-            return (0, node_path__rspack_import_2.join)(home, '.codex-global-state.json');
-        }
-        function loadCodexGlobalState(env = process.env) {
-            let raw;
-            try {
-                raw = (0, node_fs__rspack_import_0.readFileSync)(codexGlobalStatePath(env), 'utf8');
-            } catch  {
-                return null;
-            }
-            try {
-                const data = JSON.parse(raw);
-                if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
-                return data;
-            } catch  {
-                return null;
-            }
-        }
         function listRemoteThreadsFromState(env = process.env) {
-            const data = loadCodexGlobalState(env);
+            const data = (0, _codex_remote_control_js__rspack_import_0.IT)(env);
             if (!data) return [];
             const hostNames = collectHostNames(data);
             const out = [];
@@ -10243,7 +10070,7 @@ var __webpack_modules__ = {
                         pinnedIds
                     });
                     if (!mapped) continue;
-                    const bare = (0, _thread_ids_js__rspack_import_3.nn)(mapped.threadId) ?? mapped.threadId;
+                    const bare = (0, _thread_ids_js__rspack_import_1.nn)(mapped.threadId) ?? mapped.threadId;
                     const dedupe = `${hostId}:${bare}`;
                     if (seen.has(dedupe)) continue;
                     seen.add(dedupe);
@@ -10253,10 +10080,10 @@ var __webpack_modules__ = {
             return out;
         }
         function findRemoteThread(threadId, env = process.env) {
-            const bare = (0, _thread_ids_js__rspack_import_3.nn)(threadId) ?? threadId;
+            const bare = (0, _thread_ids_js__rspack_import_1.nn)(threadId) ?? threadId;
             if (!bare) return null;
             for (const thread of listRemoteThreadsFromState(env)){
-                const id = (0, _thread_ids_js__rspack_import_3.nn)(thread.threadId) ?? thread.threadId;
+                const id = (0, _thread_ids_js__rspack_import_1.nn)(thread.threadId) ?? thread.threadId;
                 if (id === bare) {
                     return {
                         hostId: thread.hostId,
@@ -10279,7 +10106,7 @@ var __webpack_modules__ = {
                 location: 'local',
                 threadCount: localThreadCount
             });
-            const data = loadCodexGlobalState(env);
+            const data = (0, _codex_remote_control_js__rspack_import_0.IT)(env);
             if (data) {
                 const hostNames = collectHostNames(data);
                 for (const key of Object.keys(data)){
@@ -10467,7 +10294,7 @@ var __webpack_modules__ = {
         function mapRemoteEntry(entry, { hostId, hostName, pinnedIds }) {
             if (typeof entry === 'string' && entry) {
                 return {
-                    threadId: (0, _thread_ids_js__rspack_import_3.BS)(entry),
+                    threadId: (0, _thread_ids_js__rspack_import_1.BS)(entry),
                     title: entry,
                     pinned: pinnedIds.has(entry),
                     selected: false,
@@ -10541,7 +10368,7 @@ var __webpack_modules__ = {
             ]) || sectionName;
             const pinned = pinnedIds.has(id) || row.pinned === true || sectionId === 'Pinned' || sectionName === 'Pinned';
             return {
-                threadId: (0, _thread_ids_js__rspack_import_3.BS)(id),
+                threadId: (0, _thread_ids_js__rspack_import_1.BS)(id),
                 title,
                 pinned,
                 selected: false,
@@ -10651,7 +10478,7 @@ var __webpack_modules__ = {
         const sendSchema = zod__rspack_import_4.Ikc({
             port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
             threadId: threadId.optional(),
-            text: zod__rspack_import_4.YjP().min(1).max(100000),
+            text: zod__rspack_import_4.YjP().trim().min(1).max(100000),
             project: zod__rspack_import_4.YjP().min(1).max(256).optional(),
             openTimeoutMs: zod__rspack_import_4.aig().int().min(1).max(600000).default(90000)
         }).strict();
@@ -10666,19 +10493,27 @@ var __webpack_modules__ = {
                 zod__rspack_import_4.euz(1)
             ])
         }).catchall(zod__rspack_import_4.Pq9());
+        let operationQueue = Promise.resolve();
         async function withAdapter(port, run) {
-            const adapter = (0, _facade_js__rspack_import_2.PP)();
-            const resolved = (0, _loopback_js__rspack_import_3.L0)(process.env, port);
-            try {
-                await adapter.connect({
-                    port: resolved
-                });
-            } catch  {}
-            return run(adapter);
+            const operation = operationQueue.then(async ()=>{
+                const adapter = (0, _facade_js__rspack_import_2.PP)();
+                const resolved = (0, _loopback_js__rspack_import_3.L0)(process.env, port);
+                try {
+                    try {
+                        await adapter.connect({
+                            port: resolved
+                        });
+                    } catch  {}
+                    return await run(adapter);
+                } finally{
+                    await adapter.close();
+                }
+            });
+            operationQueue = operation.catch(()=>{});
+            return operation;
         }
         function asResult(value) {
-            const cleaned = Object.fromEntries(Object.entries(value).filter(([, entry])=>entry !== undefined));
-            return resultSchema.parse(cleaned);
+            return resultSchema.parse(JSON.parse(JSON.stringify(value)));
         }
         function mapError(error) {
             if (error instanceof _errors_js__rspack_import_1.EH) {
@@ -10796,6 +10631,7 @@ var __webpack_modules__ = {
         }
         async function sendOperation(input) {
             try {
+                input = sendSchema.parse(input);
                 const out = await withAdapter(input.port, (adapter)=>adapter.sendMessage({
                         threadId: input.threadId,
                         text: input.text,
@@ -10828,7 +10664,7 @@ var __webpack_modules__ = {
             if (result.error) return String(result.error);
             if (result.reachable === true) {
                 const backend = result.appServerFallback && typeof result.appServerFallback === 'object' ? ` cdp + app-server probe` : '';
-                return `ChatGPT Desktop CDP reachable on 127.0.0.1:${result.port}${backend}`;
+                return result.message ? String(result.message) : `ChatGPT Desktop CDP reachable on 127.0.0.1:${result.port}${backend}`;
             }
             if (result.reachable === false) return String(result.message ?? 'ChatGPT Desktop CDP unreachable');
             if (Array.isArray(result.hosts)) {
@@ -10999,11 +10835,11 @@ var __webpack_modules__ = {
         };
         const sendFields = {
             ...observationFields,
-            correlationId: id.optional(),
+            correlationId: bareId.optional(),
             envelope: zod__rspack_import_3.zMY().optional(),
             hop: zod__rspack_import_3.aig().int().min(0).optional(),
-            replyTo: id.optional(),
-            expectedTurnId: id.optional(),
+            replyTo: bareId.optional(),
+            expectedTurnId: bareId.optional(),
             whenBusy: zod__rspack_import_3.k5n([
                 'reject',
                 'queue',
@@ -11018,8 +10854,8 @@ var __webpack_modules__ = {
         }).strict();
         const waitSchema = zod__rspack_import_3.Ikc({
             ...observationFields,
-            turnId: id,
-            messageId: id.optional(),
+            turnId: bareId,
+            messageId: bareId.optional(),
             maxOutputBytes: zod__rspack_import_3.aig().int().min(1).max(4194304).optional()
         }).strict();
         const watchSchema = zod__rspack_import_3.Ikc({
@@ -11512,7 +11348,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop list hosts',
-            description: 'Discover ChatGPT Desktop hosts and modelProviders at runtime — never hardcode them. Hosts: always local, plus every remote-thread-summaries-v3:<hostId> key from ~/.codex/.codex-global-state.json (friendly names + thread counts), merged with any app-server remote-environment/connection list method when present. Providers: app-server list method when present, else distinct modelProvider values from thread/list. New machines/connections Zack adds later show up with no code change. Result includes hostsSource and modelProvidersSource.',
+            description: 'Discover ChatGPT Desktop hosts and modelProviders at runtime. Hosts come from local and remote-thread-summaries-v3:<hostId> metadata; providers are distinct thread/list and remote-summary values. New connections appear without code changes. Result includes hostsSource and modelProvidersSource',
             annotations: {
                 readOnlyHint: true
             },
@@ -24812,6 +24648,7 @@ var __webpack_modules__ = {
                 }
                 const turns = [];
                 let cursor;
+                const seen = new Set();
                 for(let page = 0; page < 40 && turns.length < limit; page++){
                     let out;
                     try {
@@ -24819,6 +24656,7 @@ var __webpack_modules__ = {
                             threadId: bare,
                             limit: Math.min(100, limit - turns.length),
                             itemsView: "full",
+                            sortDirection: "desc",
                             ...cursor !== undefined ? {
                                 cursor
                             } : {}
@@ -24832,8 +24670,12 @@ var __webpack_modules__ = {
                         throw new CodexProtocolError("thread/turns/list", "missing `data` array");
                     }
                     for (const row of out.data)turns.push(row);
-                    if (out.nextCursor == null || typeof out.nextCursor !== "string") break;
-                    cursor = out.nextCursor;
+                    cursor = out.nextCursor ?? null;
+                    if (cursor === null) break;
+                    if (typeof cursor !== "string" || !cursor || seen.has(cursor)) {
+                        throw new CodexProtocolError("thread/turns/list", "invalid or repeated cursor");
+                    }
+                    seen.add(cursor);
                 }
                 return {
                     threadId: bare,
@@ -25848,6 +25690,7 @@ var __webpack_modules__ = {
             return String(error);
         }
         __webpack_require__.d(__webpack_exports__, {
+            IT: ()=>loadCodexGlobalState,
             R3: ()=>mapRemoteThreadError,
             Rg: ()=>RemoteThreadNotLoadedError1
         });
@@ -25857,7 +25700,7 @@ var __webpack_modules__ = {
         const TEMP_THREAD_ID_PREFIX = 'local:client-new-thread:';
         const ID_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
         function isTemporaryDesktopThreadId(threadId) {
-            return typeof threadId === 'string' && threadId.startsWith(TEMP_THREAD_ID_PREFIX);
+            return typeof threadId === 'string' && (threadId.startsWith(TEMP_THREAD_ID_PREFIX) || threadId.startsWith('client-new-thread:'));
         }
         function normalizeCodexThreadId1(threadId) {
             if (typeof threadId !== 'string' || !threadId) {
@@ -25871,9 +25714,6 @@ var __webpack_modules__ = {
                 throw new RangeError('Invalid threadId');
             }
             return bare;
-        }
-        function hasLocalThreadPrefix(threadId) {
-            return typeof threadId === 'string' && threadId.startsWith(LOCAL_THREAD_ID_PREFIX) && !isTemporaryDesktopThreadId(threadId);
         }
         __webpack_require__.d(__webpack_exports__, {
             SX: ()=>normalizeCodexThreadId1,
@@ -27915,7 +27755,7 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": true
             },
-            "description": "Discover ChatGPT Desktop hosts and modelProviders at runtime — never hardcode them. Hosts: always local, plus every remote-thread-summaries-v3:<hostId> key from ~/.codex/.codex-global-state.json (friendly names + thread counts), merged with any app-server remote-environment/connection list method when present. Providers: app-server list method when present, else distinct modelProvider values from thread/list. New machines/connections Zack adds later show up with no code change. Result includes hostsSource and modelProvidersSource.",
+            "description": "Discover ChatGPT Desktop hosts and modelProviders at runtime. Hosts come from local and remote-thread-summaries-v3:<hostId> metadata; providers are distinct thread/list and remote-summary values. New connections appear without code changes. Result includes hostsSource and modelProvidersSource",
             "inputJsonSchema": {
                 "additionalProperties": false,
                 "properties": {

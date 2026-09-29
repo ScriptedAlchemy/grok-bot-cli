@@ -39,6 +39,7 @@ export function forceLoopbackWebSocketUrl(raw: string): string {
     throw new CdpHostRejectedError(String(raw));
   }
   assertLoopbackHostname(url.hostname);
+  if (url.username || url.password || url.hash) throw new CdpHostRejectedError(raw);
   if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
     throw new Error(`Expected ws(s) debugger URL, got ${url.protocol}`);
   }
@@ -56,7 +57,7 @@ export function resolveCdpPort(env: NodeJS.ProcessEnv = process.env, explicit?: 
   }
   const raw = (env.CHATGPT_DESKTOP_CDP_PORT || '').trim();
   if (!raw) return DEFAULT_CDP_PORT;
-  const port = Number.parseInt(raw, 10);
+  const port = /^\d+$/.test(raw) ? Number(raw) : NaN;
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new RangeError('CHATGPT_DESKTOP_CDP_PORT must be an integer 1-65535');
   }

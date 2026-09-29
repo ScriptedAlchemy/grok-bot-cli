@@ -1120,6 +1120,7 @@ export async function readCodexThread(threadId, { limit = 100, env = process.env
     }
     const turns = [];
     let cursor;
+    const seen = new Set();
     for (let page = 0; page < 40 && turns.length < limit; page++) {
       let out;
       try {
@@ -1127,6 +1128,7 @@ export async function readCodexThread(threadId, { limit = 100, env = process.env
           threadId: bare,
           limit: Math.min(100, limit - turns.length),
           itemsView: "full",
+          sortDirection: "desc",
           ...(cursor !== undefined ? { cursor } : {}),
         });
       } catch (err) {
@@ -1138,8 +1140,12 @@ export async function readCodexThread(threadId, { limit = 100, env = process.env
         throw new CodexProtocolError("thread/turns/list", "missing `data` array");
       }
       for (const row of out.data) turns.push(row);
-      if (out.nextCursor == null || typeof out.nextCursor !== "string") break;
-      cursor = out.nextCursor;
+      cursor = out.nextCursor ?? null;
+      if (cursor === null) break;
+      if (typeof cursor !== "string" || !cursor || seen.has(cursor)) {
+        throw new CodexProtocolError("thread/turns/list", "invalid or repeated cursor");
+      }
+      seen.add(cursor);
     }
     return {
       threadId: bare,

@@ -12,7 +12,8 @@ export const TEMP_THREAD_ID_PREFIX = 'local:client-new-thread:';
 const ID_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
 
 export function isTemporaryDesktopThreadId(threadId) {
-  return typeof threadId === 'string' && threadId.startsWith(TEMP_THREAD_ID_PREFIX);
+  return typeof threadId === 'string'
+    && (threadId.startsWith(TEMP_THREAD_ID_PREFIX) || threadId.startsWith('client-new-thread:'));
 }
 
 /**
@@ -37,11 +38,4 @@ export function normalizeCodexThreadId(threadId) {
     throw new RangeError('Invalid threadId');
   }
   return bare;
-}
-
-/** True when the value looks like a Desktop-prefixed durable id. */
-export function hasLocalThreadPrefix(threadId) {
-  return typeof threadId === 'string'
-    && threadId.startsWith(LOCAL_THREAD_ID_PREFIX)
-    && !isTemporaryDesktopThreadId(threadId);
 }

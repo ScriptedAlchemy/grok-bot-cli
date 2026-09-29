@@ -25,7 +25,7 @@ export const config = {
     required: ['text'],
     type: 'object',
   },
-  render: { maxElapsedMs: 180000 },
+  render: { maxElapsedMs: 660000 },
 } satisfies CliRouteConfig;
 
 export const inputSchema = z

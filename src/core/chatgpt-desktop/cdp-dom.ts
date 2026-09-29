@@ -237,6 +237,7 @@ export function startNewChatExpression(project?: string): string {
         preferred.click();
         return { ok: true, via: 'project', project: ${JSON.stringify(project ?? null)} };
       }
+      return { ok: false, error: 'project-not-found' };
     }
     const buttons = Array.from(document.querySelectorAll('button'));
     const fallback = buttons.find((btn) => (btn.textContent || '').trim() === 'New chat');
@@ -261,6 +262,8 @@ export const LOADING_TASK_GONE_EXPRESSION = `(() => {
 export const FOCUS_COMPOSER_EXPRESSION = `(() => {
   const composer = document.querySelector(${JSON.stringify(COMPOSER_SELECTOR)});
   if (!composer) return { ok: false, error: 'composer-not-found' };
+  if ((composer.textContent || '').trim()) return { ok: false, error: 'composer-has-draft' };
+  if (document.querySelector(${JSON.stringify(STOP_BUTTON_SELECTOR)})) return { ok: false, error: 'reply-in-progress' };
   composer.focus();
   return { ok: true };
 })()`;
@@ -289,6 +292,7 @@ export const REPLY_STATE_EXPRESSION = `(() => {
     conversationId,
     reply,
     lastTurnKey,
+    finalTurnKey: lastFinal?.closest(${JSON.stringify(SELECTORS.turn)})?.getAttribute(${JSON.stringify(ATTR.turnKey)}) || '',
   };
 })()`;
 
@@ -396,12 +400,21 @@ export async function openThreadInDom(
 export async function waitForLoadingTaskGone(
   session: CdpSession,
   sessionId: string,
-  { timeoutMs = DEFAULT_OPEN_TIMEOUT_MS }: { timeoutMs?: number } = {},
+  { timeoutMs = DEFAULT_OPEN_TIMEOUT_MS, threadId }: { timeoutMs?: number; threadId?: string } = {},
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const gone = await session.evaluate<boolean>(LOADING_TASK_GONE_EXPRESSION, { sessionId });
-    if (gone) return;
+    if (gone) {
+      // A click can resolve before React replaces the previous timeline.
+      const current = threadId ? await readConversationIdFromDom(session, sessionId) : '';
+      if (!threadId) return;
+      if (threadId === 'new' || isTemporaryDesktopThreadId(threadId)) {
+        const rows = await listThreadsFromDom(session, sessionId, { limit: 200 });
+        const selected = rows.find((row) => row.selected);
+        if (!current && (!selected || isTemporaryDesktopThreadId(selected.threadId))) return;
+      } else if (current && durableThreadKey(current) === durableThreadKey(threadId)) return;
+    }
     await delay(250);
   }
   throw new Error(
@@ -437,7 +450,7 @@ export async function focusComposer(
     { sessionId },
   );
   if (!focused?.ok) {
-    throw new Error('ChatGPT Desktop composer not found ([data-codex-composer=true])');
+    throw new Error(`ChatGPT Desktop composer unavailable: ${focused?.error || 'not found'}`);
   }
 }
 
@@ -454,48 +467,34 @@ export async function submitComposerWithEnter(
     unmodifiedText: '\r',
   };
   await session.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...base }, { sessionId });
-  await session.send('Input.dispatchKeyEvent', { type: 'char', ...base }, { sessionId });
   await session.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base }, { sessionId });
-}
-
-/** Fallback submit: click Send when the button exists (composer has text). */
-export async function submitComposerWithButton(
-  session: CdpSession,
-  sessionId: string,
-): Promise<boolean> {
-  const result = await session.evaluate<{ ok: boolean }>(
-    `(() => {
-      const btn = document.querySelector(${JSON.stringify(SEND_BUTTON_SELECTOR)});
-      if (!btn || btn.disabled) return { ok: false };
-      btn.click();
-      return { ok: true };
-    })()`,
-    { sessionId },
-  );
-  return Boolean(result?.ok);
 }
 
 export async function sendMessageInDom(
   session: CdpSession,
   sessionId: string,
   text: string,
-): Promise<{ sentVia: 'enter' | 'button' }> {
+): Promise<{ sentVia: 'enter' }> {
   await focusComposer(session, sessionId);
   await session.send('Input.insertText', { text }, { sessionId });
-  await submitComposerWithEnter(session, sessionId);
-  // Enter is the default; fall back to Send if the button is still present (composer still has text).
-  const sendStillVisible = await session.evaluate<boolean>(
-    `(() => {
-      const btn = document.querySelector(${JSON.stringify(SEND_BUTTON_SELECTOR)});
-      return Boolean(btn && !btn.disabled);
-    })()`,
-    { sessionId },
-  );
-  if (sendStillVisible) {
-    const clicked = await submitComposerWithButton(session, sessionId);
-    if (clicked) return { sentVia: 'button' };
+  try {
+    await submitComposerWithEnter(session, sessionId);
+    // Never retry submission just because React has not cleared the button yet.
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline) {
+      const cleared = await session.evaluate<boolean>(`(() => {
+        const composer = document.querySelector(${JSON.stringify(COMPOSER_SELECTOR)});
+        return Boolean(composer && !(composer.textContent || '').trim());
+      })()`, { sessionId });
+      if (cleared) return { sentVia: 'enter' };
+      await delay(100);
+    }
+    throw new Error('Desktop composer did not acknowledge submission');
+  } catch (error) {
+    throw Object.assign(new Error(error instanceof Error ? error.message : String(error)), {
+      delivery: 'unknown', reason: 'submission-unconfirmed',
+    });
   }
-  return { sentVia: 'enter' };
 }
 
 export type ReplyState = {
@@ -504,6 +503,7 @@ export type ReplyState = {
   conversationId: string;
   reply: string;
   lastTurnKey: string;
+  finalTurnKey?: string;
 };
 
 export async function readReplyState(
@@ -517,6 +517,7 @@ export async function readReplyState(
     conversationId: String(state?.conversationId ?? ''),
     reply: String(state?.reply ?? ''),
     lastTurnKey: String(state?.lastTurnKey ?? ''),
+    finalTurnKey: String(state?.finalTurnKey ?? ''),
   };
 }
 
@@ -575,13 +576,17 @@ export function resolveDurableThreadId(
  * Wait until Stop is gone and a new final-assistant marker exists.
  * Returns reply text + conversation id from the annotation.
  */
+export class ReplyTimeoutError extends Error {}
+
 export async function waitForReplyDone(
   session: CdpSession,
   sessionId: string,
   {
     timeoutMs = 120_000,
     baselineFinalCount = 0,
-  }: { timeoutMs?: number; baselineFinalCount?: number } = {},
+    expectedConversationId,
+    baselineTurnKey,
+  }: { timeoutMs?: number; baselineFinalCount?: number; expectedConversationId?: string; baselineTurnKey?: string } = {},
 ): Promise<{ reply: string; conversationId: string }> {
   const deadline = Date.now() + timeoutMs;
   let sawStop = false;
@@ -589,18 +594,22 @@ export async function waitForReplyDone(
   while (Date.now() < deadline) {
     const state = await readReplyState(session, sessionId);
     if (state.stopVisible) sawStop = true;
-    const hasNewFinal = state.finalAssistantCount > baselineFinalCount && Boolean(state.reply);
+    expectedConversationId ??= state.conversationId || undefined;
+    if (expectedConversationId && state.conversationId
+      && durableThreadKey(state.conversationId) !== durableThreadKey(expectedConversationId)) {
+      throw new Error('ChatGPT Desktop selected conversation changed while waiting');
+    }
+    const latestIsFinal = Boolean(state.finalTurnKey) && state.finalTurnKey === state.lastTurnKey;
+    const hasNewFinal = (state.finalAssistantCount > baselineFinalCount || sawStop)
+      && Boolean(state.reply) && latestIsFinal
+      && (!baselineTurnKey || state.lastTurnKey !== baselineTurnKey);
     // Stop appears within ~1s of submit; done when Stop is gone AND a new final exists.
     if (!state.stopVisible && hasNewFinal && (sawStop || Date.now() - started > 1500)) {
       return { reply: state.reply, conversationId: state.conversationId };
     }
     await delay(200);
   }
-  const last = await readReplyState(session, sessionId);
-  if (!last.stopVisible && last.finalAssistantCount > baselineFinalCount && last.reply) {
-    return { reply: last.reply, conversationId: last.conversationId };
-  }
-  throw new Error(`ChatGPT Desktop reply did not finish within ${timeoutMs}ms`);
+  throw new ReplyTimeoutError(`ChatGPT Desktop reply did not finish within ${timeoutMs}ms`);
 }
 
 function normalizeTurn(raw: {

@@ -1643,6 +1643,7 @@ test("readCodexThread uses thread/read without includeTurns and pages thread/tur
   try {
     const out = await readCodexThread("local:t-1", { env: { CODEX_HOME: fake.home }, limit: 10 });
     assert.equal(out.threadId, "t-1");
+    assert.equal(out.nextCursor, null);
     assert.equal(out.thread.name, "History");
     assert.deepEqual(out.turns.map((t) => t.id), ["turn-a", "turn-b"]);
     assert.deepEqual(seen[0], { method: "thread/read", params: { threadId: "t-1" } });
@@ -1651,11 +1652,13 @@ test("readCodexThread uses thread/read without includeTurns and pages thread/tur
       threadId: "t-1",
       limit: 10,
       itemsView: "full",
+      sortDirection: "desc",
     });
     assert.deepEqual(seen[2].params, {
       threadId: "t-1",
       limit: 9,
       itemsView: "full",
+      sortDirection: "desc",
       cursor: "page-2",
     });
   } finally {
@@ -1669,4 +1672,5 @@ test("normalizeCodexThreadId strips local: and rejects temporary Desktop rows", 
   assert.equal(normalizeCodexThreadId("abc-123"), "abc-123");
   assert.equal(isTemporaryDesktopThreadId("local:client-new-thread:x"), true);
   assert.throws(() => normalizeCodexThreadId("local:client-new-thread:x"), /Temporary Desktop/);
+  assert.throws(() => normalizeCodexThreadId("client-new-thread:x"), /Temporary Desktop/);
 });

@@ -6,7 +6,6 @@ import {
   appServerSearchThreads,
   appServerStatusProbe,
   discoverModelProviders,
-  discoverRemoteEnvironments,
 } from './app-server-fallback.js';
 import { CdpUnreachableError, NotImplementedError, RemoteThreadNotLoadedError } from './errors.js';
 import { resolveCdpPort } from './loopback.js';
@@ -38,7 +37,6 @@ export type ChatGptDesktopFallbacks = {
   listRemoteThreads?: typeof listRemoteThreadsFromState;
   listHosts?: typeof listDiscoveredHosts;
   discoverModelProviders?: typeof discoverModelProviders;
-  discoverRemoteEnvironments?: typeof discoverRemoteEnvironments;
 };
 
 const defaultFallbacks: ChatGptDesktopFallbacks = {
@@ -49,7 +47,6 @@ const defaultFallbacks: ChatGptDesktopFallbacks = {
   listRemoteThreads: listRemoteThreadsFromState,
   listHosts: listDiscoveredHosts,
   discoverModelProviders,
-  discoverRemoteEnvironments,
 };
 
 export type ListThreadsOptions = {
@@ -135,10 +132,12 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       }
     }
 
+    const remotes = this.#listRemotes();
     let base: ListThreadsResult | null = null;
     if (appList && cdpList) base = mergeThreadLists(appList, cdpList);
     else if (appList) base = appList;
     else if (cdpList) base = cdpList;
+    else if (remotes.length) base = { backend: 'app-server', limit, threads: [] };
     else if (cdpError) throw cdpError;
     else if (appError) throw appError;
     else throw new CdpUnreachableError('ChatGPT Desktop listThreads: CDP and app-server unreachable');
@@ -146,9 +145,9 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     return finalizeThreadList(base, {
       limit,
       host,
-      modelProvider: options.modelProvider,
+      modelProvider: options.modelProvider?.trim() || undefined,
       groupBy: options.groupBy,
-      remotes: this.#listRemotes(),
+      remotes,
     });
   }
 
@@ -184,33 +183,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       }
     }
 
-    let hostsSource = 'remote-thread-summaries-v3+local';
-    try {
-      const discoverEnvs =
-        this.#fallbacks.discoverRemoteEnvironments ?? discoverRemoteEnvironments;
-      const appHosts = await discoverEnvs();
-      if (appHosts.source && appHosts.hosts.length > 0) {
-        for (const host of appHosts.hosts) {
-          const existing = byId.get(host.hostId);
-          if (existing) {
-            byId.set(host.hostId, {
-              ...existing,
-              hostName: existing.hostName ?? host.hostName,
-            });
-          } else {
-            byId.set(host.hostId, {
-              hostId: host.hostId,
-              hostName: host.hostName,
-              location: 'remote',
-              threadCount: 0,
-            });
-          }
-        }
-        hostsSource = `${appHosts.source}+remote-thread-summaries-v3+local`;
-      }
-    } catch {
-      // App-server remote-env probe unavailable — keep global-state hosts.
-    }
+    const hostsSource = 'remote-thread-summaries-v3+local';
 
     // Recount remotes from the parsed summary rows for accuracy.
     const remoteCounts = new Map<string, number>();
@@ -244,6 +217,10 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       )].sort();
       modelProvidersSource = 'remote-summaries-distinct';
     }
+    modelProviders = [...new Set([
+      ...modelProviders,
+      ...remotes.map((thread) => thread.modelProvider).filter((value): value is string => Boolean(value)),
+    ])].sort();
     return {
       hosts: withCounts,
       hostsSource,
@@ -274,7 +251,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       const withRemotes = finalizeThreadList(base, {
         limit: 10_000,
         host,
-        modelProvider: options.modelProvider,
+        modelProvider: options.modelProvider?.trim() || undefined,
         remotes: this.#listRemotes(),
       });
       const needle = options.query.trim().toLowerCase();
@@ -286,25 +263,26 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       return finalizeThreadList(filtered, {
         limit,
         host,
-        modelProvider: options.modelProvider,
+        modelProvider: options.modelProvider?.trim() || undefined,
         groupBy: options.groupBy,
         remotes: [],
       });
     } catch (appError) {
       const cdpList = await this.#tryCdpList({ limit });
-      if (!cdpList) throw appError;
+      const remotes = this.#listRemotes();
+      if (!cdpList && !remotes.length) throw appError;
       const needle = options.query.trim().toLowerCase();
       const filtered = {
-        ...cdpList,
+        ...(cdpList ?? { backend: 'app-server' as const, limit }),
         query: options.query,
-        threads: cdpList.threads.filter((thread) => threadMatchesQuery(thread, needle)),
+        threads: (cdpList?.threads ?? []).filter((thread) => threadMatchesQuery(thread, needle)),
       };
       return finalizeThreadList(filtered, {
         limit,
         host,
-        modelProvider: options.modelProvider,
+        modelProvider: options.modelProvider?.trim() || undefined,
         groupBy: options.groupBy,
-        remotes: this.#listRemotes(),
+        remotes: remotes.filter((thread) => threadMatchesQuery(thread, needle)),
       });
     }
   }
@@ -333,7 +311,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       if (appError instanceof RemoteThreadNotLoadedError) throw appError;
       const cdpConnected = await this.#tryEnsureCdp();
       if (!cdpConnected) throw appError;
-      return this.#cdp.readThread({ ...options, limit, full: full || true });
+      return this.#cdp.readThread({ ...options, limit, full });
     }
   }
 
@@ -464,12 +442,7 @@ export function mergeThreadLists(
 
   for (const thread of cdpList.threads) {
     if (merged.some((row) => threadIdsEquivalent(row.threadId, thread.threadId))) continue;
-    merged.push({
-      ...thread,
-      location: thread.location ?? 'local',
-      hostId: thread.hostId ?? null,
-      hostName: thread.hostName ?? null,
-    });
+    merged.push(thread);
   }
 
   return {
@@ -498,7 +471,14 @@ export function finalizeThreadList(
     remotes: readonly ChatGptDesktopThread[];
   },
 ): ListThreadsResult {
+  const remoteById = new Map(remotes.map((thread) => [
+    toAppServerThreadId(thread.threadId) ?? thread.threadId, thread,
+  ]));
   const locals = base.threads.map((thread) => {
+    const remote = remoteById.get(toAppServerThreadId(thread.threadId) ?? thread.threadId);
+    if (remote && thread.location === undefined) {
+      return { ...thread, ...remote, selected: thread.selected, pinned: thread.pinned || remote.pinned };
+    }
     const location = thread.location ?? ('local' as const);
     return {
       ...thread,
@@ -587,11 +567,6 @@ function hostMatches(thread: ChatGptDesktopThread, host: string): boolean {
 
 function modelProviderMatches(thread: ChatGptDesktopThread, modelProvider?: string): boolean {
   if (!modelProvider) return true;
-  if (!thread.modelProvider) {
-    // Remote summaries often omit provider — keep them; local rows from a
-    // filtered thread/list already match the server-side modelProviders filter.
-    return thread.location === 'remote';
-  }
   return thread.modelProvider === modelProvider;
 }
 

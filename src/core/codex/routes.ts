@@ -24,13 +24,13 @@ export const observationFields = {
 };
 export const sendFields = {
   ...observationFields,
-  correlationId: id.optional(), envelope: z.boolean().optional(), hop: z.number().int().min(0).optional(),
-  replyTo: id.optional(), expectedTurnId: id.optional(),
+  correlationId: bareId.optional(), envelope: z.boolean().optional(), hop: z.number().int().min(0).optional(),
+  replyTo: bareId.optional(), expectedTurnId: bareId.optional(),
   whenBusy: z.enum(['reject', 'queue', 'steer']).default('reject'), wait: z.boolean().default(false),
   maxOutputBytes: z.number().int().min(1).max(4194304).optional(),
 };
 export const sendSchema = z.object({ ...sendFields, message: z.string().min(1).max(4194304) }).strict();
-export const waitSchema = z.object({ ...observationFields, turnId: id, messageId: id.optional(), maxOutputBytes: z.number().int().min(1).max(4194304).optional() }).strict();
+export const waitSchema = z.object({ ...observationFields, turnId: bareId, messageId: bareId.optional(), maxOutputBytes: z.number().int().min(1).max(4194304).optional() }).strict();
 export const watchSchema = z.object({ ...observationFields, maxEvents: z.number().int().min(1).max(500).default(100) }).strict();
 export const threadsSchema = z.object({ limit: z.number().int().min(1).max(200).default(20), cursor: z.string().min(1).max(4096).optional() }).strict();
 export const resultSchema = z.object({

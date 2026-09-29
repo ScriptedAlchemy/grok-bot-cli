@@ -9,9 +9,8 @@
  * SSH remoting is intentionally not implemented here (follow-up).
  */
 
-import { readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { loadCodexGlobalState } from '../codex/remote-control.js';
+export { codexGlobalStatePath, loadCodexGlobalState } from '../codex/remote-control.js';
 
 import { toAppServerThreadId, toDesktopThreadId } from './thread-ids.js';
 import type { ChatGptDesktopThread } from './types.js';
@@ -34,30 +33,6 @@ export type RemoteThreadLookup = {
   readonly hostName: string | null;
   readonly thread: RemoteThreadRecord | null;
 };
-
-export function codexGlobalStatePath(env: NodeJS.ProcessEnv = process.env): string {
-  const home = env.CODEX_HOME || join(homedir(), '.codex');
-  return join(home, '.codex-global-state.json');
-}
-
-/** Read and JSON-parse the Desktop global state file; null when missing/invalid. */
-export function loadCodexGlobalState(
-  env: NodeJS.ProcessEnv = process.env,
-): Record<string, unknown> | null {
-  let raw: string;
-  try {
-    raw = readFileSync(codexGlobalStatePath(env), 'utf8');
-  } catch {
-    return null;
-  }
-  try {
-    const data = JSON.parse(raw) as unknown;
-    if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
-    return data as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Parse every `remote-thread-summaries-v3:<hostId>` entry into flat remote

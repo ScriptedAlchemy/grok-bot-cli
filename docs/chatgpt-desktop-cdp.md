@@ -81,7 +81,9 @@ DOM (tool calls, reasoning, timing, and sometimes more turns).
 2. `thread/read` for **metadata only** (`includeTurns` is deprecated for
    paginated threads)
 3. Page history with `thread/turns/list` (`itemsView: "full"`, `cursor` /
-   `nextCursor`); `thread/items/list` is a fallback
+   `nextCursor`); `thread/items/list` is a fallback only for unsupported RPCs.
+   Recent reads request descending pages and return chronological turns;
+   `full` reads request ascending pages, bounded by `limit`. Empty history is valid.
 4. **Do not** `thread/resume` for reads — resume attaches a live session
 
 `thread/list` filters to the current model provider by default. Pass
@@ -115,12 +117,11 @@ Hosts are discovered dynamically — do not hardcode them:
 1. Always include `local`
 2. Every `remote-thread-summaries-v3:<hostId>` key in
    `~/.codex/.codex-global-state.json`, with friendly names and thread counts
-3. If app-server exposes a remote-environment list method, merge those hosts
-   too (`hostsSource` names what was used)
 
-`modelProviders` on the same result: prefer a dedicated app-server list method
-when present; otherwise distinct `modelProvider` values from `thread/list`
-(`modelProviders: []`). `modelProvidersSource` names the path used.
+`modelProviders` combines distinct `modelProvider` values from `thread/list`
+(`modelProviders: []`) and remote summaries. `modelProvidersSource` names the
+local discovery path; if unavailable, remote summaries still contribute.
+Explicit provider filters exclude rows whose provider is unknown.
 
 ### Remote-control threads
 
@@ -138,7 +139,7 @@ skipped.
 | Operation | CDP | App-server |
 | --- | --- | --- |
 | `status` | `/json/version` + attach | daemon probe |
-| `list_hosts` | — | global-state keys (+ optional remote-env method) + provider discovery |
+| `list_hosts` | — | global-state keys + thread inventory provider discovery |
 | `list_threads` | merge selected / UI overlay | primary inventory + remote summaries |
 | `search_threads` | merge selected when connected | primary (list + filter, includes remotes) |
 | `read_thread` | DOM harvest / wheel **fallback only** (local) | primary; remote → typed error + host hint |
@@ -158,7 +159,7 @@ use it only as a cheap status hint.
 All selectors live in `src/core/chatgpt-desktop/cdp-dom.ts`:
 
 - Composer: `[data-codex-composer=true][contenteditable=true]` — `focus()` then `Input.insertText`
-- Submit: Enter via `Input.dispatchKeyEvent` (rawKeyDown/char/keyUp), Send button fallback
+- Submit: Enter via `Input.dispatchKeyEvent` (rawKeyDown/keyUp), waits for the composer to clear without resubmitting
 - Reply done: `main button[aria-label="Stop"]` gone + new `[data-local-conversation-final-assistant=true]`
 - Reply text: last turn’s `[data-local-conversation-final-assistant=true] [data-markdown-text-style=assistant-message]`
 - New chat: `button[aria-label="Start new chat in <project>"]` (preferred) or sidebar “New chat”
@@ -173,3 +174,26 @@ All selectors live in `src/core/chatgpt-desktop/cdp-dom.ts`:
 List / search / read reuse the existing client in `codex-bridge.js`
 (`listCodexThreads`, `openCodexSession`, `codexStatus`) — no duplicated
 JSON-RPC stack. Send / new-thread-in-project / wait-for-reply stay on CDP.
+
+## Operation boundaries
+
+CDP HTTP discovery rejects redirects and non-loopback debugger URLs. Discovery
+and connection attempts time out after 5 seconds; individual CDP requests after
+10 seconds. CLI/MCP calls close their connection on completion and serialize
+access to the shared Desktop composer within one process.
+
+Opening a thread waits for its conversation annotation as well as the absence
+of “Loading task…”, so a still-rendered previous chat is not used. Reply waits
+require the latest turn to have a final reply with Stop absent. A timeout is
+reported as a timeout, never as a successful partial reply. Changing the
+selected conversation during a wait fails the operation. A requested project
+must exist; it does not silently fall back to an unrelated new chat.
+
+Separate CLI processes and manual Desktop interaction can still race with UI
+operations; avoid driving the same window concurrently. DOM selectors and the
+remote-summary file format are app-internal and can change between releases.
+
+Sends refuse an existing composer draft or active reply. Once Enter is dispatched,
+a missing acknowledgment or durable conversation ID reports unknown delivery;
+it must not be retried blindly. A send/wait pair in the same MCP process tracks
+the pre-submit turn key to avoid returning the previous answer.

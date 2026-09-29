@@ -1025,13 +1025,12 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
           providers: ['openai', 'anthropic'],
           source: 'thread/list-distinct' as const,
         }),
-        discoverRemoteEnvironments: async () => ({ hosts: [], source: null }),
       },
     );
     const hostList = await facade.listHosts();
     expect(hostList.hostsSource).toBe('remote-thread-summaries-v3+local');
     expect(hostList.modelProvidersSource).toBe('thread/list-distinct');
-    expect(hostList.modelProviders).toEqual(['openai', 'anthropic']);
+    expect(hostList.modelProviders).toEqual(['anthropic', 'openai']);
     expect(hostList.hosts.find((h) => h.hostId === 'local')?.threadCount).toBe(1);
     expect(hostList.hosts.find((h) => h.hostId === 'host-macbook')?.threadCount).toBe(2);
 
@@ -1166,7 +1165,6 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
           providers: ['brand-new-provider'],
           source: 'thread/list-distinct' as const,
         }),
-        discoverRemoteEnvironments: async () => ({ hosts: [], source: null }),
         listHosts: (processEnv, opts) => listDiscoveredHosts(env, opts),
       },
     );
