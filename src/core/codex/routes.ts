@@ -7,11 +7,13 @@ const id = z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/);
 export const observationFields = {
   expectedCwd: z.string().min(1).optional(),
   threadId: id,
-  timeoutMs: z.number().int().min(1).max(600000).optional(),
+  timeoutMs: z.number().int().min(1).max(7200000).optional(),
 };
 export const sendFields = {
   ...observationFields,
   correlationId: id.optional(), envelope: z.boolean().optional(), hop: z.number().int().min(0).optional(),
+  model: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/).optional(),
+  effort: z.enum(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']).optional(),
   replyTo: id.optional(), expectedTurnId: id.optional(),
   whenBusy: z.enum(['reject', 'queue', 'steer']).default('reject'), wait: z.boolean().default(false),
   maxOutputBytes: z.number().int().min(1).max(4194304).optional(),
@@ -38,12 +40,12 @@ export async function sendOperation(input: z.infer<typeof sendSchema>, signal?: 
   try {
     envelope = buildEnvelope(input);
     if (oneShot && !input.wait && input.whenBusy !== 'steer') {
-      return await sendToCodexThread(input.threadId, input.message, { envelope, whenBusy: input.whenBusy, expectedCwd: input.expectedCwd, signal });
+      return await sendToCodexThread(input.threadId, input.message, { envelope, whenBusy: input.whenBusy, expectedCwd: input.expectedCwd, model: input.model, effort: input.effort, signal });
     }
     await progress?.('Opening Codex conversation');
     const conversation = await openCodexConversation(input.threadId, { expectedCwd: input.expectedCwd, signal });
     try {
-      receipt = await conversation.send(input.message, { envelope, whenBusy: input.whenBusy, expectedTurnId: input.expectedTurnId });
+      receipt = await conversation.send(input.message, { envelope, whenBusy: input.whenBusy, expectedTurnId: input.expectedTurnId, model: input.model, effort: input.effort });
       if (!input.wait || receipt.delivery !== 'accepted' || !receipt.turnId) return receipt;
       await progress?.(`Accepted message ${receipt.messageId}; observing turn ${receipt.turnId}`);
       const result = await conversation.wait({ turnId: receipt.turnId, messageId: receipt.messageId, timeoutMs: input.timeoutMs, maxOutputBytes: input.maxOutputBytes, signal });

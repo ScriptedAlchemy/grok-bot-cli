@@ -22135,7 +22135,7 @@ var __webpack_modules__ = {
         var _codex_contract_js__rspack_import_7 = __webpack_require__("./src/core/codex/contract.js");
         var _desktop_shim_js__rspack_import_8 = __webpack_require__("./src/core/desktop-shim.js");
         var _user_machine_guidance_js__rspack_import_9 = __webpack_require__("./src/core/user-machine-guidance.js");
-        const PINNED_CODEX_VERSION = "0.154.0";
+        const PINNED_CODEX_VERSION = "0.158.0";
         const UPSTREAM_DESKTOP_ISSUES = [
             "https://github.com/openai/codex/issues/41014",
             "https://github.com/openai/codex/issues/41112"
@@ -22195,7 +22195,7 @@ var __webpack_modules__ = {
                 "Either no daemon is running (start one with `codex app-server daemon start` or bootstrap),",
                 "or ChatGPT Desktop is running a private stdio app-server that external clients cannot reach",
                 "(" + UPSTREAM_DESKTOP_ISSUES.join(", ") + ").",
-                "gbot connects only to this machine's local socket; it has no remote transport.",
+                "Codex must run on the same machine as gbot. Set CODEX_APP_SERVER_SOCK to an existing local control socket if it is elsewhere; gbot has no remote transport.",
                 "gbot codex targets daemon-managed threads only."
             ].join("\n");
         }
@@ -22839,6 +22839,47 @@ var __webpack_modules__ = {
             };
         }
         const openSession = openCodexSession;
+        async function startCodexThread({ cwd, expectedCwd, model, effort, message, env = process.env, signal } = {}) {
+            validateModelEffort(model, effort);
+            if (typeof cwd !== "string" || !cwd.trim()) throw new RangeError("--cwd is required for a new Codex thread");
+            const resolvedCwd = realpathSync(cwd);
+            if (expectedCwd !== undefined && realpathSync(expectedCwd) !== resolvedCwd) throw new RangeError("New Codex thread cwd does not match expectedCwd");
+            if (message !== undefined && (typeof message !== "string" || !message.trim())) throw new RangeError("Message must contain text");
+            const { client } = await openSession(env, {
+                signal
+            });
+            let threadId, started;
+            try {
+                started = await client.request("thread/start", {
+                    cwd: resolvedCwd,
+                    ...model ? {
+                        model
+                    } : {},
+                    ...effort ? {
+                        config: {
+                            model_reasoning_effort: effort
+                        }
+                    } : {}
+                });
+                threadId = started?.thread?.id;
+                if (typeof threadId !== "string" || !ID_PATTERN.test(threadId)) throw new CodexProtocolError("thread/start", "missing `thread.id`");
+            } finally{
+                client.close();
+            }
+            if (message === undefined) return {
+                threadId,
+                cwd: resolvedCwd,
+                model: started.model ?? model,
+                exitCode: 0
+            };
+            return await sendToCodexThread(threadId, message, {
+                env,
+                expectedCwd: resolvedCwd,
+                model,
+                effort,
+                signal
+            });
+        }
         const CODEX_VERSION_PROBE_TIMEOUT_MS = 3000;
         function probeLocalCodexVersion(timeoutMs = CODEX_VERSION_PROBE_TIMEOUT_MS) {
             const out = spawnSync("codex", [
@@ -23137,7 +23178,7 @@ var __webpack_modules__ = {
         }
         function requireExperimental(env, what) {
             if (experimentalEnabled(env)) return;
-            throw new CodexSendError(what + " uses Codex's experimental app-server API (thread/queue/*), which is off by default. " + "Set GROK_BOT_CODEX_EXPERIMENTAL=1 to opt in; method names are pinned to Codex " + PINNED_CODEX_VERSION + ".", {
+            throw new CodexSendError(what + " needs thread/queue/add, which is experimental and absent from Codex " + PINNED_CODEX_VERSION + "'s stable API. " + "Use --when-busy steer with an expected turn ID, wait until the thread is idle, or opt in with GROK_BOT_CODEX_EXPERIMENTAL=1 on a Codex daemon that supports the experimental queue API.", {
                 delivery: "rejected",
                 reason: "experimental-disabled"
             });
@@ -23145,7 +23186,7 @@ var __webpack_modules__ = {
         function unsupportedOrRpc(err, method, threadId, envelope, turnId) {
             const guarded = method === "turn/steer";
             if (err instanceof CodexRpcError && err.rpc && err.rpc.code === -32601) {
-                return new CodexSendError("Codex app-server does not offer " + method + " (daemon predates it, or experimentalApi was not granted). " + (guarded ? "Upgrade Codex before retrying guarded steering." : "Upgrade Codex or send without --when-busy queue."), {
+                return new CodexSendError("Codex app-server does not offer " + method + " (daemon predates it, or experimentalApi was not granted). " + (guarded ? "Upgrade Codex before retrying guarded steering." : "Use --when-busy steer with an expected turn ID, wait for idle, or use a Codex daemon with experimental queue support and GROK_BOT_CODEX_EXPERIMENTAL=1."), {
                     delivery: "rejected",
                     reason: "unsupported",
                     threadId,
@@ -23202,7 +23243,7 @@ var __webpack_modules__ = {
         }
         async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({
             env
-        }), whenBusy = "reject", session, expectedTurnId, expectedCwd, signal } = {}) {
+        }), whenBusy = "reject", session, expectedTurnId, expectedCwd, model, effort, signal } = {}) {
             try {
                 const receipt = await sendToCodexThreadInner(threadId, text, {
                     env,
@@ -23211,6 +23252,8 @@ var __webpack_modules__ = {
                     session,
                     expectedTurnId,
                     expectedCwd,
+                    model,
+                    effort,
                     signal
                 });
                 return (0, _codex_contract_js__rspack_import_7.Dz)(receipt);
@@ -23222,7 +23265,19 @@ var __webpack_modules__ = {
                 return (0, _codex_contract_js__rspack_import_7.DG)(err);
             }
         }
-        async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, signal }) {
+        function validateModelEffort(model, effort) {
+            if (model !== undefined && (typeof model !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(model))) throw new RangeError("--model must be a nonempty model ID");
+            if (effort !== undefined && ![
+                "none",
+                "minimal",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+            ].includes(effort)) throw new RangeError("--effort must be none, minimal, low, medium, high, or xhigh");
+        }
+        async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, model, effort, signal }) {
+            validateModelEffort(model, effort);
             if (![
                 "reject",
                 "queue",
@@ -23268,7 +23323,15 @@ var __webpack_modules__ = {
                 try {
                     resumed = await client.request("thread/resume", {
                         threadId,
-                        excludeTurns: true
+                        excludeTurns: true,
+                        ...model ? {
+                            model
+                        } : {},
+                        ...effort ? {
+                            config: {
+                                model_reasoning_effort: effort
+                            }
+                        } : {}
                     });
                 } catch (err) {
                     assertNotCancelled();
@@ -23401,7 +23464,13 @@ var __webpack_modules__ = {
                             }
                         ],
                         clientUserMessageId: envelope.messageId,
-                        turnTrigger: "gbot"
+                        turnTrigger: "gbot",
+                        ...model ? {
+                            model
+                        } : {},
+                        ...effort ? {
+                            effort
+                        } : {}
                     });
                 } catch (err) {
                     if (err instanceof CodexSendError) throw err;
@@ -23670,10 +23739,10 @@ var __webpack_modules__ = {
                 ];
                 if (afterMessageId !== undefined) boundedInteger(anchors.length, 200, 'afterMessageId count');
                 for (const anchor of anchors)conversationId(anchor, 'afterMessageId');
-                boundedInteger(timeoutMs, 600000, 'timeoutMs');
+                boundedInteger(timeoutMs, 7200000, 'timeoutMs');
                 boundedInteger(maxOutputBytes, BUDGET, 'maxOutputBytes');
                 if (waitSignal !== undefined && !(waitSignal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
-                let done = false, status = acceptedTurns.has(turnId) ? 'inProgress' : undefined, error, historyError, itemBytes = 0, truncated = overflow;
+                let done = false, status = acceptedTurns.has(turnId) ? 'inProgress' : undefined, error, historyError, itemBytes = 0, truncated = false;
                 const items = new Map();
                 const add = (item)=>{
                     if (!item || typeof item.id !== 'string' || typeof item.type !== 'string') throw new Error('Invalid history item');
@@ -23728,7 +23797,7 @@ var __webpack_modules__ = {
                     const reply = {
                         text: '',
                         items: [],
-                        truncated: truncated || overflow
+                        truncated
                     };
                     for (const item of selected){
                         const text = reply.text ? `${reply.text}\n${item.text}` : item.text;
@@ -23761,7 +23830,7 @@ var __webpack_modules__ = {
                         interactions
                     };
                 };
-                let timer, notify;
+                let timer, pollTimer, notify;
                 const abortSignals = [
                     signal,
                     waitSignal
@@ -23781,6 +23850,11 @@ var __webpack_modules__ = {
                             'timeout',
                             'Observation deadline reached'
                         ]), timeoutMs);
+                    pollTimer = setInterval(()=>{
+                        for (const listener of [
+                            ...wake
+                        ])listener();
+                    }, 2000);
                     for (const s of abortSignals)s.addEventListener('abort', notify, {
                         once: true
                     });
@@ -23851,19 +23925,51 @@ var __webpack_modules__ = {
                             historyError
                         ];
                     }
+                    let lastPoll = 0;
                     while(!done){
                         const interactions = scan();
                         if (terminal(status)) return [
                             status,
                             error ?? historyError
                         ];
-                        if (historyError || overflow) return [
+                        if (historyError) return [
                             'unknown',
-                            historyError ?? 'Notification coverage overflow'
+                            historyError
                         ];
                         if (interactions.length) return [
                             'waiting-for-input'
                         ];
+                        if (Date.now() - lastPoll >= 2000) {
+                            lastPoll = Date.now();
+                            try {
+                                await visitCodexHistory(session, threadId, 'thread/turns/list', {}, (data)=>{
+                                    const turn = data.find((t)=>t?.id === turnId);
+                                    if (!turn) return false;
+                                    if (terminal(turn.status)) {
+                                        status = turn.status;
+                                        error = turn.error;
+                                    }
+                                    return true;
+                                }, {
+                                    stopped: ()=>done
+                                });
+                                if (terminal(status)) {
+                                    await visitCodexHistory(session, threadId, 'thread/items/list', {
+                                        turnId,
+                                        sortDirection: 'asc'
+                                    }, (data)=>{
+                                        for (const row of data)if (row?.turnId === turnId && row.item) add(row.item);
+                                        return false;
+                                    }, {
+                                        stopped: ()=>done
+                                    });
+                                    continue;
+                                }
+                            } catch (err) {
+                                historyError = err.message;
+                                truncated = true;
+                            }
+                        }
                         await new Promise((resolve)=>{
                             const listener = ()=>{
                                 wake.delete(listener);
@@ -23886,6 +23992,7 @@ var __webpack_modules__ = {
                 } finally{
                     done = true;
                     clearTimeout(timer);
+                    clearInterval(pollTimer);
                     wake.delete(notify);
                     for (const s of abortSignals)s.removeEventListener('abort', notify);
                     for (const listener of [
@@ -23933,7 +24040,7 @@ var __webpack_modules__ = {
                 close,
                 async send (text, { envelope = (0, _codex_bridge_js__rspack_import_2.nq)({
                     env
-                }), whenBusy = 'reject', expectedTurnId, signal: sendSignal } = {}) {
+                }), whenBusy = 'reject', expectedTurnId, model, effort, signal: sendSignal } = {}) {
                     if (closed) return (0, _contract_js__rspack_import_0.DG)(Object.assign(new Error('Conversation closed'), {
                         delivery: 'rejected',
                         reason: 'closed',
@@ -23952,6 +24059,8 @@ var __webpack_modules__ = {
                         expectedTurnId,
                         session,
                         expectedCwd,
+                        model,
+                        effort,
                         signal: submissionSignal
                     });
                     if (receipt.delivery === 'accepted' && receipt.turnId) {
@@ -27383,7 +27492,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
     "./src/core/user-machine-guidance.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         const USER_MACHINE_CODEX_CLAUDE_GUIDANCE = [
             "Codex and Claude sessions live on the user's registered machines (for example their Linux desktop or Mac), not on the Grok Bot agent box (/home/box).",
-            "gbot connects only to a local Unix socket ($CODEX_HOME/app-server-control/app-server-control.sock, or CODEX_APP_SERVER_SOCK). There is no remote transport.",
+            "Codex must run on the same machine as gbot. Set CODEX_APP_SERVER_SOCK to an existing local control socket, or use $CODEX_HOME/app-server-control/app-server-control.sock. There is no remote transport.",
             "When running on the box (HOME=/home/box), do not call codex_* or claude_send there. Run the gbot CLI on the user's machine through Grok Bot Shell with a machineId (the host's machine-targeted shell).",
             "On that machine, provide the socket with `codex app-server daemon start` (or bootstrap). Auth stays with each machine's native Codex or Claude login; gbot does not store or export credentials."
         ].join("\n");

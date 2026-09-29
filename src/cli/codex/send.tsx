@@ -28,7 +28,7 @@ export const config = {
   description:
     'Send to Codex; acceptance is distinct from completion. Options precede threadId.',
   exitCode: 'result',
-  render: { maxElapsedMs: 660000 },
+  render: { maxElapsedMs: 7260000 },
   positionals: ['threadId', 'message'],
   inputJsonSchema: {
     type: 'object',
@@ -43,9 +43,11 @@ export const config = {
       expectedCwd: {
         type: 'string',
       },
+      model: { type: 'string' },
+      effort: { type: 'string', enum: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] },
       timeoutMs: {
         type: 'number',
-        description: 'Observation timeout: 1-600000 milliseconds.',
+        description: 'Observation timeout: 1-7200000 milliseconds.',
       },
       correlationId: {
         type: 'string',

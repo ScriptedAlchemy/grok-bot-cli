@@ -9,7 +9,7 @@ const { Client } = await import(sdk.resolve('@modelcontextprotocol/client'));
 const { StdioClientTransport } = await import(sdk.resolve('@modelcontextprotocol/client/stdio'));
 const config = JSON.parse(await readFile(new URL('../artifact/.mcp.json', import.meta.url), 'utf8'));
 const entry = config.mcpServers['grok-bot'].args[0].replace('${CLAUDE_PLUGIN_ROOT}', resolve('artifact'));
-const codex = ['codex_send', 'codex_threads', 'codex_wait', 'codex_watch', 'gbot_codex_respond'];
+const codex = ['codex_new', 'codex_send', 'codex_threads', 'codex_wait', 'codex_watch', 'gbot_codex_respond'];
 const grok = ['gbot_send', 'gbot_thread', 'gbot_grok_approvals', 'gbot_grok_respond'];
 const shared = ['claude_send', 'gbot_bridge_start', 'gbot_bridge_status', 'gbot_bridge_stop'];
 

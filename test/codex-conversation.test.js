@@ -252,3 +252,31 @@ test('coalesced anchors select earliest actual user regardless of record order',
  const fake=await fakeAppServer({...handlers,'thread/items/list':(_,ok)=>ok({data:rows.map(item=>({turnId:'turn-1',item})),nextCursor:null})});const c=await openCodexConversation('thread-1',{env:{CODEX_HOME:fake.home}});
  try{assert.equal((await c.wait({turnId:'turn-1',afterMessageId:['second','first']})).reply.text,'included\nlast');}finally{await c.close();await fake.close();}
 });
+
+test('wait survives a notification flood and finds completion in turn history', async () => {
+ let complete = false;
+ const fake = await fakeAppServer({ ...handlers,
+  'thread/turns/list': (_, ok) => ok({ data: [{ id: 'turn-1', status: complete ? 'completed' : 'inProgress' }], nextCursor: null }),
+  'thread/items/list': (_, ok) => ok({ data: complete ? [{ turnId: 'turn-1', item: final }] : [], nextCursor: null }),
+  'thread/resume': (p, ok, err, send) => {
+   handlers['thread/resume'](p, ok);
+   for (let i = 0; i < 550; i++) send({ method: 'item/agentMessage/delta', params: { threadId: p.threadId, turnId: 'turn-1', delta: 'x'.repeat(100) } });
+   setTimeout(() => { complete = true; }, 20);
+  },
+ });
+ const c = await openCodexConversation('thread-1', { env: { CODEX_HOME: fake.home } });
+ try {
+  const result = await c.wait({ turnId: 'turn-1', timeoutMs: 5000 });
+  assert.equal(result.execution.state, 'completed');
+  assert.equal(result.reply.text, 'final answer');
+  assert.equal(result.reply.truncated, false);
+ } finally { await c.close(); await fake.close(); }
+});
+
+test('wait accepts a caller timeout longer than 25 minutes', async () => {
+ const fake = await fakeAppServer(handlers);
+ const controller = new AbortController(); controller.abort();
+ const c = await openCodexConversation('thread-1', { env: { CODEX_HOME: fake.home } });
+ try { assert.equal((await c.wait({ turnId: 'turn-1', timeoutMs: 1500001, signal: controller.signal })).execution.state, 'unknown'); }
+ finally { await c.close(); await fake.close(); }
+});
