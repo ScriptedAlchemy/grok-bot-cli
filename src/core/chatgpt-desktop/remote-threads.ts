@@ -9,7 +9,7 @@
  * SSH remoting is intentionally not implemented here (follow-up).
  */
 
-import { loadCodexGlobalState } from '../codex/remote-control.js';
+import { codexStateEntries, loadCodexGlobalState } from '../codex/remote-control.js';
 export { codexGlobalStatePath, loadCodexGlobalState } from '../codex/remote-control.js';
 
 import { toAppServerThreadId, toDesktopThreadId } from './thread-ids.js';
@@ -47,7 +47,7 @@ export function listRemoteThreadsFromState(
   const out: RemoteThreadRecord[] = [];
   const seen = new Set<string>();
 
-  for (const [key, value] of Object.entries(data)) {
+  for (const [key, value] of codexStateEntries(data).flatMap(Object.entries)) {
     const match = REMOTE_SUMMARY_KEY.exec(key);
     if (!match?.[1]) continue;
     const hostId = match[1];
@@ -121,17 +121,25 @@ export function listDiscoveredHosts(
   const data = loadCodexGlobalState(env);
   if (data) {
     const hostNames = collectHostNames(data);
-    for (const key of Object.keys(data)) {
+    for (const [key, summary] of codexStateEntries(data).flatMap(Object.entries)) {
       const match = REMOTE_SUMMARY_KEY.exec(key);
       if (!match?.[1]) continue;
       const hostId = match[1];
-      const summary = data[key];
       const hostName = hostNames.get(hostId) ?? extractHostName(summary) ?? null;
+      if (byHost.has(hostId)) continue;
       byHost.set(hostId, {
         hostId,
         hostName,
         location: 'remote',
         threadCount: 0,
+      });
+    }
+    const connections = data['codex-managed-remote-connections'];
+    if (Array.isArray(connections)) for (const entry of connections) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+      const hostId = stringField(entry, ['hostId']);
+      if (hostId && !byHost.has(hostId)) byHost.set(hostId, {
+        hostId, hostName: stringField(entry, ['displayName', 'alias']), location: 'remote', threadCount: 0,
       });
     }
   }
@@ -163,24 +171,29 @@ export function listDiscoveredHosts(
 
 function collectHostNames(data: Record<string, unknown>): Map<string, string> {
   const names = new Map<string, string>();
-  for (const [key, value] of Object.entries(data)) {
+  const connections = data['codex-managed-remote-connections'];
+  if (Array.isArray(connections)) for (const entry of connections) {
+    const pair = hostNameFromEntry(entry);
+    if (pair) names.set(pair.hostId, pair.hostName);
+  }
+  for (const [key, value] of codexStateEntries(data).flatMap(Object.entries)) {
     if (!/remote-host|hosts|host-meta|host_directory|environments/i.test(key)) continue;
     if (!value || typeof value !== 'object') continue;
     if (Array.isArray(value)) {
       for (const entry of value) {
         const pair = hostNameFromEntry(entry);
-        if (pair) names.set(pair.hostId, pair.hostName);
+        if (pair && !names.has(pair.hostId)) names.set(pair.hostId, pair.hostName);
       }
       continue;
     }
     for (const [hostId, entry] of Object.entries(value as Record<string, unknown>)) {
       const fromEntry = hostNameFromEntry(entry);
       if (fromEntry) {
-        names.set(fromEntry.hostId, fromEntry.hostName);
+        if (!names.has(fromEntry.hostId)) names.set(fromEntry.hostId, fromEntry.hostName);
         continue;
       }
       const label = stringField(entry, ['name', 'hostName', 'displayName', 'envName', 'label', 'title']);
-      if (label) names.set(hostId, label);
+      if (label && !names.has(hostId)) names.set(hostId, label);
     }
   }
   return names;

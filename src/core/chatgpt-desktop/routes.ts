@@ -17,6 +17,7 @@ export const listThreadsSchema = z
   .object({
     port: z.number().int().min(1).max(65535).optional(),
     limit: z.number().int().min(1).max(200).default(50),
+    cursor: z.string().min(1).max(4096).optional(),
     /**
      * Any string. Reserved: `all` (default), `local`. Otherwise a hostId or
      * friendly name discovered at runtime — see `chatgpt_desktop_list_hosts`.
@@ -56,7 +57,7 @@ export const readThreadSchema = z
   .object({
     port: z.number().int().min(1).max(65535).optional(),
     threadId,
-    limit: z.number().int().min(1).max(2000).default(100),
+    limit: z.number().int().min(1).max(2000).optional(),
     full: z.boolean().default(false),
     openTimeoutMs: z.number().int().min(1).max(600_000).default(90_000),
   })
@@ -165,6 +166,7 @@ export async function listThreadsOperation(
     const out = await withAdapter(input.port, (adapter) =>
       adapter.listThreads({
         limit: input.limit,
+        cursor: input.cursor,
         host: input.host,
         modelProvider: input.modelProvider,
         groupBy: input.groupBy,
@@ -221,7 +223,7 @@ export async function readThreadOperation(
     const out = await withAdapter(input.port, (adapter) =>
       adapter.readThread({
         threadId: input.threadId,
-        limit: input.limit,
+        limit: input.limit ?? (input.full ? 2000 : 100),
         full: input.full,
         openTimeoutMs: input.openTimeoutMs,
       }),

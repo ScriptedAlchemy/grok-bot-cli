@@ -64,14 +64,15 @@ export async function appServerSearchThreads({
   }
   const matched: ChatGptDesktopThread[] = [];
   let cursor: string | undefined;
-  for (let page = 0; page < 20 && matched.length < limit; page++) {
-    const out = await listCodexThreads({ limit: 200, cursor, modelProviders });
+  let exhausted = false;
+  for (let page = 0; page < 400 && matched.length < limit; page++) {
+    const out = await listCodexThreads({ limit: 25, cursor, modelProviders });
     for (const thread of out.threads) {
       const mapped = mapListedThread(thread);
       if (threadMatchesQuery(mapped, needle)) matched.push(mapped);
       if (matched.length >= limit) break;
     }
-    if (out.nextCursor == null || typeof out.nextCursor !== 'string') break;
+    if (out.nextCursor == null || typeof out.nextCursor !== 'string') { exhausted = true; break; }
     cursor = out.nextCursor;
   }
   return {
@@ -81,37 +82,45 @@ export async function appServerSearchThreads({
     nextCursor: null,
     threads: matched.slice(0, limit),
     modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined,
+    ...(!exhausted && matched.length < limit ? { warnings: ['Search stopped after 400 app-server pages; results may be incomplete'] } : {}),
   };
 }
 
 export type ModelProvidersDiscovery = {
   readonly providers: readonly string[];
   readonly source: 'thread/list-distinct';
+  readonly threadCount?: number;
+  readonly complete?: boolean;
 };
 
 /** Discover provider IDs from the supported inventory, without guessing RPCs. */
 export async function discoverModelProviders(): Promise<ModelProvidersDiscovery> {
   const providers = new Set<string>();
+  let threadCount = 0;
   let cursor: string | undefined;
-  for (let page = 0; page < 20; page++) {
-    const out = await listCodexThreads({ limit: 200, cursor, modelProviders: [] });
+  let complete = false;
+  for (let page = 0; page < 400; page++) {
+    const out = await listCodexThreads({ limit: 25, cursor, modelProviders: [] });
+    threadCount += out.threads.length;
     for (const thread of out.threads) {
       if (typeof thread.modelProvider === 'string' && thread.modelProvider) {
         providers.add(thread.modelProvider);
       }
     }
-    if (out.nextCursor == null || typeof out.nextCursor !== 'string') break;
+    if (out.nextCursor == null || typeof out.nextCursor !== 'string') { complete = true; break; }
     cursor = out.nextCursor;
   }
   return {
     providers: [...providers].sort(),
     source: 'thread/list-distinct',
+    threadCount,
+    complete,
   };
 }
 
 export async function appServerReadThread({
   threadId,
-  limit = 100,
+  limit,
   full = false,
 }: {
   threadId: string;
@@ -119,6 +128,7 @@ export async function appServerReadThread({
   full?: boolean;
 }): Promise<ReadThreadResult> {
   // Prefixed `local:` ids fail with `invalid thread id` — always strip first.
+  limit ??= full ? 2000 : 100;
   const bare = requireAppServerThreadId(threadId);
 
   // Known remote-only threads: fail fast with a typed error + host hint.
@@ -149,13 +159,14 @@ async function readLocalThread(
   const { client } = await openCodexSession();
   try {
     const meta = await readThreadMetadata(client, bare);
-    const turns = await listTurnsFull(client, bare, { limit, full });
+    const { turns, complete } = await listTurnsFull(client, bare, { limit, full });
     return {
       threadId: toDesktopThreadId(bare),
       turns,
       backend: 'app-server',
       limit,
       full,
+      complete,
       title: meta.title,
       cwd: meta.cwd,
       status: meta.status,
@@ -297,18 +308,19 @@ async function listTurnsFull(
   client: AppServerClient,
   threadId: string,
   { limit, full }: { limit: number; full: boolean },
-): Promise<ChatGptDesktopTurn[]> {
+): Promise<{ turns: ChatGptDesktopTurn[]; complete: boolean }> {
   const collected: unknown[] = [];
   let cursor: string | undefined;
   let itemsView = true;
   let method = 'thread/turns/list';
   const seen = new Set<string>();
+  let complete = false;
   while (collected.length < limit) {
     let result: { data?: unknown[]; nextCursor?: string | null };
     try {
       result = await client.request(method, {
         threadId,
-        limit: Math.min(100, limit - collected.length),
+        limit: Math.min(10, limit - collected.length),
         sortDirection: full ? 'asc' : 'desc',
         ...(method === 'thread/turns/list' && itemsView ? { itemsView: 'full' } : {}),
         ...(cursor !== undefined ? { cursor } : {}),
@@ -327,7 +339,7 @@ async function listTurnsFull(
     }
     if (!Array.isArray(result?.data)) throw new Error(`${method} missing data array for ${threadId}`);
     collected.push(...result.data);
-    if (result.nextCursor == null) break;
+    if (result.nextCursor == null) { complete = true; break; }
     if (typeof result.nextCursor !== 'string' || !result.nextCursor || seen.has(result.nextCursor)) {
       throw new Error(`${method} returned an invalid or repeated cursor`);
     }
@@ -335,7 +347,7 @@ async function listTurnsFull(
     cursor = result.nextCursor;
   }
   const turns = normalizeTurns(collected.slice(0, limit));
-  return full ? turns : turns.reverse();
+  return { turns: full ? turns : turns.reverse(), complete };
 }
 
 function normalizeTurns(raw: unknown[]): ChatGptDesktopTurn[] {
@@ -393,7 +405,7 @@ function normalizeTurnWithItems(
     ...(userText ? { userText } : {}),
     ...(assistantText ? { assistantText } : {}),
     startedAt: typeof row.startedAt === 'number' ? row.startedAt : null,
-    endedAt: typeof row.endedAt === 'number' ? row.endedAt : null,
+    endedAt: typeof row.completedAt === 'number' ? row.completedAt : typeof row.endedAt === 'number' ? row.endedAt : null,
   };
 }
 
@@ -410,13 +422,17 @@ function normalizeLeafItem(id: string, row: Record<string, unknown>): ChatGptDes
     role,
     text,
     startedAt: typeof row.startedAt === 'number' ? row.startedAt : null,
-    endedAt: typeof row.endedAt === 'number' ? row.endedAt : null,
+    endedAt: typeof row.completedAt === 'number' ? row.completedAt : typeof row.endedAt === 'number' ? row.endedAt : null,
   };
 }
 
 function extractText(row: Record<string, unknown>): string {
   if (typeof row.text === 'string') return row.text;
   if (typeof row.content === 'string') return row.content;
+  if (Array.isArray(row.content)) return row.content
+    .filter((part): part is Record<string, unknown> => Boolean(part) && typeof part === 'object' && !Array.isArray(part))
+    .map((part) => typeof part.text === 'string' ? part.text : '')
+    .filter(Boolean).join('\n');
   if (typeof row.preview === 'string') return row.preview;
   return '';
 }

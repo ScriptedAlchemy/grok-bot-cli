@@ -6521,9 +6521,10 @@ var __webpack_modules__ = {
             }
             const matched = [];
             let cursor;
-            for(let page = 0; page < 20 && matched.length < limit; page++){
+            let exhausted = false;
+            for(let page = 0; page < 400 && matched.length < limit; page++){
                 const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
-                    limit: 200,
+                    limit: 25,
                     cursor,
                     modelProviders
                 });
@@ -6532,7 +6533,10 @@ var __webpack_modules__ = {
                     if (threadMatchesQuery(mapped, needle)) matched.push(mapped);
                     if (matched.length >= limit) break;
                 }
-                if (out.nextCursor == null || typeof out.nextCursor !== 'string') break;
+                if (out.nextCursor == null || typeof out.nextCursor !== 'string') {
+                    exhausted = true;
+                    break;
+                }
                 cursor = out.nextCursor;
             }
             return {
@@ -6541,34 +6545,48 @@ var __webpack_modules__ = {
                 query,
                 nextCursor: null,
                 threads: matched.slice(0, limit),
-                modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined
+                modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined,
+                ...!exhausted && matched.length < limit ? {
+                    warnings: [
+                        'Search stopped after 400 app-server pages; results may be incomplete'
+                    ]
+                } : {}
             };
         }
         async function discoverModelProviders() {
             const providers = new Set();
+            let threadCount = 0;
             let cursor;
-            for(let page = 0; page < 20; page++){
+            let complete = false;
+            for(let page = 0; page < 400; page++){
                 const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
-                    limit: 200,
+                    limit: 25,
                     cursor,
                     modelProviders: []
                 });
+                threadCount += out.threads.length;
                 for (const thread of out.threads){
                     if (typeof thread.modelProvider === 'string' && thread.modelProvider) {
                         providers.add(thread.modelProvider);
                     }
                 }
-                if (out.nextCursor == null || typeof out.nextCursor !== 'string') break;
+                if (out.nextCursor == null || typeof out.nextCursor !== 'string') {
+                    complete = true;
+                    break;
+                }
                 cursor = out.nextCursor;
             }
             return {
                 providers: [
                     ...providers
                 ].sort(),
-                source: 'thread/list-distinct'
+                source: 'thread/list-distinct',
+                threadCount,
+                complete
             };
         }
-        async function appServerReadThread({ threadId, limit = 100, full = false }) {
+        async function appServerReadThread({ threadId, limit, full = false }) {
+            limit ??= full ? 2000 : 100;
             const bare = (0, _thread_ids_js__rspack_import_3.NM)(threadId);
             const remote = (0, _remote_threads_js__rspack_import_2.KI)(bare);
             if (remote) {
@@ -6597,7 +6615,7 @@ var __webpack_modules__ = {
             const { client } = await (0, _codex_bridge_js__rspack_import_0.eC)();
             try {
                 const meta = await readThreadMetadata(client, bare);
-                const turns = await listTurnsFull(client, bare, {
+                const { turns, complete } = await listTurnsFull(client, bare, {
                     limit,
                     full
                 });
@@ -6607,6 +6625,7 @@ var __webpack_modules__ = {
                     backend: 'app-server',
                     limit,
                     full,
+                    complete,
                     title: meta.title,
                     cwd: meta.cwd,
                     status: meta.status,
@@ -6695,12 +6714,13 @@ var __webpack_modules__ = {
             let itemsView = true;
             let method = 'thread/turns/list';
             const seen = new Set();
+            let complete = false;
             while(collected.length < limit){
                 let result;
                 try {
                     result = await client.request(method, {
                         threadId,
-                        limit: Math.min(100, limit - collected.length),
+                        limit: Math.min(10, limit - collected.length),
                         sortDirection: full ? 'asc' : 'desc',
                         ...method === 'thread/turns/list' && itemsView ? {
                             itemsView: 'full'
@@ -6723,7 +6743,10 @@ var __webpack_modules__ = {
                 }
                 if (!Array.isArray(result?.data)) throw new Error(`${method} missing data array for ${threadId}`);
                 collected.push(...result.data);
-                if (result.nextCursor == null) break;
+                if (result.nextCursor == null) {
+                    complete = true;
+                    break;
+                }
                 if (typeof result.nextCursor !== 'string' || !result.nextCursor || seen.has(result.nextCursor)) {
                     throw new Error(`${method} returned an invalid or repeated cursor`);
                 }
@@ -6731,7 +6754,10 @@ var __webpack_modules__ = {
                 cursor = result.nextCursor;
             }
             const turns = normalizeTurns(collected.slice(0, limit));
-            return full ? turns : turns.reverse();
+            return {
+                turns: full ? turns : turns.reverse(),
+                complete
+            };
         }
         function normalizeTurns(raw) {
             const turns = [];
@@ -6787,7 +6813,7 @@ var __webpack_modules__ = {
                     assistantText
                 } : {},
                 startedAt: typeof row.startedAt === 'number' ? row.startedAt : null,
-                endedAt: typeof row.endedAt === 'number' ? row.endedAt : null
+                endedAt: typeof row.completedAt === 'number' ? row.completedAt : typeof row.endedAt === 'number' ? row.endedAt : null
             };
         }
         function normalizeLeafItem(id, row) {
@@ -6803,12 +6829,13 @@ var __webpack_modules__ = {
                 role,
                 text,
                 startedAt: typeof row.startedAt === 'number' ? row.startedAt : null,
-                endedAt: typeof row.endedAt === 'number' ? row.endedAt : null
+                endedAt: typeof row.completedAt === 'number' ? row.completedAt : typeof row.endedAt === 'number' ? row.endedAt : null
             };
         }
         function extractText(row) {
             if (typeof row.text === 'string') return row.text;
             if (typeof row.content === 'string') return row.content;
+            if (Array.isArray(row.content)) return row.content.filter((part)=>Boolean(part) && typeof part === 'object' && !Array.isArray(part)).map((part)=>typeof part.text === 'string' ? part.text : '').filter(Boolean).join('\n');
             if (typeof row.preview === 'string') return row.preview;
             return '';
         }
@@ -6915,7 +6942,8 @@ var __webpack_modules__ = {
                     turns,
                     backend: 'cdp',
                     limit,
-                    full
+                    full,
+                    complete: false
                 };
             }
             async sendMessage({ threadId, text, project, openTimeoutMs = 90000 }) {
@@ -7229,6 +7257,7 @@ var __webpack_modules__ = {
     const project = projectFor(row);
     out.push({
       threadId,
+      hostId: row.getAttribute('data-app-action-sidebar-thread-host-id') || null,
       title: row.getAttribute(${JSON.stringify(ATTR.threadTitle)}) || (row.textContent || '').trim(),
       pinned: row.getAttribute(${JSON.stringify(ATTR.threadPinned)}) === 'true',
       selected: row.getAttribute(${JSON.stringify(ATTR.threadSelected)}) === 'true',
@@ -7259,6 +7288,26 @@ var __webpack_modules__ = {
     return { ok: true, threadId: row.getAttribute(${JSON.stringify(ATTR.threadId)}) || candidates[0] };
   })()`;
         }
+        function navigateToThreadExpression(threadId) {
+            const bare = durableThreadKey(threadId);
+            return `(async () => {
+    const root = window.__codexRoot?._internalRoot?.current;
+    const queue = [root];
+    let scanned = 0;
+    while (queue.length && scanned++ < 10000) {
+      const fiber = queue.shift();
+      if (!fiber) continue;
+      const router = fiber.memoizedProps?.router;
+      if (router?.navigate && router?.state?.location) {
+        await router.navigate(${JSON.stringify(`/local/${bare}`)});
+        return { ok: true, via: 'router' };
+      }
+      if (fiber.child) queue.push(fiber.child);
+      if (fiber.sibling) queue.push(fiber.sibling);
+    }
+    return { ok: false, error: 'router-not-found' };
+  })()`;
+        }
         function startNewChatExpression(project) {
             const projectSel = project ? newChatInProjectSelector(project) : null;
             return `(() => {
@@ -7266,8 +7315,11 @@ var __webpack_modules__ = {
     if (projectSel) {
       const preferred = document.querySelector(projectSel);
       if (preferred) {
-        preferred.click();
-        return { ok: true, via: 'project', project: ${JSON.stringify(project ?? null)} };
+        const row = preferred.closest('.group') || preferred.parentElement;
+        row?.scrollIntoView({ block: 'center' });
+        const rowBox = row?.getBoundingClientRect();
+        return { ok: true, via: 'project', project: ${JSON.stringify(project ?? null)},
+          hoverX: rowBox?.left + rowBox?.width / 2, hoverY: rowBox?.top + rowBox?.height / 2 };
       }
       return { ok: false, error: 'project-not-found' };
     }
@@ -7276,6 +7328,15 @@ var __webpack_modules__ = {
     if (!fallback) return { ok: false, error: 'new-chat-not-found' };
     fallback.click();
     return { ok: true, via: 'fallback' };
+  })()`;
+        }
+        function projectButtonBoxExpression(project) {
+            return `(() => {
+    const button = document.querySelector(${JSON.stringify(newChatInProjectSelector(project))});
+    if (!button) return null;
+    const box = button.getBoundingClientRect();
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2,
+      visible: box.width > 0 && box.height > 0 && getComputedStyle(button.parentElement).opacity !== '0' };
   })()`;
         }
         const LOADING_TASK_GONE_EXPRESSION = `(() => {
@@ -7289,6 +7350,9 @@ var __webpack_modules__ = {
   const text = (surface.innerText || '').replace(/\\u2026/g, '…');
   return !text.includes(${JSON.stringify(LOADING_TASK_TEXT)});
 })()`;
+        const ARCHIVED_THREAD_EXPRESSION = `(() => Array.from(document.querySelectorAll('main'))
+  .some((main) => (main.innerText || '').includes('This task is archived')
+    && (main.innerText || '').includes('Unarchive this task to open it')))()`;
         const FOCUS_COMPOSER_EXPRESSION = `(() => {
   const composer = document.querySelector(${JSON.stringify(COMPOSER_SELECTOR)});
   if (!composer) return { ok: false, error: 'composer-not-found' };
@@ -7393,27 +7457,60 @@ var __webpack_modules__ = {
                     pinned: Boolean(row.pinned),
                     selected: Boolean(row.selected),
                     kind: String(row.kind ?? 'unknown'),
+                    ...row.hostId ? {
+                        hostId: row.hostId,
+                        location: row.hostId === 'local' ? 'local' : 'remote'
+                    } : {},
                     ...row.project ? {
                         project: String(row.project)
                     } : {}
                 }));
         }
         async function openThreadInDom(session, sessionId, threadId) {
+            const current = await readConversationIdFromDom(session, sessionId);
+            if (current && durableThreadKey(current) === durableThreadKey(threadId)) return;
+            if ((0, _codex_thread_id_js__rspack_import_0.vr)(threadId)) {
+                const rows = await listThreadsFromDom(session, sessionId, {
+                    limit: 200
+                });
+                if (rows.some((row)=>row.selected && row.threadId === threadId)) return;
+            }
             const result = await session.evaluate(openThreadExpression(threadId), {
                 sessionId
             });
             if (!result?.ok) {
+                if (result?.error === 'thread-not-found' && !(0, _codex_thread_id_js__rspack_import_0.vr)(threadId)) {
+                    const navigated = await session.evaluate(navigateToThreadExpression(threadId), {
+                        sessionId
+                    });
+                    if (navigated?.ok) return;
+                }
                 throw new Error(result?.error === 'thread-not-found' ? `ChatGPT Desktop thread not found: ${threadId}` : `Failed to open ChatGPT Desktop thread ${threadId}`);
             }
         }
         async function waitForLoadingTaskGone(session, sessionId, { timeoutMs = DEFAULT_OPEN_TIMEOUT_MS, threadId } = {}) {
             const deadline = Date.now() + timeoutMs;
+            let loadingGone = false;
+            let lastConversationId = '';
+            let archivedSince = null;
             while(Date.now() < deadline){
+                if (threadId && threadId !== 'new' && await session.evaluate(ARCHIVED_THREAD_EXPRESSION, {
+                    sessionId
+                }) === true) {
+                    archivedSince ??= Date.now();
+                    if (Date.now() - archivedSince >= 500) {
+                        throw new Error(`ChatGPT Desktop thread ${JSON.stringify(threadId)} is archived; unarchive it in Desktop before opening`);
+                    }
+                } else {
+                    archivedSince = null;
+                }
                 const gone = await session.evaluate(LOADING_TASK_GONE_EXPRESSION, {
                     sessionId
                 });
+                loadingGone ||= gone;
                 if (gone) {
                     const current = threadId ? await readConversationIdFromDom(session, sessionId) : '';
+                    lastConversationId = current;
                     if (!threadId) return;
                     if (threadId === 'new' || (0, _codex_thread_id_js__rspack_import_0.vr)(threadId)) {
                         const rows = await listThreadsFromDom(session, sessionId, {
@@ -7425,7 +7522,7 @@ var __webpack_modules__ = {
                 }
                 await delay(250);
             }
-            throw new Error(`ChatGPT Desktop thread still showing ${JSON.stringify(LOADING_TASK_TEXT)} after ${timeoutMs}ms`);
+            throw new Error(loadingGone ? `ChatGPT Desktop timed out waiting for conversation ${JSON.stringify(threadId)}; displayed conversation ${JSON.stringify(lastConversationId)} after ${timeoutMs}ms` : `ChatGPT Desktop thread still showing ${JSON.stringify(LOADING_TASK_TEXT)} after ${timeoutMs}ms`);
         }
         async function startNewChatInDom(session, sessionId, { project } = {}) {
             const result = await session.evaluate(startNewChatExpression(project), {
@@ -7433,6 +7530,52 @@ var __webpack_modules__ = {
             });
             if (!result?.ok) {
                 throw new Error(project ? `ChatGPT Desktop new-chat button not found for project ${JSON.stringify(project)}` : 'ChatGPT Desktop "New chat" button not found');
+            }
+            if (result.via === 'project') {
+                if (![
+                    result.hoverX,
+                    result.hoverY
+                ].every(Number.isFinite)) {
+                    throw new Error(`ChatGPT Desktop project button has no visible box for ${JSON.stringify(project)}`);
+                }
+                await session.send('Input.dispatchMouseEvent', {
+                    type: 'mouseMoved',
+                    x: result.hoverX,
+                    y: result.hoverY
+                }, {
+                    sessionId
+                });
+                const button = await session.evaluate(projectButtonBoxExpression(project), {
+                    sessionId
+                });
+                if (!button?.visible || !Number.isFinite(button.x) || !Number.isFinite(button.y)) {
+                    throw new Error(`ChatGPT Desktop project button did not appear after hover for ${JSON.stringify(project)}`);
+                }
+                await session.send('Input.dispatchMouseEvent', {
+                    type: 'mouseMoved',
+                    x: button.x,
+                    y: button.y
+                }, {
+                    sessionId
+                });
+                await session.send('Input.dispatchMouseEvent', {
+                    type: 'mousePressed',
+                    x: button.x,
+                    y: button.y,
+                    button: 'left',
+                    clickCount: 1
+                }, {
+                    sessionId
+                });
+                await session.send('Input.dispatchMouseEvent', {
+                    type: 'mouseReleased',
+                    x: button.x,
+                    y: button.y,
+                    button: 'left',
+                    clickCount: 1
+                }, {
+                    sessionId
+                });
             }
             return {
                 via: result.via ?? 'unknown'
@@ -7580,16 +7723,18 @@ var __webpack_modules__ = {
         }
         async function readTurnsFromDom(session, sessionId, { limit = 100, full = false, threadId, idleWheels = DEFAULT_FULL_READ_IDLE_WHEELS, maxWheels = DEFAULT_FULL_READ_MAX_WHEELS } = {}) {
             const collected = new Map();
+            const order1 = [];
             const ingest = async ()=>{
+                const older = [];
                 for (const turn of (await harvestVisibleTurns(session, sessionId))){
+                    if (!collected.has(turn.turnKey)) older.push(turn.turnKey);
                     collected.set(turn.turnKey, turn);
                 }
+                order1.unshift(...older);
             };
             await ingest();
             if (!full) {
-                const visible = [
-                    ...collected.values()
-                ];
+                const visible = order1.map((key)=>collected.get(key));
                 return limit > 0 ? visible.slice(-limit) : visible;
             }
             let idle = 0;
@@ -7618,9 +7763,7 @@ var __webpack_modules__ = {
                 }
                 if (threadId && collected.has(threadId)) break;
             }
-            const all = [
-                ...collected.values()
-            ];
+            const all = order1.map((key)=>collected.get(key));
             return limit > 0 ? all.slice(0, limit) : all;
         }
         function delay(ms) {
@@ -7890,6 +8033,8 @@ var __webpack_modules__ = {
             listHosts: _remote_threads_js__rspack_import_4.Kl,
             discoverModelProviders: _app_server_fallback_js__rspack_import_1.X
         };
+        const REMOTE_PAGE_CURSOR = 'desktop-remote-page:';
+        const APP_START_CURSOR = 'desktop-app-start';
         class ChatGptDesktopFacade {
             #cdp;
             #port;
@@ -7920,23 +8065,21 @@ var __webpack_modules__ = {
                 const limit = options.limit ?? 50;
                 const host = normalizeHostFilter(options.host);
                 const modelProviders = modelProvidersFromFilter(options.modelProvider);
-                let appList = null;
-                let appError;
-                try {
-                    appList = await this.#fallbacks.listThreads({
-                        limit,
-                        modelProviders
-                    });
-                } catch (error) {
-                    appError = error;
+                const remoteOffset = options.cursor?.startsWith(REMOTE_PAGE_CURSOR) ? Number(options.cursor.slice(REMOTE_PAGE_CURSOR.length)) : null;
+                if (remoteOffset !== null && (!Number.isSafeInteger(remoteOffset) || remoteOffset < 1)) {
+                    throw new Error('Invalid ChatGPT Desktop remote page cursor');
                 }
+                const inventoryPage = !options.cursor || remoteOffset !== null;
+                const remotes = inventoryPage ? this.#listRemotes() : [];
                 let cdpList = null;
                 let cdpError;
                 try {
-                    await this.#ensureCdp();
-                    cdpList = await this.#cdp.listThreads({
-                        limit
-                    });
+                    if (inventoryPage) {
+                        await this.#ensureCdp();
+                        cdpList = await this.#cdp.listThreads({
+                            limit: 200
+                        });
+                    }
                 } catch (error) {
                     if (isCdpFailure(error)) {
                         this.#cdpConnected = false;
@@ -7944,33 +8087,87 @@ var __webpack_modules__ = {
                         cdpError = error;
                     }
                 }
-                const remotes = this.#listRemotes();
+                if (inventoryPage && host !== 'local') {
+                    const remoteInventory = finalizeThreadList({
+                        backend: cdpList?.backend ?? 'remote-state',
+                        limit: 10000,
+                        threads: cdpList?.threads.filter((thread)=>thread.location === 'remote') ?? []
+                    }, {
+                        limit: 10000,
+                        host,
+                        modelProvider: options.modelProvider,
+                        remotes
+                    });
+                    const offset = remoteOffset ?? 0;
+                    if (remoteOffset !== null || remoteInventory.threads.length >= limit) {
+                        const page = remoteInventory.threads.slice(offset, offset + limit);
+                        const nextOffset = offset + page.length;
+                        const nextCursor = nextOffset < remoteInventory.threads.length ? `${REMOTE_PAGE_CURSOR}${nextOffset}` : host === 'all' ? APP_START_CURSOR : null;
+                        return {
+                            ...remoteInventory,
+                            threads: page,
+                            limit,
+                            nextCursor,
+                            ...options.groupBy === 'host' ? {
+                                groupBy: 'host',
+                                groups: groupThreadsByHost(page)
+                            } : {}
+                        };
+                    }
+                }
+                const remoteKeys = new Set(remotes.map((thread)=>(0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId));
+                const reservedRemoteRows = host === 'all' && inventoryPage ? remotes.filter((thread)=>modelProviderMatches(thread, options.modelProvider)).length + (cdpList?.threads.filter((thread)=>thread.location === 'remote' && modelProviderMatches(thread, options.modelProvider) && !remoteKeys.has((0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId)).length ?? 0) : 0;
+                const appLimit = Math.max(1, limit - Math.min(limit - 1, reservedRemoteRows));
+                let appList = null;
+                let appError;
+                try {
+                    appList = await this.#fallbacks.listThreads({
+                        limit: appLimit,
+                        cursor: options.cursor === APP_START_CURSOR ? undefined : options.cursor,
+                        modelProviders
+                    });
+                } catch (error) {
+                    appError = error;
+                }
                 let base = null;
                 if (appList && cdpList) base = mergeThreadLists(appList, cdpList);
                 else if (appList) base = appList;
                 else if (cdpList) base = cdpList;
                 else if (remotes.length) base = {
-                    backend: 'app-server',
+                    backend: 'remote-state',
                     limit,
                     threads: []
                 };
                 else if (cdpError) throw cdpError;
                 else if (appError) throw appError;
                 else throw new _errors_js__rspack_import_2.sO('ChatGPT Desktop listThreads: CDP and app-server unreachable');
-                return finalizeThreadList(base, {
+                const result = finalizeThreadList(base, {
                     limit,
                     host,
                     modelProvider: options.modelProvider?.trim() || undefined,
                     groupBy: options.groupBy,
                     remotes
                 });
+                const withCursor = host === 'all' || host === 'local' ? result : {
+                    ...result,
+                    nextCursor: null
+                };
+                return appError ? {
+                    ...withCursor,
+                    warnings: [
+                        `App-server list failed: ${appError instanceof Error ? appError.message : String(appError)}`
+                    ]
+                } : withCursor;
             }
             async listHosts() {
                 const remotes = this.#listRemotes();
+                const cdpRows = typeof this.#cdp.listThreads === 'function' ? (await this.#tryCdpList({
+                    limit: 200
+                }))?.threads ?? [] : [];
                 let localThreadCount = 0;
                 try {
                     const local = await this.#fallbacks.listThreads({
-                        limit: 200,
+                        limit: 25,
                         modelProviders: []
                     });
                     localThreadCount = local.threads.length;
@@ -8003,9 +8200,26 @@ var __webpack_modules__ = {
                         });
                     }
                 }
-                const hostsSource = 'remote-thread-summaries-v3+local';
+                for (const thread of cdpRows){
+                    if (thread.location !== 'remote' || !thread.hostId) continue;
+                    if (!byId.has(thread.hostId)) byId.set(thread.hostId, {
+                        hostId: thread.hostId,
+                        hostName: thread.hostName ?? null,
+                        location: 'remote',
+                        threadCount: 0
+                    });
+                }
+                const hostsSource = 'local+remote-thread-summaries-v3+managed-connections' + (cdpRows.length ? '+cdp' : '');
                 const remoteCounts = new Map();
                 for (const thread of remotes){
+                    remoteCounts.set(thread.hostId, (remoteCounts.get(thread.hostId) ?? 0) + 1);
+                }
+                const remoteIds = new Set(remotes.map((thread)=>(0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId));
+                for (const thread of cdpRows){
+                    if (thread.location !== 'remote' || !thread.hostId) continue;
+                    const id = (0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId;
+                    if (remoteIds.has(id)) continue;
+                    remoteIds.add(id);
                     remoteCounts.set(thread.hostId, (remoteCounts.get(thread.hostId) ?? 0) + 1);
                 }
                 const withCounts = [
@@ -8023,6 +8237,7 @@ var __webpack_modules__ = {
                 });
                 let modelProviders = [];
                 let modelProvidersSource = 'thread/list-distinct';
+                const warnings = [];
                 try {
                     const discover = this.#fallbacks.discoverModelProviders ?? _app_server_fallback_js__rspack_import_1.X;
                     const discovered = await discover();
@@ -8030,7 +8245,10 @@ var __webpack_modules__ = {
                         ...discovered.providers
                     ];
                     modelProvidersSource = discovered.source;
-                } catch  {
+                    if (typeof discovered.threadCount === 'number') localThreadCount = discovered.threadCount;
+                    if (discovered.complete === false) warnings.push('Provider discovery stopped before the final app-server page');
+                } catch (error) {
+                    warnings.push(`Model provider discovery failed: ${error instanceof Error ? error.message : String(error)}`);
                     modelProviders = [
                         ...new Set(remotes.map((thread)=>thread.modelProvider).filter((value)=>typeof value === 'string' && Boolean(value)))
                     ].sort();
@@ -8043,11 +8261,17 @@ var __webpack_modules__ = {
                     ])
                 ].sort();
                 return {
-                    hosts: withCounts,
+                    hosts: withCounts.map((host)=>host.hostId === 'local' ? {
+                            ...host,
+                            threadCount: localThreadCount
+                        } : host),
                     hostsSource,
                     modelProviders,
                     modelProvidersSource,
-                    backend: 'app-server'
+                    backend: cdpRows.length ? remotes.length ? 'app-server+cdp+remote-state' : 'app-server+cdp' : remotes.length ? 'app-server+remote-state' : 'app-server',
+                    ...warnings.length ? {
+                        warnings
+                    } : {}
                 };
             }
             async searchThreads(options) {
@@ -8076,13 +8300,14 @@ var __webpack_modules__ = {
                         query: options.query,
                         threads: withRemotes.threads.filter((thread)=>threadMatchesQuery(thread, needle))
                     };
-                    return finalizeThreadList(filtered, {
+                    const result = finalizeThreadList(filtered, {
                         limit,
                         host,
                         modelProvider: options.modelProvider?.trim() || undefined,
                         groupBy: options.groupBy,
                         remotes: []
                     });
+                    return result;
                 } catch (appError) {
                     const cdpList = await this.#tryCdpList({
                         limit
@@ -8098,17 +8323,23 @@ var __webpack_modules__ = {
                         query: options.query,
                         threads: (cdpList?.threads ?? []).filter((thread)=>threadMatchesQuery(thread, needle))
                     };
-                    return finalizeThreadList(filtered, {
+                    const result = finalizeThreadList(filtered, {
                         limit,
                         host,
                         modelProvider: options.modelProvider?.trim() || undefined,
                         groupBy: options.groupBy,
                         remotes: remotes.filter((thread)=>threadMatchesQuery(thread, needle))
                     });
+                    return {
+                        ...result,
+                        warnings: [
+                            `App-server search failed: ${appError instanceof Error ? appError.message : String(appError)}`
+                        ]
+                    };
                 }
             }
             async readThread(options) {
-                const limit = options.limit ?? 100;
+                const limit = options.limit ?? (options.full ? 2000 : 100);
                 const full = options.full ?? false;
                 if ((0, _thread_ids_js__rspack_import_5.vr)(options.threadId)) {
                     await this.#ensureCdp();
@@ -8128,11 +8359,18 @@ var __webpack_modules__ = {
                     if (appError instanceof _errors_js__rspack_import_2.Rg) throw appError;
                     const cdpConnected = await this.#tryEnsureCdp();
                     if (!cdpConnected) throw appError;
-                    return this.#cdp.readThread({
+                    const fallback = await this.#cdp.readThread({
                         ...options,
                         limit,
                         full
                     });
+                    return {
+                        ...fallback,
+                        complete: false,
+                        warnings: [
+                            `App-server read failed: ${appError instanceof Error ? appError.message : String(appError)}`
+                        ]
+                    };
                 }
             }
             async sendMessage(options) {
@@ -8157,13 +8395,13 @@ var __webpack_modules__ = {
                         reachable: false
                     };
                 }
-                const reachable = cdpStatus.reachable || Boolean(appServerFallback?.reachable);
+                const reachable = cdpStatus.reachable;
                 return {
                     ...cdpStatus,
                     port: this.#port,
                     appServerFallback,
                     reachable,
-                    message: cdpStatus.reachable ? cdpStatus.message : appServerFallback?.reachable ? 'CDP unreachable; Codex app-server available for list/search/read' : cdpStatus.message,
+                    message: cdpStatus.reachable ? cdpStatus.message : cdpStatus.message,
                     exitCode: reachable ? 0 : 1
                 };
             }
@@ -8231,7 +8469,10 @@ var __webpack_modules__ = {
                     pinned: withLocal.pinned || cdp.pinned,
                     selected: cdp.selected,
                     kind: cdp.kind || withLocal.kind,
-                    project: cdp.project ?? withLocal.project
+                    project: cdp.project ?? withLocal.project,
+                    location: cdp.location === 'remote' ? 'remote' : withLocal.location,
+                    hostId: cdp.location === 'remote' ? cdp.hostId ?? null : withLocal.hostId,
+                    hostName: cdp.location === 'remote' ? cdp.hostName ?? null : withLocal.hostName
                 };
             });
             for (const thread of cdpList.threads){
@@ -8239,7 +8480,7 @@ var __webpack_modules__ = {
                 merged.push(thread);
             }
             return {
-                backend: appList.backend,
+                backend: 'app-server+cdp',
                 limit: appList.limit,
                 nextCursor: appList.nextCursor,
                 ...appList.query !== undefined ? {
@@ -8255,7 +8496,7 @@ var __webpack_modules__ = {
                 ]));
             const locals = base.threads.map((thread)=>{
                 const remote = remoteById.get((0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId);
-                if (remote && thread.location === undefined) {
+                if (remote) {
                     return {
                         ...thread,
                         ...remote,
@@ -8285,6 +8526,7 @@ var __webpack_modules__ = {
                     hostName: remote.hostName ?? null
                 });
             }
+            if (remotes.length) merged.sort((a, b)=>Number(b.location === 'remote') - Number(a.location === 'remote'));
             const filtered = merged.filter((thread)=>{
                 if (!hostMatches(thread, host)) return false;
                 if (!modelProviderMatches(thread, modelProvider)) return false;
@@ -8292,7 +8534,7 @@ var __webpack_modules__ = {
             });
             const limited = filtered.slice(0, limit);
             const result = {
-                backend: base.backend,
+                backend: remotes.length ? base.backend === 'app-server+cdp' ? 'app-server+cdp+remote-state' : base.backend === 'app-server' ? 'app-server+remote-state' : base.backend === 'cdp' ? 'cdp+remote-state' : base.backend : base.backend,
                 limit,
                 threads: limited,
                 ...base.nextCursor !== undefined ? {
@@ -8465,7 +8707,7 @@ var __webpack_modules__ = {
             const hostNames = collectHostNames(data);
             const out = [];
             const seen = new Set();
-            for (const [key, value] of Object.entries(data)){
+            for (const [key, value] of (0, _codex_remote_control_js__rspack_import_0.xr)(data).flatMap(Object.entries)){
                 const match = REMOTE_SUMMARY_KEY.exec(key);
                 if (!match?.[1]) continue;
                 const hostId = match[1];
@@ -8517,15 +8759,31 @@ var __webpack_modules__ = {
             const data = (0, _codex_remote_control_js__rspack_import_0.IT)(env);
             if (data) {
                 const hostNames = collectHostNames(data);
-                for (const key of Object.keys(data)){
+                for (const [key, summary] of (0, _codex_remote_control_js__rspack_import_0.xr)(data).flatMap(Object.entries)){
                     const match = REMOTE_SUMMARY_KEY.exec(key);
                     if (!match?.[1]) continue;
                     const hostId = match[1];
-                    const summary = data[key];
                     const hostName = hostNames.get(hostId) ?? extractHostName(summary) ?? null;
+                    if (byHost.has(hostId)) continue;
                     byHost.set(hostId, {
                         hostId,
                         hostName,
+                        location: 'remote',
+                        threadCount: 0
+                    });
+                }
+                const connections = data['codex-managed-remote-connections'];
+                if (Array.isArray(connections)) for (const entry of connections){
+                    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+                    const hostId = stringField(entry, [
+                        'hostId'
+                    ]);
+                    if (hostId && !byHost.has(hostId)) byHost.set(hostId, {
+                        hostId,
+                        hostName: stringField(entry, [
+                            'displayName',
+                            'alias'
+                        ]),
                         location: 'remote',
                         threadCount: 0
                     });
@@ -8558,20 +8816,25 @@ var __webpack_modules__ = {
         }
         function collectHostNames(data) {
             const names = new Map();
-            for (const [key, value] of Object.entries(data)){
+            const connections = data['codex-managed-remote-connections'];
+            if (Array.isArray(connections)) for (const entry of connections){
+                const pair = hostNameFromEntry(entry);
+                if (pair) names.set(pair.hostId, pair.hostName);
+            }
+            for (const [key, value] of (0, _codex_remote_control_js__rspack_import_0.xr)(data).flatMap(Object.entries)){
                 if (!/remote-host|hosts|host-meta|host_directory|environments/i.test(key)) continue;
                 if (!value || typeof value !== 'object') continue;
                 if (Array.isArray(value)) {
                     for (const entry of value){
                         const pair = hostNameFromEntry(entry);
-                        if (pair) names.set(pair.hostId, pair.hostName);
+                        if (pair && !names.has(pair.hostId)) names.set(pair.hostId, pair.hostName);
                     }
                     continue;
                 }
                 for (const [hostId, entry] of Object.entries(value)){
                     const fromEntry = hostNameFromEntry(entry);
                     if (fromEntry) {
-                        names.set(fromEntry.hostId, fromEntry.hostName);
+                        if (!names.has(fromEntry.hostId)) names.set(fromEntry.hostId, fromEntry.hostName);
                         continue;
                     }
                     const label = stringField(entry, [
@@ -8582,7 +8845,7 @@ var __webpack_modules__ = {
                         'label',
                         'title'
                     ]);
-                    if (label) names.set(hostId, label);
+                    if (label && !names.has(hostId)) names.set(hostId, label);
                 }
             }
             return names;
@@ -8861,6 +9124,7 @@ var __webpack_modules__ = {
         const listThreadsSchema = zod__rspack_import_4.Ikc({
             port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
             limit: zod__rspack_import_4.aig().int().min(1).max(200).default(50),
+            cursor: zod__rspack_import_4.YjP().min(1).max(4096).optional(),
             host: zod__rspack_import_4.YjP().min(1).max(256).optional(),
             modelProvider: zod__rspack_import_4.YjP().min(1).max(256).optional(),
             groupBy: zod__rspack_import_4.euz('host').optional()
@@ -8879,7 +9143,7 @@ var __webpack_modules__ = {
         const readThreadSchema = zod__rspack_import_4.Ikc({
             port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
             threadId,
-            limit: zod__rspack_import_4.aig().int().min(1).max(2000).default(100),
+            limit: zod__rspack_import_4.aig().int().min(1).max(2000).optional(),
             full: zod__rspack_import_4.zMY().default(false),
             openTimeoutMs: zod__rspack_import_4.aig().int().min(1).max(600000).default(90000)
         }).strict();
@@ -8971,6 +9235,7 @@ var __webpack_modules__ = {
             try {
                 const out = await withAdapter(input.port, (adapter)=>adapter.listThreads({
                         limit: input.limit,
+                        cursor: input.cursor,
                         host: input.host,
                         modelProvider: input.modelProvider,
                         groupBy: input.groupBy
@@ -9025,7 +9290,7 @@ var __webpack_modules__ = {
             try {
                 const out = await withAdapter(input.port, (adapter)=>adapter.readThread({
                         threadId: input.threadId,
-                        limit: input.limit,
+                        limit: input.limit ?? (input.full ? 2000 : 100),
                         full: input.full,
                         openTimeoutMs: input.openTimeoutMs
                     }));
@@ -9756,7 +10021,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop list hosts',
-            description: 'Discover ChatGPT Desktop hosts and modelProviders at runtime. Hosts come from local and remote-thread-summaries-v3:<hostId> metadata; providers are distinct thread/list and remote-summary values. New connections appear without code changes. Result includes hostsSource and modelProvidersSource',
+            description: 'Discover local, remote-control, and managed SSH hosts from Desktop state, including nested remote-thread summaries. Host names are null when Desktop has no display name. Providers come from paged app-server inventory and remote summaries. Result includes sources and discovery warnings.',
             annotations: {
                 readOnlyHint: true
             },
@@ -9795,7 +10060,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop list threads',
-            description: 'List ChatGPT Desktop / Codex threads: local app-server thread/list merged with remote-control summaries from ~/.codex/.codex-global-state.json. Separate filters host and modelProvider accept any string (not enums) — discover allowed values via chatgpt_desktop_list_hosts. Optional groupBy=host. Each thread has location local|remote and hostId/hostName. Result includes backend.',
+            description: 'Page ChatGPT Desktop / Codex threads with cursor and nextCursor. Merges local app-server rows, CDP sidebar rows, and nested remote-control summaries. Discover dynamic host and modelProvider filters via chatgpt_desktop_list_hosts. Optional groupBy=host. Result reports the contributing backends and warnings.',
             annotations: {
                 readOnlyHint: true
             },
@@ -9811,6 +10076,10 @@ var __webpack_modules__ = {
                     limit: {
                         type: 'number',
                         description: 'Maximum threads (1-200).'
+                    },
+                    cursor: {
+                        type: 'string',
+                        description: 'Opaque nextCursor from a previous page.'
                     },
                     host: {
                         type: 'string',
@@ -9853,7 +10122,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop read thread',
-            description: 'Read a ChatGPT Desktop / Codex thread through app-server (thread/read metadata, then thread/turns/list with itemsView full). Does not thread/resume. Desktop local:<conversationId> is normalized to the bare id. Remote-control threads return REMOTE_THREAD_NOT_LOADED with hostId and a hint to read via that host\'s app-server. DOM harvest is fallback only when local app-server is unavailable. Result includes backend.',
+            description: 'Read paged ChatGPT Desktop turns through app-server, including userText, assistantText, and completedAt as endedAt. Remote-only threads return REMOTE_THREAD_NOT_LOADED with hostId. CDP fallback reports complete:false and a warning when app-server fails. Result includes backend.',
             annotations: {
                 readOnlyHint: true
             },
@@ -9878,7 +10147,7 @@ var __webpack_modules__ = {
                     },
                     full: {
                         type: 'boolean',
-                        description: 'When true, page more of the turn history from the start; otherwise return the most recent `limit` turns from app-server. CDP wheel only if app-server is unavailable.'
+                        description: 'When true, page from the start through the complete history (up to 2000 turns by default); otherwise return the most recent 100 turns by default. Explicit limit bounds either mode.'
                     },
                     openTimeoutMs: {
                         type: 'number',
@@ -59263,7 +59532,7 @@ var __webpack_modules__ = {
                     "annotations": {
                         "readOnlyHint": true
                     },
-                    "description": "Discover ChatGPT Desktop hosts and modelProviders at runtime. Hosts come from local and remote-thread-summaries-v3:<hostId> metadata; providers are distinct thread/list and remote-summary values. New connections appear without code changes. Result includes hostsSource and modelProvidersSource",
+                    "description": "Discover local, remote-control, and managed SSH hosts from Desktop state, including nested remote-thread summaries. Host names are null when Desktop has no display name. Providers come from paged app-server inventory and remote summaries. Result includes sources and discovery warnings.",
                     "inputJsonSchema": {
                         "additionalProperties": false,
                         "properties": {
@@ -59286,10 +59555,14 @@ var __webpack_modules__ = {
                     "annotations": {
                         "readOnlyHint": true
                     },
-                    "description": "List ChatGPT Desktop / Codex threads: local app-server thread/list merged with remote-control summaries from ~/.codex/.codex-global-state.json. Separate filters host and modelProvider accept any string (not enums) — discover allowed values via chatgpt_desktop_list_hosts. Optional groupBy=host. Each thread has location local|remote and hostId/hostName. Result includes backend.",
+                    "description": "Page ChatGPT Desktop / Codex threads with cursor and nextCursor. Merges local app-server rows, CDP sidebar rows, and nested remote-control summaries. Discover dynamic host and modelProvider filters via chatgpt_desktop_list_hosts. Optional groupBy=host. Result reports the contributing backends and warnings.",
                     "inputJsonSchema": {
                         "additionalProperties": false,
                         "properties": {
+                            "cursor": {
+                                "description": "Opaque nextCursor from a previous page.",
+                                "type": "string"
+                            },
                             "groupBy": {
                                 "description": "When \"host\", also return groups[] keyed by host (grouping mode, not a host id).",
                                 "enum": [
@@ -59328,12 +59601,12 @@ var __webpack_modules__ = {
                     "annotations": {
                         "readOnlyHint": true
                     },
-                    "description": "Read a ChatGPT Desktop / Codex thread through app-server (thread/read metadata, then thread/turns/list with itemsView full). Does not thread/resume. Desktop local:<conversationId> is normalized to the bare id. Remote-control threads return REMOTE_THREAD_NOT_LOADED with hostId and a hint to read via that host's app-server. DOM harvest is fallback only when local app-server is unavailable. Result includes backend.",
+                    "description": "Read paged ChatGPT Desktop turns through app-server, including userText, assistantText, and completedAt as endedAt. Remote-only threads return REMOTE_THREAD_NOT_LOADED with hostId. CDP fallback reports complete:false and a warning when app-server fails. Result includes backend.",
                     "inputJsonSchema": {
                         "additionalProperties": false,
                         "properties": {
                             "full": {
-                                "description": "When true, page more of the turn history from the start; otherwise return the most recent `limit` turns from app-server. CDP wheel only if app-server is unavailable.",
+                                "description": "When true, page from the start through the complete history (up to 2000 turns by default); otherwise return the most recent 100 turns by default. Explicit limit bounds either mode.",
                                 "type": "boolean"
                             },
                             "limit": {
@@ -60567,8 +60840,9 @@ var __webpack_modules__ = {
         ];
         const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
         const WS_MAX_HEADER_BYTES = 16 * 1024;
-        const WS_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
-        const WS_MAX_BUFFER_BYTES = 8 * 1024 * 1024;
+        const WS_MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
+        const WS_MAX_BUFFER_BYTES = 32 * 1024 * 1024;
+        const CODEX_SEND_MAX_BYTES = 4 * 1024 * 1024;
         const WS_MAX_WRITE_BYTES = 8 * 1024 * 1024;
         const CODEX_MAX_REQUESTS = 128;
         const CODEX_MAX_LISTENERS = 128;
@@ -61759,7 +62033,7 @@ var __webpack_modules__ = {
             ].includes(whenBusy)) throw new RangeError("--when-busy must be reject, queue, or persistent steer");
             if (whenBusy === "steer" && (typeof expectedTurnId !== "string" || !ID_PATTERN.test(expectedTurnId))) throw new RangeError("steer requires expectedTurnId");
             threadId = (0, _codex_thread_id_js__rspack_import_11.SX)(threadId);
-            if (typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > WS_MAX_MESSAGE_BYTES) throw new RangeError("Message must contain text within 4 MiB");
+            if (typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > CODEX_SEND_MAX_BYTES) throw new RangeError("Message must contain text within 4 MiB");
             if (!envelope || typeof envelope.messageId !== "string" || !ID_PATTERN.test(envelope.messageId)) throw new RangeError("Invalid envelope messageId");
             const validated = buildEnvelope({
                 correlationId: envelope.correlationId,
@@ -62548,6 +62822,13 @@ var __webpack_modules__ = {
                 return null;
             }
         }
+        function codexStateEntries(data) {
+            const nested = data?.['electron-persisted-atom-state'];
+            return [
+                nested,
+                data
+            ].filter((value)=>value && typeof value === 'object' && !Array.isArray(value));
+        }
         function findRemoteThreadHost(threadId, env = process.env) {
             let bare;
             try {
@@ -62559,7 +62840,7 @@ var __webpack_modules__ = {
             const data = loadCodexGlobalState(env);
             if (!data) return null;
             const hostNames = collectHostNames(data);
-            for (const [key, value] of Object.entries(data)){
+            for (const [key, value] of codexStateEntries(data).flatMap(Object.entries)){
                 const match = REMOTE_SUMMARY_KEY.exec(key);
                 if (!match?.[1]) continue;
                 const hostId = match[1];
@@ -62592,20 +62873,20 @@ var __webpack_modules__ = {
         }
         function collectHostNames(data) {
             const names = new Map();
-            for (const [key, value] of Object.entries(data)){
+            for (const [key, value] of codexStateEntries(data).flatMap(Object.entries)){
                 if (!/remote-host|hosts|host-meta|host_directory|environments/i.test(key)) continue;
                 if (!value || typeof value !== 'object') continue;
                 if (Array.isArray(value)) {
                     for (const entry of value){
                         const pair = hostNameFromEntry(entry);
-                        if (pair) names.set(pair.hostId, pair.hostName);
+                        if (pair && !names.has(pair.hostId)) names.set(pair.hostId, pair.hostName);
                     }
                     continue;
                 }
                 for (const [hostId, entry] of Object.entries(value)){
                     const fromEntry = hostNameFromEntry(entry);
                     if (fromEntry) {
-                        names.set(fromEntry.hostId, fromEntry.hostName);
+                        if (!names.has(fromEntry.hostId)) names.set(fromEntry.hostId, fromEntry.hostName);
                         continue;
                     }
                     const label = stringField(entry, [
@@ -62616,7 +62897,7 @@ var __webpack_modules__ = {
                         'label',
                         'title'
                     ]);
-                    if (label) names.set(hostId, label);
+                    if (label && !names.has(hostId)) names.set(hostId, label);
                 }
             }
             return names;
@@ -62732,7 +63013,8 @@ var __webpack_modules__ = {
         __webpack_require__.d(__webpack_exports__, {
             IT: ()=>loadCodexGlobalState,
             R3: ()=>mapRemoteThreadError,
-            Rg: ()=>RemoteThreadNotLoadedError1
+            Rg: ()=>RemoteThreadNotLoadedError1,
+            xr: ()=>codexStateEntries
         });
     },
     "./src/core/codex/thread-id.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {

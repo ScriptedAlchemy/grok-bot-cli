@@ -1,4 +1,4 @@
-export type ChatGptDesktopBackend = 'cdp' | 'app-server';
+export type ChatGptDesktopBackend = 'cdp' | 'app-server' | 'app-server+cdp' | 'app-server+remote-state' | 'app-server+cdp+remote-state' | 'cdp+remote-state' | 'remote-state';
 
 export type ChatGptDesktopTarget = {
   readonly targetId: string;
@@ -85,6 +85,7 @@ export type ListThreadsResult = {
   readonly backend: ChatGptDesktopBackend;
   readonly limit: number;
   readonly nextCursor?: string | null;
+  readonly warnings?: readonly string[];
   readonly query?: string;
   /** Host filter applied: any string (`all` | `local` | hostId / friendly name from list_hosts). */
   readonly host?: string;
@@ -108,6 +109,7 @@ export type ListHostsResult = {
   /** How model providers were discovered (app-server method or thread/list-distinct). */
   readonly modelProvidersSource: string;
   readonly backend: ChatGptDesktopBackend;
+  readonly warnings?: readonly string[];
 };
 
 export type ReadThreadResult = {
@@ -116,6 +118,8 @@ export type ReadThreadResult = {
   readonly backend: ChatGptDesktopBackend;
   readonly limit: number;
   readonly full: boolean;
+  readonly complete?: boolean;
+  readonly warnings?: readonly string[];
   readonly title?: string;
   readonly cwd?: string | null;
   readonly status?: string;

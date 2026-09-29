@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop list hosts',
     description:
-      'Discover ChatGPT Desktop hosts and modelProviders at runtime. Hosts come from local and remote-thread-summaries-v3:<hostId> metadata; providers are distinct thread/list and remote-summary values. New connections appear without code changes. Result includes hostsSource and modelProvidersSource',
+      'Discover local, remote-control, and managed SSH hosts from Desktop state, including nested remote-thread summaries. Host names are null when Desktop has no display name. Providers come from paged app-server inventory and remote summaries. Result includes sources and discovery warnings.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,

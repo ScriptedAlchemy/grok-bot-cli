@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop list threads',
     description:
-      'List ChatGPT Desktop / Codex threads: local app-server thread/list merged with remote-control summaries from ~/.codex/.codex-global-state.json. Separate filters host and modelProvider accept any string (not enums) — discover allowed values via chatgpt_desktop_list_hosts. Optional groupBy=host. Each thread has location local|remote and hostId/hostName. Result includes backend.',
+      'Page ChatGPT Desktop / Codex threads with cursor and nextCursor. Merges local app-server rows, CDP sidebar rows, and nested remote-control summaries. Discover dynamic host and modelProvider filters via chatgpt_desktop_list_hosts. Optional groupBy=host. Result reports the contributing backends and warnings.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -23,6 +23,7 @@ export default defineTool(
       properties: {
         port: { type: 'number' },
         limit: { type: 'number', description: 'Maximum threads (1-200).' },
+        cursor: { type: 'string', description: 'Opaque nextCursor from a previous page.' },
         host: {
           type: 'string',
           description:

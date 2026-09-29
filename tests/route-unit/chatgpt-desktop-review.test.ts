@@ -4,7 +4,7 @@ import { afterEach, expect, it, rstest } from '@rstest/core';
 import { CdpSession } from '../../src/core/chatgpt-desktop/cdp-session.js';
 import { CdpChatGptDesktopAdapter } from '../../src/core/chatgpt-desktop/cdp-adapter.js';
 import { ChatGptDesktopFacade, finalizeThreadList, setChatGptDesktopAdapterForTests } from '../../src/core/chatgpt-desktop/facade.js';
-import { CONVERSATION_ID_EXPRESSION, REPLY_STATE_EXPRESSION, LOADING_TASK_GONE_EXPRESSION, waitForReplyDone } from '../../src/core/chatgpt-desktop/cdp-dom.js';
+import { ARCHIVED_THREAD_EXPRESSION, CONVERSATION_ID_EXPRESSION, REPLY_STATE_EXPRESSION, LOADING_TASK_GONE_EXPRESSION, waitForReplyDone } from '../../src/core/chatgpt-desktop/cdp-dom.js';
 import { sendSchema, waitSchema } from '../../src/core/codex/routes.js';
 import { statusOperation } from '../../src/core/chatgpt-desktop/routes.js';
 import type { ChatGptDesktopAdapter } from '../../src/core/chatgpt-desktop/adapter.js';
@@ -58,8 +58,9 @@ async function connectedAdapter(state: Record<string, unknown>, open = true) {
     : { sessionId: 'page' }) as never);
   rstest.spyOn(CdpSession.prototype, 'evaluate').mockImplementation(async expression => {
     if (expression === REPLY_STATE_EXPRESSION) return state as never;
-    if (expression === CONVERSATION_ID_EXPRESSION) return 'thread' as never;
+    if (expression === CONVERSATION_ID_EXPRESSION) return (open ? 'thread' : 'other') as never;
     if (expression === LOADING_TASK_GONE_EXPRESSION) return true as never;
+    if (expression.includes('router.navigate')) return { ok: false } as never;
     return { ok: open, error: 'thread-not-found' } as never;
   });
   const adapter = new CdpChatGptDesktopAdapter();
@@ -100,7 +101,7 @@ it('serializes Desktop operations and closes each connection on completion', asy
 it('waits through an old conversation rendered before Loading task appears', async () => {
   const { waitForLoadingTaskGone } = await import('../../src/core/chatgpt-desktop/cdp-dom.js');
   let reads = 0;
-  const session = { evaluate: async (expression: string) => expression === CONVERSATION_ID_EXPRESSION ? (++reads === 1 ? 'old-thread' : 'wanted-thread') : true };
+  const session = { evaluate: async (expression: string) => expression === CONVERSATION_ID_EXPRESSION ? (++reads === 1 ? 'old-thread' : 'wanted-thread') : expression !== ARCHIVED_THREAD_EXPRESSION };
   await waitForLoadingTaskGone(session as never, 'page', { timeoutMs: 600, threadId: 'local:wanted-thread' });
   expect(reads).toBe(2);
 });

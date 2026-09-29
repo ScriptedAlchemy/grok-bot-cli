@@ -26,6 +26,7 @@ export const config = {
         type: 'string',
       },
       limit: { default: 50, description: 'Max threads (1-200)', type: 'number' },
+      cursor: { description: 'Opaque nextCursor from a previous page', type: 'string' },
       modelProvider: {
         description:
           'Any modelProvider id (app-server modelProviders pass-through). Omit = all. See `gbot chatgpt-desktop hosts`. Not an enum.',
@@ -42,6 +43,7 @@ export const inputSchema = z
     groupBy: z.literal('host').optional(),
     host: z.string().min(1).max(256).optional(),
     limit: z.number().int().min(1).max(200).default(50),
+    cursor: z.string().min(1).max(4096).optional(),
     modelProvider: z.string().min(1).max(256).optional(),
     port: z.number().int().min(1).max(65535).optional(),
   })
@@ -79,7 +81,7 @@ export default async function chatgptDesktopThreads({
               provider
             );
           })
-          .join('\n') + `\n\nbackend: ${String(out.backend ?? '')}`
+          .join('\n') + `\n\nbackend: ${String(out.backend ?? '')}` + (out.nextCursor ? `\nnextCursor: ${out.nextCursor}` : '')
       : resultText(out);
   return (
     <Agent.Result value={out}>

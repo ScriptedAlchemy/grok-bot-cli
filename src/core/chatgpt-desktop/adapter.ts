@@ -18,6 +18,7 @@ export interface ChatGptDesktopAdapter {
   listTargets(): Promise<readonly ChatGptDesktopTarget[]>;
   listThreads(options?: {
     limit?: number;
+    cursor?: string;
     /** Any string: `all` (default) | `local` | hostId / friendly name from list_hosts. Not an enum. */
     host?: string;
     /** Any modelProvider id (app-server modelProviders). Omit = all. See list_hosts. Not an enum. */

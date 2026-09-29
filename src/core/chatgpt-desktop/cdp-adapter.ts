@@ -98,7 +98,7 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
       full,
       threadId,
     });
-    return { threadId, turns, backend: 'cdp', limit, full };
+    return { threadId, turns, backend: 'cdp', limit, full, complete: false };
   }
 
   async sendMessage({

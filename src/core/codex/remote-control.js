@@ -74,6 +74,12 @@ export function loadCodexGlobalState(env = process.env) {
   }
 }
 
+/** Desktop keeps atom keys one level below the global state root. */
+export function codexStateEntries(data) {
+  const nested = data?.['electron-persisted-atom-state'];
+  return [nested, data].filter((value) => value && typeof value === 'object' && !Array.isArray(value));
+}
+
 /**
  * @param {string} threadId
  * @param {NodeJS.ProcessEnv} [env]
@@ -93,7 +99,7 @@ export function findRemoteThreadHost(threadId, env = process.env) {
   if (!data) return null;
   const hostNames = collectHostNames(data);
 
-  for (const [key, value] of Object.entries(data)) {
+  for (const [key, value] of codexStateEntries(data).flatMap(Object.entries)) {
     const match = REMOTE_SUMMARY_KEY.exec(key);
     if (!match?.[1]) continue;
     const hostId = match[1];
@@ -136,24 +142,24 @@ export function mapRemoteThreadError(error, threadId, env = process.env) {
 
 function collectHostNames(data) {
   const names = new Map();
-  for (const [key, value] of Object.entries(data)) {
+  for (const [key, value] of codexStateEntries(data).flatMap(Object.entries)) {
     if (!/remote-host|hosts|host-meta|host_directory|environments/i.test(key)) continue;
     if (!value || typeof value !== 'object') continue;
     if (Array.isArray(value)) {
       for (const entry of value) {
         const pair = hostNameFromEntry(entry);
-        if (pair) names.set(pair.hostId, pair.hostName);
+        if (pair && !names.has(pair.hostId)) names.set(pair.hostId, pair.hostName);
       }
       continue;
     }
     for (const [hostId, entry] of Object.entries(value)) {
       const fromEntry = hostNameFromEntry(entry);
       if (fromEntry) {
-        names.set(fromEntry.hostId, fromEntry.hostName);
+        if (!names.has(fromEntry.hostId)) names.set(fromEntry.hostId, fromEntry.hostName);
         continue;
       }
       const label = stringField(entry, ['name', 'hostName', 'displayName', 'envName', 'label', 'title']);
-      if (label) names.set(hostId, label);
+      if (label && !names.has(hostId)) names.set(hostId, label);
     }
   }
   return names;

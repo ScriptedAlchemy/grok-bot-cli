@@ -17,7 +17,7 @@ export const config = {
     additionalProperties: false,
     properties: {
       full: { default: false, type: 'boolean' },
-      limit: { default: 100, type: 'number' },
+      limit: { description: 'Recent default 100; full default 2000', type: 'number' },
       openTimeoutMs: { default: 90000, type: 'number' },
       port: { type: 'number' },
       threadId: { type: 'string' },
@@ -31,7 +31,7 @@ export const config = {
 export const inputSchema = z
   .object({
     full: z.boolean().default(false),
-    limit: z.number().int().min(1).max(2000).default(100),
+    limit: z.number().int().min(1).max(2000).optional(),
     openTimeoutMs: z.number().int().min(1).max(600_000).default(90_000),
     port: z.number().int().min(1).max(65535).optional(),
     threadId: z.string().min(1).max(256),

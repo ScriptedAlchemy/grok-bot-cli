@@ -29,8 +29,9 @@ const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 // Transport budgets: fail fast instead of buffering unbounded attacker-controlled bytes.
 // ponytail: raise these only with streaming/pagination support; the app-server sends small JSON-RPC frames.
 const WS_MAX_HEADER_BYTES = 16 * 1024;
-const WS_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
-const WS_MAX_BUFFER_BYTES = 8 * 1024 * 1024;
+const WS_MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
+const WS_MAX_BUFFER_BYTES = 32 * 1024 * 1024;
+const CODEX_SEND_MAX_BYTES = 4 * 1024 * 1024;
 export const WS_MAX_WRITE_BYTES = 8 * 1024 * 1024;
 export const CODEX_MAX_REQUESTS = 128;
 export const CODEX_MAX_LISTENERS = 128;
@@ -1181,7 +1182,7 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy,
   if (!["reject", "queue", ...(session ? ["steer"] : [])].includes(whenBusy)) throw new RangeError("--when-busy must be reject, queue, or persistent steer");
   if (whenBusy === "steer" && (typeof expectedTurnId !== "string" || !ID_PATTERN.test(expectedTurnId))) throw new RangeError("steer requires expectedTurnId");
   threadId = normalizeCodexThreadId(threadId);
-  if (typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > WS_MAX_MESSAGE_BYTES) throw new RangeError("Message must contain text within 4 MiB");
+  if (typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > CODEX_SEND_MAX_BYTES) throw new RangeError("Message must contain text within 4 MiB");
   if (!envelope || typeof envelope.messageId !== "string" || !ID_PATTERN.test(envelope.messageId)) throw new RangeError("Invalid envelope messageId");
   const validated = buildEnvelope({ correlationId: envelope.correlationId, replyTo: envelope.replyTo, hop: envelope.hop, env });
   envelope = { ...validated, messageId: envelope.messageId, header: Boolean(envelope.header) };

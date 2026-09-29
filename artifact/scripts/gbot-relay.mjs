@@ -22144,8 +22144,9 @@ var __webpack_modules__ = {
         ];
         const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
         const WS_MAX_HEADER_BYTES = 16 * 1024;
-        const WS_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
-        const WS_MAX_BUFFER_BYTES = 8 * 1024 * 1024;
+        const WS_MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
+        const WS_MAX_BUFFER_BYTES = 32 * 1024 * 1024;
+        const CODEX_SEND_MAX_BYTES = 4 * 1024 * 1024;
         const WS_MAX_WRITE_BYTES = 8 * 1024 * 1024;
         const CODEX_MAX_REQUESTS = 128;
         const CODEX_MAX_LISTENERS = 128;
@@ -23336,7 +23337,7 @@ var __webpack_modules__ = {
             ].includes(whenBusy)) throw new RangeError("--when-busy must be reject, queue, or persistent steer");
             if (whenBusy === "steer" && (typeof expectedTurnId !== "string" || !ID_PATTERN.test(expectedTurnId))) throw new RangeError("steer requires expectedTurnId");
             threadId = (0, _codex_thread_id_js__rspack_import_11.SX)(threadId);
-            if (typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > WS_MAX_MESSAGE_BYTES) throw new RangeError("Message must contain text within 4 MiB");
+            if (typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > CODEX_SEND_MAX_BYTES) throw new RangeError("Message must contain text within 4 MiB");
             if (!envelope || typeof envelope.messageId !== "string" || !ID_PATTERN.test(envelope.messageId)) throw new RangeError("Invalid envelope messageId");
             const validated = buildEnvelope({
                 correlationId: envelope.correlationId,
@@ -24122,6 +24123,13 @@ var __webpack_modules__ = {
                 return null;
             }
         }
+        function codexStateEntries(data) {
+            const nested = data?.['electron-persisted-atom-state'];
+            return [
+                nested,
+                data
+            ].filter((value)=>value && typeof value === 'object' && !Array.isArray(value));
+        }
         function findRemoteThreadHost(threadId, env = process.env) {
             let bare;
             try {
@@ -24133,7 +24141,7 @@ var __webpack_modules__ = {
             const data = loadCodexGlobalState(env);
             if (!data) return null;
             const hostNames = collectHostNames(data);
-            for (const [key, value] of Object.entries(data)){
+            for (const [key, value] of codexStateEntries(data).flatMap(Object.entries)){
                 const match = REMOTE_SUMMARY_KEY.exec(key);
                 if (!match?.[1]) continue;
                 const hostId = match[1];
@@ -24166,20 +24174,20 @@ var __webpack_modules__ = {
         }
         function collectHostNames(data) {
             const names = new Map();
-            for (const [key, value] of Object.entries(data)){
+            for (const [key, value] of codexStateEntries(data).flatMap(Object.entries)){
                 if (!/remote-host|hosts|host-meta|host_directory|environments/i.test(key)) continue;
                 if (!value || typeof value !== 'object') continue;
                 if (Array.isArray(value)) {
                     for (const entry of value){
                         const pair = hostNameFromEntry(entry);
-                        if (pair) names.set(pair.hostId, pair.hostName);
+                        if (pair && !names.has(pair.hostId)) names.set(pair.hostId, pair.hostName);
                     }
                     continue;
                 }
                 for (const [hostId, entry] of Object.entries(value)){
                     const fromEntry = hostNameFromEntry(entry);
                     if (fromEntry) {
-                        names.set(fromEntry.hostId, fromEntry.hostName);
+                        if (!names.has(fromEntry.hostId)) names.set(fromEntry.hostId, fromEntry.hostName);
                         continue;
                     }
                     const label = stringField(entry, [
@@ -24190,7 +24198,7 @@ var __webpack_modules__ = {
                         'label',
                         'title'
                     ]);
-                    if (label) names.set(hostId, label);
+                    if (label && !names.has(hostId)) names.set(hostId, label);
                 }
             }
             return names;

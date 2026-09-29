@@ -283,7 +283,7 @@ describe('chatgpt-desktop thread id mapping', () => {
         ],
       },
     );
-    expect(merged.backend).toBe('app-server');
+    expect(merged.backend).toBe('app-server+cdp');
     expect(merged.threads[0]).toMatchObject({
       threadId: 'local:11111111-1111-1111-1111-111111111111',
       title: 'from app-server',
@@ -612,7 +612,7 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
 
     const listed = await facade.listThreads({ limit: 5 });
     expect(listed).toMatchObject({
-      backend: 'app-server',
+      backend: 'app-server+cdp',
       threads: [
         {
           threadId: 'local:11111111-1111-1111-1111-111111111111',
@@ -625,7 +625,7 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
 
     const searched = await facade.searchThreads({ query: 'app-server', limit: 5 });
     expect(searched).toMatchObject({
-      backend: 'app-server',
+      backend: 'app-server+cdp',
       query: 'app-server',
       threads: [{ selected: true, project: 'Launch' }],
     });
@@ -659,9 +659,9 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
     expect(opened).toMatchObject({ backend: 'cdp' });
 
     expect(calls).toEqual([
-      'app-server.listThreads',
       'cdp.connect',
       'cdp.listThreads',
+      'app-server.listThreads',
       'app-server.searchThreads',
       'cdp.listThreads',
       'app-server.readThread',
@@ -762,6 +762,7 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
           turns: [{ turnKey: 't1', role: 'assistant', text: 'fallback reply' }],
         }),
         statusProbe: async () => ({ reachable: true, mode: 'daemon', socketPath: '/tmp/fake.sock' }),
+        listRemoteThreads: () => [],
       },
     );
 
@@ -780,10 +781,9 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
 
     const status = await facade.status();
     expect(status).toMatchObject({
-      reachable: true,
+      reachable: false,
       appServerFallback: { reachable: true, mode: 'daemon' },
-      message: 'CDP unreachable; Codex app-server available for list/search/read',
-      exitCode: 0,
+      exitCode: 1,
     });
   });
 
@@ -815,6 +815,7 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
           throw new Error('unused');
         },
         statusProbe: async () => ({ reachable: false }),
+        listRemoteThreads: () => [],
       },
     );
     const listed = await facade.listThreads();
@@ -1028,7 +1029,7 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
       },
     );
     const hostList = await facade.listHosts();
-    expect(hostList.hostsSource).toBe('remote-thread-summaries-v3+local');
+    expect(hostList.hostsSource).toBe('local+remote-thread-summaries-v3+managed-connections');
     expect(hostList.modelProvidersSource).toBe('thread/list-distinct');
     expect(hostList.modelProviders).toEqual(['anthropic', 'openai']);
     expect(hostList.hosts.find((h) => h.hostId === 'local')?.threadCount).toBe(1);

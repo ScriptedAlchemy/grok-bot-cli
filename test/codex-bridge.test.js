@@ -676,7 +676,7 @@ test("codex status rejects a complete oversized frame without buffering it", asy
     ...baseHandlers,
     initialize: (params, ok, err, send, socket) => {
       void params; void ok; void err; void send;
-      socket.write(encodeFrame(0x1, Buffer.alloc(5 * 1024 * 1024)));
+      socket.write(encodeFrame(0x1, Buffer.alloc(17 * 1024 * 1024)));
     },
   });
   try {

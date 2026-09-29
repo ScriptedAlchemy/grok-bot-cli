@@ -33,6 +33,7 @@ Override the port with `CHATGPT_DESKTOP_CDP_PORT` or `--port`.
 gbot chatgpt-desktop status
 gbot chatgpt-desktop hosts   # discover hostIds + modelProviders at runtime
 gbot chatgpt-desktop threads --limit 20
+gbot chatgpt-desktop threads --limit 20 --cursor <nextCursor>
 gbot chatgpt-desktop threads --host local
 gbot chatgpt-desktop threads --host <hostId> --model-provider <providerId>
 gbot chatgpt-desktop search "launch" --host all
@@ -116,11 +117,18 @@ Hosts are discovered dynamically — do not hardcode them:
 
 1. Always include `local`
 2. Every `remote-thread-summaries-v3:<hostId>` key in
-   `~/.codex/.codex-global-state.json`, with friendly names and thread counts
+   `~/.codex/.codex-global-state.json`, including keys under
+   `electron-persisted-atom-state`, with thread counts
+3. Managed SSH connections in `codex-managed-remote-connections`
+
+`hostName` is the Desktop display name when present, otherwise `null`.
+Project labels are not used as machine names. CDP sidebar rows expose their
+host id, and matching remote summaries supply ownership when available.
 
 `modelProviders` combines distinct `modelProvider` values from `thread/list`
 (`modelProviders: []`) and remote summaries. `modelProvidersSource` names the
 local discovery path; if unavailable, remote summaries still contribute.
+Failures and page-cap truncation appear in `warnings`.
 Explicit provider filters exclude rows whose provider is unknown.
 
 ### Remote-control threads
@@ -143,9 +151,20 @@ skipped.
 | `list_threads` | merge selected / UI overlay | primary inventory + remote summaries |
 | `search_threads` | merge selected when connected | primary (list + filter, includes remotes) |
 | `read_thread` | DOM harvest / wheel **fallback only** (local) | primary; remote → typed error + host hint |
-| `open_thread` (selected) | click sidebar row | **not used** (resume attaches) |
+| `open_thread` (selected) | click sidebar row or navigate through Desktop's memory router by conversation id | **not used** (resume attaches) |
 | `send` / new-thread-in-project | composer + Enter / project button | **not used** |
 | `wait_reply` | Stop gone + final-assistant | **not used** |
+
+`status.reachable` and its process exit code report CDP availability; the
+app-server probe is separate. List/search results report `app-server+cdp`
+when both contribute, and append `remote-state` when remote summaries
+contribute. `read_thread` returns `complete` and `warnings` so a CDP fallback
+cannot be mistaken for a complete app-server read. A turn may contain both
+`userText` and `assistantText`; `endedAt` uses the app-server `completedAt`.
+Full reads page from the oldest turn until completion, with a default cap of
+2000 turns; an explicit `limit` can lower that cap.
+Archived conversations can be read through app-server, but Desktop requires
+an explicit unarchive before opening them for interaction.
 
 ## Target selection
 

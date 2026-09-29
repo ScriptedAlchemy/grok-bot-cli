@@ -201,6 +201,7 @@ export const LIST_THREADS_EXPRESSION = `(() => {
     const project = projectFor(row);
     out.push({
       threadId,
+      hostId: row.getAttribute('data-app-action-sidebar-thread-host-id') || null,
       title: row.getAttribute(${JSON.stringify(ATTR.threadTitle)}) || (row.textContent || '').trim(),
       pinned: row.getAttribute(${JSON.stringify(ATTR.threadPinned)}) === 'true',
       selected: row.getAttribute(${JSON.stringify(ATTR.threadSelected)}) === 'true',
@@ -227,6 +228,28 @@ export function openThreadExpression(threadId: string): string {
   })()`;
 }
 
+/** Desktop uses a memory router; the browser URL stays app://-/index.html. */
+export function navigateToThreadExpression(threadId: string): string {
+  const bare = durableThreadKey(threadId);
+  return `(async () => {
+    const root = window.__codexRoot?._internalRoot?.current;
+    const queue = [root];
+    let scanned = 0;
+    while (queue.length && scanned++ < 10000) {
+      const fiber = queue.shift();
+      if (!fiber) continue;
+      const router = fiber.memoizedProps?.router;
+      if (router?.navigate && router?.state?.location) {
+        await router.navigate(${JSON.stringify(`/local/${bare}`)});
+        return { ok: true, via: 'router' };
+      }
+      if (fiber.child) queue.push(fiber.child);
+      if (fiber.sibling) queue.push(fiber.sibling);
+    }
+    return { ok: false, error: 'router-not-found' };
+  })()`;
+}
+
 export function startNewChatExpression(project?: string): string {
   const projectSel = project ? newChatInProjectSelector(project) : null;
   return `(() => {
@@ -234,8 +257,11 @@ export function startNewChatExpression(project?: string): string {
     if (projectSel) {
       const preferred = document.querySelector(projectSel);
       if (preferred) {
-        preferred.click();
-        return { ok: true, via: 'project', project: ${JSON.stringify(project ?? null)} };
+        const row = preferred.closest('.group') || preferred.parentElement;
+        row?.scrollIntoView({ block: 'center' });
+        const rowBox = row?.getBoundingClientRect();
+        return { ok: true, via: 'project', project: ${JSON.stringify(project ?? null)},
+          hoverX: rowBox?.left + rowBox?.width / 2, hoverY: rowBox?.top + rowBox?.height / 2 };
       }
       return { ok: false, error: 'project-not-found' };
     }
@@ -244,6 +270,16 @@ export function startNewChatExpression(project?: string): string {
     if (!fallback) return { ok: false, error: 'new-chat-not-found' };
     fallback.click();
     return { ok: true, via: 'fallback' };
+  })()`;
+}
+
+export function projectButtonBoxExpression(project: string): string {
+  return `(() => {
+    const button = document.querySelector(${JSON.stringify(newChatInProjectSelector(project))});
+    if (!button) return null;
+    const box = button.getBoundingClientRect();
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2,
+      visible: box.width > 0 && box.height > 0 && getComputedStyle(button.parentElement).opacity !== '0' };
   })()`;
 }
 
@@ -258,6 +294,10 @@ export const LOADING_TASK_GONE_EXPRESSION = `(() => {
   const text = (surface.innerText || '').replace(/\\u2026/g, '…');
   return !text.includes(${JSON.stringify(LOADING_TASK_TEXT)});
 })()`;
+
+export const ARCHIVED_THREAD_EXPRESSION = `(() => Array.from(document.querySelectorAll('main'))
+  .some((main) => (main.innerText || '').includes('This task is archived')
+    && (main.innerText || '').includes('Unarchive this task to open it')))()`;
 
 export const FOCUS_COMPOSER_EXPRESSION = `(() => {
   const composer = document.querySelector(${JSON.stringify(COMPOSER_SELECTOR)});
@@ -375,6 +415,7 @@ export async function listThreadsFromDom(
     pinned: Boolean(row.pinned),
     selected: Boolean(row.selected),
     kind: String(row.kind ?? 'unknown'),
+    ...(row.hostId ? { hostId: row.hostId, location: row.hostId === 'local' ? 'local' as const : 'remote' as const } : {}),
     ...(row.project ? { project: String(row.project) } : {}),
   }));
 }
@@ -384,11 +425,21 @@ export async function openThreadInDom(
   sessionId: string,
   threadId: string,
 ): Promise<void> {
+  const current = await readConversationIdFromDom(session, sessionId);
+  if (current && durableThreadKey(current) === durableThreadKey(threadId)) return;
+  if (isTemporaryDesktopThreadId(threadId)) {
+    const rows = await listThreadsFromDom(session, sessionId, { limit: 200 });
+    if (rows.some((row) => row.selected && row.threadId === threadId)) return;
+  }
   const result = await session.evaluate<{ ok: boolean; error?: string }>(
     openThreadExpression(threadId),
     { sessionId },
   );
   if (!result?.ok) {
+    if (result?.error === 'thread-not-found' && !isTemporaryDesktopThreadId(threadId)) {
+      const navigated = await session.evaluate<{ ok: boolean }>(navigateToThreadExpression(threadId), { sessionId });
+      if (navigated?.ok) return;
+    }
     throw new Error(
       result?.error === 'thread-not-found'
         ? `ChatGPT Desktop thread not found: ${threadId}`
@@ -403,11 +454,24 @@ export async function waitForLoadingTaskGone(
   { timeoutMs = DEFAULT_OPEN_TIMEOUT_MS, threadId }: { timeoutMs?: number; threadId?: string } = {},
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
+  let loadingGone = false;
+  let lastConversationId = '';
+  let archivedSince: number | null = null;
   while (Date.now() < deadline) {
+    if (threadId && threadId !== 'new' && await session.evaluate<boolean>(ARCHIVED_THREAD_EXPRESSION, { sessionId }) === true) {
+      archivedSince ??= Date.now();
+      if (Date.now() - archivedSince >= 500) {
+        throw new Error(`ChatGPT Desktop thread ${JSON.stringify(threadId)} is archived; unarchive it in Desktop before opening`);
+      }
+    } else {
+      archivedSince = null;
+    }
     const gone = await session.evaluate<boolean>(LOADING_TASK_GONE_EXPRESSION, { sessionId });
+    loadingGone ||= gone;
     if (gone) {
       // A click can resolve before React replaces the previous timeline.
       const current = threadId ? await readConversationIdFromDom(session, sessionId) : '';
+      lastConversationId = current;
       if (!threadId) return;
       if (threadId === 'new' || isTemporaryDesktopThreadId(threadId)) {
         const rows = await listThreadsFromDom(session, sessionId, { limit: 200 });
@@ -418,7 +482,9 @@ export async function waitForLoadingTaskGone(
     await delay(250);
   }
   throw new Error(
-    `ChatGPT Desktop thread still showing ${JSON.stringify(LOADING_TASK_TEXT)} after ${timeoutMs}ms`,
+    loadingGone
+      ? `ChatGPT Desktop timed out waiting for conversation ${JSON.stringify(threadId)}; displayed conversation ${JSON.stringify(lastConversationId)} after ${timeoutMs}ms`
+      : `ChatGPT Desktop thread still showing ${JSON.stringify(LOADING_TASK_TEXT)} after ${timeoutMs}ms`,
   );
 }
 
@@ -427,7 +493,7 @@ export async function startNewChatInDom(
   sessionId: string,
   { project }: { project?: string } = {},
 ): Promise<{ via: string }> {
-  const result = await session.evaluate<{ ok: boolean; via?: string; error?: string }>(
+  const result = await session.evaluate<{ ok: boolean; via?: string; error?: string; x?: number; y?: number; hoverX?: number; hoverY?: number }>(
     startNewChatExpression(project),
     { sessionId },
   );
@@ -437,6 +503,19 @@ export async function startNewChatInDom(
         ? `ChatGPT Desktop new-chat button not found for project ${JSON.stringify(project)}`
         : 'ChatGPT Desktop "New chat" button not found',
     );
+  }
+  if (result.via === 'project') {
+    if (![result.hoverX, result.hoverY].every(Number.isFinite)) {
+      throw new Error(`ChatGPT Desktop project button has no visible box for ${JSON.stringify(project)}`);
+    }
+    await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: result.hoverX, y: result.hoverY }, { sessionId });
+    const button = await session.evaluate<{ x: number; y: number; visible: boolean } | null>(projectButtonBoxExpression(project!), { sessionId });
+    if (!button?.visible || !Number.isFinite(button.x) || !Number.isFinite(button.y)) {
+      throw new Error(`ChatGPT Desktop project button did not appear after hover for ${JSON.stringify(project)}`);
+    }
+    await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: button.x, y: button.y }, { sessionId });
+    await session.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: button.x, y: button.y, button: 'left', clickCount: 1 }, { sessionId });
+    await session.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: button.x, y: button.y, button: 'left', clickCount: 1 }, { sessionId });
   }
   return { via: result.via ?? 'unknown' };
 }
@@ -672,15 +751,19 @@ export async function readTurnsFromDom(
   } = {},
 ): Promise<ChatGptDesktopTurn[]> {
   const collected = new Map<string, ChatGptDesktopTurn>();
+  const order: string[] = [];
   const ingest = async () => {
+    const older: string[] = [];
     for (const turn of await harvestVisibleTurns(session, sessionId)) {
+      if (!collected.has(turn.turnKey)) older.push(turn.turnKey);
       collected.set(turn.turnKey, turn);
     }
+    order.unshift(...older);
   };
 
   await ingest();
   if (!full) {
-    const visible = [...collected.values()];
+    const visible = order.map((key) => collected.get(key)!);
     return limit > 0 ? visible.slice(-limit) : visible;
   }
 
@@ -717,7 +800,7 @@ export async function readTurnsFromDom(
     if (threadId && collected.has(threadId)) break;
   }
 
-  const all = [...collected.values()];
+  const all = order.map((key) => collected.get(key)!);
   return limit > 0 ? all.slice(0, limit) : all;
 }
 

@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop read thread',
     description:
-      'Read a ChatGPT Desktop / Codex thread through app-server (thread/read metadata, then thread/turns/list with itemsView full). Does not thread/resume. Desktop local:<conversationId> is normalized to the bare id. Remote-control threads return REMOTE_THREAD_NOT_LOADED with hostId and a hint to read via that host\'s app-server. DOM harvest is fallback only when local app-server is unavailable. Result includes backend.',
+      'Read paged ChatGPT Desktop turns through app-server, including userText, assistantText, and completedAt as endedAt. Remote-only threads return REMOTE_THREAD_NOT_LOADED with hostId. CDP fallback reports complete:false and a warning when app-server fails. Result includes backend.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -32,7 +32,7 @@ export default defineTool(
         full: {
           type: 'boolean',
           description:
-            'When true, page more of the turn history from the start; otherwise return the most recent `limit` turns from app-server. CDP wheel only if app-server is unavailable.',
+            'When true, page from the start through the complete history (up to 2000 turns by default); otherwise return the most recent 100 turns by default. Explicit limit bounds either mode.',
         },
         openTimeoutMs: {
           type: 'number',
