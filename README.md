@@ -231,10 +231,12 @@ osascript -e 'tell application "ChatGPT" to quit' \
 gbot chatgpt-desktop status
 gbot chatgpt-desktop threads --limit 20
 gbot chatgpt-desktop read <threadId>
+gbot chatgpt-desktop read <threadId> --full --limit 200
+gbot chatgpt-desktop send --project Launch "hello"
 gbot chatgpt-desktop send --thread-id <threadId> "hello"
 ```
 
-MCP tools: `chatgpt_desktop_status`, `chatgpt_desktop_list_threads`, `chatgpt_desktop_read_thread`, `chatgpt_desktop_send`, `chatgpt_desktop_wait_reply`. List/read/send/wait fall back to the existing Codex app-server client when CDP is down and report `backend: "cdp" | "app-server"`. DOM selectors live in one module (`src/core/chatgpt-desktop/cdp-dom.ts`). Details: [docs/chatgpt-desktop-cdp.md](docs/chatgpt-desktop-cdp.md).
+MCP tools: `chatgpt_desktop_status`, `chatgpt_desktop_list_threads`, `chatgpt_desktop_read_thread`, `chatgpt_desktop_send`, `chatgpt_desktop_wait_reply`. New chats prefer `project` (“Start new chat in …”); `wait_reply` resolves the real conversation id. Default read is visible turns; `--full` wheel-crawls history. List/read/send/wait fall back to the existing Codex app-server client when CDP is down and report `backend: "cdp" | "app-server"`. Details: [docs/chatgpt-desktop-cdp.md](docs/chatgpt-desktop-cdp.md).
 
 **Status contract (`gbot codex status --json`).** `reachable` is endpoint reachability only. `socketState` is `socket`, `absent`, `permission-denied`, or `not-a-socket`; `mode` is `daemon` for a usable daemon, otherwise the failure: `socket-absent`, `permission-denied` (the file or the connect refused this user), `not-a-socket`, `connect-failed` (socket present, nothing completed the WebSocket upgrade), `handshake-failed` (upgrade or `initialize` failed), `windows-unsupported`, or `bad-response` (reachable, but `initialize` returned something off-schema — `reachable` stays `true`). `schema.compatibility` is `exact` when the daemon reports the pinned version, `unverified` when it differs (methods usually survive upgrades, but the shapes are not re-checked), or `unknown`. `cliVersionProbe` reports whether `codex --version` answered (`ok`, `missing`, `timeout` after 3 s, `error`). The document is always written to stdout and includes `exitCode`; it is `0` only for a usable daemon.
 
