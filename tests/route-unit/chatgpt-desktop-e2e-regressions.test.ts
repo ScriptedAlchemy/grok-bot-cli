@@ -7,7 +7,8 @@ import { listDiscoveredHosts, listRemoteThreadsFromState } from '../../src/core/
 import { ChatGptDesktopFacade, finalizeThreadList } from '../../src/core/chatgpt-desktop/facade.js';
 import { appServerListThreads, appServerReadThread, appServerSearchThreads, discoverModelProviders } from '../../src/core/chatgpt-desktop/app-server-fallback.js';
 import { DESKTOP_RESULT_BUDGET_BYTES, serializedBytes } from '../../src/core/chatgpt-desktop/payload-budget.js';
-import { ARCHIVED_THREAD_EXPRESSION, CONVERSATION_ID_EXPRESSION, LOADING_TASK_GONE_EXPRESSION, navigateToThreadExpression, openThreadInDom, readTurnsFromDom, startNewChatExpression, startNewChatInDom, waitForLoadingTaskGone } from '../../src/core/chatgpt-desktop/cdp-dom.js';
+import { findLocalProject, resolveThreadProjects } from '../../src/core/chatgpt-desktop/project-state.js';
+import { ARCHIVED_THREAD_EXPRESSION, CLEAR_NEW_CHAT_PROJECT_EXPRESSION, CONVERSATION_ID_EXPRESSION, LOADING_TASK_GONE_EXPRESSION, navigateToThreadExpression, openThreadInDom, readTurnsFromDom, startNewChatExpression, startNewChatInDom, waitForLoadingTaskGone } from '../../src/core/chatgpt-desktop/cdp-dom.js';
 import { listThreadsOperation, listThreadsSchema, readThreadOperation, readThreadSchema, searchThreadsSchema, statusOperation } from '../../src/core/chatgpt-desktop/routes.js';
 import { setChatGptDesktopAdapterForTests } from '../../src/core/chatgpt-desktop/facade.js';
 import type { ChatGptDesktopAdapter } from '../../src/core/chatgpt-desktop/adapter.js';
@@ -52,16 +53,51 @@ it('filters thread rows by dynamic project label or projectId', () => {
   expect(finalizeThreadList(base, { limit: 10, project: 'project-2', remotes: [] }).threads.map((thread) => thread.threadId)).toEqual(['local:two']);
 });
 
+it('resolves local and remote project labels from assignments, root hints, and cwd', () => {
+  const home = mkdtempSync(join(tmpdir(), 'gbot-project-state-'));
+  try {
+    writeFileSync(join(home, '.codex-global-state.json'), JSON.stringify({
+      'electron-persisted-atom-state': {
+        'local-projects': { core: { id: 'core-id', name: 'core', rootPaths: ['/work/core'] },
+          lra: { id: 'lra-id', name: 'codex-lra', rootPaths: ['/work/lra'] } },
+        'remote-projects': [{ id: 'remote-id', hostId: 'remote-host', remotePath: '/fast/core', label: 'remote-core' }],
+        'thread-project-assignments': { assigned: { projectKind: 'local', projectId: 'core-id' },
+          remote: { projectKind: 'remote', projectId: 'remote-id', hostId: 'remote-host' } },
+        'thread-workspace-root-hints': { hinted: '/work/lra/subfolder' },
+        'projectless-thread-ids': ['projectless'],
+      },
+    }));
+    const row = (id: string, cwd: string) => ({ threadId: `local:${id}`, title: id, cwd,
+      pinned: false, selected: false, kind: 'codex' });
+    const rows = resolveThreadProjects([row('assigned', '/elsewhere'), row('hinted', '/elsewhere'),
+      row('cwd', '/work/core/subfolder'), row('projectless', '/work/core'),
+      { ...row('remote', '/fast/core/subfolder'), location: 'remote', hostId: 'remote-host', hostName: null,
+        project: '/fast/core/subfolder' }], { CODEX_HOME: home });
+    expect(rows.map((thread) => [thread.project, thread.projectId])).toEqual([
+      ['core', 'core-id'], ['codex-lra', 'lra-id'], ['core', 'core-id'], [null, null], ['remote-core', 'remote-id'],
+    ]);
+    expect(rows[0].projectRootPath).toBe('/work/core');
+    expect(findLocalProject('codex-lra', { CODEX_HOME: home })).toMatchObject({ id: 'lra-id', rootPaths: ['/work/lra'] });
+    const filtered = finalizeThreadList({ backend: 'app-server', limit: 10, threads: rows },
+      { limit: 10, project: 'core', remotes: [] });
+    expect(filtered.threads.map((thread) => thread.threadId)).toEqual(['local:assigned', 'local:cwd', 'local:remote']);
+    expect(finalizeThreadList({ backend: 'app-server', limit: 10, threads: rows },
+      { limit: 10, project: 'lra-id', remotes: [] }).threads.map((thread) => thread.threadId)).toEqual(['local:hinted']);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
 it('counts CDP-only remote rows in host discovery', async () => {
   const row = { threadId: 'local:cdp-only', title: 'remote', pinned: false, selected: false, kind: 'remote', location: 'remote' as const, hostId: 'remote:dynamic', hostName: null };
+  const local = { threadId: 'local:local-cdp-only', title: 'local', pinned: false, selected: false, kind: 'codex', location: 'local' as const };
   const facade = new ChatGptDesktopFacade({
-    connect: async () => {}, listThreads: async () => ({ backend: 'cdp', limit: 200, threads: [row] }),
+    connect: async () => {}, listThreads: async () => ({ backend: 'cdp', limit: 200, threads: [row, local] }),
   } as unknown as ChatGptDesktopAdapter, 9222, {
     listThreads: async () => ({ backend: 'app-server', limit: 25, threads: [] }),
     listRemoteThreads: () => [], listHosts: () => [{ hostId: 'local', hostName: 'local', location: 'local', threadCount: 0 }],
     discoverModelProviders: async () => ({ providers: [], source: 'thread/list-distinct', threadCount: 0, complete: true }),
   } as never);
   expect((await facade.listHosts()).hosts).toEqual(expect.arrayContaining([expect.objectContaining({ hostId: 'remote:dynamic', threadCount: 1 })]));
+  expect((await facade.listHosts()).hosts.find((host) => host.hostId === 'local')?.threadCount).toBe(1);
 });
 
 it('uses the same deduplicated remote rows for host count and host-filtered list', async () => {
@@ -89,7 +125,7 @@ it('surfaces provider discovery errors with the remote fallback', async () => {
     listRemoteThreads: () => [], listHosts: () => [],
     discoverModelProviders: async () => { throw new Error('frame too large'); },
   } as never);
-  expect((await facade.listHosts()).warnings).toEqual(['Model provider discovery failed: frame too large']);
+  expect((await facade.listHosts()).warnings).toEqual(expect.arrayContaining(['Model provider discovery failed: frame too large']));
 });
 
 it('uses small app-server pages for provider discovery and search', async () => {
@@ -259,56 +295,60 @@ it('marks a CDP read partial and preserves the app-server failure', async () => 
   });
 });
 
-it('passes the opaque list cursor through facade and route', async () => {
+it('pages one sorted merged inventory exactly once across app, CDP and remote rows', async () => {
+  const row = (id: string, updatedAt: number) => ({ threadId: `local:${id}`, title: id,
+    updatedAt, pinned: false, selected: false, kind: 'codex' });
+  const app = [row('a', 900), row('b', 800), row('c', 700), row('d', 600), row('e', 500), row('f', 400)];
+  const cdp = [{ ...row('a', 900), selected: true }, { ...row('c', 700), location: 'remote' as const, hostId: 'host', hostName: null }, row('sidebar-only', 550)];
+  const remote = [{ ...row('c', 700), location: 'remote' as const, hostId: 'host', hostName: null },
+    { ...row('remote-only', 750), location: 'remote' as const, hostId: 'host', hostName: null }];
   const calls: unknown[] = [];
-  const facade = new ChatGptDesktopFacade({ connect: async () => { throw new Error('offline'); } } as unknown as ChatGptDesktopAdapter, 9222, {
-    listThreads: async (options: { cursor?: string; limit?: number }) => { calls.push(options.cursor); return { backend: 'app-server', limit: options.limit ?? 50, nextCursor: 'next-page', threads: [] }; },
-    listRemoteThreads: () => [],
-  } as never);
-  expect((await facade.listThreads({ cursor: 'previous' })).nextCursor).toBe('next-page');
-  expect(calls).toEqual(['previous']);
-  expect(listThreadsSchema.parse({ cursor: 'previous' }).cursor).toBe('previous');
-  setChatGptDesktopAdapterForTests({ connect: async () => {}, close: async () => {}, listThreads: async (options: { cursor?: string } = {}) => ({ backend: 'app-server', limit: 1, nextCursor: options.cursor, threads: [] }) } as unknown as ChatGptDesktopAdapter);
-  expect(await listThreadsOperation(listThreadsSchema.parse({ cursor: 'previous' }))).toMatchObject({ nextCursor: 'previous', exitCode: 0 });
-});
-
-it('reserves first-page space for remote rows without skipping local cursor rows', async () => {
-  const row = (id: string) => ({ threadId: `local:${id}`, title: id, pinned: false, selected: false, kind: 'codex' });
-  const appCalls: Array<{ limit?: number; cursor?: string }> = [];
-  const facade = new ChatGptDesktopFacade({
-    connect: async () => {},
-    listThreads: async () => ({ backend: 'cdp', limit: 5, threads: [{ ...row('cdp-remote'), location: 'remote', hostId: 'host', hostName: null }] }),
-  } as unknown as ChatGptDesktopAdapter, 9222, {
-    listThreads: async (options: { limit?: number; cursor?: string }) => {
-      appCalls.push(options);
-      const start = Number(options.cursor ?? 0);
-      const count = options.limit ?? 5;
-      return { backend: 'app-server', limit: count, nextCursor: String(start + count),
-        threads: Array.from({ length: count }, (_, i) => row(`local-${start + i}`)) };
+  const facade = new ChatGptDesktopFacade({ connect: async () => {},
+    listThreads: async () => ({ backend: 'cdp', limit: 200, threads: cdp }) } as unknown as ChatGptDesktopAdapter, 9222, {
+    listThreads: async ({ cursor }: { cursor?: string }) => {
+      calls.push(cursor);
+      const offset = Number(cursor ?? 0);
+      return { backend: 'app-server', limit: 200, threads: app.slice(offset, offset + 2),
+        nextCursor: offset + 2 < app.length ? String(offset + 2) : null };
     },
-    listRemoteThreads: () => [{ ...row('state-remote'), location: 'remote', hostId: 'host', hostName: null }],
+    listRemoteThreads: () => remote,
   } as never);
-  const first = await facade.listThreads({ limit: 5 });
-  const second = await facade.listThreads({ limit: 5, cursor: first.nextCursor! });
-  expect(first.threads).toHaveLength(5);
-  expect(first.threads.filter((thread) => thread.location === 'remote')).toHaveLength(2);
-  expect(appCalls).toMatchObject([{ limit: 3 }, { limit: 5, cursor: '3' }]);
-  expect(second.threads[0].threadId).toBe('local:local-3');
+  const pages = [];
+  let cursor: string | null | undefined;
+  do {
+    const out = await facade.listThreads({ limit: 3, ...(cursor ? { cursor } : {}) });
+    pages.push(out);
+    cursor = out.nextCursor;
+  } while (cursor);
+  expect(pages.map((page) => page.threads.length)).toEqual([3, 3, 2]);
+  expect(pages.flatMap((page) => page.threads.map((thread) => thread.threadId))).toEqual([
+    'local:a', 'local:b', 'local:remote-only', 'local:c', 'local:d', 'local:sidebar-only', 'local:e', 'local:f',
+  ]);
+  expect(pages[1].threads.find((thread) => thread.threadId === 'local:c')?.location).toBe('remote');
+  expect(calls).toEqual([undefined, '2', '4']);
+  await expect(facade.listThreads({ limit: 3, cursor: pages[0].nextCursor!, host: 'local' })).rejects.toThrow('filters');
+  expect(listThreadsSchema.parse({ cursor: pages[0].nextCursor }).cursor).toBe(pages[0].nextCursor);
+  setChatGptDesktopAdapterForTests({ connect: async () => {}, close: async () => {},
+    listThreads: async (options: { cursor?: string } = {}) => ({ backend: 'app-server', limit: 1, nextCursor: options.cursor, threads: [] }) } as unknown as ChatGptDesktopAdapter);
+  expect(await listThreadsOperation(listThreadsSchema.parse({ cursor: pages[0].nextCursor }))).toMatchObject({ nextCursor: pages[0].nextCursor, exitCode: 0 });
 });
 
-it('pages remote rows before local rows when the page is smaller than remote inventory', async () => {
-  const row = (id: string) => ({ threadId: `local:${id}`, title: id, pinned: false, selected: false, kind: 'remote', location: 'remote' as const, hostId: 'host', hostName: null });
-  const facade = new ChatGptDesktopFacade({ connect: async () => {}, listThreads: async () => ({ backend: 'cdp', limit: 200, threads: [] }) } as unknown as ChatGptDesktopAdapter, 9222, {
-    listThreads: async ({ cursor }: { cursor?: string }) => ({ backend: 'app-server', limit: 1, nextCursor: null,
-      threads: [{ threadId: `local:${cursor ? 'next' : 'first'}`, title: 'local', pinned: false, selected: false, kind: 'codex' }] }),
-    listRemoteThreads: () => [row('remote-a'), row('remote-b')],
-  } as never);
-  const first = await facade.listThreads({ limit: 1 });
-  const second = await facade.listThreads({ limit: 1, cursor: first.nextCursor! });
-  const third = await facade.listThreads({ limit: 1, cursor: second.nextCursor! });
-  expect(first.threads[0].threadId).toBe('local:remote-a');
-  expect(second.threads[0].threadId).toBe('local:remote-b');
-  expect(third.threads[0].threadId).toBe('local:first');
+it('fills a 100-row app-server page using bounded 25-row RPC requests', async () => {
+  const bridge = await import('../../src/core/codex-bridge.js');
+  const limits: number[] = [];
+  rstest.spyOn(bridge, 'listCodexThreads').mockImplementation(async ({ limit, cursor } = {}) => {
+    limits.push(limit!);
+    const offset = Number(cursor ?? 0);
+    return { limit: limit!, threads: Array.from({ length: Math.min(limit!, 120 - offset) }, (_, i) => ({
+      id: `id-${offset + i}`, name: `title-${offset + i}` })),
+      nextCursor: offset + limit! < 120 ? String(offset + limit!) : null } as never;
+  });
+  const first = await appServerListThreads({ limit: 100 });
+  const second = await appServerListThreads({ limit: 100, cursor: first.nextCursor! });
+  expect([first.threads.length, second.threads.length]).toEqual([100, 20]);
+  expect([...first.threads, ...second.threads].map((row) => row.threadId)).toEqual(
+    Array.from({ length: 120 }, (_, i) => `local:id-${i}`));
+  expect(limits).toEqual([25, 25, 25, 25, 25]);
 });
 
 it('reports CDP unreachable even when app-server is reachable', async () => {
@@ -323,12 +363,39 @@ it('hovers then dispatches a real project button press and release', async () =>
   const sent: string[] = [];
   const session = {
     evaluate: async (expression: string) => expression.includes('getComputedStyle')
-      ? { x: 12, y: 14, visible: true }
+      ? { x: 12, y: 14, visible: true, disabled: false }
+      : expression.includes('const expected =') ? { ready: true, path: '/', composer: true, scope: 'Change project: core' }
       : { ok: true, via: 'project', hoverX: 8, hoverY: 10 },
     send: async (_method: string, params: { type: string }) => { sent.push(params.type); },
   };
   await startNewChatInDom(session as never, 'page', { project: 'core' });
   expect(sent).toEqual(['mouseMoved', 'mouseMoved', 'mousePressed', 'mouseReleased']);
+});
+
+it('rejects a disabled project action before sending and reports a failed navigation quickly', async () => {
+  const sent: string[] = [];
+  const disabled = { evaluate: async () => ({ ok: true, via: 'project', disabled: true, hoverX: 8, hoverY: 10 }),
+    send: async (method: string) => { sent.push(method); } };
+  await expect(startNewChatInDom(disabled as never, 'page', { project: 'missing-root' })).rejects.toMatchObject({ code: 'PROJECT_UNAVAILABLE' });
+  expect(sent).toEqual([]);
+  const noNavigation = { evaluate: async (expression: string) => expression.includes('const expected =')
+    ? { ready: false, path: '/local/old', composer: false, scope: '' }
+    : expression.includes('getComputedStyle') ? { x: 12, y: 14, visible: true, disabled: false }
+    : { ok: true, via: 'project', hoverX: 8, hoverY: 10 }, send: async () => {} };
+  await expect(startNewChatInDom(noNavigation as never, 'page', { project: 'core', navigationTimeoutMs: 20 }))
+    .rejects.toMatchObject({ code: 'NEW_CHAT_NAVIGATION_FAILED' });
+});
+
+it('clears a retained project before treating a new chat as projectless', async () => {
+  let cleared = false;
+  const session = { evaluate: async (expression: string) => {
+    if (expression === CLEAR_NEW_CHAT_PROJECT_EXPRESSION) { cleared = true; return true; }
+    if (expression.includes('const expected =')) return { ready: cleared, path: '/', composer: true,
+      scope: cleared ? 'Choose project' : 'Change project: core' };
+    return { ok: true, via: 'fallback' };
+  } };
+  expect(await startNewChatInDom(session as never, 'page')).toEqual({ via: 'fallback' });
+  expect(cleared).toBe(true);
 });
 
 it('uses the displayed durable id before sidebar lookup and routes missing rows', async () => {

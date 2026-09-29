@@ -58,7 +58,7 @@ export async function appServerListThreads({
   let fetchLimit = Math.min(limit, 25);
   if (cursor?.startsWith(LIST_PAGE_PREFIX)) {
     const state = decodePageCursor<ListPageCursor>(LIST_PAGE_PREFIX, cursor);
-    if (!Number.isSafeInteger(state.skip) || state.skip < 1
+    if (!Number.isSafeInteger(state.skip) || state.skip < 0
       || !Number.isSafeInteger(state.fetchLimit) || state.fetchLimit < 1 || state.fetchLimit > 25
       || (state.cursor !== null && typeof state.cursor !== 'string')) {
       throw new Error('Invalid ChatGPT Desktop list page cursor');
@@ -67,36 +67,46 @@ export async function appServerListThreads({
     skip = state.skip;
     fetchLimit = state.fetchLimit;
   }
-  const out = await listCodexThreads({ limit: fetchLimit, cursor: sourceCursor, modelProviders });
-  if (skip > out.threads.length) throw new Error('ChatGPT Desktop list page cursor is stale');
   const base = {
     backend: 'app-server' as const,
     limit,
     modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined,
   };
   const threads: ChatGptDesktopThread[] = [];
-  let consumed = skip;
-  for (const raw of out.threads.slice(skip)) {
-    if (threads.length >= limit) break;
-    let row = compactThreadRow(mapListedThread(raw));
-    const probe = { ...base, threads: [...threads, row], nextCursor: LIST_PAGE_PREFIX, exitCode: 0 };
-    if (serializedBytes(probe) > DESKTOP_RESULT_BUDGET_BYTES) {
-      if (threads.length) break;
-      row = minimalThreadRow(row);
-      if (serializedBytes({ ...base, threads: [row], nextCursor: LIST_PAGE_PREFIX, exitCode: 0 }) > DESKTOP_RESULT_BUDGET_BYTES) {
-        throw new Error('ChatGPT Desktop thread row exceeds the MCP result byte budget');
+  const seen = new Set<string>();
+  for (let page = 0; page < 400; page++) {
+    const out = await listCodexThreads({ limit: fetchLimit, cursor: sourceCursor, modelProviders });
+    if (skip > out.threads.length) throw new Error('ChatGPT Desktop list page cursor is stale');
+    for (let index = skip; index < out.threads.length; index++) {
+      let row = compactThreadRow(mapListedThread(out.threads[index]));
+      const probe = { ...base, threads: [...threads, row], nextCursor: LIST_PAGE_PREFIX, exitCode: 0 };
+      if (serializedBytes(probe) > DESKTOP_RESULT_BUDGET_BYTES) {
+        if (threads.length) return { ...base, threads,
+          nextCursor: encodePageCursor(LIST_PAGE_PREFIX, { cursor: sourceCursor ?? null, skip: index, fetchLimit }),
+          warnings: ['List page stopped at the MCP byte budget; continue with nextCursor'] };
+        row = minimalThreadRow(row);
+        if (serializedBytes({ ...base, threads: [row], nextCursor: LIST_PAGE_PREFIX, exitCode: 0 }) > DESKTOP_RESULT_BUDGET_BYTES) {
+          throw new Error('ChatGPT Desktop thread row exceeds the MCP result byte budget');
+        }
+      }
+      threads.push(row);
+      if (threads.length >= limit) {
+        const nextCursor = index + 1 < out.threads.length
+          ? encodePageCursor(LIST_PAGE_PREFIX, { cursor: sourceCursor ?? null, skip: index + 1, fetchLimit })
+          : out.nextCursor ?? null;
+        return { ...base, threads, nextCursor };
       }
     }
-    threads.push(row);
-    consumed++;
+    if (out.nextCursor == null) return { ...base, threads, nextCursor: null };
+    if (typeof out.nextCursor !== 'string' || !out.nextCursor || seen.has(out.nextCursor)) {
+      throw new Error('ChatGPT Desktop list returned an invalid or repeated cursor');
+    }
+    seen.add(out.nextCursor);
+    sourceCursor = out.nextCursor;
+    skip = 0;
   }
-  const nextCursor = consumed < out.threads.length
-    ? encodePageCursor(LIST_PAGE_PREFIX, { cursor: sourceCursor ?? null, skip: consumed, fetchLimit })
-    : out.nextCursor ?? null;
-  return {
-    ...base, threads, nextCursor,
-    ...(consumed < out.threads.length ? { warnings: ['List page stopped at the MCP byte budget; continue with nextCursor'] } : {}),
-  };
+  return { ...base, threads, nextCursor: sourceCursor,
+    warnings: ['List stopped after 400 app-server pages; continue with nextCursor'] };
 }
 
 export async function appServerSearchThreads({

@@ -25,7 +25,8 @@ export type ChatGptDesktopThread = {
   readonly selected: boolean;
   readonly kind: string;
   /** Project folder name when known (CDP sidebar or app-server projectId). */
-  readonly project?: string;
+  readonly project?: string | null;
+  readonly projectRootPath?: string;
   readonly preview?: string;
   readonly previewTruncated?: boolean;
   readonly cwd?: string | null;

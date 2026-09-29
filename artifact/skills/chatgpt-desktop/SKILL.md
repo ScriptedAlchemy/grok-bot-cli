@@ -19,7 +19,11 @@ another machine.
    host name from a project label. Managed SSH hosts may have no threads.
 3. Use `chatgpt_desktop_list_threads` with `host`, `modelProvider`, or `project`
    as needed. Pass `nextCursor` back as `cursor` with the same filters until it
-   is `null`. Pages can stop before `limit` to stay under the MCP document cap.
+   is `null`. The cursor refers to a sorted merged inventory; pages normally
+   fill `limit` and can stop earlier at the MCP document cap. If the inventory
+   changed after a cursor expired, restart without one. Project labels and IDs
+   come from Desktop project assignments and workspace roots; `projectRootPath`
+   is the resolved root when available.
    `chatgpt_desktop_search_threads` also accepts `cursor`; keep its query and
    filters unchanged. Search matches the full title even when the display row
    has a 200-character `title` and `titleTruncated: true`.
@@ -45,7 +49,8 @@ or app-server. The local Mac cannot fetch that remote history through CDP.
   thread remains readable through `chatgpt_desktop_read_thread`.
 - `chatgpt_desktop_send` with `threadId` sends to that conversation. Omit
   `threadId` and `project` to start outside a project. Omit `threadId` and set
-  `project` to start inside that project. Send once. A new-thread receipt may
+  `project` to start inside that project. The tool verifies the empty new-chat
+  view and its project selection before typing. Send once. A new-thread receipt may
   include `temporaryThreadId` and resolves `threadId` to the durable
   `local:<conversationId>` before returning. Keep both until the durable ID is
   confirmed; use the durable ID for later work.
@@ -59,7 +64,11 @@ the user wants the archive state changed; this explicitly calls app-server
 `thread/unarchive` and retries once. Never unarchive merely to read or open.
 
 `COMPOSER_HAS_DRAFT` means the user's draft would be disturbed; leave it for
-the operator. `CDP_UNREACHABLE` requires restoring the local Desktop CDP
+the operator. `PROJECT_UNAVAILABLE` means Desktop disabled a project's new-chat
+action, often because its configured workspace root no longer exists; correct
+the project root in Desktop before retrying. `NEW_CHAT_NAVIGATION_FAILED` means
+the button did not open the requested empty view within three seconds; inspect
+Desktop before retrying. `CDP_UNREACHABLE` requires restoring the local Desktop CDP
 endpoint. App-server failures, including oversized frames, appear as errors or
 read `warnings` with `complete: false`; inspect the partial result and source
 status before continuing. A send with unknown delivery must not be repeated

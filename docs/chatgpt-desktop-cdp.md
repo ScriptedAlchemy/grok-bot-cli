@@ -107,10 +107,24 @@ Surfaced list fields: `id`, `name`, `preview`, `cwd`, `createdAt` /
 `updatedAt` (unix s), `section {id,name}` (Pinned → `pinned: true`),
 `projectId`, `status`, `modelProvider`, `model`, `originator`. `archived` is a
 list filter, not a field.
-List and search pages can stop before `limit` to stay under the document cap.
+List pages use one merged, timestamp-sorted inventory with thread ID as a
+deterministic tiebreak. CDP/sidebar and remote-summary rows are deduplicated
+before paging, so a full cursor walk includes each ID once. The cursor refers
+to that inventory; after it expires or the inventory changes during recovery,
+restart without a cursor. List and search pages can stop before `limit` to stay
+under the document cap.
 Display titles collapse whitespace and stop at 200 characters with
 `titleTruncated: true`; search still matches the full source title. Pass
 `nextCursor` back with unchanged filters and query.
+
+Project labels and IDs are resolved from Desktop's local/remote projects,
+thread-project assignments, workspace-root hints, and cwd. The row's
+`projectRootPath` shows the matched root. A new chat is checked for an empty
+composer and the requested project before text is inserted. Projectless new
+chat clears a project retained from the previous thread. If Desktop disables
+the project action because its configured root is unavailable, send returns
+`PROJECT_UNAVAILABLE` before typing. A click that leaves the old view in place
+returns `NEW_CHAT_NAVIGATION_FAILED` after a short observation.
 
 ### Host and modelProvider filters (separate)
 

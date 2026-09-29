@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop send',
     description:
-      'Send once through local Desktop CDP. With threadId, accept local:<conversationId>, bare durable id, or currently selected local:client-new-thread:*; remote ids must be sent on their hostId. Omit threadId and project for a new chat outside projects; omit threadId and set project for a new chat inside it. New-thread receipts include temporaryThreadId when seen and return durable local:<conversationId> once resolved. ARCHIVED_THREAD rejects without sending; unarchive:true explicitly unarchives that existing thread first. CDP_UNREACHABLE and COMPOSER_HAS_DRAFT require operator inspection, not blind retry.',
+      'Send once through local Desktop CDP. With threadId, accept local:<conversationId>, bare durable id, or currently selected local:client-new-thread:*; remote ids must be sent on their hostId. Omit threadId and project for a new chat outside projects; omit threadId and set project for a new chat inside it. The empty view and project scope are checked before typing. New-thread receipts include temporaryThreadId when seen and return durable local:<conversationId> once resolved. ARCHIVED_THREAD rejects without sending; unarchive:true explicitly unarchives that existing thread first. PROJECT_UNAVAILABLE identifies a disabled project action or missing configured root; NEW_CHAT_NAVIGATION_FAILED reports an unchanged view promptly. CDP_UNREACHABLE and COMPOSER_HAS_DRAFT require operator inspection, not blind retry.',
     annotations: { readOnlyHint: false },
     inputSchema,
     resultSchema,

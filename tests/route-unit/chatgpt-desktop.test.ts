@@ -660,9 +660,9 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
     expect(opened).toMatchObject({ backend: 'cdp' });
 
     expect(calls).toEqual([
+      'app-server.listThreads',
       'cdp.connect',
       'cdp.listThreads',
-      'app-server.listThreads',
       'app-server.searchThreads',
       'cdp.listThreads',
       'app-server.readThread',

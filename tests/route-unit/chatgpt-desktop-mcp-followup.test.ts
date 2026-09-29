@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, expect, it, rstest } from '@rstest/core';
 import { invokeMcpTool, listMcpSurface } from 'agent-bundle/test';
 import { CdpSession } from '../../src/core/chatgpt-desktop/cdp-session.js';
@@ -105,7 +108,8 @@ it('returns a durable id after one new-thread-in-project send while preserving t
   const events: string[] = [];
   mockCdp((expression) => {
     if (expression.includes('projectSel')) return { ok: true, via: 'project', hoverX: 8, hoverY: 10 };
-    if (expression.includes('getComputedStyle')) return { x: 12, y: 14, visible: true };
+    if (expression.includes('getComputedStyle')) return { x: 12, y: 14, visible: true, disabled: false };
+    if (expression.includes('const expected =')) return { ready: true, path: '/', composer: true, scope: 'Change project: core' };
     if (expression === LOADING_TASK_GONE_EXPRESSION) return true;
     if (expression === CONVERSATION_ID_EXPRESSION) return submitted ? 'durable-conversation' : '';
     if (expression === LIST_THREADS_EXPRESSION) return [{ threadId: 'local:client-new-thread:temporary', title: 'new', selected: true, pinned: false, kind: 'local' }];
@@ -126,6 +130,30 @@ it('returns a durable id after one new-thread-in-project send while preserving t
   });
   expect(events.filter((event) => event === 'mousePressed')).toHaveLength(1);
   expect(events.filter((event) => event === 'keyUp')).toHaveLength(1);
+});
+
+it('rejects a project whose configured root is missing before touching the composer', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'gbot-unavailable-project-'));
+  const previous = process.env.CODEX_HOME;
+  let inserted = false;
+  try {
+    writeFileSync(join(home, '.codex-global-state.json'), JSON.stringify({
+      'electron-persisted-atom-state': { 'local-projects': {
+        missing: { id: 'missing', name: 'missing-project', rootPaths: ['/no/such/project/root'] },
+      } },
+    }));
+    process.env.CODEX_HOME = home;
+    mockCdp(() => false, (method) => { if (method === 'Input.insertText') inserted = true; });
+    const adapter = new CdpChatGptDesktopAdapter();
+    await adapter.connect({ port: 9222 });
+    await expect(adapter.sendMessage({ project: 'missing-project', text: 'must not send' }))
+      .rejects.toMatchObject({ code: 'PROJECT_UNAVAILABLE', delivery: 'rejected' });
+    expect(inserted).toBe(false);
+  } finally {
+    if (previous === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = previous;
+    rmSync(home, { recursive: true, force: true });
+  }
 });
 
 it('passes the dynamic project filter through the MCP list contract', async () => {

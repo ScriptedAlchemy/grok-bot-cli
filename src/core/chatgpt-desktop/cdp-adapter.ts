@@ -1,5 +1,6 @@
+import { existsSync } from 'node:fs';
 import type { ChatGptDesktopAdapter } from './adapter.js';
-import { ArchivedThreadError, CdpUnreachableError } from './errors.js';
+import { ArchivedThreadError, CdpUnreachableError, ProjectUnavailableError } from './errors.js';
 import { CdpSession } from './cdp-session.js';
 import {
   DEFAULT_CONVERSATION_RESOLVE_MS,
@@ -21,6 +22,7 @@ import {
 } from './cdp-dom.js';
 import { isTemporaryDesktopThreadId, toAppServerThreadId, toDesktopThreadId } from './thread-ids.js';
 import { resolveCdpPort } from './loopback.js';
+import { findLocalProject } from './project-state.js';
 import type {
   ChatGptDesktopStatus,
   ChatGptDesktopTarget,
@@ -119,8 +121,14 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
     if (threadId) {
       await this.#openAndWait(sessionId, threadId, openTimeoutMs);
     } else {
-      await startNewChatInDom(this.#requireSession(), sessionId, { project });
-      await waitForLoadingTaskGone(this.#requireSession(), sessionId, { timeoutMs: openTimeoutMs, threadId: 'new' });
+      const localProject = project ? findLocalProject(project) : null;
+      if (localProject && !localProject.rootPaths.some((path) => existsSync(path))) {
+        throw new ProjectUnavailableError(localProject.label,
+          `none of its configured workspace roots exists: ${localProject.rootPaths.map((path) => JSON.stringify(path)).join(', ') || '(none)'}. Update the Desktop project root before sending.`);
+      }
+      await startNewChatInDom(this.#requireSession(), sessionId, {
+        project: localProject?.label ?? project, projectId: localProject?.id,
+      });
       const threads = await listThreadsFromDom(this.#requireSession(), sessionId, { limit: 20 });
       const temp = threads.find((t) => t.threadId.startsWith(TEMP_THREAD_ID_PREFIX) && t.selected)
         ?? threads.find((t) => t.threadId.startsWith(TEMP_THREAD_ID_PREFIX));

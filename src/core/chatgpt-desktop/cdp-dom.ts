@@ -7,7 +7,7 @@
 
 import type { ChatGptDesktopTarget, ChatGptDesktopThread, ChatGptDesktopTurn } from './types.js';
 import type { CdpSession } from './cdp-session.js';
-import { ArchivedThreadError, ComposerDraftError } from './errors.js';
+import { ArchivedThreadError, ComposerDraftError, NewChatNavigationError, ProjectUnavailableError } from './errors.js';
 import {
   LOCAL_THREAD_ID_PREFIX,
   isTemporaryDesktopThreadId,
@@ -251,17 +251,18 @@ export function navigateToThreadExpression(threadId: string): string {
   })()`;
 }
 
-export function startNewChatExpression(project?: string): string {
+export function startNewChatExpression(project?: string, projectId?: string): string {
   const projectSel = project ? newChatInProjectSelector(project) : null;
   return `(() => {
     const projectSel = ${JSON.stringify(projectSel)};
     if (projectSel) {
-      const preferred = document.querySelector(projectSel);
+      const preferred = ${projectId ? `document.querySelector('[data-app-action-sidebar-project-id=${JSON.stringify(projectId)}]')?.querySelector(projectSel) ||` : ''} document.querySelector(projectSel);
       if (preferred) {
-        const row = preferred.closest('.group') || preferred.parentElement;
+        const row = preferred.closest('[data-app-action-sidebar-project-row]') || preferred.parentElement;
         row?.scrollIntoView({ block: 'center' });
         const rowBox = row?.getBoundingClientRect();
         return { ok: true, via: 'project', project: ${JSON.stringify(project ?? null)},
+          disabled: preferred.disabled || preferred.getAttribute('aria-disabled') === 'true',
           hoverX: rowBox?.left + rowBox?.width / 2, hoverY: rowBox?.top + rowBox?.height / 2 };
       }
       return { ok: false, error: 'project-not-found' };
@@ -274,15 +275,43 @@ export function startNewChatExpression(project?: string): string {
   })()`;
 }
 
-export function projectButtonBoxExpression(project: string): string {
+export function projectButtonBoxExpression(project: string, projectId?: string): string {
   return `(() => {
-    const button = document.querySelector(${JSON.stringify(newChatInProjectSelector(project))});
+    const button = ${projectId ? `document.querySelector('[data-app-action-sidebar-project-id=${JSON.stringify(projectId)}]')?.querySelector(${JSON.stringify(newChatInProjectSelector(project))}) ||` : ''} document.querySelector(${JSON.stringify(newChatInProjectSelector(project))});
     if (!button) return null;
     const box = button.getBoundingClientRect();
     return { x: box.left + box.width / 2, y: box.top + box.height / 2,
-      visible: box.width > 0 && box.height > 0 && getComputedStyle(button.parentElement).opacity !== '0' };
+      disabled: button.disabled || button.getAttribute('aria-disabled') === 'true',
+      visible: box.width > 0 && box.height > 0 && box.x >= 0 && box.y >= 0
+        && box.x < innerWidth && box.y < innerHeight && getComputedStyle(button.parentElement).opacity !== '0' };
   })()`;
 }
+
+/** The new-chat route is `/`; the composer exposes its selected project. */
+export function newChatViewExpression(project?: string): string {
+  return `(() => {
+    const root = window.__codexRoot?._internalRoot?.current;
+    const queue = [root]; let scanned = 0; let path = '';
+    while (queue.length && scanned++ < 10000) {
+      const fiber = queue.shift(); if (!fiber) continue;
+      const router = fiber.memoizedProps?.router;
+      if (router?.navigate && router?.state?.location) { path = router.state.location.pathname; break; }
+      if (fiber.child) queue.push(fiber.child);
+      if (fiber.sibling) queue.push(fiber.sibling);
+    }
+    const composer = !!document.querySelector(${JSON.stringify(COMPOSER_SELECTOR)});
+    const scope = document.querySelector('[data-composer-navigation-target="workspace-project"]')?.getAttribute('aria-label') || '';
+    const expected = ${JSON.stringify(project ? `Change project: ${project}` : '')};
+    return { ready: path === '/' && composer && (expected ? scope === expected : (!scope || scope === 'Choose project')), path, composer, scope };
+  })()`;
+}
+
+export const CLEAR_NEW_CHAT_PROJECT_EXPRESSION = `(() => {
+  const button = document.querySelector('[data-clear-project-button="true"]');
+  if (!button || button.disabled) return false;
+  button.click();
+  return true;
+})()`;
 
 export const LOADING_TASK_GONE_EXPRESSION = `(() => {
   const surfacePrefix = ${JSON.stringify(MAIN_CONTENT_SURFACE_CLASS_PREFIX)};
@@ -492,10 +521,10 @@ export async function waitForLoadingTaskGone(
 export async function startNewChatInDom(
   session: CdpSession,
   sessionId: string,
-  { project }: { project?: string } = {},
+  { project, projectId, navigationTimeoutMs = 3000 }: { project?: string; projectId?: string; navigationTimeoutMs?: number } = {},
 ): Promise<{ via: string }> {
-  const result = await session.evaluate<{ ok: boolean; via?: string; error?: string; x?: number; y?: number; hoverX?: number; hoverY?: number }>(
-    startNewChatExpression(project),
+  const result = await session.evaluate<{ ok: boolean; via?: string; error?: string; disabled?: boolean; hoverX?: number; hoverY?: number }>(
+    startNewChatExpression(project, projectId),
     { sessionId },
   );
   if (!result?.ok) {
@@ -506,11 +535,13 @@ export async function startNewChatInDom(
     );
   }
   if (result.via === 'project') {
+    if (result.disabled) throw new ProjectUnavailableError(project!, 'the Desktop project new-chat action is disabled; check its configured workspace root');
     if (![result.hoverX, result.hoverY].every(Number.isFinite)) {
       throw new Error(`ChatGPT Desktop project button has no visible box for ${JSON.stringify(project)}`);
     }
     await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: result.hoverX, y: result.hoverY }, { sessionId });
-    const button = await session.evaluate<{ x: number; y: number; visible: boolean } | null>(projectButtonBoxExpression(project!), { sessionId });
+    const button = await session.evaluate<{ x: number; y: number; visible: boolean; disabled: boolean } | null>(projectButtonBoxExpression(project!, projectId), { sessionId });
+    if (button?.disabled) throw new ProjectUnavailableError(project!, 'the Desktop project new-chat action is disabled; check its configured workspace root');
     if (!button?.visible || !Number.isFinite(button.x) || !Number.isFinite(button.y)) {
       throw new Error(`ChatGPT Desktop project button did not appear after hover for ${JSON.stringify(project)}`);
     }
@@ -518,7 +549,17 @@ export async function startNewChatInDom(
     await session.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: button.x, y: button.y, button: 'left', clickCount: 1 }, { sessionId });
     await session.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: button.x, y: button.y, button: 'left', clickCount: 1 }, { sessionId });
   }
-  return { via: result.via ?? 'unknown' };
+  let observed = { ready: false, path: '', composer: false, scope: '' };
+  const deadline = Date.now() + navigationTimeoutMs;
+  while (Date.now() < deadline) {
+    observed = await session.evaluate<typeof observed>(newChatViewExpression(project), { sessionId });
+    if (observed?.ready) return { via: result.via ?? 'unknown' };
+    if (!project && observed?.path === '/' && observed?.composer && observed.scope.startsWith('Change project: ')) {
+      await session.evaluate<boolean>(CLEAR_NEW_CHAT_PROJECT_EXPRESSION, { sessionId });
+    }
+    await delay(100);
+  }
+  throw new NewChatNavigationError(project, `route ${JSON.stringify(observed?.path)}, composer ${Boolean(observed?.composer)}, project ${JSON.stringify(observed?.scope)}`);
 }
 
 export async function focusComposer(

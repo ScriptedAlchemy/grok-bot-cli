@@ -26,6 +26,29 @@ export class ComposerDraftError extends Error {
   }
 }
 
+/** Desktop cannot start a chat in a project whose action is disabled or root is unavailable. */
+export class ProjectUnavailableError extends Error {
+  readonly code = 'PROJECT_UNAVAILABLE' as const;
+  readonly reason = 'project-unavailable' as const;
+  readonly delivery = 'rejected' as const;
+
+  constructor(project: string, detail: string) {
+    super(`ChatGPT Desktop cannot start a chat in project ${JSON.stringify(project)}: ${detail}`);
+    this.name = 'ProjectUnavailableError';
+  }
+}
+
+export class NewChatNavigationError extends Error {
+  readonly code = 'NEW_CHAT_NAVIGATION_FAILED' as const;
+  readonly reason = 'new-chat-navigation-failed' as const;
+  readonly delivery = 'rejected' as const;
+
+  constructor(project: string | undefined, observed: string) {
+    super(`ChatGPT Desktop new-chat action did not open ${project ? `project ${JSON.stringify(project)}` : 'a projectless chat'}; observed ${observed}`);
+    this.name = 'NewChatNavigationError';
+  }
+}
+
 /** Typed failure when a ChatGPT Desktop CDP/DOM operation is not yet implemented. */
 export class NotImplementedError extends Error {
   readonly code = 'NOT_IMPLEMENTED' as const;

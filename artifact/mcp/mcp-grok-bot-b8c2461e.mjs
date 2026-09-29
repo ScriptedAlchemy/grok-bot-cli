@@ -6507,69 +6507,96 @@ var __webpack_modules__ = {
             let fetchLimit = Math.min(limit, 25);
             if (cursor?.startsWith(LIST_PAGE_PREFIX)) {
                 const state = (0, _payload_budget_js__rspack_import_4.i3)(LIST_PAGE_PREFIX, cursor);
-                if (!Number.isSafeInteger(state.skip) || state.skip < 1 || !Number.isSafeInteger(state.fetchLimit) || state.fetchLimit < 1 || state.fetchLimit > 25 || state.cursor !== null && typeof state.cursor !== 'string') {
+                if (!Number.isSafeInteger(state.skip) || state.skip < 0 || !Number.isSafeInteger(state.fetchLimit) || state.fetchLimit < 1 || state.fetchLimit > 25 || state.cursor !== null && typeof state.cursor !== 'string') {
                     throw new Error('Invalid ChatGPT Desktop list page cursor');
                 }
                 sourceCursor = state.cursor ?? undefined;
                 skip = state.skip;
                 fetchLimit = state.fetchLimit;
             }
-            const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
-                limit: fetchLimit,
-                cursor: sourceCursor,
-                modelProviders
-            });
-            if (skip > out.threads.length) throw new Error('ChatGPT Desktop list page cursor is stale');
             const base = {
                 backend: 'app-server',
                 limit,
                 modelProvider: modelProviders.length === 1 ? modelProviders[0] : undefined
             };
             const threads = [];
-            let consumed = skip;
-            for (const raw of out.threads.slice(skip)){
-                if (threads.length >= limit) break;
-                let row = (0, _payload_budget_js__rspack_import_4.eX)(mapListedThread(raw));
-                const probe = {
-                    ...base,
-                    threads: [
-                        ...threads,
-                        row
-                    ],
-                    nextCursor: LIST_PAGE_PREFIX,
-                    exitCode: 0
-                };
-                if ((0, _payload_budget_js__rspack_import_4.sQ)(probe) > 614400) {
-                    if (threads.length) break;
-                    row = (0, _payload_budget_js__rspack_import_4.MH)(row);
-                    if ((0, _payload_budget_js__rspack_import_4.sQ)({
+            const seen = new Set();
+            for(let page = 0; page < 400; page++){
+                const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
+                    limit: fetchLimit,
+                    cursor: sourceCursor,
+                    modelProviders
+                });
+                if (skip > out.threads.length) throw new Error('ChatGPT Desktop list page cursor is stale');
+                for(let index = skip; index < out.threads.length; index++){
+                    let row = (0, _payload_budget_js__rspack_import_4.eX)(mapListedThread(out.threads[index]));
+                    const probe = {
                         ...base,
                         threads: [
+                            ...threads,
                             row
                         ],
                         nextCursor: LIST_PAGE_PREFIX,
                         exitCode: 0
-                    }) > 614400) {
-                        throw new Error('ChatGPT Desktop thread row exceeds the MCP result byte budget');
+                    };
+                    if ((0, _payload_budget_js__rspack_import_4.sQ)(probe) > 614400) {
+                        if (threads.length) return {
+                            ...base,
+                            threads,
+                            nextCursor: (0, _payload_budget_js__rspack_import_4.oI)(LIST_PAGE_PREFIX, {
+                                cursor: sourceCursor ?? null,
+                                skip: index,
+                                fetchLimit
+                            }),
+                            warnings: [
+                                'List page stopped at the MCP byte budget; continue with nextCursor'
+                            ]
+                        };
+                        row = (0, _payload_budget_js__rspack_import_4.MH)(row);
+                        if ((0, _payload_budget_js__rspack_import_4.sQ)({
+                            ...base,
+                            threads: [
+                                row
+                            ],
+                            nextCursor: LIST_PAGE_PREFIX,
+                            exitCode: 0
+                        }) > 614400) {
+                            throw new Error('ChatGPT Desktop thread row exceeds the MCP result byte budget');
+                        }
+                    }
+                    threads.push(row);
+                    if (threads.length >= limit) {
+                        const nextCursor = index + 1 < out.threads.length ? (0, _payload_budget_js__rspack_import_4.oI)(LIST_PAGE_PREFIX, {
+                            cursor: sourceCursor ?? null,
+                            skip: index + 1,
+                            fetchLimit
+                        }) : out.nextCursor ?? null;
+                        return {
+                            ...base,
+                            threads,
+                            nextCursor
+                        };
                     }
                 }
-                threads.push(row);
-                consumed++;
+                if (out.nextCursor == null) return {
+                    ...base,
+                    threads,
+                    nextCursor: null
+                };
+                if (typeof out.nextCursor !== 'string' || !out.nextCursor || seen.has(out.nextCursor)) {
+                    throw new Error('ChatGPT Desktop list returned an invalid or repeated cursor');
+                }
+                seen.add(out.nextCursor);
+                sourceCursor = out.nextCursor;
+                skip = 0;
             }
-            const nextCursor = consumed < out.threads.length ? (0, _payload_budget_js__rspack_import_4.oI)(LIST_PAGE_PREFIX, {
-                cursor: sourceCursor ?? null,
-                skip: consumed,
-                fetchLimit
-            }) : out.nextCursor ?? null;
             return {
                 ...base,
                 threads,
-                nextCursor,
-                ...consumed < out.threads.length ? {
-                    warnings: [
-                        'List page stopped at the MCP byte budget; continue with nextCursor'
-                    ]
-                } : {}
+                nextCursor: sourceCursor,
+                warnings: [
+                    'List stopped after 400 app-server pages; continue with nextCursor'
+                ]
             };
         }
         async function appServerSearchThreads({ query, limit = 50, cursor, modelProviders = [], project }) {
@@ -7168,13 +7195,15 @@ var __webpack_modules__ = {
         });
     },
     "./src/core/chatgpt-desktop/cdp-adapter.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
-        var _errors_js__rspack_import_0 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
-        var _cdp_session_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/cdp-session.ts");
-        var _cdp_dom_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/cdp-dom.ts");
-        var _thread_ids_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
-        var _loopback_js__rspack_import_4 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
+        var node_fs__rspack_import_0 = __webpack_require__("node:fs");
+        var _errors_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
+        var _cdp_session_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/cdp-session.ts");
+        var _cdp_dom_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/cdp-dom.ts");
+        var _thread_ids_js__rspack_import_4 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
+        var _loopback_js__rspack_import_5 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
+        var _project_state_js__rspack_import_6 = __webpack_require__("./src/core/chatgpt-desktop/project-state.ts");
         class CdpChatGptDesktopAdapter {
-            #port = (0, _loopback_js__rspack_import_4.L0)();
+            #port = (0, _loopback_js__rspack_import_5.L0)();
             #session = null;
             #version = null;
             #pageSessionId = null;
@@ -7182,8 +7211,8 @@ var __webpack_modules__ = {
             #submittedTurn = null;
             async connect({ port }) {
                 await this.close();
-                this.#port = (0, _loopback_js__rspack_import_4.L0)(process.env, port);
-                const session = new _cdp_session_js__rspack_import_1.a(this.#port);
+                this.#port = (0, _loopback_js__rspack_import_5.L0)(process.env, port);
+                const session = new _cdp_session_js__rspack_import_2.a(this.#port);
                 try {
                     this.#version = await session.connect();
                     this.#session = session;
@@ -7197,11 +7226,11 @@ var __webpack_modules__ = {
             async listTargets() {
                 const session = this.#requireSession();
                 const result = await session.send('Target.getTargets');
-                return (0, _cdp_dom_js__rspack_import_2.Mr)(result.targetInfos ?? []);
+                return (0, _cdp_dom_js__rspack_import_3.Mr)(result.targetInfos ?? []);
             }
             async listThreads({ limit = 50 } = {}) {
                 const sessionId = await this.#ensurePageSession();
-                const threads = await (0, _cdp_dom_js__rspack_import_2.AY)(this.#requireSession(), sessionId, {
+                const threads = await (0, _cdp_dom_js__rspack_import_3.AY)(this.#requireSession(), sessionId, {
                     limit
                 });
                 return {
@@ -7213,7 +7242,7 @@ var __webpack_modules__ = {
             async readThread({ threadId, limit = 100, full = false, openTimeoutMs = 90000 }) {
                 const sessionId = await this.#ensurePageSession();
                 await this.#openAndWait(sessionId, threadId, openTimeoutMs);
-                const turns = await (0, _cdp_dom_js__rspack_import_2.JU)(this.#requireSession(), sessionId, {
+                const turns = await (0, _cdp_dom_js__rspack_import_3.JU)(this.#requireSession(), sessionId, {
                     limit,
                     full,
                     threadId
@@ -7234,26 +7263,27 @@ var __webpack_modules__ = {
                 if (threadId) {
                     await this.#openAndWait(sessionId, threadId, openTimeoutMs);
                 } else {
-                    await (0, _cdp_dom_js__rspack_import_2.s0)(this.#requireSession(), sessionId, {
-                        project
+                    const localProject = project ? (0, _project_state_js__rspack_import_6.q)(project) : null;
+                    if (localProject && !localProject.rootPaths.some((path)=>(0, node_fs__rspack_import_0.existsSync)(path))) {
+                        throw new _errors_js__rspack_import_1.Kn(localProject.label, `none of its configured workspace roots exists: ${localProject.rootPaths.map((path)=>JSON.stringify(path)).join(', ') || '(none)'}. Update the Desktop project root before sending.`);
+                    }
+                    await (0, _cdp_dom_js__rspack_import_3.s0)(this.#requireSession(), sessionId, {
+                        project: localProject?.label ?? project,
+                        projectId: localProject?.id
                     });
-                    await (0, _cdp_dom_js__rspack_import_2.Zx)(this.#requireSession(), sessionId, {
-                        timeoutMs: openTimeoutMs,
-                        threadId: 'new'
-                    });
-                    const threads = await (0, _cdp_dom_js__rspack_import_2.AY)(this.#requireSession(), sessionId, {
+                    const threads = await (0, _cdp_dom_js__rspack_import_3.AY)(this.#requireSession(), sessionId, {
                         limit: 20
                     });
-                    const temp = threads.find((t)=>t.threadId.startsWith(_cdp_dom_js__rspack_import_2.hA) && t.selected) ?? threads.find((t)=>t.threadId.startsWith(_cdp_dom_js__rspack_import_2.hA));
+                    const temp = threads.find((t)=>t.threadId.startsWith(_cdp_dom_js__rspack_import_3.hA) && t.selected) ?? threads.find((t)=>t.threadId.startsWith(_cdp_dom_js__rspack_import_3.hA));
                     if (temp) temporaryThreadId = temp.threadId;
                 }
-                const before = await (0, _cdp_dom_js__rspack_import_2.YX)(this.#requireSession(), sessionId);
-                const { sentVia } = await (0, _cdp_dom_js__rspack_import_2.lh)(this.#requireSession(), sessionId, text);
+                const before = await (0, _cdp_dom_js__rspack_import_3.YX)(this.#requireSession(), sessionId);
+                const { sentVia } = await (0, _cdp_dom_js__rspack_import_3.lh)(this.#requireSession(), sessionId, text);
                 let conversationId;
-                if (startedNew || threadId && (0, _thread_ids_js__rspack_import_3.vr)(threadId)) {
+                if (startedNew || threadId && (0, _thread_ids_js__rspack_import_4.vr)(threadId)) {
                     const resolveMs = Math.min(openTimeoutMs, 60000);
                     try {
-                        conversationId = await (0, _cdp_dom_js__rspack_import_2.z9)(this.#requireSession(), sessionId, {
+                        conversationId = await (0, _cdp_dom_js__rspack_import_3.z9)(this.#requireSession(), sessionId, {
                             timeoutMs: resolveMs
                         });
                     } catch (error) {
@@ -7263,7 +7293,7 @@ var __webpack_modules__ = {
                         });
                     }
                 }
-                const durable = (0, _cdp_dom_js__rspack_import_2.X8)(conversationId, threadId);
+                const durable = (0, _cdp_dom_js__rspack_import_3.X8)(conversationId, threadId);
                 if (!durable) {
                     throw new Error('ChatGPT Desktop send accepted but no durable conversation id was available; ' + 'refusing to return a local:client-new-thread:* id as threadId');
                 }
@@ -7274,7 +7304,7 @@ var __webpack_modules__ = {
                 return {
                     threadId: durable,
                     temporaryThreadId,
-                    conversationId: conversationId || (0, _thread_ids_js__rspack_import_3.nn)(durable) || durable,
+                    conversationId: conversationId || (0, _thread_ids_js__rspack_import_4.nn)(durable) || durable,
                     project,
                     backend: 'cdp',
                     experimental: false,
@@ -7286,30 +7316,30 @@ var __webpack_modules__ = {
             async waitForReply({ threadId, timeoutMs = 120000 }) {
                 const deadline = Date.now() + timeoutMs;
                 const sessionId = await this.#ensurePageSession();
-                const expectedId = threadId && threadId !== 'new' ? (0, _thread_ids_js__rspack_import_3.nn)(threadId) ?? undefined : this.#submittedTurn ? (0, _thread_ids_js__rspack_import_3.nn)(this.#submittedTurn.threadId) ?? undefined : undefined;
-                if (threadId && !(0, _thread_ids_js__rspack_import_3.vr)(threadId) && threadId !== 'new') {
+                const expectedId = threadId && threadId !== 'new' ? (0, _thread_ids_js__rspack_import_4.nn)(threadId) ?? undefined : this.#submittedTurn ? (0, _thread_ids_js__rspack_import_4.nn)(this.#submittedTurn.threadId) ?? undefined : undefined;
+                if (threadId && !(0, _thread_ids_js__rspack_import_4.vr)(threadId) && threadId !== 'new') {
                     await this.#openAndWait(sessionId, threadId, Math.min(timeoutMs, 90000));
                 }
                 try {
-                    const done = await (0, _cdp_dom_js__rspack_import_2.FG)(this.#requireSession(), sessionId, {
+                    const done = await (0, _cdp_dom_js__rspack_import_3.FG)(this.#requireSession(), sessionId, {
                         timeoutMs: Math.max(0, deadline - Date.now()),
                         expectedConversationId: expectedId,
-                        baselineTurnKey: this.#submittedTurn && (!threadId || (0, _thread_ids_js__rspack_import_3.BS)(threadId) === this.#submittedTurn.threadId) ? this.#submittedTurn.turnKey : undefined
+                        baselineTurnKey: this.#submittedTurn && (!threadId || (0, _thread_ids_js__rspack_import_4.BS)(threadId) === this.#submittedTurn.threadId) ? this.#submittedTurn.turnKey : undefined
                     });
-                    const durable = (0, _cdp_dom_js__rspack_import_2.X8)(done.conversationId, threadId) ?? (done.conversationId ? (0, _thread_ids_js__rspack_import_3.BS)(done.conversationId) : null);
+                    const durable = (0, _cdp_dom_js__rspack_import_3.X8)(done.conversationId, threadId) ?? (done.conversationId ? (0, _thread_ids_js__rspack_import_4.BS)(done.conversationId) : null);
                     if (!durable) {
                         throw new Error('ChatGPT Desktop reply finished without a durable conversation id on ' + '[data-response-annotation-conversation]');
                     }
                     return {
                         threadId: durable,
-                        conversationId: done.conversationId || (0, _thread_ids_js__rspack_import_3.nn)(durable) || durable,
+                        conversationId: done.conversationId || (0, _thread_ids_js__rspack_import_4.nn)(durable) || durable,
                         reply: done.reply,
                         backend: 'cdp',
                         experimental: false,
                         delivery: 'replied'
                     };
                 } catch (error) {
-                    if (!(error instanceof _cdp_dom_js__rspack_import_2.aw)) throw error;
+                    if (!(error instanceof _cdp_dom_js__rspack_import_3.aw)) throw error;
                     return {
                         threadId: threadId ?? 'unknown',
                         reply: '',
@@ -7324,7 +7354,7 @@ var __webpack_modules__ = {
                 try {
                     await this.#openAndWait(sessionId, threadId, openTimeoutMs);
                 } catch (error) {
-                    if (error instanceof _errors_js__rspack_import_0.fw) return {
+                    if (error instanceof _errors_js__rspack_import_1.fw) return {
                         threadId,
                         backend: 'cdp',
                         archived: true
@@ -7338,15 +7368,15 @@ var __webpack_modules__ = {
             }
             async status() {
                 try {
-                    const version = this.#version ?? await _cdp_session_js__rspack_import_1.a.fetchVersion(this.#port);
+                    const version = this.#version ?? await _cdp_session_js__rspack_import_2.a.fetchVersion(this.#port);
                     let targetCount;
                     let mainWindowTargetId;
                     if (this.#session && !this.#session.closed) {
                         const targets = await this.listTargets();
                         targetCount = targets.length;
-                        mainWindowTargetId = (0, _cdp_dom_js__rspack_import_2.C2)(targets)?.targetId ?? null;
+                        mainWindowTargetId = (0, _cdp_dom_js__rspack_import_3.C2)(targets)?.targetId ?? null;
                     } else {
-                        const list = await _cdp_session_js__rspack_import_1.a.fetchJsonList(this.#port);
+                        const list = await _cdp_session_js__rspack_import_2.a.fetchJsonList(this.#port);
                         targetCount = list.length;
                     }
                     return {
@@ -7379,17 +7409,17 @@ var __webpack_modules__ = {
                 this.#session = null;
             }
             async #openAndWait(sessionId, threadId, openTimeoutMs) {
-                await (0, _cdp_dom_js__rspack_import_2.Kl)(this.#requireSession(), sessionId, threadId);
-                await (0, _cdp_dom_js__rspack_import_2.Zx)(this.#requireSession(), sessionId, {
+                await (0, _cdp_dom_js__rspack_import_3.Kl)(this.#requireSession(), sessionId, threadId);
+                await (0, _cdp_dom_js__rspack_import_3.Zx)(this.#requireSession(), sessionId, {
                     timeoutMs: openTimeoutMs,
                     threadId
                 });
             }
             async #attachMainWindow() {
                 const targets = await this.listTargets();
-                const main = (0, _cdp_dom_js__rspack_import_2.C2)(targets);
+                const main = (0, _cdp_dom_js__rspack_import_3.C2)(targets);
                 if (!main) {
-                    throw new _errors_js__rspack_import_0.sO(`No ChatGPT Desktop main window target with url ${JSON.stringify('app://-/index.html')}`);
+                    throw new _errors_js__rspack_import_1.sO(`No ChatGPT Desktop main window target with url ${JSON.stringify('app://-/index.html')}`);
                 }
                 const attached = await this.#requireSession().send('Target.attachToTarget', {
                     targetId: main.targetId,
@@ -7402,13 +7432,13 @@ var __webpack_modules__ = {
                 this.#requireSession();
                 if (!this.#pageSessionId) await this.#attachMainWindow();
                 if (!this.#pageSessionId) {
-                    throw new _errors_js__rspack_import_0.sO('Failed to attach to ChatGPT Desktop main window');
+                    throw new _errors_js__rspack_import_1.sO('Failed to attach to ChatGPT Desktop main window');
                 }
                 return this.#pageSessionId;
             }
             #requireSession() {
                 if (!this.#session || this.#session.closed) {
-                    throw new _errors_js__rspack_import_0.sO('Not connected to ChatGPT Desktop CDP. Call connect({ port }) after relaunching with --remote-debugging-port.');
+                    throw new _errors_js__rspack_import_1.sO('Not connected to ChatGPT Desktop CDP. Call connect({ port }) after relaunching with --remote-debugging-port.');
                 }
                 return this.#session;
             }
@@ -7599,17 +7629,18 @@ var __webpack_modules__ = {
     return { ok: false, error: 'router-not-found' };
   })()`;
         }
-        function startNewChatExpression(project) {
+        function startNewChatExpression(project, projectId) {
             const projectSel = project ? newChatInProjectSelector(project) : null;
             return `(() => {
     const projectSel = ${JSON.stringify(projectSel)};
     if (projectSel) {
-      const preferred = document.querySelector(projectSel);
+      const preferred = ${projectId ? `document.querySelector('[data-app-action-sidebar-project-id=${JSON.stringify(projectId)}]')?.querySelector(projectSel) ||` : ''} document.querySelector(projectSel);
       if (preferred) {
-        const row = preferred.closest('.group') || preferred.parentElement;
+        const row = preferred.closest('[data-app-action-sidebar-project-row]') || preferred.parentElement;
         row?.scrollIntoView({ block: 'center' });
         const rowBox = row?.getBoundingClientRect();
         return { ok: true, via: 'project', project: ${JSON.stringify(project ?? null)},
+          disabled: preferred.disabled || preferred.getAttribute('aria-disabled') === 'true',
           hoverX: rowBox?.left + rowBox?.width / 2, hoverY: rowBox?.top + rowBox?.height / 2 };
       }
       return { ok: false, error: 'project-not-found' };
@@ -7621,15 +7652,40 @@ var __webpack_modules__ = {
     return { ok: true, via: 'fallback' };
   })()`;
         }
-        function projectButtonBoxExpression(project) {
+        function projectButtonBoxExpression(project, projectId) {
             return `(() => {
-    const button = document.querySelector(${JSON.stringify(newChatInProjectSelector(project))});
+    const button = ${projectId ? `document.querySelector('[data-app-action-sidebar-project-id=${JSON.stringify(projectId)}]')?.querySelector(${JSON.stringify(newChatInProjectSelector(project))}) ||` : ''} document.querySelector(${JSON.stringify(newChatInProjectSelector(project))});
     if (!button) return null;
     const box = button.getBoundingClientRect();
     return { x: box.left + box.width / 2, y: box.top + box.height / 2,
-      visible: box.width > 0 && box.height > 0 && getComputedStyle(button.parentElement).opacity !== '0' };
+      disabled: button.disabled || button.getAttribute('aria-disabled') === 'true',
+      visible: box.width > 0 && box.height > 0 && box.x >= 0 && box.y >= 0
+        && box.x < innerWidth && box.y < innerHeight && getComputedStyle(button.parentElement).opacity !== '0' };
   })()`;
         }
+        function newChatViewExpression(project) {
+            return `(() => {
+    const root = window.__codexRoot?._internalRoot?.current;
+    const queue = [root]; let scanned = 0; let path = '';
+    while (queue.length && scanned++ < 10000) {
+      const fiber = queue.shift(); if (!fiber) continue;
+      const router = fiber.memoizedProps?.router;
+      if (router?.navigate && router?.state?.location) { path = router.state.location.pathname; break; }
+      if (fiber.child) queue.push(fiber.child);
+      if (fiber.sibling) queue.push(fiber.sibling);
+    }
+    const composer = !!document.querySelector(${JSON.stringify(COMPOSER_SELECTOR)});
+    const scope = document.querySelector('[data-composer-navigation-target="workspace-project"]')?.getAttribute('aria-label') || '';
+    const expected = ${JSON.stringify(project ? `Change project: ${project}` : '')};
+    return { ready: path === '/' && composer && (expected ? scope === expected : (!scope || scope === 'Choose project')), path, composer, scope };
+  })()`;
+        }
+        const CLEAR_NEW_CHAT_PROJECT_EXPRESSION = `(() => {
+  const button = document.querySelector('[data-clear-project-button="true"]');
+  if (!button || button.disabled) return false;
+  button.click();
+  return true;
+})()`;
         const LOADING_TASK_GONE_EXPRESSION = `(() => {
   const surfacePrefix = ${JSON.stringify(MAIN_CONTENT_SURFACE_CLASS_PREFIX)};
   const mains = Array.from(document.querySelectorAll('main'));
@@ -7815,14 +7871,15 @@ var __webpack_modules__ = {
             }
             throw new Error(loadingGone ? `ChatGPT Desktop timed out waiting for conversation ${JSON.stringify(threadId)}; displayed conversation ${JSON.stringify(lastConversationId)} after ${timeoutMs}ms` : `ChatGPT Desktop thread still showing ${JSON.stringify(LOADING_TASK_TEXT)} after ${timeoutMs}ms`);
         }
-        async function startNewChatInDom(session, sessionId, { project } = {}) {
-            const result = await session.evaluate(startNewChatExpression(project), {
+        async function startNewChatInDom(session, sessionId, { project, projectId, navigationTimeoutMs = 3000 } = {}) {
+            const result = await session.evaluate(startNewChatExpression(project, projectId), {
                 sessionId
             });
             if (!result?.ok) {
                 throw new Error(project ? `ChatGPT Desktop new-chat button not found for project ${JSON.stringify(project)}` : 'ChatGPT Desktop "New chat" button not found');
             }
             if (result.via === 'project') {
+                if (result.disabled) throw new _errors_js__rspack_import_0.Kn(project, 'the Desktop project new-chat action is disabled; check its configured workspace root');
                 if (![
                     result.hoverX,
                     result.hoverY
@@ -7836,9 +7893,10 @@ var __webpack_modules__ = {
                 }, {
                     sessionId
                 });
-                const button = await session.evaluate(projectButtonBoxExpression(project), {
+                const button = await session.evaluate(projectButtonBoxExpression(project, projectId), {
                     sessionId
                 });
+                if (button?.disabled) throw new _errors_js__rspack_import_0.Kn(project, 'the Desktop project new-chat action is disabled; check its configured workspace root');
                 if (!button?.visible || !Number.isFinite(button.x) || !Number.isFinite(button.y)) {
                     throw new Error(`ChatGPT Desktop project button did not appear after hover for ${JSON.stringify(project)}`);
                 }
@@ -7868,9 +7926,28 @@ var __webpack_modules__ = {
                     sessionId
                 });
             }
-            return {
-                via: result.via ?? 'unknown'
+            let observed = {
+                ready: false,
+                path: '',
+                composer: false,
+                scope: ''
             };
+            const deadline = Date.now() + navigationTimeoutMs;
+            while(Date.now() < deadline){
+                observed = await session.evaluate(newChatViewExpression(project), {
+                    sessionId
+                });
+                if (observed?.ready) return {
+                    via: result.via ?? 'unknown'
+                };
+                if (!project && observed?.path === '/' && observed?.composer && observed.scope.startsWith('Change project: ')) {
+                    await session.evaluate(CLEAR_NEW_CHAT_PROJECT_EXPRESSION, {
+                        sessionId
+                    });
+                }
+                await delay(100);
+            }
+            throw new _errors_js__rspack_import_0.XL(project, `route ${JSON.stringify(observed?.path)}, composer ${Boolean(observed?.composer)}, project ${JSON.stringify(observed?.scope)}`);
         }
         async function focusComposer(session, sessionId) {
             const focused = await session.evaluate(FOCUS_COMPOSER_EXPRESSION, {
@@ -8295,6 +8372,24 @@ var __webpack_modules__ = {
                 this.name = 'ComposerDraftError';
             }
         }
+        class ProjectUnavailableError extends Error {
+            code = 'PROJECT_UNAVAILABLE';
+            reason = 'project-unavailable';
+            delivery = 'rejected';
+            constructor(project, detail){
+                super(`ChatGPT Desktop cannot start a chat in project ${JSON.stringify(project)}: ${detail}`);
+                this.name = 'ProjectUnavailableError';
+            }
+        }
+        class NewChatNavigationError extends Error {
+            code = 'NEW_CHAT_NAVIGATION_FAILED';
+            reason = 'new-chat-navigation-failed';
+            delivery = 'rejected';
+            constructor(project, observed){
+                super(`ChatGPT Desktop new-chat action did not open ${project ? `project ${JSON.stringify(project)}` : 'a projectless chat'}; observed ${observed}`);
+                this.name = 'NewChatNavigationError';
+            }
+        }
         class NotImplementedError extends Error {
             code = 'NOT_IMPLEMENTED';
             delivery = 'rejected';
@@ -8324,7 +8419,9 @@ var __webpack_modules__ = {
         }
         __webpack_require__.d(__webpack_exports__, {
             EH: ()=>NotImplementedError,
+            Kn: ()=>ProjectUnavailableError,
             Rg: ()=>_codex_remote_control_js__rspack_import_0.Rg,
+            XL: ()=>NewChatNavigationError,
             c$: ()=>CdpHostRejectedError,
             fw: ()=>ArchivedThreadError,
             oN: ()=>ComposerDraftError,
@@ -8332,37 +8429,39 @@ var __webpack_modules__ = {
         });
     },
     "./src/core/chatgpt-desktop/facade.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
-        var _cdp_adapter_js__rspack_import_0 = __webpack_require__("./src/core/chatgpt-desktop/cdp-adapter.ts");
-        var _app_server_fallback_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/app-server-fallback.ts");
-        var _errors_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
-        var _loopback_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
-        var _remote_threads_js__rspack_import_4 = __webpack_require__("./src/core/chatgpt-desktop/remote-threads.ts");
-        var _payload_budget_js__rspack_import_6 = __webpack_require__("./src/core/chatgpt-desktop/payload-budget.ts");
-        var _thread_ids_js__rspack_import_5 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
+        var node_crypto__rspack_import_0 = __webpack_require__("node:crypto");
+        var _cdp_adapter_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/cdp-adapter.ts");
+        var _app_server_fallback_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/app-server-fallback.ts");
+        var _errors_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
+        var _loopback_js__rspack_import_4 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
+        var _remote_threads_js__rspack_import_5 = __webpack_require__("./src/core/chatgpt-desktop/remote-threads.ts");
+        var _project_state_js__rspack_import_6 = __webpack_require__("./src/core/chatgpt-desktop/project-state.ts");
+        var _payload_budget_js__rspack_import_8 = __webpack_require__("./src/core/chatgpt-desktop/payload-budget.ts");
+        var _thread_ids_js__rspack_import_7 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
         const defaultFallbacks = {
-            listThreads: _app_server_fallback_js__rspack_import_1.OI,
-            searchThreads: _app_server_fallback_js__rspack_import_1.aI,
-            readThread: _app_server_fallback_js__rspack_import_1.Jf,
-            unarchiveThread: _app_server_fallback_js__rspack_import_1.qL,
-            statusProbe: _app_server_fallback_js__rspack_import_1.dM,
-            listRemoteThreads: _remote_threads_js__rspack_import_4.Hx,
-            listHosts: _remote_threads_js__rspack_import_4.Kl,
-            discoverModelProviders: _app_server_fallback_js__rspack_import_1.X
+            listThreads: _app_server_fallback_js__rspack_import_2.OI,
+            searchThreads: _app_server_fallback_js__rspack_import_2.aI,
+            readThread: _app_server_fallback_js__rspack_import_2.Jf,
+            unarchiveThread: _app_server_fallback_js__rspack_import_2.qL,
+            statusProbe: _app_server_fallback_js__rspack_import_2.dM,
+            listRemoteThreads: _remote_threads_js__rspack_import_5.Hx,
+            listHosts: _remote_threads_js__rspack_import_5.Kl,
+            discoverModelProviders: _app_server_fallback_js__rspack_import_2.X
         };
-        const REMOTE_PAGE_CURSOR = 'desktop-remote-page:';
-        const APP_START_CURSOR = 'desktop-app-start';
+        const MERGED_LIST_CURSOR = 'desktop-merged-list-v1:';
         class ChatGptDesktopFacade {
             #cdp;
             #port;
             #cdpConnected = false;
             #fallbacks;
-            constructor(cdp = new _cdp_adapter_js__rspack_import_0.a(), port = (0, _loopback_js__rspack_import_3.L0)(), fallbacks = defaultFallbacks){
+            #listSnapshots = new Map();
+            constructor(cdp = new _cdp_adapter_js__rspack_import_1.a(), port = (0, _loopback_js__rspack_import_4.L0)(), fallbacks = defaultFallbacks){
                 this.#cdp = cdp;
                 this.#port = port;
                 this.#fallbacks = fallbacks;
             }
             async connect({ port }) {
-                this.#port = (0, _loopback_js__rspack_import_3.L0)(process.env, port);
+                this.#port = (0, _loopback_js__rspack_import_4.L0)(process.env, port);
                 try {
                     await this.#cdp.connect({
                         port: this.#port
@@ -8379,124 +8478,195 @@ var __webpack_modules__ = {
             }
             async listThreads(options = {}) {
                 const limit = options.limit ?? 50;
+                const filters = JSON.stringify({
+                    host: normalizeHostFilter(options.host),
+                    modelProvider: options.modelProvider?.trim() || null,
+                    project: options.project?.trim() || null,
+                    groupBy: options.groupBy ?? null
+                });
+                let snapshot;
+                let offset = 0;
+                if (options.cursor) {
+                    const state = (0, _payload_budget_js__rspack_import_8.i3)(MERGED_LIST_CURSOR, options.cursor);
+                    if (state.port !== this.#port || state.filters !== filters || !Number.isSafeInteger(state.offset) || state.offset < 1 || typeof state.fingerprint !== 'string') {
+                        throw new Error('ChatGPT Desktop list cursor does not match the port or filters');
+                    }
+                    offset = state.offset;
+                    snapshot = this.#listSnapshots.get(state.fingerprint) ?? await this.#buildListSnapshot(options, filters);
+                    if (snapshot.fingerprint !== state.fingerprint || snapshot.filters !== filters || snapshot.port !== this.#port) {
+                        throw new Error('ChatGPT Desktop thread inventory changed; restart listing without a cursor');
+                    }
+                } else {
+                    snapshot = await this.#buildListSnapshot(options, filters);
+                }
+                if (offset > snapshot.rows.length) throw new Error('ChatGPT Desktop list cursor is out of range');
                 const host = normalizeHostFilter(options.host);
-                const modelProviders = modelProvidersFromFilter(options.modelProvider);
-                const remoteOffset = options.cursor?.startsWith(REMOTE_PAGE_CURSOR) ? Number(options.cursor.slice(REMOTE_PAGE_CURSOR.length)) : null;
-                if (remoteOffset !== null && (!Number.isSafeInteger(remoteOffset) || remoteOffset < 1)) {
-                    throw new Error('Invalid ChatGPT Desktop remote page cursor');
-                }
-                const inventoryPage = !options.cursor || remoteOffset !== null;
-                const remotes = inventoryPage ? this.#listRemotes() : [];
-                let cdpList = null;
-                let cdpError;
-                try {
-                    if (inventoryPage) {
-                        await this.#ensureCdp();
-                        cdpList = await this.#cdp.listThreads({
-                            limit: 200
-                        });
-                    }
-                } catch (error) {
-                    if (isCdpFailure(error)) {
-                        this.#cdpConnected = false;
-                    } else {
-                        cdpError = error;
-                    }
-                }
-                if (inventoryPage && host !== 'local') {
-                    const remoteInventory = finalizeThreadList({
-                        backend: cdpList?.backend ?? 'remote-state',
-                        limit: 10000,
-                        threads: cdpList?.threads.filter((thread)=>thread.location === 'remote') ?? []
-                    }, {
-                        limit: 10000,
-                        host,
-                        modelProvider: options.modelProvider,
-                        project: options.project,
-                        remotes
-                    });
-                    const offset = remoteOffset ?? 0;
-                    if (remoteOffset !== null || remoteInventory.threads.length >= limit) {
-                        const page = [];
-                        for (const thread of remoteInventory.threads.slice(offset, offset + limit)){
-                            const row = (0, _payload_budget_js__rspack_import_6.eX)(thread);
-                            if ((0, _payload_budget_js__rspack_import_6.sQ)({
-                                ...remoteInventory,
-                                threads: [
-                                    ...page,
-                                    row
-                                ],
-                                nextCursor: REMOTE_PAGE_CURSOR,
-                                ...options.groupBy === 'host' ? {
-                                    groups: groupThreadsByHost([
-                                        ...page,
-                                        row
-                                    ])
-                                } : {}
-                            }) > 614400) {
-                                if (!page.length) throw new Error('ChatGPT Desktop remote thread row exceeds the MCP result byte budget');
-                                break;
-                            }
-                            page.push(row);
-                        }
-                        const nextOffset = offset + page.length;
-                        const nextCursor = nextOffset < remoteInventory.threads.length ? `${REMOTE_PAGE_CURSOR}${nextOffset}` : host === 'all' ? APP_START_CURSOR : null;
-                        return {
-                            ...remoteInventory,
-                            threads: page,
-                            limit,
-                            nextCursor,
-                            ...options.groupBy === 'host' ? {
-                                groupBy: 'host',
-                                groups: groupThreadsByHost(page)
-                            } : {}
-                        };
-                    }
-                }
-                const remoteKeys = new Set(remotes.map((thread)=>(0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId));
-                const reservedRemoteRows = host === 'all' && inventoryPage ? remotes.filter((thread)=>modelProviderMatches(thread, options.modelProvider) && projectMatches(thread, options.project)).length + (cdpList?.threads.filter((thread)=>thread.location === 'remote' && modelProviderMatches(thread, options.modelProvider) && projectMatches(thread, options.project) && !remoteKeys.has((0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId)).length ?? 0) : 0;
-                const appLimit = Math.max(1, limit - Math.min(limit - 1, reservedRemoteRows));
-                let appList = null;
-                let appError;
-                try {
-                    appList = await this.#fallbacks.listThreads({
-                        limit: appLimit,
-                        cursor: options.cursor === APP_START_CURSOR ? undefined : options.cursor,
-                        modelProviders
-                    });
-                } catch (error) {
-                    appError = error;
-                }
-                let base = null;
-                if (appList && cdpList) base = mergeThreadLists(appList, cdpList);
-                else if (appList) base = appList;
-                else if (cdpList) base = cdpList;
-                else if (remotes.length) base = {
-                    backend: 'remote-state',
-                    limit,
-                    threads: []
-                };
-                else if (cdpError) throw cdpError;
-                else if (appError) throw appError;
-                else throw new _errors_js__rspack_import_2.sO('ChatGPT Desktop listThreads: CDP and app-server unreachable');
-                const result = finalizeThreadList(base, {
+                const rows = [];
+                const base = {
+                    backend: snapshot.backend,
                     limit,
                     host,
+                    ...options.modelProvider?.trim() ? {
+                        modelProvider: options.modelProvider.trim()
+                    } : {},
+                    ...options.project ? {
+                        project: options.project
+                    } : {},
+                    ...options.groupBy === 'host' ? {
+                        groupBy: 'host'
+                    } : {}
+                };
+                for (const source of snapshot.rows.slice(offset, offset + limit)){
+                    let row = source;
+                    const candidate = [
+                        ...rows,
+                        row
+                    ];
+                    const probe = {
+                        ...base,
+                        threads: candidate,
+                        nextCursor: MERGED_LIST_CURSOR,
+                        ...options.groupBy === 'host' ? {
+                            groups: groupThreadsByHost(candidate)
+                        } : {},
+                        warnings: snapshot.warnings,
+                        exitCode: 0
+                    };
+                    if ((0, _payload_budget_js__rspack_import_8.sQ)(probe) > 614400) {
+                        if (rows.length) break;
+                        row = (0, _payload_budget_js__rspack_import_8.MH)(row);
+                        const minimal = [
+                            row
+                        ];
+                        if ((0, _payload_budget_js__rspack_import_8.sQ)({
+                            ...base,
+                            threads: minimal,
+                            nextCursor: MERGED_LIST_CURSOR,
+                            ...options.groupBy === 'host' ? {
+                                groups: groupThreadsByHost(minimal)
+                            } : {},
+                            warnings: snapshot.warnings,
+                            exitCode: 0
+                        }) > 614400) {
+                            throw new Error('ChatGPT Desktop thread row exceeds the MCP result byte budget');
+                        }
+                    }
+                    rows.push(row);
+                }
+                const nextOffset = offset + rows.length;
+                const nextCursor = nextOffset < snapshot.rows.length ? (0, _payload_budget_js__rspack_import_8.oI)(MERGED_LIST_CURSOR, {
+                    fingerprint: snapshot.fingerprint,
+                    offset: nextOffset,
+                    port: this.#port,
+                    filters
+                }) : null;
+                const warnings = [
+                    ...snapshot.warnings
+                ];
+                if (rows.length < Math.min(limit, snapshot.rows.length - offset)) {
+                    warnings.push('List page stopped at the MCP byte budget; continue with nextCursor');
+                }
+                return {
+                    ...base,
+                    threads: rows,
+                    nextCursor,
+                    ...options.groupBy === 'host' ? {
+                        groups: groupThreadsByHost(rows)
+                    } : {},
+                    ...warnings.length ? {
+                        warnings
+                    } : {}
+                };
+            }
+            async #buildListSnapshot(options, filters) {
+                const appRows = [];
+                const warnings = [];
+                let appCursor;
+                let appComplete = false;
+                const seenCursors = new Set();
+                const modelProviders = modelProvidersFromFilter(options.modelProvider);
+                try {
+                    for(let page = 0; page < 400; page++){
+                        const out = await this.#fallbacks.listThreads({
+                            limit: 200,
+                            cursor: appCursor,
+                            modelProviders
+                        });
+                        appRows.push(...out.threads);
+                        if (out.warnings) warnings.push(...out.warnings);
+                        if (!out.nextCursor) {
+                            appComplete = true;
+                            break;
+                        }
+                        if (seenCursors.has(out.nextCursor)) throw new Error('App-server list returned a repeated cursor');
+                        seenCursors.add(out.nextCursor);
+                        appCursor = out.nextCursor;
+                    }
+                    if (!appComplete) warnings.push('App-server inventory stopped after 400 pages');
+                } catch (error) {
+                    warnings.push(`App-server list failed: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                const remotes = this.#listRemotes();
+                let cdpList = null;
+                try {
+                    await this.#ensureCdp();
+                    cdpList = await this.#cdp.listThreads({
+                        limit: 200
+                    });
+                } catch (error) {
+                    if (isCdpFailure(error)) this.#cdpConnected = false;
+                    else warnings.push(`CDP list failed: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                if (!appRows.length && !cdpList && !remotes.length) {
+                    throw new _errors_js__rspack_import_3.sO(warnings[0] ?? 'ChatGPT Desktop listThreads: CDP and app-server unreachable');
+                }
+                const appList = {
+                    backend: 'app-server',
+                    limit: appRows.length,
+                    threads: appRows
+                };
+                const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
+                const merged = finalizeThreadList({
+                    ...base,
+                    threads: (0, _project_state_js__rspack_import_6.j)(base.threads)
+                }, {
+                    limit: Number.MAX_SAFE_INTEGER,
+                    host: normalizeHostFilter(options.host),
                     modelProvider: options.modelProvider?.trim() || undefined,
                     project: options.project,
-                    groupBy: options.groupBy,
-                    remotes
+                    remotes: (0, _project_state_js__rspack_import_6.j)(remotes)
                 });
-                const withCursor = host === 'all' || host === 'local' ? result : {
-                    ...result,
-                    nextCursor: null
+                const rows = [
+                    ...new Map(merged.threads.map((row)=>[
+                            (0, _thread_ids_js__rspack_import_7.nn)(row.threadId) ?? row.threadId,
+                            row
+                        ])).values()
+                ];
+                rows.sort(compareDesktopThreads);
+                const fingerprint = (0, node_crypto__rspack_import_0.createHash)('sha256').update(JSON.stringify({
+                    filters,
+                    port: this.#port,
+                    rows: rows.map((row)=>[
+                            row.threadId,
+                            row.updatedAt,
+                            row.location,
+                            row.hostId
+                        ])
+                })).digest('base64url');
+                const snapshot = {
+                    fingerprint,
+                    port: this.#port,
+                    filters,
+                    createdAt: Date.now(),
+                    rows,
+                    backend: merged.backend,
+                    warnings
                 };
-                return appError ? {
-                    ...withCursor,
-                    warnings: [
-                        `App-server list failed: ${appError instanceof Error ? appError.message : String(appError)}`
-                    ]
-                } : withCursor;
+                for (const [key, value] of this.#listSnapshots){
+                    if (Date.now() - value.createdAt > 15 * 60000 || this.#listSnapshots.size >= 8) this.#listSnapshots.delete(key);
+                }
+                this.#listSnapshots.set(fingerprint, snapshot);
+                return snapshot;
             }
             async listHosts() {
                 const remotes = this.#listRemotes();
@@ -8513,7 +8683,7 @@ var __webpack_modules__ = {
                 } catch  {
                     localThreadCount = 0;
                 }
-                const listHosts = this.#fallbacks.listHosts ?? _remote_threads_js__rspack_import_4.Kl;
+                const listHosts = this.#fallbacks.listHosts ?? _remote_threads_js__rspack_import_5.Kl;
                 const fromState = listHosts(process.env, {
                     localThreadCount
                 });
@@ -8578,7 +8748,7 @@ var __webpack_modules__ = {
                 let modelProvidersSource = 'thread/list-distinct';
                 const warnings = [];
                 try {
-                    const discover = this.#fallbacks.discoverModelProviders ?? _app_server_fallback_js__rspack_import_1.X;
+                    const discover = this.#fallbacks.discoverModelProviders ?? _app_server_fallback_js__rspack_import_2.X;
                     const discovered = await discover();
                     modelProviders = [
                         ...discovered.providers
@@ -8599,14 +8769,35 @@ var __webpack_modules__ = {
                         ...remotes.map((thread)=>thread.modelProvider).filter((value)=>Boolean(value))
                     ])
                 ].sort();
+                let inventoryCounts = null;
+                try {
+                    const filters = JSON.stringify({
+                        host: 'all',
+                        modelProvider: null,
+                        project: null,
+                        groupBy: null
+                    });
+                    const cached = [
+                        ...this.#listSnapshots.values()
+                    ].find((snapshot)=>snapshot.port === this.#port && snapshot.filters === filters && Date.now() - snapshot.createdAt < 15 * 60000);
+                    const inventory = cached ?? await this.#buildListSnapshot({}, filters);
+                    inventoryCounts = new Map();
+                    for (const thread of inventory.rows){
+                        const hostId = thread.location === 'remote' ? thread.hostId ?? 'unknown-remote' : 'local';
+                        inventoryCounts.set(hostId, (inventoryCounts.get(hostId) ?? 0) + 1);
+                    }
+                    warnings.push(...inventory.warnings);
+                } catch (error) {
+                    warnings.push(`Merged inventory count failed: ${error instanceof Error ? error.message : String(error)}`);
+                }
                 return {
                     hosts: withCounts.map((host)=>{
-                        const counted = host.hostId === 'local' ? {
+                        const counted = {
                             ...host,
-                            threadCount: localThreadCount
-                        } : host;
+                            threadCount: inventoryCounts?.get(host.hostId) ?? (host.hostId === 'local' ? localThreadCount : host.threadCount)
+                        };
                         if (!counted.hostName) return counted;
-                        const name = (0, _payload_budget_js__rspack_import_6.aA)(counted.hostName);
+                        const name = (0, _payload_budget_js__rspack_import_8.aA)(counted.hostName);
                         return {
                             ...counted,
                             hostName: name.title,
@@ -8633,20 +8824,22 @@ var __webpack_modules__ = {
                         query: options.query,
                         limit,
                         cursor: options.cursor,
-                        modelProviders,
-                        project: options.project
+                        modelProviders
                     });
                     const cdpList = options.cursor ? null : await this.#tryCdpList({
                         limit
                     });
                     const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
                     const appMatches = new Set(appList.threads.map((thread)=>thread.threadId));
-                    const withRemotes = finalizeThreadList(base, {
+                    const withRemotes = finalizeThreadList({
+                        ...base,
+                        threads: (0, _project_state_js__rspack_import_6.j)(base.threads)
+                    }, {
                         limit: 10000,
                         host,
                         modelProvider: options.modelProvider?.trim() || undefined,
                         project: options.project,
-                        remotes: options.cursor ? [] : this.#listRemotes()
+                        remotes: options.cursor ? [] : (0, _project_state_js__rspack_import_6.j)(this.#listRemotes())
                     });
                     const needle = options.query.trim().toLowerCase();
                     const filtered = {
@@ -8677,7 +8870,7 @@ var __webpack_modules__ = {
                             limit
                         },
                         query: options.query,
-                        threads: (cdpList?.threads ?? []).filter((thread)=>threadMatchesQuery(thread, needle))
+                        threads: (0, _project_state_js__rspack_import_6.j)(cdpList?.threads ?? []).filter((thread)=>threadMatchesQuery(thread, needle))
                     };
                     const result = finalizeThreadList(filtered, {
                         limit,
@@ -8685,7 +8878,7 @@ var __webpack_modules__ = {
                         modelProvider: options.modelProvider?.trim() || undefined,
                         project: options.project,
                         groupBy: options.groupBy,
-                        remotes: remotes.filter((thread)=>threadMatchesQuery(thread, needle))
+                        remotes: (0, _project_state_js__rspack_import_6.j)(remotes).filter((thread)=>threadMatchesQuery(thread, needle))
                     });
                     return {
                         ...result,
@@ -8698,7 +8891,7 @@ var __webpack_modules__ = {
             async readThread(options) {
                 const limit = options.limit ?? (options.full ? 2000 : 100);
                 const full = options.full ?? false;
-                if ((0, _thread_ids_js__rspack_import_5.vr)(options.threadId)) {
+                if ((0, _thread_ids_js__rspack_import_7.vr)(options.threadId)) {
                     if (options.cursor) throw new Error('Temporary Desktop threads do not support read cursors');
                     await this.#ensureCdp();
                     return this.#cdp.readThread({
@@ -8715,7 +8908,7 @@ var __webpack_modules__ = {
                         cursor: options.cursor
                     });
                 } catch (appError) {
-                    if (appError instanceof _errors_js__rspack_import_2.Rg) throw appError;
+                    if (appError instanceof _errors_js__rspack_import_3.Rg) throw appError;
                     if (options.cursor) throw appError;
                     const cdpConnected = await this.#tryEnsureCdp();
                     if (!cdpConnected) throw appError;
@@ -8735,15 +8928,15 @@ var __webpack_modules__ = {
             }
             async sendMessage(options) {
                 if (options.threadId) {
-                    const remote = (0, _remote_threads_js__rspack_import_4.KI)(options.threadId);
-                    if (remote) throw new _errors_js__rspack_import_2.Rg(options.threadId, remote.hostId, remote.hostName);
+                    const remote = (0, _remote_threads_js__rspack_import_5.KI)(options.threadId);
+                    if (remote) throw new _errors_js__rspack_import_3.Rg(options.threadId, remote.hostId, remote.hostName);
                 }
                 await this.#ensureCdp();
                 try {
                     return await this.#cdp.sendMessage(options);
                 } catch (error) {
-                    if (!(error instanceof _errors_js__rspack_import_2.fw) || !options.unarchive || !options.threadId) throw error;
-                    await (this.#fallbacks.unarchiveThread ?? _app_server_fallback_js__rspack_import_1.qL)(options.threadId);
+                    if (!(error instanceof _errors_js__rspack_import_3.fw) || !options.unarchive || !options.threadId) throw error;
+                    await (this.#fallbacks.unarchiveThread ?? _app_server_fallback_js__rspack_import_2.qL)(options.threadId);
                     return this.#cdp.sendMessage({
                         ...options,
                         unarchive: false
@@ -8755,8 +8948,8 @@ var __webpack_modules__ = {
                 return this.#cdp.waitForReply(options);
             }
             async openThread(threadId, options) {
-                const remote = (0, _remote_threads_js__rspack_import_4.KI)(threadId);
-                if (remote) throw new _errors_js__rspack_import_2.Rg(threadId, remote.hostId, remote.hostName);
+                const remote = (0, _remote_threads_js__rspack_import_5.KI)(threadId);
+                if (remote) throw new _errors_js__rspack_import_3.Rg(threadId, remote.hostId, remote.hostName);
                 await this.#ensureCdp();
                 return this.#cdp.openThread(threadId, options);
             }
@@ -8785,7 +8978,7 @@ var __webpack_modules__ = {
                 await this.#cdp.close();
             }
             #listRemotes() {
-                const list = this.#fallbacks.listRemoteThreads ?? _remote_threads_js__rspack_import_4.Hx;
+                const list = this.#fallbacks.listRemoteThreads ?? _remote_threads_js__rspack_import_5.Hx;
                 try {
                     return list();
                 } catch  {
@@ -8814,7 +9007,7 @@ var __webpack_modules__ = {
                     await this.#ensureCdp();
                     return await this.#cdp.listThreads(options);
                 } catch (error) {
-                    if (isCdpFailure(error) || error instanceof _errors_js__rspack_import_2.EH) {
+                    if (isCdpFailure(error) || error instanceof _errors_js__rspack_import_3.EH) {
                         if (isCdpFailure(error)) this.#cdpConnected = false;
                         return null;
                     }
@@ -8825,11 +9018,11 @@ var __webpack_modules__ = {
         function mergeThreadLists(appList, cdpList) {
             const cdpByKey = new Map();
             for (const thread of cdpList.threads){
-                const key = (0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId;
+                const key = (0, _thread_ids_js__rspack_import_7.nn)(thread.threadId) ?? thread.threadId;
                 cdpByKey.set(key, thread);
             }
             const merged = appList.threads.map((thread)=>{
-                const key = (0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId;
+                const key = (0, _thread_ids_js__rspack_import_7.nn)(thread.threadId) ?? thread.threadId;
                 const cdp = cdpByKey.get(key);
                 const withLocal = {
                     ...thread,
@@ -8851,7 +9044,7 @@ var __webpack_modules__ = {
                 };
             });
             for (const thread of cdpList.threads){
-                if (merged.some((row)=>(0, _thread_ids_js__rspack_import_5.LV)(row.threadId, thread.threadId))) continue;
+                if (merged.some((row)=>(0, _thread_ids_js__rspack_import_7.LV)(row.threadId, thread.threadId))) continue;
                 merged.push(thread);
             }
             return {
@@ -8866,11 +9059,11 @@ var __webpack_modules__ = {
         }
         function finalizeThreadList(base, { limit, host = 'all', modelProvider, project, groupBy, remotes }) {
             const remoteById = new Map(remotes.map((thread)=>[
-                    (0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId,
+                    (0, _thread_ids_js__rspack_import_7.nn)(thread.threadId) ?? thread.threadId,
                     thread
                 ]));
             const locals = base.threads.map((thread)=>{
-                const remote = remoteById.get((0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId);
+                const remote = remoteById.get((0, _thread_ids_js__rspack_import_7.nn)(thread.threadId) ?? thread.threadId);
                 if (remote) {
                     return {
                         ...thread,
@@ -8887,12 +9080,12 @@ var __webpack_modules__ = {
                     hostName: location === 'remote' ? thread.hostName ?? null : null
                 };
             });
-            const localKeys = new Set(locals.map((thread)=>(0, _thread_ids_js__rspack_import_5.nn)(thread.threadId) ?? thread.threadId));
+            const localKeys = new Set(locals.map((thread)=>(0, _thread_ids_js__rspack_import_7.nn)(thread.threadId) ?? thread.threadId));
             const merged = [
                 ...locals
             ];
             for (const remote of remotes){
-                const key = (0, _thread_ids_js__rspack_import_5.nn)(remote.threadId) ?? remote.threadId;
+                const key = (0, _thread_ids_js__rspack_import_7.nn)(remote.threadId) ?? remote.threadId;
                 if (localKeys.has(key)) continue;
                 merged.push({
                     ...remote,
@@ -8900,6 +9093,7 @@ var __webpack_modules__ = {
                     hostId: remote.hostId ?? null,
                     hostName: remote.hostName ?? null
                 });
+                localKeys.add(key);
             }
             if (remotes.length) merged.sort((a, b)=>Number(b.location === 'remote') - Number(a.location === 'remote'));
             const filtered = merged.filter((thread)=>{
@@ -8908,7 +9102,7 @@ var __webpack_modules__ = {
                 if (!projectMatches(thread, project)) return false;
                 return true;
             });
-            const limited = filtered.slice(0, limit).map(_payload_budget_js__rspack_import_6.eX);
+            const limited = filtered.slice(0, limit).map(_payload_budget_js__rspack_import_8.eX);
             const result = {
                 backend: remotes.length ? base.backend === 'app-server+cdp' ? 'app-server+cdp+remote-state' : base.backend === 'app-server' ? 'app-server+remote-state' : base.backend === 'cdp' ? 'cdp+remote-state' : base.backend : base.backend,
                 limit,
@@ -8935,6 +9129,14 @@ var __webpack_modules__ = {
                 };
             }
             return result;
+        }
+        function compareDesktopThreads(a, b) {
+            const timestamp = (row)=>{
+                const value = row.updatedAt ?? row.createdAt;
+                if (typeof value !== 'number' || !Number.isFinite(value)) return Number.NEGATIVE_INFINITY;
+                return value < 100000000000 ? value * 1000 : value;
+            };
+            return timestamp(b) - timestamp(a) || a.threadId.localeCompare(b.threadId);
         }
         function groupThreadsByHost(threads) {
             const groups = new Map();
@@ -9003,8 +9205,8 @@ var __webpack_modules__ = {
             ].some((value)=>typeof value === 'string' && value.toLowerCase().includes(needle));
         }
         function isCdpFailure(error) {
-            if (error instanceof _errors_js__rspack_import_2.sO) return true;
-            if (error instanceof _errors_js__rspack_import_2.EH) return false;
+            if (error instanceof _errors_js__rspack_import_3.sO) return true;
+            if (error instanceof _errors_js__rspack_import_3.EH) return false;
             if (error && typeof error === 'object' && 'code' in error) {
                 const code = String(error.code);
                 return code === 'CDP_UNREACHABLE' || code === 'CDP_HOST_REJECTED';
@@ -9176,6 +9378,102 @@ var __webpack_modules__ = {
             i3: ()=>decodePageCursor,
             oI: ()=>encodePageCursor,
             sQ: ()=>serializedBytes
+        });
+    },
+    "./src/core/chatgpt-desktop/project-state.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        var _codex_remote_control_js__rspack_import_0 = __webpack_require__("./src/core/codex/remote-control.js");
+        var _thread_ids_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
+        function findLocalProject(nameOrId, env = process.env) {
+            const state = (0, _codex_remote_control_js__rspack_import_0.IT)(env);
+            if (!state) return null;
+            for (const value of Object.values(record(stateValue(state, 'local-projects')) ?? {})){
+                const row = record(value);
+                if (!row || typeof row.id !== 'string' || typeof row.name !== 'string') continue;
+                if (row.id !== nameOrId && row.name.toLowerCase() !== nameOrId.toLowerCase()) continue;
+                return {
+                    id: row.id,
+                    label: row.name,
+                    rootPaths: (Array.isArray(row.rootPaths) ? row.rootPaths : []).filter((path)=>typeof path === 'string' && Boolean(path))
+                };
+            }
+            return null;
+        }
+        function record(value) {
+            return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+        }
+        function stateValue(state, key) {
+            for (const source of (0, _codex_remote_control_js__rspack_import_0.xr)(state))if (key in source) return source[key];
+            return undefined;
+        }
+        function pathWithin(path, root) {
+            const normalized = root.replace(/\/+$/u, '');
+            return path === normalized || path.startsWith(`${normalized}/`);
+        }
+        function resolveThreadProjects(threads, env = process.env) {
+            const state = (0, _codex_remote_control_js__rspack_import_0.IT)(env);
+            if (!state) return [
+                ...threads
+            ];
+            const localProjects = Object.values(record(stateValue(state, 'local-projects')) ?? {}).flatMap((value)=>{
+                const row = record(value);
+                if (!row || typeof row.id !== 'string' || typeof row.name !== 'string') return [];
+                return (Array.isArray(row.rootPaths) ? row.rootPaths : []).filter((path)=>typeof path === 'string' && Boolean(path)).map((rootPath)=>({
+                        id: row.id,
+                        label: row.name,
+                        rootPath
+                    }));
+            });
+            const remoteProjects = (Array.isArray(stateValue(state, 'remote-projects')) ? stateValue(state, 'remote-projects') : []).flatMap((value)=>{
+                const row = record(value);
+                if (!row || typeof row.id !== 'string' || typeof row.label !== 'string' || typeof row.remotePath !== 'string' || typeof row.hostId !== 'string') return [];
+                return [
+                    {
+                        id: row.id,
+                        label: row.label,
+                        rootPath: row.remotePath,
+                        hostId: row.hostId
+                    }
+                ];
+            });
+            const assignments = record(stateValue(state, 'thread-project-assignments')) ?? {};
+            const hints = record(stateValue(state, 'thread-workspace-root-hints')) ?? {};
+            const projectless = new Set(Array.isArray(stateValue(state, 'projectless-thread-ids')) ? stateValue(state, 'projectless-thread-ids') : []);
+            return threads.map((thread)=>{
+                const bare = (0, _thread_ids_js__rspack_import_1.nn)(thread.threadId) ?? thread.threadId;
+                const assignment = record(assignments[bare]);
+                const remote = thread.location === 'remote';
+                const projects = remote ? remoteProjects.filter((project)=>project.hostId === thread.hostId) : localProjects;
+                let project = assignment && typeof assignment.projectId === 'string' ? projects.find((entry)=>entry.id === assignment.projectId) : undefined;
+                if (!project && !projectless.has(bare) && thread.projectId) {
+                    project = projects.find((entry)=>entry.id === thread.projectId);
+                }
+                if (!project && !assignment && !projectless.has(bare)) {
+                    const path = typeof hints[bare] === 'string' ? hints[bare] : typeof thread.cwd === 'string' ? thread.cwd : null;
+                    if (path) project = projects.filter((entry)=>pathWithin(path, entry.rootPath)).sort((a, b)=>b.rootPath.length - a.rootPath.length)[0];
+                }
+                if (project) return {
+                    ...thread,
+                    project: project.label,
+                    projectId: project.id,
+                    projectRootPath: project.rootPath
+                };
+                if (projectless.has(bare)) return {
+                    ...thread,
+                    project: null,
+                    projectId: null
+                };
+                if (remote && typeof thread.project === 'string' && thread.project.startsWith('/')) {
+                    return {
+                        ...thread,
+                        project: null
+                    };
+                }
+                return thread;
+            });
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            j: ()=>resolveThreadProjects,
+            q: ()=>findLocalProject
         });
     },
     "./src/core/chatgpt-desktop/remote-threads.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
@@ -10598,7 +10896,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop list threads',
-            description: 'List Desktop threads, then pass nextCursor as cursor until null. Pages may stop early at the MCP byte budget. Display titles are capped at 200 characters with titleTruncated:true. Filter by dynamic hostId/hostName, modelProvider, or project label/projectId. Rows expose local:<conversationId>, location, hostId, and provider; remote rows require their owning host for reading or sending. Backend and warnings identify partial sources.',
+            description: 'List one sorted Desktop inventory without duplicate rows. Pass nextCursor as cursor with unchanged filters until null; pages fill limit unless the MCP byte budget binds. A changed/expired inventory cursor requires restarting. Display titles are capped at 200 characters with titleTruncated:true. Filter by dynamic hostId/hostName, modelProvider, or Desktop project label/projectId; projectRootPath identifies the resolved workspace. Rows expose local:<conversationId>, location, hostId, and provider; remote rows require their owning host for reading or sending. Backend and warnings identify partial sources.',
             annotations: {
                 readOnlyHint: true
             },
@@ -10851,7 +11149,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop send',
-            description: 'Send once through local Desktop CDP. With threadId, accept local:<conversationId>, bare durable id, or currently selected local:client-new-thread:*; remote ids must be sent on their hostId. Omit threadId and project for a new chat outside projects; omit threadId and set project for a new chat inside it. New-thread receipts include temporaryThreadId when seen and return durable local:<conversationId> once resolved. ARCHIVED_THREAD rejects without sending; unarchive:true explicitly unarchives that existing thread first. CDP_UNREACHABLE and COMPOSER_HAS_DRAFT require operator inspection, not blind retry.',
+            description: 'Send once through local Desktop CDP. With threadId, accept local:<conversationId>, bare durable id, or currently selected local:client-new-thread:*; remote ids must be sent on their hostId. Omit threadId and project for a new chat outside projects; omit threadId and set project for a new chat inside it. The empty view and project scope are checked before typing. New-thread receipts include temporaryThreadId when seen and return durable local:<conversationId> once resolved. ARCHIVED_THREAD rejects without sending; unarchive:true explicitly unarchives that existing thread first. PROJECT_UNAVAILABLE identifies a disabled project action or missing configured root; NEW_CHAT_NAVIGATION_FAILED reports an unchanged view promptly. CDP_UNREACHABLE and COMPOSER_HAS_DRAFT require operator inspection, not blind retry.',
             annotations: {
                 readOnlyHint: false
             },
@@ -60271,7 +60569,7 @@ var __webpack_modules__ = {
                     "annotations": {
                         "readOnlyHint": true
                     },
-                    "description": "List Desktop threads, then pass nextCursor as cursor until null. Pages may stop early at the MCP byte budget. Display titles are capped at 200 characters with titleTruncated:true. Filter by dynamic hostId/hostName, modelProvider, or project label/projectId. Rows expose local:<conversationId>, location, hostId, and provider; remote rows require their owning host for reading or sending. Backend and warnings identify partial sources.",
+                    "description": "List one sorted Desktop inventory without duplicate rows. Pass nextCursor as cursor with unchanged filters until null; pages fill limit unless the MCP byte budget binds. A changed/expired inventory cursor requires restarting. Display titles are capped at 200 characters with titleTruncated:true. Filter by dynamic hostId/hostName, modelProvider, or Desktop project label/projectId; projectRootPath identifies the resolved workspace. Rows expose local:<conversationId>, location, hostId, and provider; remote rows require their owning host for reading or sending. Backend and warnings identify partial sources.",
                     "inputJsonSchema": {
                         "additionalProperties": false,
                         "properties": {
@@ -60460,7 +60758,7 @@ var __webpack_modules__ = {
                     "annotations": {
                         "readOnlyHint": false
                     },
-                    "description": "Send once through local Desktop CDP. With threadId, accept local:<conversationId>, bare durable id, or currently selected local:client-new-thread:*; remote ids must be sent on their hostId. Omit threadId and project for a new chat outside projects; omit threadId and set project for a new chat inside it. New-thread receipts include temporaryThreadId when seen and return durable local:<conversationId> once resolved. ARCHIVED_THREAD rejects without sending; unarchive:true explicitly unarchives that existing thread first. CDP_UNREACHABLE and COMPOSER_HAS_DRAFT require operator inspection, not blind retry.",
+                    "description": "Send once through local Desktop CDP. With threadId, accept local:<conversationId>, bare durable id, or currently selected local:client-new-thread:*; remote ids must be sent on their hostId. Omit threadId and project for a new chat outside projects; omit threadId and set project for a new chat inside it. The empty view and project scope are checked before typing. New-thread receipts include temporaryThreadId when seen and return durable local:<conversationId> once resolved. ARCHIVED_THREAD rejects without sending; unarchive:true explicitly unarchives that existing thread first. PROJECT_UNAVAILABLE identifies a disabled project action or missing configured root; NEW_CHAT_NAVIGATION_FAILED reports an unchanged view promptly. CDP_UNREACHABLE and COMPOSER_HAS_DRAFT require operator inspection, not blind retry.",
                     "inputJsonSchema": {
                         "additionalProperties": false,
                         "properties": {
