@@ -6492,6 +6492,1108 @@ var __webpack_modules__ = {
             module.exports = __webpack_require__("./node_modules/react/cjs/react-jsx-runtime.development.js");
         }
     },
+    "./src/core/chatgpt-desktop/app-server-fallback.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        var _codex_bridge_js__rspack_import_0 = __webpack_require__("./src/core/codex-bridge.js");
+        async function appServerListThreads({ limit = 50 } = {}) {
+            const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
+                limit
+            });
+            return {
+                backend: 'app-server',
+                limit: out.limit,
+                threads: out.threads.map((thread)=>({
+                        threadId: String(thread.id ?? ''),
+                        title: String(thread.name || thread.preview || thread.cwd || thread.id || ''),
+                        pinned: false,
+                        selected: false,
+                        kind: 'codex'
+                    }))
+            };
+        }
+        async function appServerReadThread({ threadId, limit = 100 }) {
+            const { client } = await (0, _codex_bridge_js__rspack_import_0.eC)();
+            try {
+                let turns = [];
+                try {
+                    const read = await client.request('thread/read', {
+                        threadId
+                    });
+                    const raw = read.thread?.turns ?? read.turns ?? read.thread?.items ?? read.items ?? [];
+                    turns = normalizeTurns(raw).slice(-limit);
+                } catch  {
+                    const items = await client.request('thread/items/list', {
+                        threadId,
+                        limit: Math.min(limit, 100)
+                    });
+                    turns = normalizeTurns(items.data ?? []).slice(-limit);
+                }
+                return {
+                    threadId,
+                    turns,
+                    backend: 'app-server',
+                    limit
+                };
+            } finally{
+                client.close();
+            }
+        }
+        async function appServerSendMessage({ threadId, text }) {
+            if (!threadId) {
+                return {
+                    threadId: 'new',
+                    backend: 'app-server',
+                    experimental: false,
+                    delivery: 'rejected',
+                    message: 'app-server fallback requires an existing threadId; starting a new Desktop thread needs CDP'
+                };
+            }
+            const receipt = await (0, _codex_bridge_js__rspack_import_0.ZS)(threadId, text);
+            return {
+                threadId,
+                backend: 'app-server',
+                experimental: false,
+                delivery: receipt.delivery ?? 'accepted',
+                message: typeof receipt.turnId === 'string' ? `turn ${receipt.turnId}` : undefined
+            };
+        }
+        async function appServerWaitForReply({ threadId, timeoutMs = 60000 }) {
+            const baseline = await appServerReadThread({
+                threadId,
+                limit: 200
+            });
+            const seen = new Set(baseline.turns.map((turn)=>turn.turnKey));
+            const deadline = Date.now() + timeoutMs;
+            while(Date.now() < deadline){
+                await new Promise((resolve)=>setTimeout(resolve, 400));
+                const page = await appServerReadThread({
+                    threadId,
+                    limit: 200
+                });
+                const fresh = page.turns.filter((turn)=>!seen.has(turn.turnKey) && turn.role === 'assistant' && turn.text);
+                const reply = fresh.at(-1)?.text ?? '';
+                if (reply) {
+                    return {
+                        threadId,
+                        reply,
+                        backend: 'app-server',
+                        experimental: false,
+                        delivery: 'replied'
+                    };
+                }
+            }
+            return {
+                threadId,
+                reply: '',
+                backend: 'app-server',
+                experimental: false,
+                delivery: 'timeout'
+            };
+        }
+        async function appServerOpenThread(threadId) {
+            const { client } = await (0, _codex_bridge_js__rspack_import_0.eC)();
+            try {
+                await client.request('thread/resume', {
+                    threadId,
+                    excludeTurns: true
+                });
+                return {
+                    threadId,
+                    backend: 'app-server'
+                };
+            } finally{
+                client.close();
+            }
+        }
+        async function appServerStatusProbe() {
+            const status = await (0, _codex_bridge_js__rspack_import_0.MU)();
+            return {
+                reachable: Boolean(status.reachable && status.mode === 'daemon'),
+                mode: typeof status.mode === 'string' ? status.mode : undefined,
+                socketPath: typeof status.socketPath === 'string' ? status.socketPath : undefined
+            };
+        }
+        function normalizeTurns(raw) {
+            const turns = [];
+            for (const [index, item] of raw.entries()){
+                if (!item || typeof item !== 'object') continue;
+                const row = item;
+                const text = typeof row.text === 'string' ? row.text : typeof row.content === 'string' ? row.content : '';
+                const type = String(row.type ?? row.role ?? '');
+                let role = 'assistant';
+                if (/user/i.test(type)) role = 'user';
+                else if (/status|system|reasoning/i.test(type) && !text) role = 'status';
+                turns.push({
+                    turnKey: String(row.id ?? row.turnId ?? index),
+                    role,
+                    text
+                });
+            }
+            return turns;
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            Ab: ()=>appServerSendMessage,
+            Jf: ()=>appServerReadThread,
+            OI: ()=>appServerListThreads,
+            bk: ()=>appServerWaitForReply,
+            dM: ()=>appServerStatusProbe,
+            zu: ()=>appServerOpenThread
+        });
+    },
+    "./src/core/chatgpt-desktop/cdp-adapter.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        var _errors_js__rspack_import_0 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
+        var _cdp_session_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/cdp-session.ts");
+        var _cdp_dom_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/cdp-dom.ts");
+        var _loopback_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
+        class CdpChatGptDesktopAdapter {
+            #port = (0, _loopback_js__rspack_import_3.L0)();
+            #session = null;
+            #version = null;
+            #pageSessionId = null;
+            #mainTargetId = null;
+            async connect({ port }) {
+                await this.close();
+                this.#port = (0, _loopback_js__rspack_import_3.L0)(process.env, port);
+                const session = new _cdp_session_js__rspack_import_1.a(this.#port);
+                try {
+                    this.#version = await session.connect();
+                    this.#session = session;
+                    await this.#attachMainWindow();
+                } catch (error) {
+                    session.close();
+                    this.#session = null;
+                    throw error;
+                }
+            }
+            async listTargets() {
+                const session = this.#requireSession();
+                const result = await session.send('Target.getTargets');
+                return (0, _cdp_dom_js__rspack_import_2.Mr)(result.targetInfos ?? []);
+            }
+            async listThreads({ limit = 50 } = {}) {
+                const sessionId = await this.#ensurePageSession();
+                const threads = await (0, _cdp_dom_js__rspack_import_2.AY)(this.#requireSession(), sessionId, {
+                    limit
+                });
+                return {
+                    threads,
+                    backend: 'cdp',
+                    limit
+                };
+            }
+            async readThread({ threadId, limit = 100 }) {
+                const sessionId = await this.#ensurePageSession();
+                await (0, _cdp_dom_js__rspack_import_2.Kl)(this.#requireSession(), sessionId, threadId);
+                await delay(150);
+                const turns = await (0, _cdp_dom_js__rspack_import_2.JU)(this.#requireSession(), sessionId, {
+                    limit
+                });
+                return {
+                    threadId,
+                    turns,
+                    backend: 'cdp',
+                    limit
+                };
+            }
+            async sendMessage({ threadId, text }) {
+                const sessionId = await this.#ensurePageSession();
+                if (threadId) {
+                    await (0, _cdp_dom_js__rspack_import_2.Kl)(this.#requireSession(), sessionId, threadId);
+                    await delay(100);
+                }
+                await (0, _cdp_dom_js__rspack_import_2.lh)(this.#requireSession(), sessionId, text);
+                return {
+                    threadId: threadId ?? 'new',
+                    backend: 'cdp',
+                    experimental: true,
+                    delivery: 'accepted',
+                    message: 'Submitted via experimental CDP composer path'
+                };
+            }
+            async waitForReply({ threadId, timeoutMs = 60000 }) {
+                const sessionId = await this.#ensurePageSession();
+                await (0, _cdp_dom_js__rspack_import_2.Kl)(this.#requireSession(), sessionId, threadId);
+                const deadline = Date.now() + timeoutMs;
+                let previousKeys = new Set();
+                let lastAssistant = '';
+                let stable = 0;
+                const baseline = await (0, _cdp_dom_js__rspack_import_2.JU)(this.#requireSession(), sessionId, {
+                    limit: 500
+                });
+                previousKeys = new Set(baseline.map((t)=>t.turnKey));
+                while(Date.now() < deadline){
+                    await delay(400);
+                    const turns = await (0, _cdp_dom_js__rspack_import_2.JU)(this.#requireSession(), sessionId, {
+                        limit: 500
+                    });
+                    const fresh = turns.filter((t)=>!previousKeys.has(t.turnKey) && t.role === 'assistant');
+                    const candidate = fresh.at(-1)?.text ?? '';
+                    if (candidate && candidate === lastAssistant) {
+                        stable += 1;
+                        if (stable >= 3) {
+                            return {
+                                threadId,
+                                reply: candidate,
+                                backend: 'cdp',
+                                experimental: true,
+                                delivery: 'replied'
+                            };
+                        }
+                    } else if (candidate) {
+                        lastAssistant = candidate;
+                        stable = 0;
+                    }
+                }
+                return {
+                    threadId,
+                    reply: lastAssistant,
+                    backend: 'cdp',
+                    experimental: true,
+                    delivery: lastAssistant ? 'replied' : 'timeout'
+                };
+            }
+            async openThread(threadId) {
+                const sessionId = await this.#ensurePageSession();
+                await (0, _cdp_dom_js__rspack_import_2.Kl)(this.#requireSession(), sessionId, threadId);
+                return {
+                    threadId,
+                    backend: 'cdp'
+                };
+            }
+            async status() {
+                try {
+                    const version = this.#version ?? await _cdp_session_js__rspack_import_1.a.fetchVersion(this.#port);
+                    let targetCount;
+                    let mainWindowTargetId;
+                    if (this.#session && !this.#session.closed) {
+                        const targets = await this.listTargets();
+                        targetCount = targets.length;
+                        mainWindowTargetId = (0, _cdp_dom_js__rspack_import_2.C2)(targets)?.targetId ?? null;
+                    } else {
+                        const list = await _cdp_session_js__rspack_import_1.a.fetchJsonList(this.#port);
+                        targetCount = list.length;
+                    }
+                    return {
+                        reachable: true,
+                        port: this.#port,
+                        host: '127.0.0.1',
+                        browser: typeof version.Browser === 'string' ? version.Browser : undefined,
+                        protocolVersion: typeof version['Protocol-Version'] === 'string' ? version['Protocol-Version'] : undefined,
+                        webSocketDebuggerUrl: typeof version.webSocketDebuggerUrl === 'string' ? version.webSocketDebuggerUrl : undefined,
+                        targetCount,
+                        mainWindowTargetId: mainWindowTargetId ?? this.#mainTargetId,
+                        message: 'ChatGPT Desktop CDP endpoint reachable on 127.0.0.1',
+                        exitCode: 0
+                    };
+                } catch (error) {
+                    return {
+                        reachable: false,
+                        port: this.#port,
+                        host: '127.0.0.1',
+                        message: error instanceof Error ? error.message : 'ChatGPT Desktop CDP endpoint unreachable on 127.0.0.1',
+                        exitCode: 1
+                    };
+                }
+            }
+            async close() {
+                this.#pageSessionId = null;
+                this.#mainTargetId = null;
+                this.#version = null;
+                this.#session?.close();
+                this.#session = null;
+            }
+            async #attachMainWindow() {
+                const targets = await this.listTargets();
+                const main = (0, _cdp_dom_js__rspack_import_2.C2)(targets);
+                if (!main) {
+                    throw new _errors_js__rspack_import_0.sO(`No ChatGPT Desktop main window target with url ${JSON.stringify('app://-/index.html')}`);
+                }
+                const attached = await this.#requireSession().send('Target.attachToTarget', {
+                    targetId: main.targetId,
+                    flatten: true
+                });
+                this.#mainTargetId = main.targetId;
+                this.#pageSessionId = attached.sessionId;
+            }
+            async #ensurePageSession() {
+                this.#requireSession();
+                if (!this.#pageSessionId) await this.#attachMainWindow();
+                if (!this.#pageSessionId) {
+                    throw new _errors_js__rspack_import_0.sO('Failed to attach to ChatGPT Desktop main window');
+                }
+                return this.#pageSessionId;
+            }
+            #requireSession() {
+                if (!this.#session || this.#session.closed) {
+                    throw new _errors_js__rspack_import_0.sO('Not connected to ChatGPT Desktop CDP. Call connect({ port }) after relaunching with --remote-debugging-port.');
+                }
+                return this.#session;
+            }
+        }
+        function delay(ms) {
+            return new Promise((resolve)=>setTimeout(resolve, ms));
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            a: ()=>CdpChatGptDesktopAdapter
+        });
+    },
+    "./src/core/chatgpt-desktop/cdp-dom.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        const MAIN_WINDOW_URL = 'app://-/index.html';
+        const ATTR = {
+            threadRow: 'data-app-action-sidebar-thread-row',
+            threadId: 'data-app-action-sidebar-thread-id',
+            threadTitle: 'data-app-action-sidebar-thread-title',
+            threadPinned: 'data-app-action-sidebar-thread-pinned',
+            threadSelected: 'data-app-action-sidebar-thread-selected',
+            threadKind: 'data-app-action-sidebar-thread-kind',
+            turnKey: 'data-turn-key',
+            userBubble: 'data-user-message-bubble',
+            timelineScroll: 'data-app-action-timeline-scroll',
+            virtualizedTurn: 'data-virtualized-turn-content'
+        };
+        const SELECTORS = {
+            threadRow: `[role="button"][${ATTR.threadRow}]`,
+            turn: `[${ATTR.turnKey}]`,
+            userBubble: `[${ATTR.userBubble}]`,
+            timelineScroll: `[${ATTR.timelineScroll}]`,
+            mainSurface: 'main',
+            composerCandidates: [
+                'main [contenteditable="true"]',
+                'main textarea',
+                '[data-app-action-composer] [contenteditable="true"]',
+                '[data-app-action-composer] textarea',
+                'form [contenteditable="true"]',
+                'form textarea'
+            ],
+            sendButtonCandidates: [
+                'button[data-app-action-send]',
+                'button[aria-label="Send"]',
+                'button[aria-label="Send message"]',
+                'main button[type="submit"]'
+            ]
+        };
+        function isMainWindowTarget(target) {
+            return target.type === 'page' && target.url === MAIN_WINDOW_URL;
+        }
+        function summarizeTargetInfos(targetInfos) {
+            return targetInfos.filter((t)=>typeof t.targetId === 'string' && typeof t.type === 'string').map((t)=>({
+                    targetId: String(t.targetId),
+                    type: String(t.type),
+                    title: typeof t.title === 'string' ? t.title : '',
+                    url: typeof t.url === 'string' ? t.url : '',
+                    attached: Boolean(t.attached)
+                }));
+        }
+        function pickMainWindowTarget(targets) {
+            return targets.find((t)=>isMainWindowTarget(t)) ?? null;
+        }
+        const LIST_THREADS_EXPRESSION = `(() => {
+  const rows = Array.from(document.querySelectorAll(${JSON.stringify(SELECTORS.threadRow)}));
+  return rows.map((row) => ({
+    threadId: row.getAttribute(${JSON.stringify(ATTR.threadId)}) || '',
+    title: row.getAttribute(${JSON.stringify(ATTR.threadTitle)}) || (row.textContent || '').trim(),
+    pinned: row.getAttribute(${JSON.stringify(ATTR.threadPinned)}) === 'true',
+    selected: row.getAttribute(${JSON.stringify(ATTR.threadSelected)}) === 'true',
+    kind: row.getAttribute(${JSON.stringify(ATTR.threadKind)}) || 'unknown',
+  })).filter((t) => t.threadId);
+})()`;
+        function openThreadExpression(threadId) {
+            return `(() => {
+    const id = ${JSON.stringify(threadId)};
+    const rows = Array.from(document.querySelectorAll(${JSON.stringify(SELECTORS.threadRow)}));
+    const row = rows.find((el) => el.getAttribute(${JSON.stringify(ATTR.threadId)}) === id);
+    if (!row) return { ok: false, error: 'thread-not-found' };
+    row.click();
+    return { ok: true, threadId: id };
+  })()`;
+        }
+        const READ_THREAD_EXPRESSION = `(() => {
+  const scroll = document.querySelector(${JSON.stringify(SELECTORS.timelineScroll)});
+  const mains = Array.from(document.querySelectorAll('main'));
+  const surface = mains.length >= 2 ? mains[1] : (mains[0] || document.body);
+  const root = scroll || surface;
+  const collected = new Map();
+  const statusRe = /^Worked for \\d+s$/i;
+  const harvest = () => {
+    for (const el of root.querySelectorAll(${JSON.stringify(SELECTORS.turn)})) {
+      const turnKey = el.getAttribute(${JSON.stringify(ATTR.turnKey)}) || '';
+      if (!turnKey || collected.has(turnKey)) continue;
+      const user = el.querySelector(${JSON.stringify(SELECTORS.userBubble)});
+      const text = (el.innerText || '').trim();
+      let role = 'assistant';
+      if (user) role = 'user';
+      else if (!text || statusRe.test(text)) role = 'status';
+      collected.set(turnKey, { turnKey, role, text });
+    }
+  };
+  const maxPasses = 80;
+  let stable = 0;
+  let lastSize = -1;
+  if (scroll) scroll.scrollTop = 0;
+  for (let i = 0; i < maxPasses; i++) {
+    harvest();
+    if (collected.size === lastSize) {
+      stable += 1;
+      if (stable >= 3) break;
+    } else {
+      stable = 0;
+      lastSize = collected.size;
+    }
+    if (scroll) {
+      const next = Math.min(scroll.scrollHeight, scroll.scrollTop + Math.max(scroll.clientHeight, 200));
+      if (next <= scroll.scrollTop && stable >= 1) break;
+      scroll.scrollTop = next;
+    } else {
+      break;
+    }
+  }
+  harvest();
+  return Array.from(collected.values());
+})()`;
+        function sendMessageExpression(text) {
+            const composers = JSON.stringify([
+                ...SELECTORS.composerCandidates
+            ]);
+            const buttons = JSON.stringify([
+                ...SELECTORS.sendButtonCandidates
+            ]);
+            return `(() => {
+    const text = ${JSON.stringify(text)};
+    const composers = ${composers};
+    let composer = null;
+    for (const sel of composers) {
+      composer = document.querySelector(sel);
+      if (composer) break;
+    }
+    if (!composer) return { ok: false, error: 'composer-not-found' };
+    composer.focus();
+    if (composer.isContentEditable) {
+      composer.textContent = text;
+      composer.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }));
+    } else if ('value' in composer) {
+      composer.value = text;
+      composer.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+      return { ok: false, error: 'composer-unsupported' };
+    }
+    const buttons = ${buttons};
+    let sent = false;
+    for (const sel of buttons) {
+      const btn = document.querySelector(sel);
+      if (btn && !btn.disabled) { btn.click(); sent = true; break; }
+    }
+    if (!sent) {
+      composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+      composer.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+    }
+    return { ok: true, sentVia: sent ? 'button' : 'enter' };
+  })()`;
+        }
+        async function listThreadsFromDom(session, sessionId, { limit = 50 } = {}) {
+            const rows = await session.evaluate(LIST_THREADS_EXPRESSION, {
+                sessionId
+            });
+            if (!Array.isArray(rows)) return [];
+            return rows.slice(0, limit).map((row)=>({
+                    threadId: String(row.threadId),
+                    title: String(row.title ?? ''),
+                    pinned: Boolean(row.pinned),
+                    selected: Boolean(row.selected),
+                    kind: String(row.kind ?? 'unknown')
+                }));
+        }
+        async function openThreadInDom(session, sessionId, threadId) {
+            const result = await session.evaluate(openThreadExpression(threadId), {
+                sessionId
+            });
+            if (!result?.ok) {
+                throw new Error(result?.error === 'thread-not-found' ? `ChatGPT Desktop thread not found: ${threadId}` : `Failed to open ChatGPT Desktop thread ${threadId}`);
+            }
+        }
+        async function readTurnsFromDom(session, sessionId, { limit = 100 } = {}) {
+            const turns = await session.evaluate(READ_THREAD_EXPRESSION, {
+                sessionId
+            });
+            if (!Array.isArray(turns)) return [];
+            return turns.slice(-limit).map((turn)=>({
+                    turnKey: String(turn.turnKey),
+                    role: turn.role === 'user' || turn.role === 'status' ? turn.role : 'assistant',
+                    text: String(turn.text ?? '')
+                }));
+        }
+        async function sendMessageInDom(session, sessionId, text) {
+            try {
+                await session.send('Input.insertText', {
+                    text
+                }, {
+                    sessionId
+                });
+            } catch  {}
+            const result = await session.evaluate(sendMessageExpression(text), {
+                sessionId
+            });
+            if (!result?.ok) {
+                throw new Error(result?.error === 'composer-not-found' ? 'ChatGPT Desktop composer not found (experimental send path)' : `ChatGPT Desktop send failed: ${result?.error ?? 'unknown'}`);
+            }
+            return {
+                sentVia: result.sentVia ?? 'unknown'
+            };
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            AY: ()=>listThreadsFromDom,
+            C2: ()=>pickMainWindowTarget,
+            JU: ()=>readTurnsFromDom,
+            Kl: ()=>openThreadInDom,
+            Mr: ()=>summarizeTargetInfos,
+            lh: ()=>sendMessageInDom
+        });
+    },
+    "./src/core/chatgpt-desktop/cdp-session.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        var _errors_js__rspack_import_0 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
+        var _loopback_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
+        class CdpSession {
+            #port;
+            #ws = null;
+            #nextId = 1;
+            #pending = new Map();
+            #closed = false;
+            constructor(port){
+                this.#port = port;
+            }
+            get port() {
+                return this.#port;
+            }
+            get closed() {
+                return this.#closed || this.#ws === null || this.#ws.readyState === WebSocket.CLOSED;
+            }
+            static async fetchVersion(port, { signal } = {}) {
+                const base = (0, _loopback_js__rspack_import_1.NJ)(port);
+                let response;
+                try {
+                    response = await fetch(`${base}/json/version`, {
+                        signal
+                    });
+                } catch (error) {
+                    throw new _errors_js__rspack_import_0.sO(`ChatGPT Desktop CDP not reachable at ${base}/json/version: ` + (error instanceof Error ? error.message : String(error)));
+                }
+                if (!response.ok) {
+                    throw new _errors_js__rspack_import_0.sO(`ChatGPT Desktop CDP /json/version returned HTTP ${response.status}`);
+                }
+                return await response.json();
+            }
+            static async fetchJsonList(port, { signal } = {}) {
+                const base = (0, _loopback_js__rspack_import_1.NJ)(port);
+                let response;
+                try {
+                    response = await fetch(`${base}/json/list`, {
+                        signal
+                    });
+                } catch (error) {
+                    throw new _errors_js__rspack_import_0.sO(`ChatGPT Desktop CDP not reachable at ${base}/json/list: ` + (error instanceof Error ? error.message : String(error)));
+                }
+                if (!response.ok) {
+                    throw new _errors_js__rspack_import_0.sO(`ChatGPT Desktop CDP /json/list returned HTTP ${response.status}`);
+                }
+                const body = await response.json();
+                return Array.isArray(body) ? body : [];
+            }
+            async connect({ signal } = {}) {
+                if (this.#ws && !this.closed) {
+                    throw new Error('CDP session already connected');
+                }
+                const version = await CdpSession.fetchVersion(this.#port, {
+                    signal
+                });
+                const rawUrl = version.webSocketDebuggerUrl;
+                if (typeof rawUrl !== 'string' || !rawUrl) {
+                    throw new _errors_js__rspack_import_0.sO('CDP /json/version omitted webSocketDebuggerUrl');
+                }
+                const url = (0, _loopback_js__rspack_import_1.jv)(rawUrl);
+                const parsed = new URL(url);
+                (0, _loopback_js__rspack_import_1.tb)(parsed.hostname);
+                await new Promise((resolve, reject)=>{
+                    const ws = new WebSocket(url);
+                    this.#ws = ws;
+                    const onAbort = ()=>{
+                        ws.close();
+                        reject(new Error('CDP connect aborted'));
+                    };
+                    signal?.addEventListener('abort', onAbort, {
+                        once: true
+                    });
+                    ws.addEventListener('open', ()=>{
+                        signal?.removeEventListener('abort', onAbort);
+                        resolve();
+                    }, {
+                        once: true
+                    });
+                    ws.addEventListener('error', ()=>{
+                        signal?.removeEventListener('abort', onAbort);
+                        reject(new _errors_js__rspack_import_0.sO(`CDP WebSocket failed for ${url}`));
+                    }, {
+                        once: true
+                    });
+                    ws.addEventListener('message', (event)=>this.#onMessage(event.data));
+                    ws.addEventListener('close', ()=>{
+                        this.#closed = true;
+                        for (const [, pending] of this.#pending){
+                            pending.reject(new Error('CDP WebSocket closed'));
+                        }
+                        this.#pending.clear();
+                    });
+                });
+                this.#closed = false;
+                return version;
+            }
+            async send(method, params, { sessionId } = {}) {
+                if (!this.#ws || this.#ws.readyState !== WebSocket.OPEN) {
+                    throw new _errors_js__rspack_import_0.sO('CDP session is not connected');
+                }
+                const id = this.#nextId++;
+                const payload = {
+                    id,
+                    method
+                };
+                if (params !== undefined) payload.params = params;
+                if (sessionId !== undefined) payload.sessionId = sessionId;
+                return await new Promise((resolve, reject)=>{
+                    this.#pending.set(id, {
+                        resolve: (value)=>resolve(value),
+                        reject
+                    });
+                    this.#ws.send(JSON.stringify(payload));
+                });
+            }
+            async evaluate(expression, { sessionId, awaitPromise = true } = {}) {
+                const result = await this.send('Runtime.evaluate', {
+                    expression,
+                    returnByValue: true,
+                    awaitPromise
+                }, {
+                    sessionId
+                });
+                if (result.exceptionDetails) {
+                    const text = result.exceptionDetails.exception?.description || result.exceptionDetails.text || 'Runtime.evaluate failed';
+                    throw new Error(text);
+                }
+                return result.result?.value;
+            }
+            close() {
+                this.#closed = true;
+                this.#ws?.close();
+                this.#ws = null;
+            }
+            #onMessage(data) {
+                let message;
+                try {
+                    message = JSON.parse(String(data));
+                } catch  {
+                    return;
+                }
+                if (typeof message.id !== 'number') return;
+                const pending = this.#pending.get(message.id);
+                if (!pending) return;
+                this.#pending.delete(message.id);
+                if (message.error) {
+                    pending.reject(new Error(message.error.message || 'CDP error'));
+                    return;
+                }
+                pending.resolve(message.result);
+            }
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            a: ()=>CdpSession
+        });
+    },
+    "./src/core/chatgpt-desktop/errors.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        class NotImplementedError extends Error {
+            code = 'NOT_IMPLEMENTED';
+            delivery = 'rejected';
+            reason = 'not-implemented';
+            constructor(operation, detail){
+                super(detail ? `ChatGPT Desktop ${operation} is not implemented: ${detail}` : `ChatGPT Desktop ${operation} is not implemented`);
+                this.name = 'NotImplementedError';
+            }
+        }
+        class CdpHostRejectedError extends Error {
+            code = 'CDP_HOST_REJECTED';
+            delivery = 'rejected';
+            reason = 'cdp-host-rejected';
+            constructor(host){
+                super(`ChatGPT Desktop CDP rejects non-loopback host ${JSON.stringify(host)}. ` + 'Connect to 127.0.0.1 only; there is no remote transport.');
+                this.name = 'CdpHostRejectedError';
+            }
+        }
+        class CdpUnreachableError extends Error {
+            code = 'CDP_UNREACHABLE';
+            delivery = 'rejected';
+            reason = 'cdp-unreachable';
+            constructor(message){
+                super(message);
+                this.name = 'CdpUnreachableError';
+            }
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            EH: ()=>NotImplementedError,
+            c$: ()=>CdpHostRejectedError,
+            sO: ()=>CdpUnreachableError
+        });
+    },
+    "./src/core/chatgpt-desktop/facade.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        var _cdp_adapter_js__rspack_import_0 = __webpack_require__("./src/core/chatgpt-desktop/cdp-adapter.ts");
+        var _app_server_fallback_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/app-server-fallback.ts");
+        var _errors_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
+        var _loopback_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
+        class ChatGptDesktopFacade {
+            #cdp;
+            #port;
+            #cdpConnected = false;
+            constructor(cdp = new _cdp_adapter_js__rspack_import_0.a(), port = (0, _loopback_js__rspack_import_3.L0)()){
+                this.#cdp = cdp;
+                this.#port = port;
+            }
+            async connect({ port }) {
+                this.#port = (0, _loopback_js__rspack_import_3.L0)(process.env, port);
+                try {
+                    await this.#cdp.connect({
+                        port: this.#port
+                    });
+                    this.#cdpConnected = true;
+                } catch (error) {
+                    this.#cdpConnected = false;
+                    throw error;
+                }
+            }
+            async listTargets() {
+                await this.#ensureCdp();
+                return this.#cdp.listTargets();
+            }
+            async listThreads(options) {
+                try {
+                    await this.#ensureCdp();
+                    return await this.#cdp.listThreads(options);
+                } catch (error) {
+                    if (!isCdpFailure(error)) throw error;
+                    return (0, _app_server_fallback_js__rspack_import_1.OI)(options);
+                }
+            }
+            async readThread(options) {
+                try {
+                    await this.#ensureCdp();
+                    return await this.#cdp.readThread(options);
+                } catch (error) {
+                    if (!isCdpFailure(error)) throw error;
+                    return (0, _app_server_fallback_js__rspack_import_1.Jf)(options);
+                }
+            }
+            async sendMessage(options) {
+                try {
+                    await this.#ensureCdp();
+                    return await this.#cdp.sendMessage(options);
+                } catch (error) {
+                    if (!isCdpFailure(error)) throw error;
+                    return (0, _app_server_fallback_js__rspack_import_1.Ab)(options);
+                }
+            }
+            async waitForReply(options) {
+                try {
+                    await this.#ensureCdp();
+                    return await this.#cdp.waitForReply(options);
+                } catch (error) {
+                    if (!isCdpFailure(error)) throw error;
+                    return (0, _app_server_fallback_js__rspack_import_1.bk)(options);
+                }
+            }
+            async openThread(threadId) {
+                try {
+                    await this.#ensureCdp();
+                    return await this.#cdp.openThread(threadId);
+                } catch (error) {
+                    if (!isCdpFailure(error)) throw error;
+                    return (0, _app_server_fallback_js__rspack_import_1.zu)(threadId);
+                }
+            }
+            async status() {
+                const cdpStatus = await this.#cdp.status();
+                let appServerFallback;
+                try {
+                    appServerFallback = await (0, _app_server_fallback_js__rspack_import_1.dM)();
+                } catch  {
+                    appServerFallback = {
+                        reachable: false
+                    };
+                }
+                const reachable = cdpStatus.reachable || Boolean(appServerFallback?.reachable);
+                return {
+                    ...cdpStatus,
+                    port: this.#port,
+                    appServerFallback,
+                    reachable,
+                    message: cdpStatus.reachable ? cdpStatus.message : appServerFallback?.reachable ? 'CDP unreachable; Codex app-server fallback is available' : cdpStatus.message,
+                    exitCode: reachable ? 0 : 1
+                };
+            }
+            async close() {
+                this.#cdpConnected = false;
+                await this.#cdp.close();
+            }
+            async #ensureCdp() {
+                if (this.#cdpConnected) return;
+                await this.#cdp.connect({
+                    port: this.#port
+                });
+                this.#cdpConnected = true;
+            }
+        }
+        function isCdpFailure(error) {
+            if (error instanceof _errors_js__rspack_import_2.sO) return true;
+            if (error instanceof _errors_js__rspack_import_2.EH) return false;
+            if (error && typeof error === 'object' && 'code' in error) {
+                const code = String(error.code);
+                return code === 'CDP_UNREACHABLE' || code === 'CDP_HOST_REJECTED';
+            }
+            return false;
+        }
+        let activeAdapter = null;
+        function getChatGptDesktopAdapter() {
+            if (!activeAdapter) activeAdapter = new ChatGptDesktopFacade();
+            return activeAdapter;
+        }
+        function setChatGptDesktopAdapterForTests(adapter) {
+            activeAdapter = adapter;
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            PP: ()=>getChatGptDesktopAdapter
+        });
+    },
+    "./src/core/chatgpt-desktop/loopback.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        var _errors_js__rspack_import_0 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
+        const LOOPBACK = new Set([
+            '127.0.0.1',
+            'localhost',
+            '::1'
+        ]);
+        const DEFAULT_CDP_PORT = 9222;
+        const CDP_LOOPBACK_HOST = '127.0.0.1';
+        function isLoopbackHostname(hostname) {
+            const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+            return LOOPBACK.has(host);
+        }
+        function assertLoopbackHostname(hostname) {
+            if (!isLoopbackHostname(hostname)) {
+                throw new _errors_js__rspack_import_0.c$(hostname);
+            }
+        }
+        function cdpHttpBase(port) {
+            if (!Number.isInteger(port) || port < 1 || port > 65535) {
+                throw new RangeError('CDP port must be an integer 1-65535');
+            }
+            return `http://${CDP_LOOPBACK_HOST}:${port}`;
+        }
+        function forceLoopbackWebSocketUrl(raw) {
+            let url;
+            try {
+                url = new URL(raw);
+            } catch  {
+                throw new _errors_js__rspack_import_0.c$(String(raw));
+            }
+            assertLoopbackHostname(url.hostname);
+            if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
+                throw new Error(`Expected ws(s) debugger URL, got ${url.protocol}`);
+            }
+            url.hostname = CDP_LOOPBACK_HOST;
+            url.protocol = 'ws:';
+            return url.toString();
+        }
+        function resolveCdpPort(env = process.env, explicit) {
+            if (explicit !== undefined) {
+                if (!Number.isInteger(explicit) || explicit < 1 || explicit > 65535) {
+                    throw new RangeError('CDP port must be an integer 1-65535');
+                }
+                return explicit;
+            }
+            const raw = (env.CHATGPT_DESKTOP_CDP_PORT || '').trim();
+            if (!raw) return DEFAULT_CDP_PORT;
+            const port = Number.parseInt(raw, 10);
+            if (!Number.isInteger(port) || port < 1 || port > 65535) {
+                throw new RangeError('CHATGPT_DESKTOP_CDP_PORT must be an integer 1-65535');
+            }
+            return port;
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            L0: ()=>resolveCdpPort,
+            NJ: ()=>cdpHttpBase,
+            jv: ()=>forceLoopbackWebSocketUrl,
+            tb: ()=>assertLoopbackHostname
+        });
+    },
+    "./src/core/chatgpt-desktop/routes.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        var zod__rspack_import_4 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
+        var _codex_contract_js__rspack_import_0 = __webpack_require__("./src/core/codex/contract.js");
+        var _errors_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
+        var _facade_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/facade.ts");
+        var _loopback_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
+        const threadId = zod__rspack_import_4.YjP().min(1).max(256);
+        const statusSchema = zod__rspack_import_4.Ikc({
+            port: zod__rspack_import_4.aig().int().min(1).max(65535).optional()
+        }).strict();
+        const listThreadsSchema = zod__rspack_import_4.Ikc({
+            port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
+            limit: zod__rspack_import_4.aig().int().min(1).max(200).default(50)
+        }).strict();
+        const readThreadSchema = zod__rspack_import_4.Ikc({
+            port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
+            threadId,
+            limit: zod__rspack_import_4.aig().int().min(1).max(500).default(100)
+        }).strict();
+        const sendSchema = zod__rspack_import_4.Ikc({
+            port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
+            threadId: threadId.optional(),
+            text: zod__rspack_import_4.YjP().min(1).max(100000)
+        }).strict();
+        const waitReplySchema = zod__rspack_import_4.Ikc({
+            port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
+            threadId,
+            timeoutMs: zod__rspack_import_4.aig().int().min(1).max(600000).default(60000)
+        }).strict();
+        const resultSchema = zod__rspack_import_4.Ikc({
+            exitCode: zod__rspack_import_4.KCZ([
+                zod__rspack_import_4.euz(0),
+                zod__rspack_import_4.euz(1)
+            ])
+        }).catchall(zod__rspack_import_4.Pq9());
+        async function withAdapter(port, run) {
+            const adapter = (0, _facade_js__rspack_import_2.PP)();
+            const resolved = (0, _loopback_js__rspack_import_3.L0)(process.env, port);
+            try {
+                await adapter.connect({
+                    port: resolved
+                });
+            } catch  {}
+            return run(adapter);
+        }
+        function asResult(value) {
+            return resultSchema.parse(value);
+        }
+        function mapError(error) {
+            if (error instanceof _errors_js__rspack_import_1.EH) {
+                return asResult({
+                    delivery: 'rejected',
+                    reason: 'not-implemented',
+                    code: 'NOT_IMPLEMENTED',
+                    error: error.message,
+                    exitCode: 1
+                });
+            }
+            const base = (0, _codex_contract_js__rspack_import_0.DG)(error);
+            if (error && typeof error === 'object' && 'code' in error) {
+                return asResult({
+                    ...base,
+                    code: String(error.code)
+                });
+            }
+            return asResult(base);
+        }
+        async function statusOperation(input) {
+            try {
+                const status = await withAdapter(input.port, (adapter)=>adapter.status());
+                return asResult(status);
+            } catch (error) {
+                return mapError(error);
+            }
+        }
+        async function listThreadsOperation(input) {
+            try {
+                const out = await withAdapter(input.port, (adapter)=>adapter.listThreads({
+                        limit: input.limit
+                    }));
+                return asResult({
+                    ...out,
+                    exitCode: 0
+                });
+            } catch (error) {
+                return mapError(error);
+            }
+        }
+        async function readThreadOperation(input) {
+            try {
+                const out = await withAdapter(input.port, (adapter)=>adapter.readThread({
+                        threadId: input.threadId,
+                        limit: input.limit
+                    }));
+                return asResult({
+                    ...out,
+                    exitCode: 0
+                });
+            } catch (error) {
+                return mapError(error);
+            }
+        }
+        async function sendOperation(input) {
+            try {
+                const out = await withAdapter(input.port, (adapter)=>adapter.sendMessage({
+                        threadId: input.threadId,
+                        text: input.text
+                    }));
+                return asResult({
+                    ...out,
+                    exitCode: out.delivery === 'accepted' ? 0 : 1
+                });
+            } catch (error) {
+                return mapError(error);
+            }
+        }
+        async function waitReplyOperation(input) {
+            try {
+                const out = await withAdapter(input.port, (adapter)=>adapter.waitForReply({
+                        threadId: input.threadId,
+                        timeoutMs: input.timeoutMs
+                    }));
+                return asResult({
+                    ...out,
+                    exitCode: out.delivery === 'replied' ? 0 : 1
+                });
+            } catch (error) {
+                return mapError(error);
+            }
+        }
+        function resultText(result) {
+            if (result.error) return String(result.error);
+            if (result.reachable === true) {
+                const backend = result.appServerFallback && typeof result.appServerFallback === 'object' ? ` cdp + app-server probe` : '';
+                return `ChatGPT Desktop CDP reachable on 127.0.0.1:${result.port}${backend}`;
+            }
+            if (result.reachable === false) return String(result.message ?? 'ChatGPT Desktop CDP unreachable');
+            if (Array.isArray(result.threads)) {
+                return `${result.threads.length} threads via ${result.backend ?? 'unknown'}`;
+            }
+            if (Array.isArray(result.turns)) {
+                return `${result.turns.length} turns on ${result.threadId} via ${result.backend ?? 'unknown'}`;
+            }
+            if (result.delivery === 'accepted') {
+                return `Sent on ${result.threadId} via ${result.backend}${result.experimental ? ' (experimental)' : ''}`;
+            }
+            if (result.delivery === 'replied') {
+                return String(result.reply ?? 'replied');
+            }
+            if (result.delivery) return `delivery ${result.delivery}`;
+            return JSON.stringify(result);
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            D6: ()=>resultText,
+            UK: ()=>readThreadOperation,
+            UP: ()=>sendOperation,
+            Uj: ()=>statusOperation,
+            Zg: ()=>waitReplyOperation,
+            tJ: ()=>listThreadsOperation
+        }, {
+            FC: listThreadsSchema,
+            FD: resultSchema,
+            Fn: waitReplySchema,
+            Wi: sendSchema,
+            aW: statusSchema,
+            so: readThreadSchema
+        });
+    },
     "./src/core/claude-routes.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
         var zod__rspack_import_1 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
         var _claude_channel_js__rspack_import_0 = __webpack_require__("./src/core/claude-channel.js");
@@ -7052,6 +8154,237 @@ var __webpack_modules__ = {
             rW: summarizeTarget,
             xw: transcriptEntries,
             yF: withRedactedErrors
+        });
+    },
+    "./src/mcp/grok-bot/tools/chatgpt_desktop_list_threads.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        __webpack_require__.r(__webpack_exports__);
+        var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.js");
+        var _agent_bundle_runtime__rspack_import_3 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
+        var agent_bundle_routes__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/routes.js");
+        var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
+        const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
+            title: 'ChatGPT Desktop list threads',
+            description: 'List ChatGPT Desktop sidebar threads via local CDP (127.0.0.1 only). Falls back to the Codex app-server daemon when CDP is unreachable; the result includes backend "cdp" or "app-server".',
+            annotations: {
+                readOnlyHint: true
+            },
+            inputSchema: _core_chatgpt_desktop_routes_js__rspack_import_2.FC,
+            resultSchema: _core_chatgpt_desktop_routes_js__rspack_import_2.FD,
+            inputJsonSchema: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    port: {
+                        type: 'number'
+                    },
+                    limit: {
+                        type: 'number',
+                        description: 'Maximum threads (1-200).'
+                    }
+                },
+                required: []
+            }
+        }, async (input)=>{
+            const out = await (0, _core_chatgpt_desktop_routes_js__rspack_import_2.tJ)(input);
+            return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Result, {
+                value: out,
+                children: (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Text, {
+                    children: (0, _core_chatgpt_desktop_routes_js__rspack_import_2.D6)(out)
+                })
+            });
+        });
+        __webpack_require__.d(__webpack_exports__, {
+            inputSchema: ()=>_core_chatgpt_desktop_routes_js__rspack_import_2.FC
+        }, {
+            "default": __rspack_default_export
+        });
+    },
+    "./src/mcp/grok-bot/tools/chatgpt_desktop_read_thread.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        __webpack_require__.r(__webpack_exports__);
+        var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.js");
+        var _agent_bundle_runtime__rspack_import_3 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
+        var agent_bundle_routes__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/routes.js");
+        var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
+        const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
+            title: 'ChatGPT Desktop read thread',
+            description: 'Open a ChatGPT Desktop sidebar thread and collect turns via local CDP (scrolls the virtualized timeline). Falls back to Codex app-server thread/read or items when CDP is unreachable; result includes backend.',
+            annotations: {
+                readOnlyHint: true
+            },
+            inputSchema: _core_chatgpt_desktop_routes_js__rspack_import_2.so,
+            resultSchema: _core_chatgpt_desktop_routes_js__rspack_import_2.FD,
+            inputJsonSchema: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    port: {
+                        type: 'number'
+                    },
+                    threadId: {
+                        type: 'string'
+                    },
+                    limit: {
+                        type: 'number'
+                    }
+                },
+                required: [
+                    'threadId'
+                ]
+            }
+        }, async (input)=>{
+            const out = await (0, _core_chatgpt_desktop_routes_js__rspack_import_2.UK)(input);
+            return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Result, {
+                value: out,
+                children: (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Text, {
+                    children: (0, _core_chatgpt_desktop_routes_js__rspack_import_2.D6)(out)
+                })
+            });
+        });
+        __webpack_require__.d(__webpack_exports__, {
+            inputSchema: ()=>_core_chatgpt_desktop_routes_js__rspack_import_2.so
+        }, {
+            "default": __rspack_default_export
+        });
+    },
+    "./src/mcp/grok-bot/tools/chatgpt_desktop_send.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        __webpack_require__.r(__webpack_exports__);
+        var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.js");
+        var _agent_bundle_runtime__rspack_import_3 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
+        var agent_bundle_routes__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/routes.js");
+        var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
+        const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
+            title: 'ChatGPT Desktop send',
+            description: 'EXPERIMENTAL: send a message in ChatGPT Desktop via local CDP composer (Input.insertText / contenteditable). Omit threadId to use the current/new chat. Falls back to Codex app-server send when CDP is unreachable and threadId is set; result includes backend.',
+            annotations: {
+                readOnlyHint: false
+            },
+            inputSchema: _core_chatgpt_desktop_routes_js__rspack_import_2.Wi,
+            resultSchema: _core_chatgpt_desktop_routes_js__rspack_import_2.FD,
+            render: {
+                maxElapsedMs: 120000
+            },
+            inputJsonSchema: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    port: {
+                        type: 'number'
+                    },
+                    threadId: {
+                        type: 'string',
+                        description: 'Sidebar thread id; omit to start/use a new chat.'
+                    },
+                    text: {
+                        type: 'string'
+                    }
+                },
+                required: [
+                    'text'
+                ]
+            }
+        }, async (input)=>{
+            const out = await (0, _core_chatgpt_desktop_routes_js__rspack_import_2.UP)(input);
+            return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Result, {
+                value: out,
+                children: (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Text, {
+                    children: (0, _core_chatgpt_desktop_routes_js__rspack_import_2.D6)(out)
+                })
+            });
+        });
+        __webpack_require__.d(__webpack_exports__, {
+            inputSchema: ()=>_core_chatgpt_desktop_routes_js__rspack_import_2.Wi
+        }, {
+            "default": __rspack_default_export
+        });
+    },
+    "./src/mcp/grok-bot/tools/chatgpt_desktop_status.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        __webpack_require__.r(__webpack_exports__);
+        var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.js");
+        var _agent_bundle_runtime__rspack_import_3 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
+        var agent_bundle_routes__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/routes.js");
+        var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
+        const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
+            title: 'ChatGPT Desktop status',
+            description: 'Probe the local ChatGPT Desktop Chrome DevTools endpoint on 127.0.0.1 (no remote transport). Reports CDP reachability and whether the Codex app-server fallback is available. From the Grok Bot box, run gbot on the user machine via Grok Bot Shell with a machineId.',
+            annotations: {
+                readOnlyHint: true
+            },
+            inputSchema: _core_chatgpt_desktop_routes_js__rspack_import_2.aW,
+            resultSchema: _core_chatgpt_desktop_routes_js__rspack_import_2.FD,
+            inputJsonSchema: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    port: {
+                        type: 'number',
+                        description: 'Local CDP port (default 9222 or CHATGPT_DESKTOP_CDP_PORT).'
+                    }
+                },
+                required: []
+            }
+        }, async (input)=>{
+            const out = await (0, _core_chatgpt_desktop_routes_js__rspack_import_2.Uj)(input);
+            return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Result, {
+                value: out,
+                children: (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Text, {
+                    children: (0, _core_chatgpt_desktop_routes_js__rspack_import_2.D6)(out)
+                })
+            });
+        });
+        __webpack_require__.d(__webpack_exports__, {
+            inputSchema: ()=>_core_chatgpt_desktop_routes_js__rspack_import_2.aW
+        }, {
+            "default": __rspack_default_export
+        });
+    },
+    "./src/mcp/grok-bot/tools/chatgpt_desktop_wait_reply.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        __webpack_require__.r(__webpack_exports__);
+        var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.js");
+        var _agent_bundle_runtime__rspack_import_3 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
+        var agent_bundle_routes__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/routes.js");
+        var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
+        const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
+            title: 'ChatGPT Desktop wait for reply',
+            description: 'EXPERIMENTAL: poll ChatGPT Desktop turns via local CDP until a new assistant turn stabilizes, or time out. Falls back to Codex app-server item polling when CDP is unreachable; result includes backend.',
+            annotations: {
+                readOnlyHint: true
+            },
+            inputSchema: _core_chatgpt_desktop_routes_js__rspack_import_2.Fn,
+            resultSchema: _core_chatgpt_desktop_routes_js__rspack_import_2.FD,
+            render: {
+                maxElapsedMs: 660000
+            },
+            inputJsonSchema: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    port: {
+                        type: 'number'
+                    },
+                    threadId: {
+                        type: 'string'
+                    },
+                    timeoutMs: {
+                        type: 'number'
+                    }
+                },
+                required: [
+                    'threadId'
+                ]
+            }
+        }, async (input)=>{
+            const out = await (0, _core_chatgpt_desktop_routes_js__rspack_import_2.Zg)(input);
+            return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Result, {
+                value: out,
+                children: (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Text, {
+                    children: (0, _core_chatgpt_desktop_routes_js__rspack_import_2.D6)(out)
+                })
+            });
+        });
+        __webpack_require__.d(__webpack_exports__, {
+            inputSchema: ()=>_core_chatgpt_desktop_routes_js__rspack_import_2.Fn
+        }, {
+            "default": __rspack_default_export
         });
     },
     "./src/mcp/grok-bot/tools/claude_send.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
@@ -56143,46 +57476,207 @@ var __webpack_modules__ = {
     "./.agent-bundle-virtual/mcp-grok-bot-b8c2461e-1.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         __webpack_require__.r(__webpack_exports__);
         var node_url__rspack_import_0 = __webpack_require__("node:url");
-        var _agent_bundle_runtime__rspack_import_16 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
+        var _agent_bundle_runtime__rspack_import_21 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
         var agent_bundle_mcp_server_runtime__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/mcp-server-runtime.js");
-        var _agent_bundle_runtime_lineage__rspack_import_17 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/lineage.js");
+        var _agent_bundle_runtime_lineage__rspack_import_22 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/lineage.js");
         var agent_bundle_mcp_apps__rspack_import_2 = __webpack_require__("./.agent-bundle-virtual/mcp-grok-bot-b8c2461e-0.mjs");
-        var _src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_3 = __webpack_require__("./src/mcp/grok-bot/tools/claude_send.tsx");
-        var _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_4 = __webpack_require__("./src/mcp/grok-bot/tools/codex_send.tsx");
-        var _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_5 = __webpack_require__("./src/mcp/grok-bot/tools/codex_threads.tsx");
-        var _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_6 = __webpack_require__("./src/mcp/grok-bot/tools/codex_wait.tsx");
-        var _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_7 = __webpack_require__("./src/mcp/grok-bot/tools/codex_watch.tsx");
-        var _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_8 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_start.tsx");
-        var _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_9 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_status.tsx");
-        var _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_10 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_stop.tsx");
-        var _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_11 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_codex_respond.tsx");
-        var _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_12 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_approvals.tsx");
-        var _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_13 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_respond.tsx");
-        var _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_14 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_send.tsx");
-        var _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_15 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_thread.tsx");
-        const route0 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_3, 'default'), _src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_3);
-        const route1 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_4, 'default'), _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_4);
-        const route2 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_5, 'default'), _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_5);
-        const route3 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_6, 'default'), _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_6);
-        const route4 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_7, 'default'), _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_7);
-        const route5 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_8, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_8);
-        const route6 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_9, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_9);
-        const route7 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_10, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_10);
-        const route8 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_11, 'default'), _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_11);
-        const route9 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_12, 'default'), _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_12);
-        const route10 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_13, 'default'), _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_13);
-        const route11 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_14, 'default'), _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_14);
-        const route12 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_15, 'default'), _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_15);
+        var _src_mcp_grok_bot_tools_chatgpt_desktop_list_threads_tsx__rspack_import_3 = __webpack_require__("./src/mcp/grok-bot/tools/chatgpt_desktop_list_threads.tsx");
+        var _src_mcp_grok_bot_tools_chatgpt_desktop_read_thread_tsx__rspack_import_4 = __webpack_require__("./src/mcp/grok-bot/tools/chatgpt_desktop_read_thread.tsx");
+        var _src_mcp_grok_bot_tools_chatgpt_desktop_send_tsx__rspack_import_5 = __webpack_require__("./src/mcp/grok-bot/tools/chatgpt_desktop_send.tsx");
+        var _src_mcp_grok_bot_tools_chatgpt_desktop_status_tsx__rspack_import_6 = __webpack_require__("./src/mcp/grok-bot/tools/chatgpt_desktop_status.tsx");
+        var _src_mcp_grok_bot_tools_chatgpt_desktop_wait_reply_tsx__rspack_import_7 = __webpack_require__("./src/mcp/grok-bot/tools/chatgpt_desktop_wait_reply.tsx");
+        var _src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_8 = __webpack_require__("./src/mcp/grok-bot/tools/claude_send.tsx");
+        var _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_9 = __webpack_require__("./src/mcp/grok-bot/tools/codex_send.tsx");
+        var _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_10 = __webpack_require__("./src/mcp/grok-bot/tools/codex_threads.tsx");
+        var _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_11 = __webpack_require__("./src/mcp/grok-bot/tools/codex_wait.tsx");
+        var _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_12 = __webpack_require__("./src/mcp/grok-bot/tools/codex_watch.tsx");
+        var _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_13 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_start.tsx");
+        var _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_14 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_status.tsx");
+        var _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_15 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_bridge_stop.tsx");
+        var _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_16 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_codex_respond.tsx");
+        var _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_17 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_approvals.tsx");
+        var _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_18 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_grok_respond.tsx");
+        var _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_19 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_send.tsx");
+        var _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_20 = __webpack_require__("./src/mcp/grok-bot/tools/gbot_thread.tsx");
+        const route0 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_chatgpt_desktop_list_threads_tsx__rspack_import_3, 'default'), _src_mcp_grok_bot_tools_chatgpt_desktop_list_threads_tsx__rspack_import_3);
+        const route1 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_chatgpt_desktop_read_thread_tsx__rspack_import_4, 'default'), _src_mcp_grok_bot_tools_chatgpt_desktop_read_thread_tsx__rspack_import_4);
+        const route2 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_chatgpt_desktop_send_tsx__rspack_import_5, 'default'), _src_mcp_grok_bot_tools_chatgpt_desktop_send_tsx__rspack_import_5);
+        const route3 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_chatgpt_desktop_status_tsx__rspack_import_6, 'default'), _src_mcp_grok_bot_tools_chatgpt_desktop_status_tsx__rspack_import_6);
+        const route4 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_chatgpt_desktop_wait_reply_tsx__rspack_import_7, 'default'), _src_mcp_grok_bot_tools_chatgpt_desktop_wait_reply_tsx__rspack_import_7);
+        const route5 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_8, 'default'), _src_mcp_grok_bot_tools_claude_send_tsx__rspack_import_8);
+        const route6 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_9, 'default'), _src_mcp_grok_bot_tools_codex_send_tsx__rspack_import_9);
+        const route7 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_10, 'default'), _src_mcp_grok_bot_tools_codex_threads_tsx__rspack_import_10);
+        const route8 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_11, 'default'), _src_mcp_grok_bot_tools_codex_wait_tsx__rspack_import_11);
+        const route9 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_12, 'default'), _src_mcp_grok_bot_tools_codex_watch_tsx__rspack_import_12);
+        const route10 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_13, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_start_tsx__rspack_import_13);
+        const route11 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_14, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_status_tsx__rspack_import_14);
+        const route12 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_15, 'default'), _src_mcp_grok_bot_tools_gbot_bridge_stop_tsx__rspack_import_15);
+        const route13 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_16, 'default'), _src_mcp_grok_bot_tools_gbot_codex_respond_tsx__rspack_import_16);
+        const route14 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_17, 'default'), _src_mcp_grok_bot_tools_gbot_grok_approvals_tsx__rspack_import_17);
+        const route15 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_18, 'default'), _src_mcp_grok_bot_tools_gbot_grok_respond_tsx__rspack_import_18);
+        const route16 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_19, 'default'), _src_mcp_grok_bot_tools_gbot_send_tsx__rspack_import_19);
+        const route17 = Object.assign({}, Reflect.get(_src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_20, 'default'), _src_mcp_grok_bot_tools_gbot_thread_tsx__rspack_import_20);
         const ARTIFACT_EPOCH = "gbot@0.10.1";
-        const pluginRoot = (0, _agent_bundle_runtime__rspack_import_16.E7)({
+        const pluginRoot = (0, _agent_bundle_runtime__rspack_import_21.E7)({
             fallback: (0, node_url__rspack_import_0.fileURLToPath)(new URL('..', import.meta.url)),
             stateAnchor: 'user-data'
         });
         const openLineage = async ()=>({
                 dispose: async ()=>undefined,
-                registry: (0, _agent_bundle_runtime_lineage__rspack_import_17.Q5)()
+                registry: (0, _agent_bundle_runtime_lineage__rspack_import_22.Q5)()
             });
         const routes = Object.freeze({
+            "tool:grok-bot/chatgpt_desktop_list_threads": Object.freeze({
+                config: {
+                    "annotations": {
+                        "readOnlyHint": true
+                    },
+                    "description": "List ChatGPT Desktop sidebar threads via local CDP (127.0.0.1 only). Falls back to the Codex app-server daemon when CDP is unreachable; the result includes backend \"cdp\" or \"app-server\".",
+                    "inputJsonSchema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "limit": {
+                                "description": "Maximum threads (1-200).",
+                                "type": "number"
+                            },
+                            "port": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [],
+                        "type": "object"
+                    },
+                    "title": "ChatGPT Desktop list threads"
+                },
+                id: "tool:grok-bot/chatgpt_desktop_list_threads",
+                kind: "tool",
+                module: route0,
+                name: "chatgpt_desktop_list_threads"
+            }),
+            "tool:grok-bot/chatgpt_desktop_read_thread": Object.freeze({
+                config: {
+                    "annotations": {
+                        "readOnlyHint": true
+                    },
+                    "description": "Open a ChatGPT Desktop sidebar thread and collect turns via local CDP (scrolls the virtualized timeline). Falls back to Codex app-server thread/read or items when CDP is unreachable; result includes backend.",
+                    "inputJsonSchema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "limit": {
+                                "type": "number"
+                            },
+                            "port": {
+                                "type": "number"
+                            },
+                            "threadId": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "threadId"
+                        ],
+                        "type": "object"
+                    },
+                    "title": "ChatGPT Desktop read thread"
+                },
+                id: "tool:grok-bot/chatgpt_desktop_read_thread",
+                kind: "tool",
+                module: route1,
+                name: "chatgpt_desktop_read_thread"
+            }),
+            "tool:grok-bot/chatgpt_desktop_send": Object.freeze({
+                config: {
+                    "annotations": {
+                        "readOnlyHint": false
+                    },
+                    "description": "EXPERIMENTAL: send a message in ChatGPT Desktop via local CDP composer (Input.insertText / contenteditable). Omit threadId to use the current/new chat. Falls back to Codex app-server send when CDP is unreachable and threadId is set; result includes backend.",
+                    "inputJsonSchema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "port": {
+                                "type": "number"
+                            },
+                            "text": {
+                                "type": "string"
+                            },
+                            "threadId": {
+                                "description": "Sidebar thread id; omit to start/use a new chat.",
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "text"
+                        ],
+                        "type": "object"
+                    },
+                    "render": {
+                        "maxElapsedMs": 120000
+                    },
+                    "title": "ChatGPT Desktop send"
+                },
+                id: "tool:grok-bot/chatgpt_desktop_send",
+                kind: "tool",
+                module: route2,
+                name: "chatgpt_desktop_send"
+            }),
+            "tool:grok-bot/chatgpt_desktop_status": Object.freeze({
+                config: {
+                    "annotations": {
+                        "readOnlyHint": true
+                    },
+                    "description": "Probe the local ChatGPT Desktop Chrome DevTools endpoint on 127.0.0.1 (no remote transport). Reports CDP reachability and whether the Codex app-server fallback is available. From the Grok Bot box, run gbot on the user machine via Grok Bot Shell with a machineId.",
+                    "inputJsonSchema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "port": {
+                                "description": "Local CDP port (default 9222 or CHATGPT_DESKTOP_CDP_PORT).",
+                                "type": "number"
+                            }
+                        },
+                        "required": [],
+                        "type": "object"
+                    },
+                    "title": "ChatGPT Desktop status"
+                },
+                id: "tool:grok-bot/chatgpt_desktop_status",
+                kind: "tool",
+                module: route3,
+                name: "chatgpt_desktop_status"
+            }),
+            "tool:grok-bot/chatgpt_desktop_wait_reply": Object.freeze({
+                config: {
+                    "annotations": {
+                        "readOnlyHint": true
+                    },
+                    "description": "EXPERIMENTAL: poll ChatGPT Desktop turns via local CDP until a new assistant turn stabilizes, or time out. Falls back to Codex app-server item polling when CDP is unreachable; result includes backend.",
+                    "inputJsonSchema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "port": {
+                                "type": "number"
+                            },
+                            "threadId": {
+                                "type": "string"
+                            },
+                            "timeoutMs": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "threadId"
+                        ],
+                        "type": "object"
+                    },
+                    "render": {
+                        "maxElapsedMs": 660000
+                    },
+                    "title": "ChatGPT Desktop wait for reply"
+                },
+                id: "tool:grok-bot/chatgpt_desktop_wait_reply",
+                kind: "tool",
+                module: route4,
+                name: "chatgpt_desktop_wait_reply"
+            }),
             "tool:grok-bot/claude_send": Object.freeze({
                 config: {
                     "annotations": {
@@ -56215,7 +57709,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/claude_send",
                 kind: "tool",
-                module: route0,
+                module: route5,
                 name: "claude_send"
             }),
             "tool:grok-bot/codex_send": Object.freeze({
@@ -56295,7 +57789,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/codex_send",
                 kind: "tool",
-                module: route1,
+                module: route6,
                 name: "codex_send"
             }),
             "tool:grok-bot/codex_threads": Object.freeze({
@@ -56328,7 +57822,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/codex_threads",
                 kind: "tool",
-                module: route2,
+                module: route7,
                 name: "codex_threads"
             }),
             "tool:grok-bot/codex_wait": Object.freeze({
@@ -56377,7 +57871,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/codex_wait",
                 kind: "tool",
-                module: route3,
+                module: route8,
                 name: "codex_wait"
             }),
             "tool:grok-bot/codex_watch": Object.freeze({
@@ -56419,7 +57913,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/codex_watch",
                 kind: "tool",
-                module: route4,
+                module: route9,
                 name: "codex_watch"
             }),
             "tool:grok-bot/gbot_bridge_start": Object.freeze({
@@ -56460,7 +57954,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_bridge_start",
                 kind: "tool",
-                module: route5,
+                module: route10,
                 name: "gbot_bridge_start"
             }),
             "tool:grok-bot/gbot_bridge_status": Object.freeze({
@@ -56485,7 +57979,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_bridge_status",
                 kind: "tool",
-                module: route6,
+                module: route11,
                 name: "gbot_bridge_status"
             }),
             "tool:grok-bot/gbot_bridge_stop": Object.freeze({
@@ -56513,7 +58007,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_bridge_stop",
                 kind: "tool",
-                module: route7,
+                module: route12,
                 name: "gbot_bridge_stop"
             }),
             "tool:grok-bot/gbot_codex_respond": Object.freeze({
@@ -56571,7 +58065,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_codex_respond",
                 kind: "tool",
-                module: route8,
+                module: route13,
                 name: "gbot_codex_respond"
             }),
             "tool:grok-bot/gbot_grok_approvals": Object.freeze({
@@ -56601,7 +58095,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_grok_approvals",
                 kind: "tool",
-                module: route9,
+                module: route14,
                 name: "gbot_grok_approvals"
             }),
             "tool:grok-bot/gbot_grok_respond": Object.freeze({
@@ -56647,7 +58141,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_grok_respond",
                 kind: "tool",
-                module: route10,
+                module: route15,
                 name: "gbot_grok_respond"
             }),
             "tool:grok-bot/gbot_send": Object.freeze({
@@ -56707,7 +58201,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_send",
                 kind: "tool",
-                module: route11,
+                module: route16,
                 name: "gbot_send"
             }),
             "tool:grok-bot/gbot_thread": Object.freeze({
@@ -56752,7 +58246,7 @@ var __webpack_modules__ = {
                 },
                 id: "tool:grok-bot/gbot_thread",
                 kind: "tool",
-                module: route12,
+                module: route17,
                 name: "gbot_thread"
             })
         });
@@ -57934,7 +59428,7 @@ var __webpack_modules__ = {
         const openSession = openCodexSession;
         const CODEX_VERSION_PROBE_TIMEOUT_MS = 3000;
         function probeLocalCodexVersion(timeoutMs = CODEX_VERSION_PROBE_TIMEOUT_MS) {
-            const out = spawnSync("codex", [
+            const out = (0, node_child_process__rspack_import_5.spawnSync)("codex", [
                 "--version"
             ], {
                 encoding: "utf8",
@@ -57967,7 +59461,7 @@ var __webpack_modules__ = {
         function listDesktopProcesses(timeoutMs = DESKTOP_PROCESS_LIST_TIMEOUT_MS) {
             if (process.platform === "win32") return "";
             try {
-                const out = spawnSync("ps", [
+                const out = (0, node_child_process__rspack_import_5.spawnSync)("ps", [
                     "-eo",
                     "args"
                 ], {
@@ -57995,7 +59489,7 @@ var __webpack_modules__ = {
             let desktopShimConfigured = Boolean(shim && shim.installed && shim.wrapperPointsAtShim);
             if (shim === undefined) {
                 try {
-                    const live = desktopShimStatus({
+                    const live = (0, _desktop_shim_js__rspack_import_8.em)({
                         env
                     });
                     desktopShimConfigured = Boolean(live.installed && live.wrapperPointsAtShim);
@@ -58022,14 +59516,14 @@ var __webpack_modules__ = {
             } catch (err) {
                 if (err instanceof CodexRouteError) {
                     const message = err.mode === "socket-absent" ? unreachableMessage(path, desktopAttached, env) : err.message;
-                    return withStatusExitCode({
+                    return (0, _codex_contract_js__rspack_import_7.AQ)({
                         ...base,
                         reachable: false,
                         mode: err.mode,
                         message
                     });
                 }
-                if (err instanceof CodexProtocolError) return withStatusExitCode({
+                if (err instanceof CodexProtocolError) return (0, _codex_contract_js__rspack_import_7.AQ)({
                     ...base,
                     reachable: true,
                     mode: err.mode,
@@ -58039,7 +59533,7 @@ var __webpack_modules__ = {
             }
             session.client.close();
             const daemonVersion = appServerVersion(session.init);
-            return withStatusExitCode({
+            return (0, _codex_contract_js__rspack_import_7.AQ)({
                 ...base,
                 reachable: true,
                 mode: "daemon",
@@ -58550,6 +60044,7 @@ var __webpack_modules__ = {
         }
         __webpack_require__.d(__webpack_exports__, {
             $3: ()=>assertThreadAllowed,
+            MU: ()=>codexStatus,
             Mr: ()=>withEnvelopeHeader,
             X$: ()=>listCodexThreads,
             ZS: ()=>sendToCodexThread,
@@ -58564,7 +60059,7 @@ var __webpack_modules__ = {
         function statusExitCode(status) {
             return status.reachable && status.mode === "daemon" ? 0 : 1;
         }
-        function withStatusExitCode1(status) {
+        function withStatusExitCode(status) {
             return {
                 ...status,
                 exitCode: statusExitCode(status)
@@ -58620,6 +60115,7 @@ var __webpack_modules__ = {
             };
         }
         __webpack_require__.d(__webpack_exports__, {
+            AQ: ()=>withStatusExitCode,
             DG: ()=>outcomeFromError,
             Dz: ()=>outcomeFromReceipt
         });
@@ -59061,7 +60557,7 @@ var __webpack_modules__ = {
             j: ()=>openCodexConversation
         });
     },
-    "./src/core/desktop-shim.js" (__unused_rspack___webpack_module__, __unused_rspack___webpack_exports__, __webpack_require__) {
+    "./src/core/desktop-shim.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         var node_child_process__rspack_import_0 = __webpack_require__("node:child_process");
         var node_fs__rspack_import_1 = __webpack_require__("node:fs");
         var node_os__rspack_import_2 = __webpack_require__("node:os");
@@ -59078,25 +60574,25 @@ var __webpack_modules__ = {
             return env.CODEX_HOME || join(env.HOME || homedir(), ".codex");
         }
         function userHomeDir(env = process.env) {
-            return env.HOME || homedir();
+            return env.HOME || (0, node_os__rspack_import_2.homedir)();
         }
         function defaultPaths({ env = process.env, home = userHomeDir(env) } = {}) {
-            const codexHome = env.CODEX_HOME || join(home, ".codex");
-            const binDir = join(codexHome, "bin");
+            const codexHome = env.CODEX_HOME || (0, node_path__rspack_import_3.join)(home, ".codex");
+            const binDir = (0, node_path__rspack_import_3.join)(codexHome, "bin");
             return {
                 binDir,
-                bridgeLogPath: join(binDir, BRIDGE_LOG_FILENAME),
-                bridgePath: join(binDir, BRIDGE_FILENAME),
+                bridgeLogPath: (0, node_path__rspack_import_3.join)(binDir, BRIDGE_LOG_FILENAME),
+                bridgePath: (0, node_path__rspack_import_3.join)(binDir, BRIDGE_FILENAME),
                 codexHome,
-                envLogPath: join(binDir, ENV_LOG_FILENAME),
-                envScriptPath: join(binDir, ENV_SCRIPT_FILENAME),
+                envLogPath: (0, node_path__rspack_import_3.join)(binDir, ENV_LOG_FILENAME),
+                envScriptPath: (0, node_path__rspack_import_3.join)(binDir, ENV_SCRIPT_FILENAME),
                 label: SHIM_LABEL,
-                launchAgentsDir: join(home, "Library", "LaunchAgents"),
-                plistPath: join(home, "Library", "LaunchAgents", `${SHIM_LABEL}.plist`),
-                realPath: join(codexHome, STANDALONE_REAL_SUFFIX),
-                socketPath: join(codexHome, "app-server-control", "app-server-control.sock"),
-                wrapperLogPath: join(binDir, WRAPPER_LOG_FILENAME),
-                wrapperPath: join(binDir, WRAPPER_FILENAME)
+                launchAgentsDir: (0, node_path__rspack_import_3.join)(home, "Library", "LaunchAgents"),
+                plistPath: (0, node_path__rspack_import_3.join)(home, "Library", "LaunchAgents", `${SHIM_LABEL}.plist`),
+                realPath: (0, node_path__rspack_import_3.join)(codexHome, STANDALONE_REAL_SUFFIX),
+                socketPath: (0, node_path__rspack_import_3.join)(codexHome, "app-server-control", "app-server-control.sock"),
+                wrapperLogPath: (0, node_path__rspack_import_3.join)(binDir, WRAPPER_LOG_FILENAME),
+                wrapperPath: (0, node_path__rspack_import_3.join)(binDir, WRAPPER_FILENAME)
             };
         }
         function shouldBridge(argv) {
@@ -59256,7 +60752,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         }
         const defaultRunner = (file, args)=>{
             try {
-                return spawnSync(file, args, {
+                return (0, node_child_process__rspack_import_0.spawnSync)(file, args, {
                     encoding: "utf8",
                     timeout: 15000
                 });
@@ -59283,19 +60779,19 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         }
         function isExecutable(path) {
             try {
-                statSync(path);
+                (0, node_fs__rspack_import_1.statSync)(path);
             } catch  {
                 return false;
             }
             try {
-                return (statSync(path).mode & 73) !== 0;
+                return ((0, node_fs__rspack_import_1.statSync)(path).mode & 73) !== 0;
             } catch  {
                 return false;
             }
         }
         function fileExists(path) {
             try {
-                statSync(path);
+                (0, node_fs__rspack_import_1.statSync)(path);
                 return true;
             } catch  {
                 return false;
@@ -59447,12 +60943,12 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         }
         function socketStateOf(path) {
             try {
-                return statSync(path).isSocket() ? "socket" : "not-a-socket";
+                return (0, node_fs__rspack_import_1.statSync)(path).isSocket() ? "socket" : "not-a-socket";
             } catch (error) {
                 return error && (error.code === "EACCES" || error.code === "EPERM") ? "permission-denied" : "absent";
             }
         }
-        function desktopShimStatus1({ env = process.env, home = userHomeDir(env), platform = process.platform, runner = defaultRunner } = {}) {
+        function desktopShimStatus({ env = process.env, home = userHomeDir(env), platform = process.platform, runner = defaultRunner } = {}) {
             const paths = defaultPaths({
                 env,
                 home
@@ -59483,7 +60979,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             }
             const desktopCliPath = platform === "darwin" ? guiCliPath : cliPath;
             const installed = wrapperPresent && isExecutable(paths.wrapperPath) && bridgePresent;
-            const socketPath = env.CODEX_APP_SERVER_SOCK || join(paths.codexHome, "app-server-control", "app-server-control.sock");
+            const socketPath = env.CODEX_APP_SERVER_SOCK || (0, node_path__rspack_import_3.join)(paths.codexHome, "app-server-control", "app-server-control.sock");
             return {
                 action: "status",
                 bridgePath: paths.bridgePath,
@@ -59511,6 +61007,9 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 wrapperPresent
             };
         }
+        __webpack_require__.d(__webpack_exports__, {
+            em: ()=>desktopShimStatus
+        });
     },
     "./src/core/gateway.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         var node_crypto__rspack_import_0 = __webpack_require__("node:crypto");
