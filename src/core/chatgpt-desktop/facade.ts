@@ -6,14 +6,16 @@ import {
   appServerSearchThreads,
   appServerStatusProbe,
 } from './app-server-fallback.js';
-import { CdpUnreachableError, NotImplementedError } from './errors.js';
+import { CdpUnreachableError, NotImplementedError, RemoteThreadNotLoadedError } from './errors.js';
 import { resolveCdpPort } from './loopback.js';
+import { listRemoteThreadsFromState } from './remote-threads.js';
 import {
   isTemporaryDesktopThreadId,
   threadIdsEquivalent,
   toAppServerThreadId,
 } from './thread-ids.js';
 import type {
+  ChatGptDesktopHostGroup,
   ChatGptDesktopStatus,
   ChatGptDesktopTarget,
   ChatGptDesktopThread,
@@ -30,6 +32,7 @@ export type ChatGptDesktopFallbacks = {
   searchThreads: typeof appServerSearchThreads;
   readThread: typeof appServerReadThread;
   statusProbe: typeof appServerStatusProbe;
+  listRemoteThreads?: typeof listRemoteThreadsFromState;
 };
 
 const defaultFallbacks: ChatGptDesktopFallbacks = {
@@ -37,17 +40,24 @@ const defaultFallbacks: ChatGptDesktopFallbacks = {
   searchThreads: appServerSearchThreads,
   readThread: appServerReadThread,
   statusProbe: appServerStatusProbe,
+  listRemoteThreads: listRemoteThreadsFromState,
+};
+
+export type ListThreadsOptions = {
+  limit?: number;
+  /** Filter by remote hostId or friendly host/env name (substring, case-insensitive). */
+  host?: string;
+  /** When `"host"`, also return `groups` keyed by host. */
+  groupBy?: 'host';
 };
 
 /**
  * ChatGPT Desktop facade (verified against app-server 0.158.0).
  *
- * - List / search / read: app-server primary (`thread/list`, `thread/read` +
- *   `thread/turns/list`). DOM read is fallback only when app-server is unavailable.
+ * - List / search / read: app-server primary; list also merges remote-control
+ *   summaries from `~/.codex/.codex-global-state.json`.
  * - Send, new-thread-in-project, wait-for-reply, selected thread / UI state: CDP.
  * - Every list/read/send/wait/open result reports `backend: "cdp" | "app-server"`.
- *
- * Reuses the existing Codex app-server client — never duplicates that JSON-RPC stack.
  */
 export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
   #cdp: ChatGptDesktopAdapter;
@@ -81,11 +91,12 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     return this.#cdp.listTargets();
   }
 
-  async listThreads(options?: { limit?: number }): Promise<ListThreadsResult> {
+  async listThreads(options: ListThreadsOptions = {}): Promise<ListThreadsResult> {
+    const limit = options.limit ?? 50;
     let appList: ListThreadsResult | null = null;
     let appError: unknown;
     try {
-      appList = await this.#fallbacks.listThreads(options);
+      appList = await this.#fallbacks.listThreads({ limit });
     } catch (error) {
       appError = error;
     }
@@ -94,7 +105,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     let cdpError: unknown;
     try {
       await this.#ensureCdp();
-      cdpList = await this.#cdp.listThreads(options);
+      cdpList = await this.#cdp.listThreads({ limit });
     } catch (error) {
       if (isCdpFailure(error)) {
         this.#cdpConnected = false;
@@ -103,38 +114,68 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       }
     }
 
-    if (appList && cdpList) {
-      return mergeThreadLists(appList, cdpList);
-    }
-    if (appList) return appList;
-    if (cdpList) return cdpList;
-    if (cdpError) throw cdpError;
-    if (appError) throw appError;
-    throw new CdpUnreachableError('ChatGPT Desktop listThreads: CDP and app-server unreachable');
+    let base: ListThreadsResult | null = null;
+    if (appList && cdpList) base = mergeThreadLists(appList, cdpList);
+    else if (appList) base = appList;
+    else if (cdpList) base = cdpList;
+    else if (cdpError) throw cdpError;
+    else if (appError) throw appError;
+    else throw new CdpUnreachableError('ChatGPT Desktop listThreads: CDP and app-server unreachable');
+
+    return finalizeThreadList(base, {
+      limit,
+      host: options.host,
+      groupBy: options.groupBy,
+      remotes: this.#listRemotes(),
+    });
   }
 
   async searchThreads(options: {
     query: string;
     limit?: number;
+    host?: string;
+    groupBy?: 'host';
   }): Promise<ListThreadsResult> {
+    const limit = options.limit ?? 50;
     try {
-      const appList = await this.#fallbacks.searchThreads(options);
-      const cdpList = await this.#tryCdpList({ limit: options.limit });
-      if (cdpList) return mergeThreadLists(appList, cdpList);
-      return appList;
+      const appList = await this.#fallbacks.searchThreads({
+        query: options.query,
+        limit,
+      });
+      const cdpList = await this.#tryCdpList({ limit });
+      const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
+      const withRemotes = finalizeThreadList(base, {
+        limit: 10_000,
+        host: options.host,
+        remotes: this.#listRemotes(),
+      });
+      const needle = options.query.trim().toLowerCase();
+      const filtered = {
+        ...withRemotes,
+        query: options.query,
+        threads: withRemotes.threads.filter((thread) => threadMatchesQuery(thread, needle)),
+      };
+      return finalizeThreadList(filtered, {
+        limit,
+        host: options.host,
+        groupBy: options.groupBy,
+        remotes: [],
+      });
     } catch (appError) {
-      const cdpList = await this.#tryCdpList({ limit: options.limit });
+      const cdpList = await this.#tryCdpList({ limit });
       if (!cdpList) throw appError;
       const needle = options.query.trim().toLowerCase();
-      return {
+      const filtered = {
         ...cdpList,
         query: options.query,
-        threads: cdpList.threads.filter((thread) => {
-          if (!needle) return true;
-          return [thread.title, thread.threadId, thread.project]
-            .some((value) => typeof value === 'string' && value.toLowerCase().includes(needle));
-        }),
+        threads: cdpList.threads.filter((thread) => threadMatchesQuery(thread, needle)),
       };
+      return finalizeThreadList(filtered, {
+        limit,
+        host: options.host,
+        groupBy: options.groupBy,
+        remotes: this.#listRemotes(),
+      });
     }
   }
 
@@ -147,13 +188,11 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     const limit = options.limit ?? 100;
     const full = options.full ?? false;
 
-    // Temporary sidebar rows have no app-server mapping — CDP only.
     if (isTemporaryDesktopThreadId(options.threadId)) {
       await this.#ensureCdp();
       return this.#cdp.readThread({ ...options, limit, full });
     }
 
-    // App-server is primary for all durable reads.
     try {
       return await this.#fallbacks.readThread({
         threadId: options.threadId,
@@ -161,7 +200,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
         full,
       });
     } catch (appError) {
-      // DOM harvest / wheel crawl only when app-server is unavailable.
+      if (appError instanceof RemoteThreadNotLoadedError) throw appError;
       const cdpConnected = await this.#tryEnsureCdp();
       if (!cdpConnected) throw appError;
       return this.#cdp.readThread({ ...options, limit, full: full || true });
@@ -190,7 +229,6 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     threadId: string,
     options?: { openTimeoutMs?: number },
   ): Promise<OpenThreadResult> {
-    // Selected-thread / UI focus stays on CDP — do not thread/resume for this.
     await this.#ensureCdp();
     return this.#cdp.openThread(threadId, options);
   }
@@ -221,6 +259,15 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
   async close(): Promise<void> {
     this.#cdpConnected = false;
     await this.#cdp.close();
+  }
+
+  #listRemotes() {
+    const list = this.#fallbacks.listRemoteThreads ?? listRemoteThreadsFromState;
+    try {
+      return list();
+    } catch {
+      return [];
+    }
   }
 
   async #ensureCdp(): Promise<void> {
@@ -268,30 +315,135 @@ export function mergeThreadLists(
   const merged: ChatGptDesktopThread[] = appList.threads.map((thread) => {
     const key = toAppServerThreadId(thread.threadId) ?? thread.threadId;
     const cdp = cdpByKey.get(key);
-    if (!cdp) return thread;
-    return {
+    const withLocal: ChatGptDesktopThread = {
       ...thread,
-      title: thread.title || cdp.title,
-      pinned: thread.pinned || cdp.pinned,
+      location: thread.location ?? 'local',
+      hostId: thread.hostId ?? null,
+      hostName: thread.hostName ?? null,
+    };
+    if (!cdp) return withLocal;
+    return {
+      ...withLocal,
+      title: withLocal.title || cdp.title,
+      pinned: withLocal.pinned || cdp.pinned,
       selected: cdp.selected,
-      kind: cdp.kind || thread.kind,
-      project: cdp.project ?? thread.project,
+      kind: cdp.kind || withLocal.kind,
+      project: cdp.project ?? withLocal.project,
     };
   });
 
-  // Keep CDP-only rows (e.g. temporary local:client-new-thread:…) visible.
   for (const thread of cdpList.threads) {
     if (merged.some((row) => threadIdsEquivalent(row.threadId, thread.threadId))) continue;
-    merged.push(thread);
+    merged.push({
+      ...thread,
+      location: thread.location ?? 'local',
+      hostId: thread.hostId ?? null,
+      hostName: thread.hostName ?? null,
+    });
   }
 
   return {
-    backend: 'app-server',
+    backend: appList.backend,
     limit: appList.limit,
     nextCursor: appList.nextCursor,
     ...(appList.query !== undefined ? { query: appList.query } : {}),
-    threads: merged.slice(0, appList.limit),
+    threads: merged,
   };
+}
+
+/** Append remote-control summaries, apply host filter / groupBy / limit. */
+export function finalizeThreadList(
+  base: ListThreadsResult,
+  {
+    limit,
+    host,
+    groupBy,
+    remotes,
+  }: {
+    limit: number;
+    host?: string;
+    groupBy?: 'host';
+    remotes: readonly ChatGptDesktopThread[];
+  },
+): ListThreadsResult {
+  const locals = base.threads.map((thread) => {
+    const location = thread.location ?? ('local' as const);
+    return {
+      ...thread,
+      location,
+      hostId: location === 'remote' ? thread.hostId ?? null : null,
+      hostName: location === 'remote' ? thread.hostName ?? null : null,
+    };
+  });
+
+  const localKeys = new Set(
+    locals.map((thread) => toAppServerThreadId(thread.threadId) ?? thread.threadId),
+  );
+  const merged: ChatGptDesktopThread[] = [...locals];
+  for (const remote of remotes) {
+    const key = toAppServerThreadId(remote.threadId) ?? remote.threadId;
+    if (localKeys.has(key)) continue;
+    merged.push({
+      ...remote,
+      location: remote.location ?? 'remote',
+      hostId: remote.hostId ?? null,
+      hostName: remote.hostName ?? null,
+    });
+  }
+
+  const filtered = host
+    ? merged.filter((thread) => hostMatches(thread, host))
+    : merged;
+  const limited = filtered.slice(0, limit);
+  const result: ListThreadsResult = {
+    backend: base.backend,
+    limit,
+    threads: limited,
+    ...(base.nextCursor !== undefined ? { nextCursor: base.nextCursor } : {}),
+    ...(base.query !== undefined ? { query: base.query } : {}),
+    ...(host ? { host } : {}),
+  };
+  if (groupBy === 'host') {
+    return { ...result, groupBy: 'host', groups: groupThreadsByHost(limited) };
+  }
+  return result;
+}
+
+export function groupThreadsByHost(
+  threads: readonly ChatGptDesktopThread[],
+): ChatGptDesktopHostGroup[] {
+  const groups = new Map<string, ChatGptDesktopHostGroup>();
+  for (const thread of threads) {
+    const location = thread.location ?? 'local';
+    const hostId = location === 'remote' ? thread.hostId || 'unknown-remote' : 'local';
+    const key = `${location}:${hostId}`;
+    const existing = groups.get(key);
+    if (existing) {
+      (existing.threads as ChatGptDesktopThread[]).push(thread);
+      continue;
+    }
+    groups.set(key, {
+      hostId,
+      hostName: thread.hostName ?? (location === 'local' ? 'local' : null),
+      location,
+      threads: [thread],
+    });
+  }
+  return [...groups.values()];
+}
+
+function hostMatches(thread: ChatGptDesktopThread, host: string): boolean {
+  const needle = host.trim().toLowerCase();
+  if (!needle) return true;
+  if (needle === 'local') return (thread.location ?? 'local') === 'local';
+  return [thread.hostId, thread.hostName]
+    .some((value) => typeof value === 'string' && value.toLowerCase().includes(needle));
+}
+
+function threadMatchesQuery(thread: ChatGptDesktopThread, needle: string): boolean {
+  if (!needle) return true;
+  return [thread.title, thread.threadId, thread.project, thread.preview, thread.hostName, thread.hostId]
+    .some((value) => typeof value === 'string' && value.toLowerCase().includes(needle));
 }
 
 function isCdpFailure(error: unknown): boolean {

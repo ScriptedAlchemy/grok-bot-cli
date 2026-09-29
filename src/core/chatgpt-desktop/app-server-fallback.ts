@@ -17,7 +17,7 @@ import {
   openCodexSession,
 } from '../codex-bridge.js';
 import { RemoteThreadNotLoadedError } from './errors.js';
-import { findRemoteThreadHostId } from './remote-threads.js';
+import { findRemoteThread, findRemoteThreadHostId } from './remote-threads.js';
 import {
   requireAppServerThreadId,
   toDesktopThreadId,
@@ -90,6 +90,32 @@ export async function appServerReadThread({
 }): Promise<ReadThreadResult> {
   // Prefixed `local:` ids fail with `invalid thread id` — always strip first.
   const bare = requireAppServerThreadId(threadId);
+
+  // Known remote-only threads: fail fast with a typed error + host hint.
+  const remote = findRemoteThread(bare);
+  if (remote) {
+    // Still try local app-server in case the thread was also loaded locally.
+    try {
+      return await readLocalThread(bare, { limit, full });
+    } catch (error) {
+      if (isThreadNotLoaded(error) || isUnknownThread(error)) {
+        throw new RemoteThreadNotLoadedError(bare, remote.hostId, remote.hostName);
+      }
+      throw maybeRemoteThreadError(error, bare);
+    }
+  }
+
+  try {
+    return await readLocalThread(bare, { limit, full });
+  } catch (error) {
+    throw maybeRemoteThreadError(error, bare);
+  }
+}
+
+async function readLocalThread(
+  bare: string,
+  { limit, full }: { limit: number; full: boolean },
+): Promise<ReadThreadResult> {
   const { client } = await openCodexSession();
   try {
     const meta = await readThreadMetadata(client, bare);
@@ -106,8 +132,6 @@ export async function appServerReadThread({
       modelProvider: meta.modelProvider,
       model: meta.model,
     };
-  } catch (error) {
-    throw maybeRemoteThreadError(error, bare);
   } finally {
     client.close();
   }
@@ -165,6 +189,9 @@ function mapListedThread(thread: ListedThread): ChatGptDesktopThread {
     pinned,
     selected: false,
     kind: 'codex',
+    location: 'local',
+    hostId: null,
+    hostName: null,
     preview: typeof thread.preview === 'string' ? thread.preview : undefined,
     cwd: thread.cwd ?? null,
     createdAt: thread.createdAt ?? null,
@@ -413,11 +440,20 @@ function isThreadNotLoaded(error: unknown): boolean {
   return /thread not loaded|not loaded|invalid thread id/i.test(message);
 }
 
+function isUnknownThread(error: unknown): boolean {
+  const message = errorMessage(error);
+  return /no rollout found|thread not found|unknown.*thread/i.test(message);
+}
+
 function maybeRemoteThreadError(error: unknown, threadId: string): Error {
   const message = errorMessage(error);
-  if (/thread not loaded|not loaded/i.test(message)) {
+  if (/thread not loaded|not loaded|no rollout found|thread not found/i.test(message)) {
+    const remote = findRemoteThread(threadId);
+    if (remote) {
+      return new RemoteThreadNotLoadedError(threadId, remote.hostId, remote.hostName);
+    }
     const hostId = findRemoteThreadHostId(threadId);
-    return new RemoteThreadNotLoadedError(threadId, hostId);
+    return new RemoteThreadNotLoadedError(threadId, hostId, null);
   }
   if (error instanceof Error) return error;
   return new Error(message || `app-server error for thread ${threadId}`);

@@ -466,6 +466,7 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
       };
     },
     statusProbe: async () => ({ reachable: true, mode: 'daemon', socketPath: '/tmp/fake.sock' }),
+    listRemoteThreads: () => [],
   });
 
   it('lists/searches/reads via app-server (merged with CDP), keeps send/wait/open on CDP', async () => {
@@ -752,26 +753,143 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
     });
   });
 
-  it('surfaces RemoteThreadNotLoadedError with hostId from global state', async () => {
+  it('merges remote-control summaries from the global-state fixture', async () => {
+    const { copyFileSync, mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const {
+      finalizeThreadList,
+      findRemoteThread,
+      listRemoteThreadsFromState,
+      RemoteThreadNotLoadedError,
+    } = await import('../../src/core/chatgpt-desktop/index.js');
+
+    const home = mkdtempSync(join(tmpdir(), 'gbot-remote-fix-'));
+    copyFileSync(
+      join(process.cwd(), 'tests/fixtures/codex-global-state-remote.json'),
+      join(home, '.codex-global-state.json'),
+    );
+    const env = { CODEX_HOME: home };
+    const remotes = listRemoteThreadsFromState(env);
+    expect(remotes.map((t) => t.threadId).sort()).toEqual([
+      'local:aaaa1111-1111-1111-1111-111111111111',
+      'local:bbbb2222-2222-2222-2222-222222222222',
+      'local:cccc3333-3333-3333-3333-333333333333',
+      'local:dddd4444-4444-4444-4444-444444444444',
+    ]);
+    const pinned = remotes.find((t) => t.threadId.includes('aaaa1111'));
+    expect(pinned).toMatchObject({
+      location: 'remote',
+      hostId: 'host-macbook',
+      hostName: "Zack's MacBook",
+      pinned: true,
+      project: 'Launch',
+      projectId: 'proj-launch',
+    });
+    const linux = remotes.find((t) => t.threadId.includes('cccc3333'));
+    expect(linux).toMatchObject({
+      location: 'remote',
+      hostId: 'host-linux',
+      hostName: 'build-box',
+      project: 'Infra',
+    });
+
+    const listed = finalizeThreadList(
+      {
+        backend: 'app-server',
+        limit: 50,
+        threads: [
+          {
+            threadId: 'local:local-thread-1',
+            title: 'Local only',
+            pinned: false,
+            selected: true,
+            kind: 'codex',
+            location: 'local',
+            hostId: null,
+            hostName: null,
+          },
+        ],
+      },
+      { limit: 50, remotes, groupBy: 'host' },
+    );
+    expect(listed.threads.some((t) => t.location === 'local')).toBe(true);
+    expect(listed.threads.some((t) => t.location === 'remote')).toBe(true);
+    expect(listed.groups?.map((g) => g.hostId).sort()).toEqual([
+      'broken-host',
+      'host-linux',
+      'host-macbook',
+      'local',
+    ]);
+
+    const filtered = finalizeThreadList(
+      {
+        backend: 'app-server',
+        limit: 50,
+        threads: [
+          {
+            threadId: 'local:local-thread-1',
+            title: 'Local only',
+            pinned: false,
+            selected: false,
+            kind: 'codex',
+            location: 'local',
+            hostId: null,
+            hostName: null,
+          },
+        ],
+      },
+      { limit: 50, remotes, host: 'macbook' },
+    );
+    expect(filtered.host).toBe('macbook');
+    expect(filtered.threads.every((t) => t.hostId === 'host-macbook')).toBe(true);
+
+    const localOnly = finalizeThreadList(
+      {
+        backend: 'app-server',
+        limit: 50,
+        threads: [
+          {
+            threadId: 'local:local-thread-1',
+            title: 'Local only',
+            pinned: false,
+            selected: false,
+            kind: 'codex',
+            location: 'local',
+            hostId: null,
+            hostName: null,
+          },
+        ],
+      },
+      { limit: 50, remotes, host: 'local' },
+    );
+    expect(localOnly.threads).toHaveLength(1);
+    expect(localOnly.threads[0]?.location).toBe('local');
+
+    const lookup = findRemoteThread('aaaa1111-1111-1111-1111-111111111111', env);
+    expect(lookup).toMatchObject({ hostId: 'host-macbook', hostName: "Zack's MacBook" });
+    const err = new RemoteThreadNotLoadedError(
+      'aaaa1111-1111-1111-1111-111111111111',
+      lookup?.hostId ?? null,
+      lookup?.hostName ?? null,
+    );
+    expect(err.code).toBe('REMOTE_THREAD_NOT_LOADED');
+    expect(err.hostId).toBe('host-macbook');
+    expect(err.hostName).toBe("Zack's MacBook");
+    expect(err.hint).toMatch(/host-macbook/);
+    expect(err.message).toMatch(/app-server/);
+  });
+
+  it('skips malformed global-state files without throwing', async () => {
     const { mkdtempSync, writeFileSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join } = await import('node:path');
-    const { RemoteThreadNotLoadedError, findRemoteThreadHostId } = await import(
-      '../../src/core/chatgpt-desktop/index.js'
-    );
-    const home = mkdtempSync(join(tmpdir(), 'gbot-remote-'));
-    writeFileSync(
-      join(home, '.codex-global-state.json'),
-      JSON.stringify({
-        'remote-thread-summaries-v3:host-abc': [{ id: 'remote-thread-1' }],
-      }),
-    );
-    expect(findRemoteThreadHostId('remote-thread-1', { CODEX_HOME: home })).toBe('host-abc');
-    expect(findRemoteThreadHostId('local:remote-thread-1', { CODEX_HOME: home })).toBe('host-abc');
-    const err = new RemoteThreadNotLoadedError('remote-thread-1', 'host-abc');
-    expect(err.code).toBe('REMOTE_THREAD_NOT_LOADED');
-    expect(err.hostId).toBe('host-abc');
-    expect(err.message).toMatch(/host-abc/);
+    const { listRemoteThreadsFromState } = await import('../../src/core/chatgpt-desktop/index.js');
+    const home = mkdtempSync(join(tmpdir(), 'gbot-remote-bad-'));
+    writeFileSync(join(home, '.codex-global-state.json'), '{not-json');
+    expect(listRemoteThreadsFromState({ CODEX_HOME: home })).toEqual([]);
+    writeFileSync(join(home, '.codex-global-state.json'), JSON.stringify(['array']));
+    expect(listRemoteThreadsFromState({ CODEX_HOME: home })).toEqual([]);
   });
 });
 

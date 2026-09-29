@@ -88,22 +88,29 @@ Surfaced list fields: `id`, `name`, `preview`, `cwd`, `createdAt` /
 `projectId`, `status`, `modelProvider`, `model`, `originator`. `archived` is a
 list filter, not a field.
 
+`chatgpt_desktop_list_threads` merges local app-server threads with
+remote-control summaries from `~/.codex/.codex-global-state.json` keys
+`remote-thread-summaries-v3:<hostId>` (title, ids, remote project info; pinned
+ids live there too). Every row gets `location: "local" | "remote"` plus
+`hostId` / `hostName` when known. Filter with `host` (hostId or friendly name;
+`host: "local"` for local-only) and optionally `groupBy: "host"`.
+
 ### Remote-control threads
 
-Threads owned by another host are not loaded locally and return
-`thread not loaded`. The adapter raises `RemoteThreadNotLoadedError` and, when
-possible, names the owning `hostId` from
-`~/.codex/.codex-global-state.json` keys `remote-thread-summaries-v3:<hostId>`.
-SSH remoting is **not** implemented in this PR (follow-up).
+Remote rows appear in list/search results. `chatgpt_desktop_read_thread` on a
+remote-only thread raises `RemoteThreadNotLoadedError` (`REMOTE_THREAD_NOT_LOADED`)
+with `hostId`, optional `hostName`, and a `hint` to read it via that host's
+app-server. SSH remoting is **not** implemented in this PR (follow-up). The
+global-state parser is defensive — unknown shapes are skipped.
 
 ## Backend capability matrix
 
 | Operation | CDP | App-server |
 | --- | --- | --- |
 | `status` | `/json/version` + attach | daemon probe |
-| `list_threads` | merge selected / UI overlay | primary (`thread/list`, all providers) |
-| `search_threads` | merge selected when connected | primary (list + filter) |
-| `read_thread` | DOM harvest / wheel **fallback only** | primary (`thread/read` + turns/list) |
+| `list_threads` | merge selected / UI overlay | primary inventory + remote summaries |
+| `search_threads` | merge selected when connected | primary (list + filter, includes remotes) |
+| `read_thread` | DOM harvest / wheel **fallback only** (local) | primary; remote → typed error + host hint |
 | `open_thread` (selected) | click sidebar row | **not used** (resume attaches) |
 | `send` / new-thread-in-project | composer + Enter / project button | **not used** |
 | `wait_reply` | Stop gone + final-assistant | **not used** |

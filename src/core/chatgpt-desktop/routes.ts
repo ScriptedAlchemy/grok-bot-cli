@@ -17,6 +17,8 @@ export const listThreadsSchema = z
   .object({
     port: z.number().int().min(1).max(65535).optional(),
     limit: z.number().int().min(1).max(200).default(50),
+    host: z.string().min(1).max(256).optional(),
+    groupBy: z.literal('host').optional(),
   })
   .strict();
 
@@ -25,6 +27,8 @@ export const searchThreadsSchema = z
     port: z.number().int().min(1).max(65535).optional(),
     query: z.string().min(1).max(512),
     limit: z.number().int().min(1).max(200).default(50),
+    host: z.string().min(1).max(256).optional(),
+    groupBy: z.literal('host').optional(),
   })
   .strict();
 
@@ -102,7 +106,9 @@ function mapError(error: unknown): OperationResult {
       code: error.code,
       error: error.message,
       threadId: error.threadId,
+      hint: error.hint,
       ...(error.hostId ? { hostId: error.hostId } : {}),
+      ...(error.hostName ? { hostName: error.hostName } : {}),
       exitCode: 1 as const,
     });
   }
@@ -127,7 +133,11 @@ export async function listThreadsOperation(
 ): Promise<OperationResult> {
   try {
     const out = await withAdapter(input.port, (adapter) =>
-      adapter.listThreads({ limit: input.limit }),
+      adapter.listThreads({
+        limit: input.limit,
+        host: input.host,
+        groupBy: input.groupBy,
+      }),
     );
     return asResult({ ...out, exitCode: 0 as const });
   } catch (error) {
@@ -143,7 +153,12 @@ export async function searchThreadsOperation(
       if (typeof adapter.searchThreads !== 'function') {
         throw new NotImplementedError('searchThreads', 'adapter does not implement search');
       }
-      return adapter.searchThreads({ query: input.query, limit: input.limit });
+      return adapter.searchThreads({
+        query: input.query,
+        limit: input.limit,
+        host: input.host,
+        groupBy: input.groupBy,
+      });
     });
     return asResult({ ...out, exitCode: 0 as const });
   } catch (error) {

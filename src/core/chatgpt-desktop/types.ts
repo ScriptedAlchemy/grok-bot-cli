@@ -8,6 +8,8 @@ export type ChatGptDesktopTarget = {
   readonly attached: boolean;
 };
 
+export type ChatGptDesktopThreadLocation = 'local' | 'remote';
+
 export type ChatGptDesktopThreadSection = {
   readonly id: string;
   readonly name: string | null;
@@ -32,6 +34,19 @@ export type ChatGptDesktopThread = {
   readonly modelProvider?: string | null;
   readonly model?: string | null;
   readonly originator?: string | null;
+  /** Whether the thread is on the local app-server or a remote-control host. */
+  readonly location?: ChatGptDesktopThreadLocation;
+  /** Remote-control host id when `location` is `remote`; null for local. */
+  readonly hostId?: string | null;
+  /** Friendly host / env name from Desktop global state when known. */
+  readonly hostName?: string | null;
+};
+
+export type ChatGptDesktopHostGroup = {
+  readonly hostId: string;
+  readonly hostName: string | null;
+  readonly location: ChatGptDesktopThreadLocation;
+  readonly threads: readonly ChatGptDesktopThread[];
 };
 
 export type ChatGptDesktopTurn = {
@@ -71,6 +86,11 @@ export type ListThreadsResult = {
   readonly limit: number;
   readonly nextCursor?: string | null;
   readonly query?: string;
+  /** Host filter applied (`hostId` or friendly name substring). */
+  readonly host?: string;
+  readonly groupBy?: 'host';
+  /** Present when `groupBy: "host"`. */
+  readonly groups?: readonly ChatGptDesktopHostGroup[];
 };
 
 export type ReadThreadResult = {

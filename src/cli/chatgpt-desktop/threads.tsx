@@ -10,11 +10,13 @@ import {
 
 export const config = {
   description:
-    'List ChatGPT Desktop threads via app-server when available; merge CDP pinned/selected/project.',
+    'List local + remote-control ChatGPT Desktop threads; optional --host and --group-by host.',
   exitCode: 'result',
   inputJsonSchema: {
     additionalProperties: false,
     properties: {
+      groupBy: { description: 'Group results by host', enum: ['host'], type: 'string' },
+      host: { description: 'Filter by hostId or friendly name (local for local-only)', type: 'string' },
       limit: { default: 50, description: 'Max threads (1-200)', type: 'number' },
       port: { description: 'Local CDP port', type: 'number' },
     },
@@ -24,6 +26,8 @@ export const config = {
 
 export const inputSchema = z
   .object({
+    groupBy: z.literal('host').optional(),
+    host: z.string().min(1).max(256).optional(),
     limit: z.number().int().min(1).max(200).default(50),
     port: z.number().int().min(1).max(65535).optional(),
   })
@@ -44,10 +48,18 @@ export default async function chatgptDesktopThreads({
               title?: string;
               selected?: boolean;
               pinned?: boolean;
+              location?: string;
+              hostId?: string | null;
+              hostName?: string | null;
             };
+            const where =
+              row.location === 'remote'
+                ? ` [remote ${row.hostName || row.hostId || '?'}]`
+                : ' [local]';
             return (
               `${row.selected ? '* ' : '  '}${row.threadId ?? ''}  ${row.title ?? ''}` +
-              (row.pinned ? ' (pinned)' : '')
+              (row.pinned ? ' (pinned)' : '') +
+              where
             );
           })
           .join('\n') + `\n\nbackend: ${String(out.backend ?? '')}`

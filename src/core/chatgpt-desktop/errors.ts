@@ -43,7 +43,8 @@ export class CdpUnreachableError extends Error {
 
 /**
  * Thread exists on a remote-control host and is not loaded on the local
- * app-server. SSH remoting is a follow-up — this error only names the owner.
+ * app-server. SSH remoting is a follow-up — this error names the owner and
+ * tells the caller to read via that host's app-server.
  */
 export class RemoteThreadNotLoadedError extends Error {
   readonly code = 'REMOTE_THREAD_NOT_LOADED' as const;
@@ -51,17 +52,34 @@ export class RemoteThreadNotLoadedError extends Error {
   readonly reason = 'remote-thread-not-loaded' as const;
   readonly threadId: string;
   readonly hostId: string | null;
+  readonly hostName: string | null;
+  readonly hint: string;
 
-  constructor(threadId: string, hostId: string | null = null) {
-    const owner = hostId
-      ? `owned by remote-control host ${JSON.stringify(hostId)}`
+  constructor(
+    threadId: string,
+    hostId: string | null = null,
+    hostName: string | null = null,
+  ) {
+    const hostLabel = hostName
+      ? `${JSON.stringify(hostName)} (${JSON.stringify(hostId)})`
+      : hostId
+        ? JSON.stringify(hostId)
+        : null;
+    const owner = hostLabel
+      ? `owned by remote-control host ${hostLabel}`
       : 'owned by a remote-control host (hostId unknown; check ~/.codex/.codex-global-state.json)';
+    const hint = hostId
+      ? `Read this thread via host ${JSON.stringify(hostId)}'s app-server` +
+        (hostName ? ` (${hostName})` : '') +
+        '. SSH remoting is not implemented in this adapter.'
+      : "Read this thread via the owning host's app-server. SSH remoting is not implemented in this adapter.";
     super(
-      `Codex thread ${JSON.stringify(threadId)} is not loaded on the local app-server; ` +
-        `${owner}. SSH remoting is not implemented in this adapter yet.`,
+      `Codex thread ${JSON.stringify(threadId)} is not loaded on the local app-server; ${owner}. ${hint}`,
     );
     this.name = 'RemoteThreadNotLoadedError';
     this.threadId = threadId;
     this.hostId = hostId;
+    this.hostName = hostName;
+    this.hint = hint;
   }
 }

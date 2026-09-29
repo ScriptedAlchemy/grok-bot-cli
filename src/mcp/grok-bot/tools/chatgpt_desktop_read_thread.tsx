@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop read thread',
     description:
-      'Read a ChatGPT Desktop / Codex thread through app-server (thread/read metadata, then thread/turns/list with itemsView full). Does not thread/resume. Desktop local:<conversationId> is normalized to the bare id. DOM harvest/wheel is fallback only when app-server is unavailable. Result includes backend.',
+      'Read a ChatGPT Desktop / Codex thread through app-server (thread/read metadata, then thread/turns/list with itemsView full). Does not thread/resume. Desktop local:<conversationId> is normalized to the bare id. Remote-control threads return REMOTE_THREAD_NOT_LOADED with hostId and a hint to read via that host\'s app-server. DOM harvest is fallback only when local app-server is unavailable. Result includes backend.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,

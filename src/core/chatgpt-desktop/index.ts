@@ -27,11 +27,13 @@ export {
 } from './errors.js';
 export {
   ChatGptDesktopFacade,
+  finalizeThreadList,
   getChatGptDesktopAdapter,
+  groupThreadsByHost,
   mergeThreadLists,
   setChatGptDesktopAdapterForTests,
 } from './facade.js';
-export type { ChatGptDesktopFallbacks } from './facade.js';
+export type { ChatGptDesktopFallbacks, ListThreadsOptions } from './facade.js';
 export {
   HISTORY_CONTENT_TURN_PREFIX,
   LOCAL_THREAD_ID_PREFIX,
@@ -45,7 +47,10 @@ export {
 } from './thread-ids.js';
 export {
   codexGlobalStatePath,
+  findRemoteThread,
   findRemoteThreadHostId,
+  listRemoteThreadsFromState,
+  loadCodexGlobalState,
 } from './remote-threads.js';
 export {
   CDP_LOOPBACK_HOST,
@@ -81,9 +86,11 @@ export {
 } from './routes.js';
 export type {
   ChatGptDesktopBackend,
+  ChatGptDesktopHostGroup,
   ChatGptDesktopStatus,
   ChatGptDesktopTarget,
   ChatGptDesktopThread,
+  ChatGptDesktopThreadLocation,
   ChatGptDesktopThreadSection,
   ChatGptDesktopTurn,
   ListThreadsResult,
