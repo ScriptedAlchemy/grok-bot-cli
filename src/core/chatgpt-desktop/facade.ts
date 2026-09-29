@@ -56,6 +56,7 @@ const defaultFallbacks: ChatGptDesktopFallbacks = {
 };
 
 const MERGED_LIST_CURSOR = 'desktop-merged-list-v1:';
+const MERGED_SEARCH_CURSOR = 'desktop-merged-search-v1:';
 type ListSnapshot = {
   fingerprint: string;
   port: number;
@@ -86,6 +87,8 @@ export type ListThreadsOptions = {
   /** When `"host"`, also return `groups` keyed by host (grouping mode). */
   groupBy?: 'host';
 };
+
+type SearchThreadsOptions = ListThreadsOptions & { query: string };
 
 /**
  * ChatGPT Desktop facade (verified against app-server 0.158.0).
@@ -153,11 +156,17 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     } else {
       snapshot = await this.#buildListSnapshot(options, filters);
     }
-    if (offset > snapshot.rows.length) throw new Error('ChatGPT Desktop list cursor is out of range');
+    return this.#pageSnapshot(snapshot, offset, limit, options, MERGED_LIST_CURSOR);
+  }
+
+  #pageSnapshot(snapshot: ListSnapshot, offset: number, limit: number, options: ListThreadsOptions,
+    prefix: string, query?: string): ListThreadsResult {
+    if (offset > snapshot.rows.length) throw new Error('ChatGPT Desktop cursor is out of range');
     const host = normalizeHostFilter(options.host);
     const rows: ChatGptDesktopThread[] = [];
     const base = {
       backend: snapshot.backend, limit, host,
+      ...(query !== undefined ? { query } : {}),
       ...(options.modelProvider?.trim() ? { modelProvider: options.modelProvider.trim() } : {}),
       ...(options.project ? { project: options.project } : {}),
       ...(options.groupBy === 'host' ? { groupBy: 'host' as const } : {}),
@@ -165,14 +174,14 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     for (const source of snapshot.rows.slice(offset, offset + limit)) {
       let row = source;
       const candidate = [...rows, row];
-      const probe = { ...base, threads: candidate, nextCursor: MERGED_LIST_CURSOR,
+      const probe = { ...base, threads: candidate, nextCursor: prefix,
         ...(options.groupBy === 'host' ? { groups: groupThreadsByHost(candidate) } : {}),
         warnings: snapshot.warnings, exitCode: 0 };
       if (serializedBytes(probe) > DESKTOP_RESULT_BUDGET_BYTES) {
         if (rows.length) break;
         row = minimalThreadRow(row);
         const minimal = [row];
-        if (serializedBytes({ ...base, threads: minimal, nextCursor: MERGED_LIST_CURSOR,
+        if (serializedBytes({ ...base, threads: minimal, nextCursor: prefix,
           ...(options.groupBy === 'host' ? { groups: groupThreadsByHost(minimal) } : {}),
           warnings: snapshot.warnings, exitCode: 0 }) > DESKTOP_RESULT_BUDGET_BYTES) {
           throw new Error('ChatGPT Desktop thread row exceeds the MCP result byte budget');
@@ -182,11 +191,11 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     }
     const nextOffset = offset + rows.length;
     const nextCursor = nextOffset < snapshot.rows.length
-      ? encodePageCursor(MERGED_LIST_CURSOR, { fingerprint: snapshot.fingerprint, offset: nextOffset,
-        port: this.#port, filters }) : null;
+      ? encodePageCursor(prefix, { fingerprint: snapshot.fingerprint, offset: nextOffset,
+        port: this.#port, filters: snapshot.filters }) : null;
     const warnings = [...snapshot.warnings];
     if (rows.length < Math.min(limit, snapshot.rows.length - offset)) {
-      warnings.push('List page stopped at the MCP byte budget; continue with nextCursor');
+      warnings.push(`${query === undefined ? 'List' : 'Search'} page stopped at the MCP byte budget; continue with nextCursor`);
     }
     return { ...base, threads: rows, nextCursor,
       ...(options.groupBy === 'host' ? { groups: groupThreadsByHost(rows) } : {}),
@@ -200,9 +209,11 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     let appComplete = false;
     const seenCursors = new Set<string>();
     const modelProviders = modelProvidersFromFilter(options.modelProvider);
+    let appSucceeded = false;
     try {
       for (let page = 0; page < 400; page++) {
         const out = await this.#fallbacks.listThreads({ limit: 200, cursor: appCursor, modelProviders });
+        appSucceeded = true;
         appRows.push(...out.threads);
         if (out.warnings) warnings.push(...out.warnings);
         if (!out.nextCursor) { appComplete = true; break; }
@@ -227,7 +238,9 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       throw new CdpUnreachableError(warnings[0] ?? 'ChatGPT Desktop listThreads: CDP and app-server unreachable');
     }
     const appList: ListThreadsResult = { backend: 'app-server', limit: appRows.length, threads: appRows };
-    const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
+    const base = appSucceeded
+      ? (cdpList ? mergeThreadLists(appList, cdpList) : appList)
+      : (cdpList ?? { backend: 'remote-state' as const, limit: 0, threads: [] });
     const merged = finalizeThreadList({ ...base, threads: resolveThreadProjects(base.threads) }, {
       limit: Number.MAX_SAFE_INTEGER,
       host: normalizeHostFilter(options.host),
@@ -250,11 +263,14 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
 
   async listHosts(): Promise<ListHostsResult> {
     const remotes = this.#listRemotes();
-    const cdpRows = typeof this.#cdp.listThreads === 'function'
-      ? (await this.#tryCdpList({ limit: 200 }))?.threads ?? [] : [];
+    const cdpList = typeof this.#cdp.listThreads === 'function'
+      ? await this.#tryCdpList({ limit: 200 }) : null;
+    const cdpRows = cdpList?.threads ?? [];
     let localThreadCount = 0;
+    let appSucceeded = false;
     try {
       const local = await this.#fallbacks.listThreads({ limit: 25, modelProviders: [] });
+      appSucceeded = true;
       localThreadCount = local.threads.length;
     } catch {
       localThreadCount = 0;
@@ -363,78 +379,92 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       hostsSource,
       modelProviders,
       modelProvidersSource,
-      backend: cdpRows.length
-        ? (remotes.length ? 'app-server+cdp+remote-state' : 'app-server+cdp')
-        : (remotes.length ? 'app-server+remote-state' : 'app-server'),
+      backend: appSucceeded
+        ? (cdpRows.length ? (remotes.length ? 'app-server+cdp+remote-state' : 'app-server+cdp')
+          : (remotes.length ? 'app-server+remote-state' : 'app-server'))
+        : (cdpRows.length ? (remotes.length ? 'cdp+remote-state' : 'cdp') : 'remote-state'),
       ...(warnings.length ? { warnings } : {}),
     };
   }
 
-  async searchThreads(options: {
-    query: string;
-    limit?: number;
-    cursor?: string;
-    host?: string;
-    modelProvider?: string;
-    project?: string;
-    groupBy?: 'host';
-  }): Promise<ListThreadsResult> {
+  async searchThreads(options: SearchThreadsOptions): Promise<ListThreadsResult> {
     const limit = options.limit ?? 50;
-    const host = normalizeHostFilter(options.host);
-    const modelProviders = modelProvidersFromFilter(options.modelProvider);
-    try {
-      const appList = await this.#fallbacks.searchThreads({
-        query: options.query,
-        limit,
-        cursor: options.cursor,
-        modelProviders,
-      });
-      const cdpList = options.cursor ? null : await this.#tryCdpList({ limit });
-      const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
-      const appMatches = new Set(appList.threads.map((thread) => thread.threadId));
-      const withRemotes = finalizeThreadList({ ...base, threads: resolveThreadProjects(base.threads) }, {
-        limit: 10_000,
-        host,
-        modelProvider: options.modelProvider?.trim() || undefined,
-        project: options.project,
-        remotes: options.cursor ? [] : resolveThreadProjects(this.#listRemotes()),
-      });
-      const needle = options.query.trim().toLowerCase();
-      const filtered = {
-        ...withRemotes,
-        query: options.query,
-        threads: withRemotes.threads.filter((thread) => appMatches.has(thread.threadId) || threadMatchesQuery(thread, needle)),
-      };
-      const result = finalizeThreadList(filtered, {
-        limit,
-        host,
-        modelProvider: options.modelProvider?.trim() || undefined,
-        project: options.project,
-        groupBy: options.groupBy,
-        remotes: [],
-      });
-      return result;
-    } catch (appError) {
-      if (options.cursor) throw appError;
-      const cdpList = await this.#tryCdpList({ limit });
-      const remotes = this.#listRemotes();
-      if (!cdpList && !remotes.length) throw appError;
-      const needle = options.query.trim().toLowerCase();
-      const filtered = {
-        ...(cdpList ?? { backend: 'app-server' as const, limit }),
-        query: options.query,
-        threads: resolveThreadProjects(cdpList?.threads ?? []).filter((thread) => threadMatchesQuery(thread, needle)),
-      };
-      const result = finalizeThreadList(filtered, {
-        limit,
-        host,
-        modelProvider: options.modelProvider?.trim() || undefined,
-        project: options.project,
-        groupBy: options.groupBy,
-        remotes: resolveThreadProjects(remotes).filter((thread) => threadMatchesQuery(thread, needle)),
-      });
-      return { ...result, warnings: [`App-server search failed: ${appError instanceof Error ? appError.message : String(appError)}`] };
+    const filters = JSON.stringify({ query: options.query, host: normalizeHostFilter(options.host),
+      modelProvider: options.modelProvider?.trim() || null, project: options.project?.trim() || null,
+      groupBy: options.groupBy ?? null });
+    let snapshot: ListSnapshot;
+    let offset = 0;
+    if (options.cursor) {
+      const state = decodePageCursor<{ fingerprint: string; offset: number; port: number; filters: string }>(
+        MERGED_SEARCH_CURSOR, options.cursor);
+      if (state.port !== this.#port || state.filters !== filters || !Number.isSafeInteger(state.offset)
+        || state.offset < 1 || typeof state.fingerprint !== 'string') {
+        throw new Error('ChatGPT Desktop search cursor does not match the port, query or filters');
+      }
+      offset = state.offset;
+      snapshot = this.#listSnapshots.get(state.fingerprint) ?? await this.#buildSearchSnapshot(options, filters);
+      if (snapshot.fingerprint !== state.fingerprint || snapshot.filters !== filters || snapshot.port !== this.#port) {
+        throw new Error('ChatGPT Desktop search results changed; restart without a cursor');
+      }
+    } else {
+      snapshot = await this.#buildSearchSnapshot(options, filters);
     }
+    return this.#pageSnapshot(snapshot, offset, limit, options, MERGED_SEARCH_CURSOR, options.query);
+  }
+
+  async #buildSearchSnapshot(options: SearchThreadsOptions, filters: string): Promise<ListSnapshot> {
+    const modelProviders = modelProvidersFromFilter(options.modelProvider);
+    const appRows: ChatGptDesktopThread[] = [];
+    const warnings: string[] = [];
+    const seenCursors = new Set<string>();
+    let appCursor: string | undefined;
+    let appSucceeded = false;
+    let appError: unknown;
+    try {
+      for (let page = 0; page < 400; page++) {
+        const out = await this.#fallbacks.searchThreads({ query: options.query, limit: 200,
+          cursor: appCursor, modelProviders });
+        appSucceeded = true;
+        appRows.push(...out.threads);
+        if (out.warnings) warnings.push(...out.warnings);
+        if (!out.nextCursor) break;
+        if (seenCursors.has(out.nextCursor)) throw new Error('App-server search returned a repeated cursor');
+        seenCursors.add(out.nextCursor);
+        appCursor = out.nextCursor;
+        if (page === 399) warnings.push('App-server search stopped after 400 pages');
+      }
+    } catch (error) {
+      appError = error;
+      warnings.push(`App-server search failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const cdpList = await this.#tryCdpList({ limit: 200 });
+    const remotes = resolveThreadProjects(this.#listRemotes());
+    if (!appSucceeded && !cdpList && !remotes.length) throw appError;
+    const appList: ListThreadsResult = { backend: 'app-server', limit: appRows.length, threads: appRows };
+    const base = appSucceeded
+      ? (cdpList ? mergeThreadLists(appList, cdpList) : appList)
+      : (cdpList ?? { backend: 'remote-state' as const, limit: 0, threads: [] });
+    const appMatches = new Set(appRows.map((thread) => toAppServerThreadId(thread.threadId) ?? thread.threadId));
+    const merged = finalizeThreadList({ ...base, threads: resolveThreadProjects(base.threads) }, {
+      limit: Number.MAX_SAFE_INTEGER, host: normalizeHostFilter(options.host),
+      modelProvider: options.modelProvider?.trim() || undefined, project: options.project,
+      remotes,
+    });
+    const needle = options.query.trim().toLowerCase();
+    const rows = [...new Map(merged.threads
+      .filter((thread) => appMatches.has(toAppServerThreadId(thread.threadId) ?? thread.threadId)
+        || threadMatchesQuery(thread, needle))
+      .map((thread) => [toAppServerThreadId(thread.threadId) ?? thread.threadId, thread])).values()];
+    rows.sort(compareDesktopThreads);
+    const fingerprint = createHash('sha256').update(JSON.stringify({ filters, port: this.#port,
+      rows: rows.map((row) => [row.threadId, row.updatedAt, row.location, row.hostId]) })).digest('base64url');
+    const snapshot: ListSnapshot = { fingerprint, port: this.#port, filters, createdAt: Date.now(),
+      rows, backend: merged.backend, warnings };
+    for (const [key, value] of this.#listSnapshots) {
+      if (Date.now() - value.createdAt > 15 * 60_000 || this.#listSnapshots.size >= 8) this.#listSnapshots.delete(key);
+    }
+    this.#listSnapshots.set(fingerprint, snapshot);
+    return snapshot;
   }
 
   async readThread(options: {

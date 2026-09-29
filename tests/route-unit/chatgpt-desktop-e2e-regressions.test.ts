@@ -295,6 +295,66 @@ it('marks a CDP read partial and preserves the app-server failure', async () => 
   });
 });
 
+it('falls back to CDP when a local thread is absent from app-server and remote state', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'gbot-local-read-'));
+  const previousHome = process.env.CODEX_HOME;
+  process.env.CODEX_HOME = home;
+  try {
+    const bridge = await import('../../src/core/codex-bridge.js');
+    rstest.spyOn(bridge, 'openCodexSession').mockResolvedValue({ client: {
+      close() {},
+      async request() { throw new Error('no rollout found'); },
+    } } as never);
+    const facade = new ChatGptDesktopFacade({ connect: async () => {},
+      readThread: async () => ({ threadId: 'local:desktop-only', turns: [], backend: 'cdp', limit: 100, full: false }),
+    } as unknown as ChatGptDesktopAdapter, 9222, { readThread: appServerReadThread } as never);
+    expect(await facade.readThread({ threadId: 'local:desktop-only' })).toMatchObject({
+      backend: 'cdp', warnings: ['App-server read failed: no rollout found'],
+    });
+  } finally {
+    if (previousHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = previousHome;
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+it('walks every app-server search match when a remote row displaces a full first page', async () => {
+  const row = (id: string, updatedAt: number) => ({ threadId: `local:${id}`, title: `needle ${id}`,
+    updatedAt, pinned: false, selected: false, kind: 'codex' });
+  const app = [row('a', 3), row('b', 2), row('c', 1)];
+  const remote = { ...row('remote', 4), location: 'remote' as const, hostId: 'remote:one', hostName: null };
+  const facade = new ChatGptDesktopFacade({ connect: async () => {},
+    listThreads: async () => ({ backend: 'cdp', limit: 200, threads: [] }),
+  } as unknown as ChatGptDesktopAdapter, 9222, {
+    searchThreads: async ({ cursor }: { cursor?: string }) => ({ backend: 'app-server', limit: 2,
+      threads: cursor ? app.slice(2) : app.slice(0, 2), nextCursor: cursor ? null : 'next' }),
+    listRemoteThreads: () => [remote],
+  } as never);
+  const ids: string[] = [];
+  let cursor: string | null | undefined;
+  do {
+    const page = await facade.searchThreads({ query: 'needle', limit: 2, ...(cursor ? { cursor } : {}) });
+    ids.push(...page.threads.map((thread) => thread.threadId));
+    cursor = page.nextCursor;
+  } while (cursor);
+  expect(ids).toEqual(['local:remote', 'local:a', 'local:b', 'local:c']);
+});
+
+it('reports only CDP and remote state when app-server inventory fails', async () => {
+  const row = (id: string) => ({ threadId: `local:${id}`, title: id,
+    pinned: false, selected: false, kind: 'codex' });
+  const remote = { ...row('remote'), location: 'remote' as const, hostId: 'remote:one', hostName: null };
+  const facade = new ChatGptDesktopFacade({ connect: async () => {},
+    listThreads: async () => ({ backend: 'cdp', limit: 200, threads: [row('cdp')] }),
+  } as unknown as ChatGptDesktopAdapter, 9222, {
+    listThreads: async () => { throw new Error('offline'); },
+    listRemoteThreads: () => [remote], listHosts: () => [],
+    discoverModelProviders: async () => ({ providers: [], source: 'thread/list-distinct', complete: true }),
+  } as never);
+  expect((await facade.listThreads()).backend).toBe('cdp+remote-state');
+  expect((await facade.listHosts()).backend).toBe('cdp+remote-state');
+});
+
 it('pages one sorted merged inventory exactly once across app, CDP and remote rows', async () => {
   const row = (id: string, updatedAt: number) => ({ threadId: `local:${id}`, title: id,
     updatedAt, pinned: false, selected: false, kind: 'codex' });

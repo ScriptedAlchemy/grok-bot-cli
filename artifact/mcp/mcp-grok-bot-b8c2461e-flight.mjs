@@ -8759,7 +8759,7 @@ var __webpack_modules__ = {
                     return new _errors_js__rspack_import_1.Rg(threadId, remote.hostId, remote.hostName);
                 }
                 const hostId = (0, _remote_threads_js__rspack_import_2.XI)(threadId);
-                return new _errors_js__rspack_import_1.Rg(threadId, hostId, null);
+                if (hostId) return new _errors_js__rspack_import_1.Rg(threadId, hostId, null);
             }
             if (error instanceof Error) return error;
             return new Error(message || `app-server error for thread ${threadId}`);
@@ -10041,6 +10041,7 @@ var __webpack_modules__ = {
             discoverModelProviders: _app_server_fallback_js__rspack_import_2.X
         };
         const MERGED_LIST_CURSOR = 'desktop-merged-list-v1:';
+        const MERGED_SEARCH_CURSOR = 'desktop-merged-search-v1:';
         class ChatGptDesktopFacade {
             #cdp;
             #port;
@@ -10091,13 +10092,19 @@ var __webpack_modules__ = {
                 } else {
                     snapshot = await this.#buildListSnapshot(options, filters);
                 }
-                if (offset > snapshot.rows.length) throw new Error('ChatGPT Desktop list cursor is out of range');
+                return this.#pageSnapshot(snapshot, offset, limit, options, MERGED_LIST_CURSOR);
+            }
+            #pageSnapshot(snapshot, offset, limit, options, prefix, query) {
+                if (offset > snapshot.rows.length) throw new Error('ChatGPT Desktop cursor is out of range');
                 const host = normalizeHostFilter(options.host);
                 const rows = [];
                 const base = {
                     backend: snapshot.backend,
                     limit,
                     host,
+                    ...query !== undefined ? {
+                        query
+                    } : {},
                     ...options.modelProvider?.trim() ? {
                         modelProvider: options.modelProvider.trim()
                     } : {},
@@ -10117,7 +10124,7 @@ var __webpack_modules__ = {
                     const probe = {
                         ...base,
                         threads: candidate,
-                        nextCursor: MERGED_LIST_CURSOR,
+                        nextCursor: prefix,
                         ...options.groupBy === 'host' ? {
                             groups: groupThreadsByHost(candidate)
                         } : {},
@@ -10133,7 +10140,7 @@ var __webpack_modules__ = {
                         if ((0, _payload_budget_js__rspack_import_8.sQ)({
                             ...base,
                             threads: minimal,
-                            nextCursor: MERGED_LIST_CURSOR,
+                            nextCursor: prefix,
                             ...options.groupBy === 'host' ? {
                                 groups: groupThreadsByHost(minimal)
                             } : {},
@@ -10146,17 +10153,17 @@ var __webpack_modules__ = {
                     rows.push(row);
                 }
                 const nextOffset = offset + rows.length;
-                const nextCursor = nextOffset < snapshot.rows.length ? (0, _payload_budget_js__rspack_import_8.oI)(MERGED_LIST_CURSOR, {
+                const nextCursor = nextOffset < snapshot.rows.length ? (0, _payload_budget_js__rspack_import_8.oI)(prefix, {
                     fingerprint: snapshot.fingerprint,
                     offset: nextOffset,
                     port: this.#port,
-                    filters
+                    filters: snapshot.filters
                 }) : null;
                 const warnings = [
                     ...snapshot.warnings
                 ];
                 if (rows.length < Math.min(limit, snapshot.rows.length - offset)) {
-                    warnings.push('List page stopped at the MCP byte budget; continue with nextCursor');
+                    warnings.push(`${query === undefined ? 'List' : 'Search'} page stopped at the MCP byte budget; continue with nextCursor`);
                 }
                 return {
                     ...base,
@@ -10177,6 +10184,7 @@ var __webpack_modules__ = {
                 let appComplete = false;
                 const seenCursors = new Set();
                 const modelProviders = modelProvidersFromFilter(options.modelProvider);
+                let appSucceeded = false;
                 try {
                     for(let page = 0; page < 400; page++){
                         const out = await this.#fallbacks.listThreads({
@@ -10184,6 +10192,7 @@ var __webpack_modules__ = {
                             cursor: appCursor,
                             modelProviders
                         });
+                        appSucceeded = true;
                         appRows.push(...out.threads);
                         if (out.warnings) warnings.push(...out.warnings);
                         if (!out.nextCursor) {
@@ -10217,7 +10226,11 @@ var __webpack_modules__ = {
                     limit: appRows.length,
                     threads: appRows
                 };
-                const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
+                const base = appSucceeded ? cdpList ? mergeThreadLists(appList, cdpList) : appList : cdpList ?? {
+                    backend: 'remote-state',
+                    limit: 0,
+                    threads: []
+                };
                 const merged = finalizeThreadList({
                     ...base,
                     threads: (0, _project_state_js__rspack_import_6.j)(base.threads)
@@ -10262,15 +10275,18 @@ var __webpack_modules__ = {
             }
             async listHosts() {
                 const remotes = this.#listRemotes();
-                const cdpRows = typeof this.#cdp.listThreads === 'function' ? (await this.#tryCdpList({
+                const cdpList = typeof this.#cdp.listThreads === 'function' ? await this.#tryCdpList({
                     limit: 200
-                }))?.threads ?? [] : [];
+                }) : null;
+                const cdpRows = cdpList?.threads ?? [];
                 let localThreadCount = 0;
+                let appSucceeded = false;
                 try {
                     const local = await this.#fallbacks.listThreads({
                         limit: 25,
                         modelProviders: []
                     });
+                    appSucceeded = true;
                     localThreadCount = local.threads.length;
                 } catch  {
                     localThreadCount = 0;
@@ -10401,7 +10417,7 @@ var __webpack_modules__ = {
                     hostsSource,
                     modelProviders,
                     modelProvidersSource,
-                    backend: cdpRows.length ? remotes.length ? 'app-server+cdp+remote-state' : 'app-server+cdp' : remotes.length ? 'app-server+remote-state' : 'app-server',
+                    backend: appSucceeded ? cdpRows.length ? remotes.length ? 'app-server+cdp+remote-state' : 'app-server+cdp' : remotes.length ? 'app-server+remote-state' : 'app-server' : cdpRows.length ? remotes.length ? 'cdp+remote-state' : 'cdp' : 'remote-state',
                     ...warnings.length ? {
                         warnings
                     } : {}
@@ -10409,76 +10425,117 @@ var __webpack_modules__ = {
             }
             async searchThreads(options) {
                 const limit = options.limit ?? 50;
-                const host = normalizeHostFilter(options.host);
-                const modelProviders = modelProvidersFromFilter(options.modelProvider);
-                try {
-                    const appList = await this.#fallbacks.searchThreads({
-                        query: options.query,
-                        limit,
-                        cursor: options.cursor,
-                        modelProviders
-                    });
-                    const cdpList = options.cursor ? null : await this.#tryCdpList({
-                        limit
-                    });
-                    const base = cdpList ? mergeThreadLists(appList, cdpList) : appList;
-                    const appMatches = new Set(appList.threads.map((thread)=>thread.threadId));
-                    const withRemotes = finalizeThreadList({
-                        ...base,
-                        threads: (0, _project_state_js__rspack_import_6.j)(base.threads)
-                    }, {
-                        limit: 10000,
-                        host,
-                        modelProvider: options.modelProvider?.trim() || undefined,
-                        project: options.project,
-                        remotes: options.cursor ? [] : (0, _project_state_js__rspack_import_6.j)(this.#listRemotes())
-                    });
-                    const needle = options.query.trim().toLowerCase();
-                    const filtered = {
-                        ...withRemotes,
-                        query: options.query,
-                        threads: withRemotes.threads.filter((thread)=>appMatches.has(thread.threadId) || threadMatchesQuery(thread, needle))
-                    };
-                    const result = finalizeThreadList(filtered, {
-                        limit,
-                        host,
-                        modelProvider: options.modelProvider?.trim() || undefined,
-                        project: options.project,
-                        groupBy: options.groupBy,
-                        remotes: []
-                    });
-                    return result;
-                } catch (appError) {
-                    if (options.cursor) throw appError;
-                    const cdpList = await this.#tryCdpList({
-                        limit
-                    });
-                    const remotes = this.#listRemotes();
-                    if (!cdpList && !remotes.length) throw appError;
-                    const needle = options.query.trim().toLowerCase();
-                    const filtered = {
-                        ...cdpList ?? {
-                            backend: 'app-server',
-                            limit
-                        },
-                        query: options.query,
-                        threads: (0, _project_state_js__rspack_import_6.j)(cdpList?.threads ?? []).filter((thread)=>threadMatchesQuery(thread, needle))
-                    };
-                    const result = finalizeThreadList(filtered, {
-                        limit,
-                        host,
-                        modelProvider: options.modelProvider?.trim() || undefined,
-                        project: options.project,
-                        groupBy: options.groupBy,
-                        remotes: (0, _project_state_js__rspack_import_6.j)(remotes).filter((thread)=>threadMatchesQuery(thread, needle))
-                    });
-                    return {
-                        ...result,
-                        warnings: [
-                            `App-server search failed: ${appError instanceof Error ? appError.message : String(appError)}`
-                        ]
-                    };
+                const filters = JSON.stringify({
+                    query: options.query,
+                    host: normalizeHostFilter(options.host),
+                    modelProvider: options.modelProvider?.trim() || null,
+                    project: options.project?.trim() || null,
+                    groupBy: options.groupBy ?? null
+                });
+                let snapshot;
+                let offset = 0;
+                if (options.cursor) {
+                    const state = (0, _payload_budget_js__rspack_import_8.i3)(MERGED_SEARCH_CURSOR, options.cursor);
+                    if (state.port !== this.#port || state.filters !== filters || !Number.isSafeInteger(state.offset) || state.offset < 1 || typeof state.fingerprint !== 'string') {
+                        throw new Error('ChatGPT Desktop search cursor does not match the port, query or filters');
+                    }
+                    offset = state.offset;
+                    snapshot = this.#listSnapshots.get(state.fingerprint) ?? await this.#buildSearchSnapshot(options, filters);
+                    if (snapshot.fingerprint !== state.fingerprint || snapshot.filters !== filters || snapshot.port !== this.#port) {
+                        throw new Error('ChatGPT Desktop search results changed; restart without a cursor');
+                    }
+                } else {
+                    snapshot = await this.#buildSearchSnapshot(options, filters);
                 }
+                return this.#pageSnapshot(snapshot, offset, limit, options, MERGED_SEARCH_CURSOR, options.query);
+            }
+            async #buildSearchSnapshot(options, filters) {
+                const modelProviders = modelProvidersFromFilter(options.modelProvider);
+                const appRows = [];
+                const warnings = [];
+                const seenCursors = new Set();
+                let appCursor;
+                let appSucceeded = false;
+                let appError;
+                try {
+                    for(let page = 0; page < 400; page++){
+                        const out = await this.#fallbacks.searchThreads({
+                            query: options.query,
+                            limit: 200,
+                            cursor: appCursor,
+                            modelProviders
+                        });
+                        appSucceeded = true;
+                        appRows.push(...out.threads);
+                        if (out.warnings) warnings.push(...out.warnings);
+                        if (!out.nextCursor) break;
+                        if (seenCursors.has(out.nextCursor)) throw new Error('App-server search returned a repeated cursor');
+                        seenCursors.add(out.nextCursor);
+                        appCursor = out.nextCursor;
+                        if (page === 399) warnings.push('App-server search stopped after 400 pages');
+                    }
+                } catch (error) {
+                    appError = error;
+                    warnings.push(`App-server search failed: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                const cdpList = await this.#tryCdpList({
+                    limit: 200
+                });
+                const remotes = (0, _project_state_js__rspack_import_6.j)(this.#listRemotes());
+                if (!appSucceeded && !cdpList && !remotes.length) throw appError;
+                const appList = {
+                    backend: 'app-server',
+                    limit: appRows.length,
+                    threads: appRows
+                };
+                const base = appSucceeded ? cdpList ? mergeThreadLists(appList, cdpList) : appList : cdpList ?? {
+                    backend: 'remote-state',
+                    limit: 0,
+                    threads: []
+                };
+                const appMatches = new Set(appRows.map((thread)=>(0, _thread_ids_js__rspack_import_7.nn)(thread.threadId) ?? thread.threadId));
+                const merged = finalizeThreadList({
+                    ...base,
+                    threads: (0, _project_state_js__rspack_import_6.j)(base.threads)
+                }, {
+                    limit: Number.MAX_SAFE_INTEGER,
+                    host: normalizeHostFilter(options.host),
+                    modelProvider: options.modelProvider?.trim() || undefined,
+                    project: options.project,
+                    remotes
+                });
+                const needle = options.query.trim().toLowerCase();
+                const rows = [
+                    ...new Map(merged.threads.filter((thread)=>appMatches.has((0, _thread_ids_js__rspack_import_7.nn)(thread.threadId) ?? thread.threadId) || threadMatchesQuery(thread, needle)).map((thread)=>[
+                            (0, _thread_ids_js__rspack_import_7.nn)(thread.threadId) ?? thread.threadId,
+                            thread
+                        ])).values()
+                ];
+                rows.sort(compareDesktopThreads);
+                const fingerprint = (0, node_crypto__rspack_import_0.createHash)('sha256').update(JSON.stringify({
+                    filters,
+                    port: this.#port,
+                    rows: rows.map((row)=>[
+                            row.threadId,
+                            row.updatedAt,
+                            row.location,
+                            row.hostId
+                        ])
+                })).digest('base64url');
+                const snapshot = {
+                    fingerprint,
+                    port: this.#port,
+                    filters,
+                    createdAt: Date.now(),
+                    rows,
+                    backend: merged.backend,
+                    warnings
+                };
+                for (const [key, value] of this.#listSnapshots){
+                    if (Date.now() - value.createdAt > 15 * 60000 || this.#listSnapshots.size >= 8) this.#listSnapshots.delete(key);
+                }
+                this.#listSnapshots.set(fingerprint, snapshot);
+                return snapshot;
             }
             async readThread(options) {
                 const limit = options.limit ?? (options.full ? 2000 : 100);

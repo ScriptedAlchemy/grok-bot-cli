@@ -655,7 +655,7 @@ function maybeRemoteThreadError(error: unknown, threadId: string): Error {
       return new RemoteThreadNotLoadedError(threadId, remote.hostId, remote.hostName);
     }
     const hostId = findRemoteThreadHostId(threadId);
-    return new RemoteThreadNotLoadedError(threadId, hostId, null);
+    if (hostId) return new RemoteThreadNotLoadedError(threadId, hostId, null);
   }
   if (error instanceof Error) return error;
   return new Error(message || `app-server error for thread ${threadId}`);
