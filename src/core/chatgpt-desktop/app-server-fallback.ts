@@ -45,13 +45,14 @@ export async function appServerListThreads({
 export async function appServerReadThread({
   threadId,
   limit = 100,
+  full = false,
 }: {
   threadId: string;
   limit?: number;
+  full?: boolean;
 }): Promise<ReadThreadResult> {
   const { client } = await openCodexSession();
   try {
-    // Prefer thread/read when the daemon supports it; fall back to items list.
     let turns: ReadThreadResult['turns'] = [];
     try {
       const read = await client.request('thread/read', { threadId }) as {
@@ -60,7 +61,9 @@ export async function appServerReadThread({
         items?: unknown[];
       };
       const raw = read.thread?.turns ?? read.turns ?? read.thread?.items ?? read.items ?? [];
-      turns = normalizeTurns(raw).slice(-limit);
+      turns = normalizeTurns(raw).slice(full ? 0 : -limit);
+      if (full && limit > 0) turns = turns.slice(0, limit);
+      else if (!full) turns = turns.slice(-limit);
     } catch {
       const items = await client.request('thread/items/list', {
         threadId,
@@ -68,7 +71,7 @@ export async function appServerReadThread({
       }) as { data?: unknown[] };
       turns = normalizeTurns(items.data ?? []).slice(-limit);
     }
-    return { threadId, turns, backend: 'app-server', limit };
+    return { threadId, turns, backend: 'app-server', limit, full };
   } finally {
     client.close();
   }
@@ -102,12 +105,21 @@ export async function appServerSendMessage({
 }
 
 export async function appServerWaitForReply({
-  threadId,
+  threadId = 'unknown',
   timeoutMs = 60000,
 }: {
-  threadId: string;
+  threadId?: string;
   timeoutMs?: number;
 }): Promise<WaitForReplyResult> {
+  if (!threadId || threadId === 'unknown' || threadId === 'new') {
+    return {
+      threadId: threadId || 'unknown',
+      reply: '',
+      backend: 'app-server',
+      experimental: false,
+      delivery: 'rejected',
+    };
+  }
   // Reuse the existing session client; poll thread/items/list for a fresh agent message.
   const baseline = await appServerReadThread({ threadId, limit: 200 });
   const seen = new Set(baseline.turns.map((turn) => turn.turnKey));

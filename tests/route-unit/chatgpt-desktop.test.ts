@@ -53,32 +53,42 @@ function fakeAdapter(overrides: Partial<ChatGptDesktopAdapter> = {}): ChatGptDes
         ].slice(0, limit),
       };
     },
-    async readThread({ threadId, limit = 100 }) {
+    async readThread({ threadId, limit = 100, full = false }) {
       return {
         threadId,
         backend: 'cdp',
         limit,
+        full,
         turns: [
-          { turnKey: 'u1', role: 'user', text: 'hello' },
-          { turnKey: 'a1', role: 'assistant', text: 'hi there' },
+          {
+            turnKey: 't1',
+            role: 'assistant',
+            text: 'hi there',
+            userText: 'hello',
+            assistantText: 'hi there',
+          },
         ],
       };
     },
-    async sendMessage({ threadId, text }) {
+    async sendMessage({ threadId, text, project }) {
       return {
-        threadId: threadId ?? 'new',
+        threadId: threadId ?? 'local:client-new-thread:deadbeef',
+        temporaryThreadId: threadId ? undefined : 'local:client-new-thread:deadbeef',
+        project,
         backend: 'cdp',
-        experimental: true,
+        experimental: false,
         delivery: 'accepted',
+        sentVia: 'enter',
         message: text,
       };
     },
     async waitForReply({ threadId }) {
       return {
-        threadId,
+        threadId: threadId ?? 'conv-real-id',
+        conversationId: 'conv-real-id',
         reply: 'hi there',
         backend: 'cdp',
-        experimental: true,
+        experimental: false,
         delivery: 'replied',
       };
     },
@@ -125,9 +135,13 @@ describe('chatgpt-desktop loopback + relaunch helpers', () => {
     const {
       IGNORED_TARGET_URL_MARKERS,
       MAIN_WINDOW_URL,
-      COMPOSER_SELECTORS,
-      SEND_BUTTON_SELECTORS,
+      COMPOSER_SELECTOR,
+      SEND_BUTTON_SELECTOR,
+      STOP_BUTTON_SELECTOR,
+      ASSISTANT_MESSAGE_SELECTOR,
+      dedupeThreadsById,
       isMainWindowTarget,
+      newChatInProjectSelector,
       pickMainWindowTarget,
       summarizeTargetInfos,
     } = await import('../../src/core/chatgpt-desktop/cdp-dom.js');
@@ -142,8 +156,18 @@ describe('chatgpt-desktop loopback + relaunch helpers', () => {
     expect(isMainWindowTarget({ type: 'page', url: 'app://-/detached-window.html' })).toBe(false);
     expect(isMainWindowTarget({ type: 'page', url: 'https://chatgpt.com/pricing' })).toBe(false);
     expect(IGNORED_TARGET_URL_MARKERS.length).toBeGreaterThan(0);
-    expect(COMPOSER_SELECTORS[0]).toContain('contenteditable');
-    expect(SEND_BUTTON_SELECTORS.length).toBeGreaterThan(0);
+    expect(COMPOSER_SELECTOR).toContain('data-codex-composer');
+    expect(SEND_BUTTON_SELECTOR).toBe('button[aria-label="Send"]');
+    expect(STOP_BUTTON_SELECTOR).toContain('Stop');
+    expect(ASSISTANT_MESSAGE_SELECTOR).toContain('assistant-message');
+    expect(newChatInProjectSelector('Launch')).toContain('Start new chat in Launch');
+    expect(
+      dedupeThreadsById([
+        { threadId: 'a', title: '1', pinned: false, selected: false, kind: 'local' },
+        { threadId: 'a', title: '1b', pinned: false, selected: true, kind: 'local' },
+        { threadId: 'b', title: '2', pinned: false, selected: false, kind: 'local' },
+      ]).map((t) => t.threadId),
+    ).toEqual(['a', 'b']);
 
     const targets = summarizeTargetInfos([
       { targetId: 'overlay', type: 'page', url: 'app://-/index.html?initialRoute=%2Favatar-overlay' },
@@ -194,29 +218,33 @@ describe('chatgpt-desktop MCP tools', () => {
     expect(read.isError).toBe(false);
     expect(read.structuredContent).toMatchObject({
       backend: 'cdp',
-      turns: [{ role: 'user' }, { role: 'assistant' }],
+      full: false,
+      turns: [{ role: 'assistant', userText: 'hello', assistantText: 'hi there' }],
     });
 
     const sent = await invokeMcpTool('chatgpt_desktop_send', {
       server: 'grok-bot',
-      input: { text: 'ping' },
+      input: { text: 'ping', project: 'Launch' },
     });
     expect(sent.isError).toBe(false);
     expect(sent.structuredContent).toMatchObject({
       delivery: 'accepted',
       backend: 'cdp',
-      experimental: true,
+      experimental: false,
+      temporaryThreadId: 'local:client-new-thread:deadbeef',
+      project: 'Launch',
       exitCode: 0,
     });
 
     const waited = await invokeMcpTool('chatgpt_desktop_wait_reply', {
       server: 'grok-bot',
-      input: { threadId: 'local:11111111-1111-1111-1111-111111111111', timeoutMs: 1000 },
+      input: { threadId: 'local:client-new-thread:deadbeef', timeoutMs: 1000 },
     });
     expect(waited.isError).toBe(false);
     expect(waited.structuredContent).toMatchObject({
       delivery: 'replied',
       reply: 'hi there',
+      conversationId: 'conv-real-id',
       exitCode: 0,
     });
   });
@@ -353,12 +381,13 @@ describe('chatgpt-desktop CDP→app-server fallback', () => {
           ],
         };
       },
-      readThread: async ({ threadId, limit = 100 }) => {
+      readThread: async ({ threadId, limit = 100, full = false }) => {
         calls.push('app-server.readThread');
         return {
           threadId,
           backend: 'app-server',
           limit,
+          full,
           turns: [{ turnKey: 't1', role: 'assistant', text: 'fallback reply' }],
         };
       },
@@ -373,7 +402,7 @@ describe('chatgpt-desktop CDP→app-server fallback', () => {
         };
       },
       waitForReply: async ({ threadId }) => ({
-        threadId,
+        threadId: threadId ?? 'codex-1',
         reply: 'fallback reply',
         backend: 'app-server',
         experimental: false,

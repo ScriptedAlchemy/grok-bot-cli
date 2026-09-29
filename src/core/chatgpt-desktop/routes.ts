@@ -24,7 +24,9 @@ export const readThreadSchema = z
   .object({
     port: z.number().int().min(1).max(65535).optional(),
     threadId,
-    limit: z.number().int().min(1).max(500).default(100),
+    limit: z.number().int().min(1).max(2000).default(100),
+    full: z.boolean().default(false),
+    openTimeoutMs: z.number().int().min(1).max(600_000).default(90_000),
   })
   .strict();
 
@@ -33,14 +35,16 @@ export const sendSchema = z
     port: z.number().int().min(1).max(65535).optional(),
     threadId: threadId.optional(),
     text: z.string().min(1).max(100_000),
+    project: z.string().min(1).max(256).optional(),
+    openTimeoutMs: z.number().int().min(1).max(600_000).default(90_000),
   })
   .strict();
 
 export const waitReplySchema = z
   .object({
     port: z.number().int().min(1).max(65535).optional(),
-    threadId,
-    timeoutMs: z.number().int().min(1).max(600_000).default(60_000),
+    threadId: threadId.optional(),
+    timeoutMs: z.number().int().min(1).max(600_000).default(120_000),
   })
   .strict();
 
@@ -67,7 +71,10 @@ async function withAdapter<T>(
 }
 
 function asResult(value: object): OperationResult {
-  return resultSchema.parse(value);
+  const cleaned = Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  );
+  return resultSchema.parse(cleaned);
 }
 
 function mapError(error: unknown): OperationResult {
@@ -114,7 +121,12 @@ export async function readThreadOperation(
 ): Promise<OperationResult> {
   try {
     const out = await withAdapter(input.port, (adapter) =>
-      adapter.readThread({ threadId: input.threadId, limit: input.limit }),
+      adapter.readThread({
+        threadId: input.threadId,
+        limit: input.limit,
+        full: input.full,
+        openTimeoutMs: input.openTimeoutMs,
+      }),
     );
     return asResult({ ...out, exitCode: 0 as const });
   } catch (error) {
@@ -125,7 +137,12 @@ export async function readThreadOperation(
 export async function sendOperation(input: z.infer<typeof sendSchema>): Promise<OperationResult> {
   try {
     const out = await withAdapter(input.port, (adapter) =>
-      adapter.sendMessage({ threadId: input.threadId, text: input.text }),
+      adapter.sendMessage({
+        threadId: input.threadId,
+        text: input.text,
+        project: input.project,
+        openTimeoutMs: input.openTimeoutMs,
+      }),
     );
     return asResult({
       ...out,
@@ -165,13 +182,16 @@ export function resultText(result: OperationResult): string {
     return `${result.threads.length} threads via ${result.backend ?? 'unknown'}`;
   }
   if (Array.isArray(result.turns)) {
-    return `${result.turns.length} turns on ${result.threadId} via ${result.backend ?? 'unknown'}`;
+    const mode = result.full ? 'full' : 'visible';
+    return `${result.turns.length} turns (${mode}) on ${result.threadId} via ${result.backend ?? 'unknown'}`;
   }
   if (result.delivery === 'accepted') {
-    return `Sent on ${result.threadId} via ${result.backend}${result.experimental ? ' (experimental)' : ''}`;
+    return `Sent on ${result.threadId} via ${result.backend}` +
+      (result.conversationId ? ` (conversation ${result.conversationId})` : '');
   }
   if (result.delivery === 'replied') {
-    return String(result.reply ?? 'replied');
+    const id = result.conversationId ? ` [${result.conversationId}]` : '';
+    return `${String(result.reply ?? 'replied')}${id}`;
   }
   if (result.delivery) return `delivery ${result.delivery}`;
   return JSON.stringify(result);

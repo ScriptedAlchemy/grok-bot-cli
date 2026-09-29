@@ -87,7 +87,12 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     }
   }
 
-  async readThread(options: { threadId: string; limit?: number }): Promise<ReadThreadResult> {
+  async readThread(options: {
+    threadId: string;
+    limit?: number;
+    full?: boolean;
+    openTimeoutMs?: number;
+  }): Promise<ReadThreadResult> {
     try {
       await this.#ensureCdp();
       return await this.#cdp.readThread(options);
@@ -97,7 +102,12 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
     }
   }
 
-  async sendMessage(options: { threadId?: string; text: string }): Promise<SendMessageResult> {
+  async sendMessage(options: {
+    threadId?: string;
+    text: string;
+    project?: string;
+    openTimeoutMs?: number;
+  }): Promise<SendMessageResult> {
     try {
       await this.#ensureCdp();
       return await this.#cdp.sendMessage(options);
@@ -108,7 +118,7 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
   }
 
   async waitForReply(options: {
-    threadId: string;
+    threadId?: string;
     timeoutMs?: number;
   }): Promise<WaitForReplyResult> {
     try {
@@ -116,14 +126,20 @@ export class ChatGptDesktopFacade implements ChatGptDesktopAdapter {
       return await this.#cdp.waitForReply(options);
     } catch (error) {
       if (!isCdpFailure(error)) throw error;
-      return this.#fallbacks.waitForReply(options);
+      return this.#fallbacks.waitForReply({
+        threadId: options.threadId ?? 'unknown',
+        timeoutMs: options.timeoutMs,
+      });
     }
   }
 
-  async openThread(threadId: string): Promise<OpenThreadResult> {
+  async openThread(
+    threadId: string,
+    options?: { openTimeoutMs?: number },
+  ): Promise<OpenThreadResult> {
     try {
       await this.#ensureCdp();
-      return await this.#cdp.openThread(threadId);
+      return await this.#cdp.openThread(threadId, options);
     } catch (error) {
       if (!isCdpFailure(error)) throw error;
       return this.#fallbacks.openThread(threadId);

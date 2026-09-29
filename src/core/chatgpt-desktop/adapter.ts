@@ -16,11 +16,30 @@ export interface ChatGptDesktopAdapter {
   connect(options: { port: number }): Promise<void>;
   listTargets(): Promise<readonly ChatGptDesktopTarget[]>;
   listThreads(options?: { limit?: number }): Promise<ListThreadsResult>;
-  readThread(options: { threadId: string; limit?: number }): Promise<ReadThreadResult>;
-  /** Omitting `threadId` starts a new thread (composer in a new chat). */
-  sendMessage(options: { threadId?: string; text: string }): Promise<SendMessageResult>;
-  waitForReply(options: { threadId: string; timeoutMs?: number }): Promise<WaitForReplyResult>;
-  openThread(threadId: string): Promise<OpenThreadResult>;
+  readThread(options: {
+    threadId: string;
+    limit?: number;
+    full?: boolean;
+    openTimeoutMs?: number;
+  }): Promise<ReadThreadResult>;
+  /**
+   * Send text. With `threadId`, opens that thread first. Without `threadId`,
+   * starts a new chat (`project` prefers "Start new chat in <project>").
+   */
+  sendMessage(options: {
+    threadId?: string;
+    text: string;
+    project?: string;
+    openTimeoutMs?: number;
+  }): Promise<SendMessageResult>;
+  waitForReply(options: {
+    threadId?: string;
+    timeoutMs?: number;
+  }): Promise<WaitForReplyResult>;
+  openThread(
+    threadId: string,
+    options?: { openTimeoutMs?: number },
+  ): Promise<OpenThreadResult>;
   status(): Promise<ChatGptDesktopStatus>;
   close(): Promise<void>;
 }

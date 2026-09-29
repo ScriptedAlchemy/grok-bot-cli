@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop wait for reply',
     description:
-      'EXPERIMENTAL: poll ChatGPT Desktop turns via local CDP until a new assistant turn stabilizes, or time out. Falls back to Codex app-server item polling when CDP is unreachable; result includes backend.',
+      'Wait until main Stop is gone and a new [data-local-conversation-final-assistant=true] exists, then return assistant markdown text. Also returns conversationId from data-response-annotation-conversation (resolves temporary local:client-new-thread ids). Falls back to app-server polling when CDP is unreachable.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -26,7 +26,7 @@ export default defineTool(
         threadId: { type: 'string' },
         timeoutMs: { type: 'number' },
       },
-      required: ['threadId'],
+      required: [],
     },
   },
   async (input) => {

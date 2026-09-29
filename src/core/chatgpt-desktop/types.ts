@@ -20,6 +20,10 @@ export type ChatGptDesktopTurn = {
   readonly turnKey: string;
   readonly role: 'user' | 'assistant' | 'status';
   readonly text: string;
+  /** User bubble text when the turn holds both sides. */
+  readonly userText?: string;
+  /** Final assistant markdown when present on the same turn. */
+  readonly assistantText?: string;
 };
 
 export type ChatGptDesktopStatus = {
@@ -51,6 +55,7 @@ export type ReadThreadResult = {
   readonly turns: readonly ChatGptDesktopTurn[];
   readonly backend: ChatGptDesktopBackend;
   readonly limit: number;
+  readonly full: boolean;
 };
 
 export type SendMessageResult = {
@@ -59,6 +64,10 @@ export type SendMessageResult = {
   readonly experimental: boolean;
   readonly delivery: 'accepted' | 'rejected' | 'unknown';
   readonly message?: string;
+  /** Temporary sidebar id before reload (`local:client-new-thread:…`). */
+  readonly temporaryThreadId?: string;
+  readonly project?: string;
+  readonly sentVia?: 'enter' | 'button';
 };
 
 export type WaitForReplyResult = {
@@ -67,6 +76,8 @@ export type WaitForReplyResult = {
   readonly backend: ChatGptDesktopBackend;
   readonly experimental: boolean;
   readonly delivery: 'replied' | 'timeout' | 'rejected' | 'unknown';
+  /** Real conversation id from `data-response-annotation-conversation`. */
+  readonly conversationId?: string;
 };
 
 export type OpenThreadResult = {

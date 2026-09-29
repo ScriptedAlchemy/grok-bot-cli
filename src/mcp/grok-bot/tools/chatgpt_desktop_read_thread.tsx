@@ -13,10 +13,11 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop read thread',
     description:
-      'Open a ChatGPT Desktop sidebar thread and collect turns via local CDP (scrolls the virtualized timeline). Falls back to Codex app-server thread/read or items when CDP is unreachable; result includes backend.',
+      'Open a ChatGPT Desktop sidebar thread (waits for Loading task… up to openTimeoutMs, default 90s) and harvest turns via local CDP. Default is visible turns only; full=true mouse-wheels the column-reverse timeline for history (skips history-gap placeholders). Falls back to Codex app-server when CDP is unreachable; result includes backend.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
+    render: { maxElapsedMs: 660000 },
     inputJsonSchema: {
       type: 'object',
       additionalProperties: false,
@@ -24,6 +25,14 @@ export default defineTool(
         port: { type: 'number' },
         threadId: { type: 'string' },
         limit: { type: 'number' },
+        full: {
+          type: 'boolean',
+          description: 'When true, wheel-crawl older history (slow). Default false = visible turns only.',
+        },
+        openTimeoutMs: {
+          type: 'number',
+          description: 'Max wait for Loading task… to clear after opening (default 90000).',
+        },
       },
       required: ['threadId'],
     },

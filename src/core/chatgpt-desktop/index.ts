@@ -1,14 +1,20 @@
 export type { ChatGptDesktopAdapter } from './adapter.js';
 export { CdpChatGptDesktopAdapter } from './cdp-adapter.js';
 export {
+  ASSISTANT_MESSAGE_SELECTOR,
   ATTR,
-  COMPOSER_SELECTORS,
+  COMPOSER_SELECTOR,
+  FINAL_ASSISTANT_SELECTOR,
   IGNORED_TARGET_URL_MARKERS,
   MAIN_CONTENT_SURFACE_CLASS_PREFIX,
   MAIN_WINDOW_URL,
   SELECTORS,
-  SEND_BUTTON_SELECTORS,
+  SEND_BUTTON_SELECTOR,
+  STOP_BUTTON_SELECTOR,
+  TEMP_THREAD_ID_PREFIX,
+  dedupeThreadsById,
   isMainWindowTarget,
+  newChatInProjectSelector,
   pickMainWindowTarget,
   summarizeTargetInfos,
 } from './cdp-dom.js';

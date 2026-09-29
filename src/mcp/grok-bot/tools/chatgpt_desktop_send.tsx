@@ -13,18 +13,23 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop send',
     description:
-      'EXPERIMENTAL: send a message in ChatGPT Desktop via local CDP composer (Input.insertText / contenteditable). Omit threadId to use the current/new chat. Falls back to Codex app-server send when CDP is unreachable and threadId is set; result includes backend.',
+      'Send a message in ChatGPT Desktop via local CDP: focus [data-codex-composer], Input.insertText, Enter (Send button fallback). Omit threadId to start a new chat; pass project to prefer "Start new chat in <project>". Temporary sidebar ids are local:client-new-thread:… until reload — use chatgpt_desktop_wait_reply to resolve the real conversation id. Falls back to app-server send when CDP is down and threadId is set.',
     annotations: { readOnlyHint: false },
     inputSchema,
     resultSchema,
-    render: { maxElapsedMs: 120000 },
+    render: { maxElapsedMs: 180000 },
     inputJsonSchema: {
       type: 'object',
       additionalProperties: false,
       properties: {
         port: { type: 'number' },
-        threadId: { type: 'string', description: 'Sidebar thread id; omit to start/use a new chat.' },
+        threadId: { type: 'string', description: 'Sidebar thread id; omit to start a new chat.' },
         text: { type: 'string' },
+        project: {
+          type: 'string',
+          description: 'Preferred project for new chats (Start new chat in <project>).',
+        },
+        openTimeoutMs: { type: 'number' },
       },
       required: ['text'],
     },

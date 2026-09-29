@@ -2,12 +2,18 @@ import type { ChatGptDesktopAdapter } from './adapter.js';
 import { CdpUnreachableError } from './errors.js';
 import { CdpSession } from './cdp-session.js';
 import {
+  DEFAULT_OPEN_TIMEOUT_MS,
+  TEMP_THREAD_ID_PREFIX,
   listThreadsFromDom,
   openThreadInDom,
   pickMainWindowTarget,
+  readReplyState,
   readTurnsFromDom,
   sendMessageInDom,
+  startNewChatInDom,
   summarizeTargetInfos,
+  waitForLoadingTaskGone,
+  waitForReplyDone,
 } from './cdp-dom.js';
 import { resolveCdpPort } from './loopback.js';
 import type {
@@ -52,14 +58,12 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
     } catch (error) {
       session.close();
       this.#session = null;
-      // Keep #port so status() can still probe /json/version on the same port.
       throw error;
     }
   }
 
   async listTargets(): Promise<readonly ChatGptDesktopTarget[]> {
     const session = this.#requireSession();
-    // Target.getTargets is authoritative; /json/list is incomplete and order-unstable.
     const result = await session.send<TargetGetTargetsResult>('Target.getTargets');
     return summarizeTargetInfos(result.targetInfos ?? []);
   }
@@ -73,91 +77,118 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
   async readThread({
     threadId,
     limit = 100,
+    full = false,
+    openTimeoutMs = DEFAULT_OPEN_TIMEOUT_MS,
   }: {
     threadId: string;
     limit?: number;
+    full?: boolean;
+    openTimeoutMs?: number;
   }): Promise<ReadThreadResult> {
     const sessionId = await this.#ensurePageSession();
-    await openThreadInDom(this.#requireSession(), sessionId, threadId);
-    // Allow the virtualized timeline to settle after the click.
-    await delay(150);
-    const turns = await readTurnsFromDom(this.#requireSession(), sessionId, { limit });
-    return { threadId, turns, backend: 'cdp', limit };
+    await this.#openAndWait(sessionId, threadId, openTimeoutMs);
+    const turns = await readTurnsFromDom(this.#requireSession(), sessionId, {
+      limit,
+      full,
+      threadId,
+    });
+    return { threadId, turns, backend: 'cdp', limit, full };
   }
 
   async sendMessage({
     threadId,
     text,
+    project,
+    openTimeoutMs = DEFAULT_OPEN_TIMEOUT_MS,
   }: {
     threadId?: string;
     text: string;
+    project?: string;
+    openTimeoutMs?: number;
   }): Promise<SendMessageResult> {
     const sessionId = await this.#ensurePageSession();
+    let temporaryThreadId: string | undefined;
+    let resolvedThreadId = threadId ?? 'new';
+
     if (threadId) {
-      await openThreadInDom(this.#requireSession(), sessionId, threadId);
-      await delay(100);
+      await this.#openAndWait(sessionId, threadId, openTimeoutMs);
+    } else {
+      await startNewChatInDom(this.#requireSession(), sessionId, { project });
+      await delay(300);
+      const threads = await listThreadsFromDom(this.#requireSession(), sessionId, { limit: 20 });
+      const temp = threads.find((t) => t.threadId.startsWith(TEMP_THREAD_ID_PREFIX) && t.selected)
+        ?? threads.find((t) => t.threadId.startsWith(TEMP_THREAD_ID_PREFIX));
+      if (temp) {
+        temporaryThreadId = temp.threadId;
+        resolvedThreadId = temp.threadId;
+      }
     }
-    await sendMessageInDom(this.#requireSession(), sessionId, text);
+
+    const { sentVia } = await sendMessageInDom(this.#requireSession(), sessionId, text);
     return {
-      threadId: threadId ?? 'new',
+      threadId: resolvedThreadId,
+      temporaryThreadId,
+      project,
       backend: 'cdp',
-      experimental: true,
+      experimental: false,
       delivery: 'accepted',
-      message: 'Submitted via experimental CDP composer path',
+      sentVia,
+      message: 'Submitted via CDP composer (focus → insertText → Enter)',
     };
   }
 
   async waitForReply({
     threadId,
-    timeoutMs = 60000,
+    timeoutMs = 120_000,
   }: {
-    threadId: string;
+    threadId?: string;
     timeoutMs?: number;
   }): Promise<WaitForReplyResult> {
     const sessionId = await this.#ensurePageSession();
-    await openThreadInDom(this.#requireSession(), sessionId, threadId);
-    const deadline = Date.now() + timeoutMs;
-    let previousKeys = new Set<string>();
-    let lastAssistant = '';
-    let stable = 0;
-
-    // Baseline existing turns so we wait for a *new* assistant turn.
-    const baseline = await readTurnsFromDom(this.#requireSession(), sessionId, { limit: 500 });
-    previousKeys = new Set(baseline.map((t) => t.turnKey));
-
-    while (Date.now() < deadline) {
-      await delay(400);
-      const turns = await readTurnsFromDom(this.#requireSession(), sessionId, { limit: 500 });
-      const fresh = turns.filter((t) => !previousKeys.has(t.turnKey) && t.role === 'assistant');
-      const candidate = fresh.at(-1)?.text ?? '';
-      if (candidate && candidate === lastAssistant) {
-        stable += 1;
-        if (stable >= 3) {
-          return {
-            threadId,
-            reply: candidate,
-            backend: 'cdp',
-            experimental: true,
-            delivery: 'replied',
-          };
-        }
-      } else if (candidate) {
-        lastAssistant = candidate;
-        stable = 0;
+    if (threadId && !threadId.startsWith(TEMP_THREAD_ID_PREFIX) && threadId !== 'new') {
+      // Stay on the current chat for temp/new; otherwise ensure the thread is open.
+      try {
+        await this.#openAndWait(sessionId, threadId, DEFAULT_OPEN_TIMEOUT_MS);
+      } catch {
+        // If already on the thread after send, continue waiting.
       }
     }
-    return {
-      threadId,
-      reply: lastAssistant,
-      backend: 'cdp',
-      experimental: true,
-      delivery: lastAssistant ? 'replied' : 'timeout',
-    };
+
+    const baseline = await readReplyState(this.#requireSession(), sessionId);
+    try {
+      const done = await waitForReplyDone(this.#requireSession(), sessionId, {
+        timeoutMs,
+        baselineFinalCount: baseline.finalAssistantCount,
+      });
+      const resolvedId = done.conversationId || threadId || 'unknown';
+      return {
+        threadId: resolvedId,
+        conversationId: done.conversationId || undefined,
+        reply: done.reply,
+        backend: 'cdp',
+        experimental: false,
+        delivery: 'replied',
+      };
+    } catch (error) {
+      const last = await readReplyState(this.#requireSession(), sessionId);
+      return {
+        threadId: last.conversationId || threadId || 'unknown',
+        conversationId: last.conversationId || undefined,
+        reply: last.reply,
+        backend: 'cdp',
+        experimental: false,
+        delivery: last.reply ? 'replied' : 'timeout',
+        ...(error instanceof Error ? {} : {}),
+      };
+    }
   }
 
-  async openThread(threadId: string): Promise<OpenThreadResult> {
+  async openThread(
+    threadId: string,
+    { openTimeoutMs = DEFAULT_OPEN_TIMEOUT_MS }: { openTimeoutMs?: number } = {},
+  ): Promise<OpenThreadResult> {
     const sessionId = await this.#ensurePageSession();
-    await openThreadInDom(this.#requireSession(), sessionId, threadId);
+    await this.#openAndWait(sessionId, threadId, openTimeoutMs);
     return { threadId, backend: 'cdp' };
   }
 
@@ -171,7 +202,6 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
         targetCount = targets.length;
         mainWindowTargetId = pickMainWindowTarget(targets)?.targetId ?? null;
       } else {
-        // Cheap probe without attaching: /json/list is incomplete but fine for a count hint.
         const list = await CdpSession.fetchJsonList(this.#port);
         targetCount = list.length;
       }
@@ -209,6 +239,13 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
     this.#version = null;
     this.#session?.close();
     this.#session = null;
+  }
+
+  async #openAndWait(sessionId: string, threadId: string, openTimeoutMs: number): Promise<void> {
+    await openThreadInDom(this.#requireSession(), sessionId, threadId);
+    await waitForLoadingTaskGone(this.#requireSession(), sessionId, {
+      timeoutMs: openTimeoutMs,
+    });
   }
 
   async #attachMainWindow(): Promise<void> {

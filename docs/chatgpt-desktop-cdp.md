@@ -54,9 +54,16 @@ use it only as a cheap status hint.
 
 ## DOM module
 
-All selectors live in `src/core/chatgpt-desktop/cdp-dom.ts` (sidebar
-`data-app-action-sidebar-thread-*`, timeline scroll, `data-turn-key`, user
-bubbles, experimental composer candidates). Do not add selectors elsewhere.
+All selectors live in `src/core/chatgpt-desktop/cdp-dom.ts`:
+
+- Composer: `[data-codex-composer=true][contenteditable=true]` — `focus()` then `Input.insertText`
+- Submit: Enter via `Input.dispatchKeyEvent` (rawKeyDown/char/keyUp), Send button fallback
+- Reply done: `main button[aria-label="Stop"]` gone + new `[data-local-conversation-final-assistant=true]`
+- Reply text: last turn’s `[data-local-conversation-final-assistant=true] [data-markdown-text-style=assistant-message]`
+- New chat: `button[aria-label="Start new chat in <project>"]` (preferred) or sidebar “New chat”
+- Conversation id: `[data-response-annotation-conversation]` (resolves `local:client-new-thread:…`)
+- Open: click sidebar row, wait until “Loading task…” clears (default 90s)
+- Full read: mouseWheel (negative deltaY) on `[data-app-action-timeline-scroll]` (column-reverse); skip `history-gap:` keys
 
 ## Fallback
 
