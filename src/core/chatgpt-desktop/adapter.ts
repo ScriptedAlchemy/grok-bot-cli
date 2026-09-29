@@ -16,6 +16,11 @@ export interface ChatGptDesktopAdapter {
   connect(options: { port: number }): Promise<void>;
   listTargets(): Promise<readonly ChatGptDesktopTarget[]>;
   listThreads(options?: { limit?: number }): Promise<ListThreadsResult>;
+  /** Optional; facades that support app-server search implement this. */
+  searchThreads?(options: {
+    query: string;
+    limit?: number;
+  }): Promise<ListThreadsResult>;
   readThread(options: {
     threadId: string;
     limit?: number;

@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop read thread',
     description:
-      'Read a ChatGPT Desktop thread. Visible/recent turns use local CDP DOM harvest. full=true or a limit above the on-screen turns uses the Codex app-server (thread/read / resume); Desktop local:<conversationId> maps to the bare app-server id. DOM wheel crawl is only a fallback when app-server misses the thread. Result includes backend.',
+      'Read a ChatGPT Desktop / Codex thread through app-server (thread/read metadata, then thread/turns/list with itemsView full). Does not thread/resume. Desktop local:<conversationId> is normalized to the bare id. DOM harvest/wheel is fallback only when app-server is unavailable. Result includes backend.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -32,7 +32,7 @@ export default defineTool(
         full: {
           type: 'boolean',
           description:
-            'When true, read full history via app-server (CDP wheel only if app-server unavailable). Default false = visible CDP turns when that satisfies limit.',
+            'When true, page more of the turn history from the start; otherwise return the most recent `limit` turns from app-server. CDP wheel only if app-server is unavailable.',
         },
         openTimeoutMs: {
           type: 'number',

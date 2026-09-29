@@ -14,6 +14,7 @@ const grok = ['gbot_send', 'gbot_thread', 'gbot_grok_approvals', 'gbot_grok_resp
 const shared = [
   'chatgpt_desktop_list_threads',
   'chatgpt_desktop_read_thread',
+  'chatgpt_desktop_search_threads',
   'chatgpt_desktop_send',
   'chatgpt_desktop_status',
   'chatgpt_desktop_wait_reply',

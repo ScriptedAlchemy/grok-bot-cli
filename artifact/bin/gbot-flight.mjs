@@ -8616,7 +8616,7 @@ var __webpack_modules__ = {
         var zod__rspack_import_2 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
         var _core_chatgpt_desktop_routes_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const config = {
-            description: 'Read a ChatGPT Desktop thread. Visible turns via CDP; --full / deep history via app-server (wheel crawl last-resort).',
+            description: 'Read a ChatGPT Desktop thread via app-server (turns/list); CDP DOM is fallback only.',
             exitCode: 'result',
             positionals: [
                 'threadId'
@@ -8679,6 +8679,62 @@ var __webpack_modules__ = {
         }
         __webpack_require__.d(__webpack_exports__, {
             "default": ()=>chatgptDesktopRead,
+            resultSchema: ()=>_core_chatgpt_desktop_routes_js__rspack_import_1.FD
+        }, {
+            config: config,
+            inputSchema: inputSchema
+        });
+    },
+    "./src/cli/chatgpt-desktop/search.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        __webpack_require__.r(__webpack_exports__);
+        var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.react-server.js");
+        var _agent_bundle_runtime__rspack_import_3 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
+        var zod__rspack_import_2 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
+        var _core_chatgpt_desktop_routes_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
+        const config = {
+            description: 'Search ChatGPT Desktop threads via app-server (full provider list); merge CDP selected/pinned.',
+            exitCode: 'result',
+            positionals: [
+                'query'
+            ],
+            inputJsonSchema: {
+                additionalProperties: false,
+                properties: {
+                    limit: {
+                        default: 50,
+                        description: 'Max matches (1-200)',
+                        type: 'number'
+                    },
+                    port: {
+                        description: 'Local CDP port',
+                        type: 'number'
+                    },
+                    query: {
+                        type: 'string'
+                    }
+                },
+                required: [
+                    'query'
+                ],
+                type: 'object'
+            }
+        };
+        const inputSchema = zod__rspack_import_2.Ikc({
+            limit: zod__rspack_import_2.aig().int().min(1).max(200).default(50),
+            port: zod__rspack_import_2.aig().int().min(1).max(65535).optional(),
+            query: zod__rspack_import_2.YjP().min(1).max(512)
+        }).strict();
+        async function chatgptDesktopSearch({ input }) {
+            const out = await (0, _core_chatgpt_desktop_routes_js__rspack_import_1.zg)(input);
+            return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Result, {
+                value: out,
+                children: (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_3.g.Text, {
+                    children: (0, _core_chatgpt_desktop_routes_js__rspack_import_1.D6)(out)
+                })
+            });
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            "default": ()=>chatgptDesktopSearch,
             resultSchema: ()=>_core_chatgpt_desktop_routes_js__rspack_import_1.FD
         }, {
             config: config,
@@ -11130,79 +11186,74 @@ var __webpack_modules__ = {
     },
     "./src/core/chatgpt-desktop/app-server-fallback.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
         var _codex_bridge_js__rspack_import_0 = __webpack_require__("./src/core/codex-bridge.js");
-        var _thread_ids_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
-        async function appServerListThreads({ limit = 50 } = {}) {
+        var _errors_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
+        var _remote_threads_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/remote-threads.ts");
+        var _thread_ids_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
+        async function appServerListThreads({ limit = 50, cursor } = {}) {
             const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
-                limit
+                limit,
+                cursor
             });
             return {
                 backend: 'app-server',
                 limit: out.limit,
-                threads: out.threads.map((thread)=>{
-                    const bare = String(thread.id ?? '');
-                    return {
-                        threadId: bare ? (0, _thread_ids_js__rspack_import_1.BS)(bare) : '',
-                        title: String(thread.name || thread.preview || thread.cwd || thread.id || ''),
-                        pinned: false,
-                        selected: false,
-                        kind: 'codex'
-                    };
-                })
+                nextCursor: out.nextCursor ?? null,
+                threads: out.threads.map(mapListedThread)
+            };
+        }
+        async function appServerSearchThreads({ query, limit = 50 }) {
+            const needle = query.trim().toLowerCase();
+            if (!needle) {
+                return appServerListThreads({
+                    limit
+                });
+            }
+            const matched = [];
+            let cursor;
+            for(let page = 0; page < 20 && matched.length < limit; page++){
+                const out = await (0, _codex_bridge_js__rspack_import_0.X$)({
+                    limit: 200,
+                    cursor
+                });
+                for (const thread of out.threads){
+                    const mapped = mapListedThread(thread);
+                    if (threadMatchesQuery(mapped, needle)) matched.push(mapped);
+                    if (matched.length >= limit) break;
+                }
+                if (out.nextCursor == null || typeof out.nextCursor !== 'string') break;
+                cursor = out.nextCursor;
+            }
+            return {
+                backend: 'app-server',
+                limit,
+                query,
+                nextCursor: null,
+                threads: matched.slice(0, limit)
             };
         }
         async function appServerReadThread({ threadId, limit = 100, full = false }) {
-            const candidates = (0, _thread_ids_js__rspack_import_1.EJ)(threadId);
-            if (candidates.length === 0) {
-                throw new Error(`No app-server thread id mapping for ${threadId} (temporary Desktop rows need CDP)`);
-            }
+            const bare = (0, _thread_ids_js__rspack_import_3.NM)(threadId);
             const { client } = await (0, _codex_bridge_js__rspack_import_0.eC)();
             try {
-                let lastError;
-                for (const candidate of candidates){
-                    try {
-                        const turns = await readTurnsForId(client, candidate, {
-                            limit,
-                            full
-                        });
-                        return {
-                            threadId: (0, _thread_ids_js__rspack_import_1.BS)(candidate),
-                            turns,
-                            backend: 'app-server',
-                            limit,
-                            full
-                        };
-                    } catch (error) {
-                        lastError = error;
-                    }
-                }
-                throw lastError instanceof Error ? lastError : new Error(`app-server thread read failed for ${threadId}`);
-            } finally{
-                client.close();
-            }
-        }
-        async function appServerOpenThread(threadId) {
-            const candidates = (0, _thread_ids_js__rspack_import_1.EJ)(threadId);
-            if (candidates.length === 0) {
-                throw new Error(`No app-server thread id mapping for ${threadId} (temporary Desktop rows need CDP)`);
-            }
-            const { client } = await (0, _codex_bridge_js__rspack_import_0.eC)();
-            try {
-                let lastError;
-                for (const candidate of candidates){
-                    try {
-                        await client.request('thread/resume', {
-                            threadId: candidate,
-                            excludeTurns: true
-                        });
-                        return {
-                            threadId: (0, _thread_ids_js__rspack_import_1.BS)(candidate),
-                            backend: 'app-server'
-                        };
-                    } catch (error) {
-                        lastError = error;
-                    }
-                }
-                throw lastError instanceof Error ? lastError : new Error(`app-server thread/resume failed for ${threadId}`);
+                const meta = await readThreadMetadata(client, bare);
+                const turns = await listTurnsFull(client, bare, {
+                    limit,
+                    full
+                });
+                return {
+                    threadId: (0, _thread_ids_js__rspack_import_3.BS)(bare),
+                    turns,
+                    backend: 'app-server',
+                    limit,
+                    full,
+                    title: meta.title,
+                    cwd: meta.cwd,
+                    status: meta.status,
+                    modelProvider: meta.modelProvider,
+                    model: meta.model
+                };
+            } catch (error) {
+                throw maybeRemoteThreadError(error, bare);
             } finally{
                 client.close();
             }
@@ -11215,32 +11266,110 @@ var __webpack_modules__ = {
                 socketPath: typeof status.socketPath === 'string' ? status.socketPath : undefined
             };
         }
-        async function readTurnsForId(client, threadId, { limit, full }) {
+        function mapListedThread(thread) {
+            const bare = String(thread.id ?? '');
+            const section = thread.section && typeof thread.section.id === 'string' ? {
+                id: thread.section.id,
+                name: thread.section.name ?? null
+            } : null;
+            const pinned = section?.id === 'Pinned' || section?.name === 'Pinned' || false;
+            return {
+                threadId: bare ? (0, _thread_ids_js__rspack_import_3.BS)(bare) : '',
+                title: String(thread.name || thread.preview || thread.cwd || thread.id || ''),
+                pinned,
+                selected: false,
+                kind: 'codex',
+                preview: typeof thread.preview === 'string' ? thread.preview : undefined,
+                cwd: thread.cwd ?? null,
+                createdAt: thread.createdAt ?? null,
+                updatedAt: thread.updatedAt ?? null,
+                section,
+                projectId: thread.projectId ?? null,
+                project: thread.projectId ?? undefined,
+                status: thread.status,
+                modelProvider: thread.modelProvider ?? null,
+                model: thread.model ?? null,
+                originator: thread.originator ?? null
+            };
+        }
+        function threadMatchesQuery(thread, needle) {
+            const haystacks = [
+                thread.threadId,
+                thread.title,
+                thread.preview,
+                thread.cwd,
+                thread.project,
+                thread.projectId,
+                thread.model,
+                thread.modelProvider,
+                thread.originator,
+                thread.section?.name,
+                thread.section?.id
+            ];
+            return haystacks.some((value)=>typeof value === 'string' && value.toLowerCase().includes(needle));
+        }
+        async function readThreadMetadata(client, threadId) {
             try {
                 const read = await client.request('thread/read', {
                     threadId
                 });
-                const raw = read.thread?.turns ?? read.turns ?? read.thread?.items ?? read.items ?? [];
-                if (Array.isArray(raw) && raw.length > 0) {
-                    return sliceTurns(normalizeTurns(raw), {
-                        limit,
-                        full
-                    });
-                }
-            } catch  {}
+                const thread = read.thread && typeof read.thread === 'object' ? read.thread : {};
+                const statusObj = thread.status;
+                const statusType = statusObj && typeof statusObj === 'object' && typeof statusObj.type === 'string' ? String(statusObj.type) : typeof thread.status === 'string' ? thread.status : undefined;
+                return {
+                    title: typeof thread.name === 'string' ? thread.name : typeof thread.preview === 'string' ? thread.preview : undefined,
+                    cwd: typeof thread.cwd === 'string' ? thread.cwd : null,
+                    status: statusType,
+                    modelProvider: typeof thread.modelProvider === 'string' ? thread.modelProvider : null,
+                    model: typeof thread.model === 'string' ? thread.model : null
+                };
+            } catch (error) {
+                throw maybeRemoteThreadError(error, threadId);
+            }
+        }
+        async function listTurnsFull(client, threadId, { limit, full }) {
+            const collected = [];
+            let cursor;
             try {
-                const resumed = await client.request('thread/resume', {
-                    threadId,
-                    excludeTurns: false
-                });
-                const raw = resumed.thread?.turns ?? resumed.turns ?? resumed.thread?.items ?? [];
-                if (Array.isArray(raw) && raw.length > 0) {
-                    return sliceTurns(normalizeTurns(raw), {
+                for(let page = 0; page < 40; page++){
+                    const result = await client.request('thread/turns/list', {
+                        threadId,
+                        limit: 100,
+                        itemsView: 'full',
+                        ...cursor ? {
+                            cursor
+                        } : {}
+                    });
+                    if (!Array.isArray(result.data)) {
+                        throw new Error(`thread/turns/list missing data array for ${threadId}`);
+                    }
+                    collected.push(...result.data);
+                    if (result.nextCursor == null || typeof result.nextCursor !== 'string') break;
+                    cursor = result.nextCursor;
+                    if (!full && collected.length >= limit) break;
+                }
+            } catch (error) {
+                if (isThreadNotLoaded(error)) throw maybeRemoteThreadError(error, threadId);
+                if (collected.length === 0) {
+                    return listTurnsFallback(client, threadId, {
                         limit,
                         full
                     });
                 }
-            } catch  {}
+                throw error;
+            }
+            if (collected.length === 0) {
+                return listTurnsFallback(client, threadId, {
+                    limit,
+                    full
+                });
+            }
+            return sliceTurns(normalizeTurns(collected), {
+                limit,
+                full
+            });
+        }
+        async function listTurnsFallback(client, threadId, { limit, full }) {
             for (const method of [
                 'thread/turns/list',
                 'thread/items/list'
@@ -11248,14 +11377,16 @@ var __webpack_modules__ = {
                 try {
                     const collected = [];
                     let cursor;
-                    for(let page = 0; page < 20; page++){
-                        const result = await client.request(method, {
+                    for(let page = 0; page < 40; page++){
+                        const params = {
                             threadId,
                             limit: 100,
                             ...cursor ? {
                                 cursor
                             } : {}
-                        });
+                        };
+                        if (method === 'thread/turns/list') params.itemsView = 'full';
+                        const result = await client.request(method, params);
                         if (!Array.isArray(result.data)) break;
                         collected.push(...result.data);
                         if (result.nextCursor == null || typeof result.nextCursor !== 'string') break;
@@ -11268,7 +11399,9 @@ var __webpack_modules__ = {
                             full
                         });
                     }
-                } catch  {}
+                } catch (error) {
+                    if (isThreadNotLoaded(error)) throw maybeRemoteThreadError(error, threadId);
+                }
             }
             throw new Error(`app-server has no turn history for thread ${threadId}`);
         }
@@ -11282,24 +11415,116 @@ var __webpack_modules__ = {
             for (const [index, item] of raw.entries()){
                 if (!item || typeof item !== 'object') continue;
                 const row = item;
-                const text = typeof row.text === 'string' ? row.text : typeof row.content === 'string' ? row.content : '';
-                const type = String(row.type ?? row.role ?? '');
-                let role = 'assistant';
-                if (/user/i.test(type)) role = 'user';
-                else if (/status|system|reasoning/i.test(type) && !text) role = 'status';
-                turns.push({
-                    turnKey: String(row.id ?? row.turnId ?? index),
-                    role,
-                    text
-                });
+                const id = String(row.id ?? row.turnId ?? index);
+                const items = Array.isArray(row.items) ? row.items : null;
+                if (items) {
+                    turns.push(normalizeTurnWithItems(id, row, items));
+                    continue;
+                }
+                turns.push(normalizeLeafItem(id, row));
             }
             return turns;
+        }
+        function normalizeTurnWithItems(id, row, items) {
+            let userText = '';
+            let assistantText = '';
+            let toolText = '';
+            let reasoningText = '';
+            for (const entry of items){
+                if (!entry || typeof entry !== 'object') continue;
+                const item = entry;
+                const type = String(item.type ?? item.role ?? '');
+                const text = extractText(item);
+                if (/user/i.test(type)) userText = joinText(userText, text);
+                else if (/agent|assistant|message/i.test(type) && !/reasoning|tool/i.test(type)) {
+                    assistantText = joinText(assistantText, text);
+                } else if (/tool/i.test(type)) toolText = joinText(toolText, text || type);
+                else if (/reasoning/i.test(type)) reasoningText = joinText(reasoningText, text);
+            }
+            let role = 'assistant';
+            let text = assistantText || userText;
+            if (userText && !assistantText) {
+                role = 'user';
+                text = userText;
+            } else if (!userText && !assistantText && toolText) {
+                role = 'tool';
+                text = toolText;
+            } else if (!userText && !assistantText && reasoningText) {
+                role = 'reasoning';
+                text = reasoningText;
+            }
+            return {
+                turnKey: (0, _thread_ids_js__rspack_import_3.Sr)(id),
+                role,
+                text,
+                ...userText ? {
+                    userText
+                } : {},
+                ...assistantText ? {
+                    assistantText
+                } : {},
+                startedAt: typeof row.startedAt === 'number' ? row.startedAt : null,
+                endedAt: typeof row.endedAt === 'number' ? row.endedAt : null
+            };
+        }
+        function normalizeLeafItem(id, row) {
+            const text = extractText(row);
+            const type = String(row.type ?? row.role ?? '');
+            let role = 'assistant';
+            if (/user/i.test(type)) role = 'user';
+            else if (/tool/i.test(type)) role = 'tool';
+            else if (/reasoning/i.test(type)) role = 'reasoning';
+            else if (/status|system/i.test(type) && !text) role = 'status';
+            return {
+                turnKey: (0, _thread_ids_js__rspack_import_3.Sr)(id),
+                role,
+                text,
+                startedAt: typeof row.startedAt === 'number' ? row.startedAt : null,
+                endedAt: typeof row.endedAt === 'number' ? row.endedAt : null
+            };
+        }
+        function extractText(row) {
+            if (typeof row.text === 'string') return row.text;
+            if (typeof row.content === 'string') return row.content;
+            if (typeof row.preview === 'string') return row.preview;
+            return '';
+        }
+        function joinText(left, right) {
+            if (!right) return left;
+            if (!left) return right;
+            return `${left}\n${right}`;
+        }
+        function isThreadNotLoaded(error) {
+            const message = errorMessage(error);
+            return /thread not loaded|not loaded|invalid thread id/i.test(message);
+        }
+        function maybeRemoteThreadError(error, threadId) {
+            const message = errorMessage(error);
+            if (/thread not loaded|not loaded/i.test(message)) {
+                const hostId = (0, _remote_threads_js__rspack_import_2.X)(threadId);
+                return new _errors_js__rspack_import_1.Rg(threadId, hostId);
+            }
+            if (error instanceof Error) return error;
+            return new Error(message || `app-server error for thread ${threadId}`);
+        }
+        function errorMessage(error) {
+            if (!error) return '';
+            if (typeof error === 'string') return error;
+            if (error instanceof Error) return error.message;
+            if (typeof error === 'object' && error && 'message' in error) {
+                return String(error.message);
+            }
+            if (typeof error === 'object' && error && 'rpc' in error) {
+                const rpc = error.rpc;
+                if (rpc && typeof rpc.message === 'string') return rpc.message;
+            }
+            return String(error);
         }
         __webpack_require__.d(__webpack_exports__, {
             Jf: ()=>appServerReadThread,
             OI: ()=>appServerListThreads,
-            dM: ()=>appServerStatusProbe,
-            zu: ()=>appServerOpenThread
+            aI: ()=>appServerSearchThreads,
+            dM: ()=>appServerStatusProbe
         });
     },
     "./src/core/chatgpt-desktop/cdp-adapter.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
@@ -12171,8 +12396,23 @@ var __webpack_modules__ = {
                 this.name = 'CdpUnreachableError';
             }
         }
+        class RemoteThreadNotLoadedError extends Error {
+            code = 'REMOTE_THREAD_NOT_LOADED';
+            delivery = 'rejected';
+            reason = 'remote-thread-not-loaded';
+            threadId;
+            hostId;
+            constructor(threadId, hostId = null){
+                const owner = hostId ? `owned by remote-control host ${JSON.stringify(hostId)}` : 'owned by a remote-control host (hostId unknown; check ~/.codex/.codex-global-state.json)';
+                super(`Codex thread ${JSON.stringify(threadId)} is not loaded on the local app-server; ` + `${owner}. SSH remoting is not implemented in this adapter yet.`);
+                this.name = 'RemoteThreadNotLoadedError';
+                this.threadId = threadId;
+                this.hostId = hostId;
+            }
+        }
         __webpack_require__.d(__webpack_exports__, {
             EH: ()=>NotImplementedError,
+            Rg: ()=>RemoteThreadNotLoadedError,
             c$: ()=>CdpHostRejectedError,
             sO: ()=>CdpUnreachableError
         });
@@ -12185,8 +12425,8 @@ var __webpack_modules__ = {
         var _thread_ids_js__rspack_import_4 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
         const defaultFallbacks = {
             listThreads: _app_server_fallback_js__rspack_import_1.OI,
+            searchThreads: _app_server_fallback_js__rspack_import_1.aI,
             readThread: _app_server_fallback_js__rspack_import_1.Jf,
-            openThread: _app_server_fallback_js__rspack_import_1.zu,
             statusProbe: _app_server_fallback_js__rspack_import_1.dM
         };
         class ChatGptDesktopFacade {
@@ -12244,29 +12484,44 @@ var __webpack_modules__ = {
                 if (appError) throw appError;
                 throw new _errors_js__rspack_import_2.sO('ChatGPT Desktop listThreads: CDP and app-server unreachable');
             }
+            async searchThreads(options) {
+                try {
+                    const appList = await this.#fallbacks.searchThreads(options);
+                    const cdpList = await this.#tryCdpList({
+                        limit: options.limit
+                    });
+                    if (cdpList) return mergeThreadLists(appList, cdpList);
+                    return appList;
+                } catch (appError) {
+                    const cdpList = await this.#tryCdpList({
+                        limit: options.limit
+                    });
+                    if (!cdpList) throw appError;
+                    const needle = options.query.trim().toLowerCase();
+                    return {
+                        ...cdpList,
+                        query: options.query,
+                        threads: cdpList.threads.filter((thread)=>{
+                            if (!needle) return true;
+                            return [
+                                thread.title,
+                                thread.threadId,
+                                thread.project
+                            ].some((value)=>typeof value === 'string' && value.toLowerCase().includes(needle));
+                        })
+                    };
+                }
+            }
             async readThread(options) {
                 const limit = options.limit ?? 100;
                 const full = options.full ?? false;
-                const cdpConnected = await this.#tryEnsureCdp();
                 if ((0, _thread_ids_js__rspack_import_4.vr)(options.threadId)) {
-                    if (!cdpConnected) {
-                        throw new _errors_js__rspack_import_2.sO(`ChatGPT Desktop temporary thread ${options.threadId} requires CDP`);
-                    }
+                    await this.#ensureCdp();
                     return this.#cdp.readThread({
                         ...options,
                         limit,
                         full
                     });
-                }
-                if (cdpConnected && !full) {
-                    const visible = await this.#cdp.readThread({
-                        ...options,
-                        limit,
-                        full: false
-                    });
-                    if (limit <= visible.turns.length) {
-                        return visible;
-                    }
                 }
                 try {
                     return await this.#fallbacks.readThread({
@@ -12275,14 +12530,13 @@ var __webpack_modules__ = {
                         full
                     });
                 } catch (appError) {
-                    if (cdpConnected) {
-                        return this.#cdp.readThread({
-                            ...options,
-                            limit,
-                            full: true
-                        });
-                    }
-                    throw appError;
+                    const cdpConnected = await this.#tryEnsureCdp();
+                    if (!cdpConnected) throw appError;
+                    return this.#cdp.readThread({
+                        ...options,
+                        limit,
+                        full: full || true
+                    });
                 }
             }
             async sendMessage(options) {
@@ -12294,13 +12548,8 @@ var __webpack_modules__ = {
                 return this.#cdp.waitForReply(options);
             }
             async openThread(threadId, options) {
-                try {
-                    await this.#ensureCdp();
-                    return await this.#cdp.openThread(threadId, options);
-                } catch (error) {
-                    if (!isCdpFailure(error)) throw error;
-                    return this.#fallbacks.openThread(threadId);
-                }
+                await this.#ensureCdp();
+                return this.#cdp.openThread(threadId, options);
             }
             async status() {
                 const cdpStatus = await this.#cdp.status();
@@ -12318,7 +12567,7 @@ var __webpack_modules__ = {
                     port: this.#port,
                     appServerFallback,
                     reachable,
-                    message: cdpStatus.reachable ? cdpStatus.message : appServerFallback?.reachable ? 'CDP unreachable; Codex app-server available for list/deep-read' : cdpStatus.message,
+                    message: cdpStatus.reachable ? cdpStatus.message : appServerFallback?.reachable ? 'CDP unreachable; Codex app-server available for list/search/read' : cdpStatus.message,
                     exitCode: reachable ? 0 : 1
                 };
             }
@@ -12343,6 +12592,18 @@ var __webpack_modules__ = {
                     return false;
                 }
             }
+            async #tryCdpList(options) {
+                try {
+                    await this.#ensureCdp();
+                    return await this.#cdp.listThreads(options);
+                } catch (error) {
+                    if (isCdpFailure(error) || error instanceof _errors_js__rspack_import_2.EH) {
+                        if (isCdpFailure(error)) this.#cdpConnected = false;
+                        return null;
+                    }
+                    throw error;
+                }
+            }
         }
         function mergeThreadLists(appList, cdpList) {
             const cdpByKey = new Map();
@@ -12357,12 +12618,10 @@ var __webpack_modules__ = {
                 return {
                     ...thread,
                     title: thread.title || cdp.title,
-                    pinned: cdp.pinned,
+                    pinned: thread.pinned || cdp.pinned,
                     selected: cdp.selected,
                     kind: cdp.kind || thread.kind,
-                    ...cdp.project !== undefined ? {
-                        project: cdp.project
-                    } : {}
+                    project: cdp.project ?? thread.project
                 };
             });
             for (const thread of cdpList.threads){
@@ -12372,6 +12631,10 @@ var __webpack_modules__ = {
             return {
                 backend: 'app-server',
                 limit: appList.limit,
+                nextCursor: appList.nextCursor,
+                ...appList.query !== undefined ? {
+                    query: appList.query
+                } : {},
                 threads: merged.slice(0, appList.limit)
             };
         }
@@ -12457,6 +12720,74 @@ var __webpack_modules__ = {
             tb: ()=>assertLoopbackHostname
         });
     },
+    "./src/core/chatgpt-desktop/remote-threads.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        var node_fs__rspack_import_0 = __webpack_require__("node:fs");
+        var node_os__rspack_import_1 = __webpack_require__("node:os");
+        var node_path__rspack_import_2 = __webpack_require__("node:path");
+        var _thread_ids_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
+        const REMOTE_SUMMARY_KEY = /^remote-thread-summaries-v3:(.+)$/;
+        function codexGlobalStatePath(env = process.env) {
+            const home = env.CODEX_HOME || (0, node_path__rspack_import_2.join)((0, node_os__rspack_import_1.homedir)(), '.codex');
+            return (0, node_path__rspack_import_2.join)(home, '.codex-global-state.json');
+        }
+        function findRemoteThreadHostId(threadId, env = process.env) {
+            const bare = (0, _thread_ids_js__rspack_import_3.nn)(threadId) ?? threadId;
+            if (!bare) return null;
+            let raw;
+            try {
+                raw = (0, node_fs__rspack_import_0.readFileSync)(codexGlobalStatePath(env), 'utf8');
+            } catch  {
+                return null;
+            }
+            let data;
+            try {
+                data = JSON.parse(raw);
+            } catch  {
+                return null;
+            }
+            if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+            for (const [key, value] of Object.entries(data)){
+                const match = REMOTE_SUMMARY_KEY.exec(key);
+                if (!match) continue;
+                if (summariesIncludeThread(value, bare)) return match[1] ?? null;
+            }
+            return null;
+        }
+        function summariesIncludeThread(value, threadId) {
+            if (Array.isArray(value)) {
+                return value.some((entry)=>entryMentionsThread(entry, threadId));
+            }
+            if (value && typeof value === 'object') {
+                const record = value;
+                if (threadId in record) return true;
+                if (Array.isArray(record.threads)) {
+                    return record.threads.some((entry)=>entryMentionsThread(entry, threadId));
+                }
+                if (Array.isArray(record.summaries)) {
+                    return record.summaries.some((entry)=>entryMentionsThread(entry, threadId));
+                }
+                return Object.values(record).some((entry)=>entryMentionsThread(entry, threadId));
+            }
+            return false;
+        }
+        function entryMentionsThread(entry, threadId) {
+            if (typeof entry === 'string') return entry === threadId;
+            if (!entry || typeof entry !== 'object') return false;
+            const row = entry;
+            for (const key of [
+                'id',
+                'threadId',
+                'thread_id',
+                'conversationId'
+            ]){
+                if (row[key] === threadId) return true;
+            }
+            return false;
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            X: ()=>findRemoteThreadHostId
+        });
+    },
     "./src/core/chatgpt-desktop/routes.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
         var zod__rspack_import_4 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
         var _codex_contract_js__rspack_import_0 = __webpack_require__("./src/core/codex/contract.js");
@@ -12469,6 +12800,11 @@ var __webpack_modules__ = {
         }).strict();
         const listThreadsSchema = zod__rspack_import_4.Ikc({
             port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
+            limit: zod__rspack_import_4.aig().int().min(1).max(200).default(50)
+        }).strict();
+        const searchThreadsSchema = zod__rspack_import_4.Ikc({
+            port: zod__rspack_import_4.aig().int().min(1).max(65535).optional(),
+            query: zod__rspack_import_4.YjP().min(1).max(512),
             limit: zod__rspack_import_4.aig().int().min(1).max(200).default(50)
         }).strict();
         const readThreadSchema = zod__rspack_import_4.Ikc({
@@ -12520,6 +12856,19 @@ var __webpack_modules__ = {
                     exitCode: 1
                 });
             }
+            if (error instanceof _errors_js__rspack_import_1.Rg) {
+                return asResult({
+                    delivery: error.delivery,
+                    reason: error.reason,
+                    code: error.code,
+                    error: error.message,
+                    threadId: error.threadId,
+                    ...error.hostId ? {
+                        hostId: error.hostId
+                    } : {},
+                    exitCode: 1
+                });
+            }
             const base = (0, _codex_contract_js__rspack_import_0.DG)(error);
             if (error && typeof error === 'object' && 'code' in error) {
                 return asResult({
@@ -12542,6 +12891,25 @@ var __webpack_modules__ = {
                 const out = await withAdapter(input.port, (adapter)=>adapter.listThreads({
                         limit: input.limit
                     }));
+                return asResult({
+                    ...out,
+                    exitCode: 0
+                });
+            } catch (error) {
+                return mapError(error);
+            }
+        }
+        async function searchThreadsOperation(input) {
+            try {
+                const out = await withAdapter(input.port, async (adapter)=>{
+                    if (typeof adapter.searchThreads !== 'function') {
+                        throw new _errors_js__rspack_import_1.EH('searchThreads', 'adapter does not implement search');
+                    }
+                    return adapter.searchThreads({
+                        query: input.query,
+                        limit: input.limit
+                    });
+                });
                 return asResult({
                     ...out,
                     exitCode: 0
@@ -12604,10 +12972,11 @@ var __webpack_modules__ = {
             }
             if (result.reachable === false) return String(result.message ?? 'ChatGPT Desktop CDP unreachable');
             if (Array.isArray(result.threads)) {
-                return `${result.threads.length} threads via ${result.backend ?? 'unknown'}`;
+                const via = result.query ? ` matching ${JSON.stringify(result.query)}` : '';
+                return `${result.threads.length} threads${via} via ${result.backend ?? 'unknown'}`;
             }
             if (Array.isArray(result.turns)) {
-                const mode = result.full ? 'full' : 'visible';
+                const mode = result.full ? 'full' : 'page';
                 return `${result.turns.length} turns (${mode}) on ${result.threadId} via ${result.backend ?? 'unknown'}`;
             }
             if (result.delivery === 'accepted') {
@@ -12625,7 +12994,8 @@ var __webpack_modules__ = {
             UK: ()=>readThreadOperation,
             UP: ()=>sendOperation,
             Uj: ()=>statusOperation,
-            tJ: ()=>listThreadsOperation
+            tJ: ()=>listThreadsOperation,
+            zg: ()=>searchThreadsOperation
         }, {
             FD: resultSchema
         });
@@ -12633,6 +13003,7 @@ var __webpack_modules__ = {
     "./src/core/chatgpt-desktop/thread-ids.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
         var _cdp_dom_js__rspack_import_0 = __webpack_require__("./src/core/chatgpt-desktop/cdp-dom.ts");
         const LOCAL_THREAD_ID_PREFIX = 'local:';
+        const HISTORY_CONTENT_TURN_PREFIX = 'history-content:turn:';
         function isTemporaryDesktopThreadId(threadId) {
             return threadId.startsWith(_cdp_dom_js__rspack_import_0.hA);
         }
@@ -12644,6 +13015,13 @@ var __webpack_modules__ = {
             }
             return threadId;
         }
+        function requireAppServerThreadId(threadId) {
+            const bare = toAppServerThreadId(threadId);
+            if (!bare) {
+                throw new Error(`No app-server thread id mapping for ${JSON.stringify(threadId)} ` + `(temporary Desktop rows need CDP; strip a leading "local:" for durable ids)`);
+            }
+            return bare;
+        }
         function toDesktopThreadId(threadId) {
             if (!threadId || isTemporaryDesktopThreadId(threadId)) return threadId;
             if (threadId.startsWith(LOCAL_THREAD_ID_PREFIX)) return threadId;
@@ -12654,22 +13032,22 @@ var __webpack_modules__ = {
             const right = toAppServerThreadId(b) ?? b;
             return left === right;
         }
+        function toDomTurnKey(turnId) {
+            if (!turnId) return turnId;
+            if (turnId.startsWith(HISTORY_CONTENT_TURN_PREFIX)) return turnId;
+            return `${HISTORY_CONTENT_TURN_PREFIX}${turnId}`;
+        }
         function appServerThreadIdCandidates(threadId) {
-            if (!threadId || isTemporaryDesktopThreadId(threadId)) return [];
             const bare = toAppServerThreadId(threadId);
-            const out = [];
-            const push = (id)=>{
-                if (id && !out.includes(id)) out.push(id);
-            };
-            push(bare);
-            push(threadId);
-            if (bare) push(toDesktopThreadId(bare));
-            return out;
+            return bare ? [
+                bare
+            ] : [];
         }
         __webpack_require__.d(__webpack_exports__, {
             BS: ()=>toDesktopThreadId,
-            EJ: ()=>appServerThreadIdCandidates,
             LV: ()=>threadIdsEquivalent,
+            NM: ()=>requireAppServerThreadId,
+            Sr: ()=>toDomTurnKey,
             nn: ()=>toAppServerThreadId,
             vr: ()=>isTemporaryDesktopThreadId
         });
@@ -24403,6 +24781,13 @@ var __webpack_modules__ = {
             if (value == null) return null;
             return typeof value === "string" ? singleLine(value) : value;
         }
+        function summarizeSection(section) {
+            if (!isObject(section) || typeof section.id !== "string" || !section.id) return null;
+            return {
+                id: singleLine(section.id),
+                name: lineField(section.name)
+            };
+        }
         function summarizeThread(t) {
             if (!isObject(t) || typeof t.id !== "string" || !t.id) throw new CodexProtocolError("thread/list", "entry without a string `id`");
             const type = isObject(t.status) && typeof t.status.type === "string" ? t.status.type : "unknown";
@@ -24414,7 +24799,13 @@ var __webpack_modules__ = {
                 preview: typeof t.preview === "string" ? stripTerminalControls(t.preview) : "",
                 cwd: lineField(t.cwd),
                 source: sourceField(t.source),
-                updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : null
+                createdAt: typeof t.createdAt === "number" ? t.createdAt : null,
+                updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : null,
+                section: summarizeSection(t.section),
+                projectId: lineField(t.projectId),
+                modelProvider: lineField(t.modelProvider),
+                model: lineField(t.model),
+                originator: lineField(t.originator)
             };
         }
         const THREAD_LIST_MAX_LIMIT = 200;
@@ -24428,6 +24819,7 @@ var __webpack_modules__ = {
                 const params = {
                     limit,
                     useStateDbOnly: true,
+                    modelProviders: [],
                     ...cursor !== undefined ? {
                         cursor
                     } : {}
@@ -27715,9 +28107,9 @@ function __webpack_require__(moduleId) {
 var __webpack_exports__ = {};
 var node_worker_threads__rspack_import_0 = __webpack_require__("node:worker_threads");
 var react__rspack_import_1 = __webpack_require__("./node_modules/react/react.react-server.js");
-var _agent_bundle_runtime_flight_server__rspack_import_45 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/flight/server.js");
-var _agent_bundle_runtime__rspack_import_43 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
-var _agent_bundle_runtime__rspack_import_44 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
+var _agent_bundle_runtime_flight_server__rspack_import_46 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/flight/server.js");
+var _agent_bundle_runtime__rspack_import_44 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
+var _agent_bundle_runtime__rspack_import_45 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
 var node_url__rspack_import_2 = __webpack_require__("node:url");
 var _src_cli_approvals_list_tsx__rspack_import_3 = __webpack_require__("./src/cli/approvals/list.tsx");
 var _src_cli_approvals_respond_tsx__rspack_import_4 = __webpack_require__("./src/cli/approvals/respond.tsx");
@@ -27727,38 +28119,39 @@ var _src_cli_bots_get_tsx__rspack_import_7 = __webpack_require__("./src/cli/bots
 var _src_cli_bots_list_tsx__rspack_import_8 = __webpack_require__("./src/cli/bots/list.tsx");
 var _src_cli_bots_update_tsx__rspack_import_9 = __webpack_require__("./src/cli/bots/update.tsx");
 var _src_cli_chatgpt_desktop_read_tsx__rspack_import_10 = __webpack_require__("./src/cli/chatgpt-desktop/read.tsx");
-var _src_cli_chatgpt_desktop_send_tsx__rspack_import_11 = __webpack_require__("./src/cli/chatgpt-desktop/send.tsx");
-var _src_cli_chatgpt_desktop_status_tsx__rspack_import_12 = __webpack_require__("./src/cli/chatgpt-desktop/status.tsx");
-var _src_cli_chatgpt_desktop_threads_tsx__rspack_import_13 = __webpack_require__("./src/cli/chatgpt-desktop/threads.tsx");
-var _src_cli_claude_send_tsx__rspack_import_14 = __webpack_require__("./src/cli/claude/send.tsx");
-var _src_cli_codex_bridge_respond_tsx__rspack_import_15 = __webpack_require__("./src/cli/codex/bridge/respond.tsx");
-var _src_cli_codex_bridge_run_tsx__rspack_import_16 = __webpack_require__("./src/cli/codex/bridge/run.tsx");
-var _src_cli_codex_bridge_start_tsx__rspack_import_17 = __webpack_require__("./src/cli/codex/bridge/start.tsx");
-var _src_cli_codex_bridge_status_tsx__rspack_import_18 = __webpack_require__("./src/cli/codex/bridge/status.tsx");
-var _src_cli_codex_bridge_stop_tsx__rspack_import_19 = __webpack_require__("./src/cli/codex/bridge/stop.tsx");
-var _src_cli_codex_desktop_shim_tsx__rspack_import_20 = __webpack_require__("./src/cli/codex/desktop-shim.tsx");
-var _src_cli_codex_list_threads_tsx__rspack_import_21 = __webpack_require__("./src/cli/codex/list-threads.tsx");
-var _src_cli_codex_queue_tsx__rspack_import_22 = __webpack_require__("./src/cli/codex/queue.tsx");
-var _src_cli_codex_send_tsx__rspack_import_23 = __webpack_require__("./src/cli/codex/send.tsx");
-var _src_cli_codex_status_tsx__rspack_import_24 = __webpack_require__("./src/cli/codex/status.tsx");
-var _src_cli_codex_wait_tsx__rspack_import_25 = __webpack_require__("./src/cli/codex/wait.tsx");
-var _src_cli_codex_watch_tsx__rspack_import_26 = __webpack_require__("./src/cli/codex/watch.tsx");
-var _src_cli_doctor_tsx__rspack_import_27 = __webpack_require__("./src/cli/doctor.tsx");
-var _src_cli_groups_add_tsx__rspack_import_28 = __webpack_require__("./src/cli/groups/add.tsx");
-var _src_cli_groups_create_tsx__rspack_import_29 = __webpack_require__("./src/cli/groups/create.tsx");
-var _src_cli_groups_delete_tsx__rspack_import_30 = __webpack_require__("./src/cli/groups/delete.tsx");
-var _src_cli_groups_get_tsx__rspack_import_31 = __webpack_require__("./src/cli/groups/get.tsx");
-var _src_cli_groups_list_tsx__rspack_import_32 = __webpack_require__("./src/cli/groups/list.tsx");
-var _src_cli_groups_members_tsx__rspack_import_33 = __webpack_require__("./src/cli/groups/members.tsx");
-var _src_cli_groups_remove_tsx__rspack_import_34 = __webpack_require__("./src/cli/groups/remove.tsx");
-var _src_cli_groups_set_tsx__rspack_import_35 = __webpack_require__("./src/cli/groups/set.tsx");
-var _src_cli_groups_update_tsx__rspack_import_36 = __webpack_require__("./src/cli/groups/update.tsx");
-var _src_cli_history_tsx__rspack_import_37 = __webpack_require__("./src/cli/history.tsx");
-var _src_cli_send_tsx__rspack_import_38 = __webpack_require__("./src/cli/send.tsx");
-var _src_cli_skills_add_tsx__rspack_import_39 = __webpack_require__("./src/cli/skills/add.tsx");
-var _src_cli_skills_list_tsx__rspack_import_40 = __webpack_require__("./src/cli/skills/list.tsx");
-var _src_cli_skills_remove_tsx__rspack_import_41 = __webpack_require__("./src/cli/skills/remove.tsx");
-var _src_cli_thread_tsx__rspack_import_42 = __webpack_require__("./src/cli/thread.tsx");
+var _src_cli_chatgpt_desktop_search_tsx__rspack_import_11 = __webpack_require__("./src/cli/chatgpt-desktop/search.tsx");
+var _src_cli_chatgpt_desktop_send_tsx__rspack_import_12 = __webpack_require__("./src/cli/chatgpt-desktop/send.tsx");
+var _src_cli_chatgpt_desktop_status_tsx__rspack_import_13 = __webpack_require__("./src/cli/chatgpt-desktop/status.tsx");
+var _src_cli_chatgpt_desktop_threads_tsx__rspack_import_14 = __webpack_require__("./src/cli/chatgpt-desktop/threads.tsx");
+var _src_cli_claude_send_tsx__rspack_import_15 = __webpack_require__("./src/cli/claude/send.tsx");
+var _src_cli_codex_bridge_respond_tsx__rspack_import_16 = __webpack_require__("./src/cli/codex/bridge/respond.tsx");
+var _src_cli_codex_bridge_run_tsx__rspack_import_17 = __webpack_require__("./src/cli/codex/bridge/run.tsx");
+var _src_cli_codex_bridge_start_tsx__rspack_import_18 = __webpack_require__("./src/cli/codex/bridge/start.tsx");
+var _src_cli_codex_bridge_status_tsx__rspack_import_19 = __webpack_require__("./src/cli/codex/bridge/status.tsx");
+var _src_cli_codex_bridge_stop_tsx__rspack_import_20 = __webpack_require__("./src/cli/codex/bridge/stop.tsx");
+var _src_cli_codex_desktop_shim_tsx__rspack_import_21 = __webpack_require__("./src/cli/codex/desktop-shim.tsx");
+var _src_cli_codex_list_threads_tsx__rspack_import_22 = __webpack_require__("./src/cli/codex/list-threads.tsx");
+var _src_cli_codex_queue_tsx__rspack_import_23 = __webpack_require__("./src/cli/codex/queue.tsx");
+var _src_cli_codex_send_tsx__rspack_import_24 = __webpack_require__("./src/cli/codex/send.tsx");
+var _src_cli_codex_status_tsx__rspack_import_25 = __webpack_require__("./src/cli/codex/status.tsx");
+var _src_cli_codex_wait_tsx__rspack_import_26 = __webpack_require__("./src/cli/codex/wait.tsx");
+var _src_cli_codex_watch_tsx__rspack_import_27 = __webpack_require__("./src/cli/codex/watch.tsx");
+var _src_cli_doctor_tsx__rspack_import_28 = __webpack_require__("./src/cli/doctor.tsx");
+var _src_cli_groups_add_tsx__rspack_import_29 = __webpack_require__("./src/cli/groups/add.tsx");
+var _src_cli_groups_create_tsx__rspack_import_30 = __webpack_require__("./src/cli/groups/create.tsx");
+var _src_cli_groups_delete_tsx__rspack_import_31 = __webpack_require__("./src/cli/groups/delete.tsx");
+var _src_cli_groups_get_tsx__rspack_import_32 = __webpack_require__("./src/cli/groups/get.tsx");
+var _src_cli_groups_list_tsx__rspack_import_33 = __webpack_require__("./src/cli/groups/list.tsx");
+var _src_cli_groups_members_tsx__rspack_import_34 = __webpack_require__("./src/cli/groups/members.tsx");
+var _src_cli_groups_remove_tsx__rspack_import_35 = __webpack_require__("./src/cli/groups/remove.tsx");
+var _src_cli_groups_set_tsx__rspack_import_36 = __webpack_require__("./src/cli/groups/set.tsx");
+var _src_cli_groups_update_tsx__rspack_import_37 = __webpack_require__("./src/cli/groups/update.tsx");
+var _src_cli_history_tsx__rspack_import_38 = __webpack_require__("./src/cli/history.tsx");
+var _src_cli_send_tsx__rspack_import_39 = __webpack_require__("./src/cli/send.tsx");
+var _src_cli_skills_add_tsx__rspack_import_40 = __webpack_require__("./src/cli/skills/add.tsx");
+var _src_cli_skills_list_tsx__rspack_import_41 = __webpack_require__("./src/cli/skills/list.tsx");
+var _src_cli_skills_remove_tsx__rspack_import_42 = __webpack_require__("./src/cli/skills/remove.tsx");
+var _src_cli_thread_tsx__rspack_import_43 = __webpack_require__("./src/cli/thread.tsx");
 const route0 = Object.assign({}, Reflect.get(_src_cli_approvals_list_tsx__rspack_import_3, 'default'), _src_cli_approvals_list_tsx__rspack_import_3);
 const route1 = Object.assign({}, Reflect.get(_src_cli_approvals_respond_tsx__rspack_import_4, 'default'), _src_cli_approvals_respond_tsx__rspack_import_4);
 const route2 = Object.assign({}, Reflect.get(_src_cli_bots_create_tsx__rspack_import_5, 'default'), _src_cli_bots_create_tsx__rspack_import_5);
@@ -27767,39 +28160,40 @@ const route4 = Object.assign({}, Reflect.get(_src_cli_bots_get_tsx__rspack_impor
 const route5 = Object.assign({}, Reflect.get(_src_cli_bots_list_tsx__rspack_import_8, 'default'), _src_cli_bots_list_tsx__rspack_import_8);
 const route6 = Object.assign({}, Reflect.get(_src_cli_bots_update_tsx__rspack_import_9, 'default'), _src_cli_bots_update_tsx__rspack_import_9);
 const route7 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_read_tsx__rspack_import_10, 'default'), _src_cli_chatgpt_desktop_read_tsx__rspack_import_10);
-const route8 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_send_tsx__rspack_import_11, 'default'), _src_cli_chatgpt_desktop_send_tsx__rspack_import_11);
-const route9 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_status_tsx__rspack_import_12, 'default'), _src_cli_chatgpt_desktop_status_tsx__rspack_import_12);
-const route10 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_threads_tsx__rspack_import_13, 'default'), _src_cli_chatgpt_desktop_threads_tsx__rspack_import_13);
-const route11 = Object.assign({}, Reflect.get(_src_cli_claude_send_tsx__rspack_import_14, 'default'), _src_cli_claude_send_tsx__rspack_import_14);
-const route12 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_respond_tsx__rspack_import_15, 'default'), _src_cli_codex_bridge_respond_tsx__rspack_import_15);
-const route13 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_run_tsx__rspack_import_16, 'default'), _src_cli_codex_bridge_run_tsx__rspack_import_16);
-const route14 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_start_tsx__rspack_import_17, 'default'), _src_cli_codex_bridge_start_tsx__rspack_import_17);
-const route15 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_status_tsx__rspack_import_18, 'default'), _src_cli_codex_bridge_status_tsx__rspack_import_18);
-const route16 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_stop_tsx__rspack_import_19, 'default'), _src_cli_codex_bridge_stop_tsx__rspack_import_19);
-const route17 = Object.assign({}, Reflect.get(_src_cli_codex_desktop_shim_tsx__rspack_import_20, 'default'), _src_cli_codex_desktop_shim_tsx__rspack_import_20);
-const route18 = Object.assign({}, Reflect.get(_src_cli_codex_list_threads_tsx__rspack_import_21, 'default'), _src_cli_codex_list_threads_tsx__rspack_import_21);
-const route19 = Object.assign({}, Reflect.get(_src_cli_codex_queue_tsx__rspack_import_22, 'default'), _src_cli_codex_queue_tsx__rspack_import_22);
-const route20 = Object.assign({}, Reflect.get(_src_cli_codex_send_tsx__rspack_import_23, 'default'), _src_cli_codex_send_tsx__rspack_import_23);
-const route21 = Object.assign({}, Reflect.get(_src_cli_codex_status_tsx__rspack_import_24, 'default'), _src_cli_codex_status_tsx__rspack_import_24);
-const route22 = Object.assign({}, Reflect.get(_src_cli_codex_wait_tsx__rspack_import_25, 'default'), _src_cli_codex_wait_tsx__rspack_import_25);
-const route23 = Object.assign({}, Reflect.get(_src_cli_codex_watch_tsx__rspack_import_26, 'default'), _src_cli_codex_watch_tsx__rspack_import_26);
-const route24 = Object.assign({}, Reflect.get(_src_cli_doctor_tsx__rspack_import_27, 'default'), _src_cli_doctor_tsx__rspack_import_27);
-const route25 = Object.assign({}, Reflect.get(_src_cli_groups_add_tsx__rspack_import_28, 'default'), _src_cli_groups_add_tsx__rspack_import_28);
-const route26 = Object.assign({}, Reflect.get(_src_cli_groups_create_tsx__rspack_import_29, 'default'), _src_cli_groups_create_tsx__rspack_import_29);
-const route27 = Object.assign({}, Reflect.get(_src_cli_groups_delete_tsx__rspack_import_30, 'default'), _src_cli_groups_delete_tsx__rspack_import_30);
-const route28 = Object.assign({}, Reflect.get(_src_cli_groups_get_tsx__rspack_import_31, 'default'), _src_cli_groups_get_tsx__rspack_import_31);
-const route29 = Object.assign({}, Reflect.get(_src_cli_groups_list_tsx__rspack_import_32, 'default'), _src_cli_groups_list_tsx__rspack_import_32);
-const route30 = Object.assign({}, Reflect.get(_src_cli_groups_members_tsx__rspack_import_33, 'default'), _src_cli_groups_members_tsx__rspack_import_33);
-const route31 = Object.assign({}, Reflect.get(_src_cli_groups_remove_tsx__rspack_import_34, 'default'), _src_cli_groups_remove_tsx__rspack_import_34);
-const route32 = Object.assign({}, Reflect.get(_src_cli_groups_set_tsx__rspack_import_35, 'default'), _src_cli_groups_set_tsx__rspack_import_35);
-const route33 = Object.assign({}, Reflect.get(_src_cli_groups_update_tsx__rspack_import_36, 'default'), _src_cli_groups_update_tsx__rspack_import_36);
-const route34 = Object.assign({}, Reflect.get(_src_cli_history_tsx__rspack_import_37, 'default'), _src_cli_history_tsx__rspack_import_37);
-const route35 = Object.assign({}, Reflect.get(_src_cli_send_tsx__rspack_import_38, 'default'), _src_cli_send_tsx__rspack_import_38);
-const route36 = Object.assign({}, Reflect.get(_src_cli_skills_add_tsx__rspack_import_39, 'default'), _src_cli_skills_add_tsx__rspack_import_39);
-const route37 = Object.assign({}, Reflect.get(_src_cli_skills_list_tsx__rspack_import_40, 'default'), _src_cli_skills_list_tsx__rspack_import_40);
-const route38 = Object.assign({}, Reflect.get(_src_cli_skills_remove_tsx__rspack_import_41, 'default'), _src_cli_skills_remove_tsx__rspack_import_41);
-const route39 = Object.assign({}, Reflect.get(_src_cli_thread_tsx__rspack_import_42, 'default'), _src_cli_thread_tsx__rspack_import_42);
-const pluginRoot = (0, _agent_bundle_runtime__rspack_import_43.E7)({
+const route8 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_search_tsx__rspack_import_11, 'default'), _src_cli_chatgpt_desktop_search_tsx__rspack_import_11);
+const route9 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_send_tsx__rspack_import_12, 'default'), _src_cli_chatgpt_desktop_send_tsx__rspack_import_12);
+const route10 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_status_tsx__rspack_import_13, 'default'), _src_cli_chatgpt_desktop_status_tsx__rspack_import_13);
+const route11 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_threads_tsx__rspack_import_14, 'default'), _src_cli_chatgpt_desktop_threads_tsx__rspack_import_14);
+const route12 = Object.assign({}, Reflect.get(_src_cli_claude_send_tsx__rspack_import_15, 'default'), _src_cli_claude_send_tsx__rspack_import_15);
+const route13 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_respond_tsx__rspack_import_16, 'default'), _src_cli_codex_bridge_respond_tsx__rspack_import_16);
+const route14 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_run_tsx__rspack_import_17, 'default'), _src_cli_codex_bridge_run_tsx__rspack_import_17);
+const route15 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_start_tsx__rspack_import_18, 'default'), _src_cli_codex_bridge_start_tsx__rspack_import_18);
+const route16 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_status_tsx__rspack_import_19, 'default'), _src_cli_codex_bridge_status_tsx__rspack_import_19);
+const route17 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_stop_tsx__rspack_import_20, 'default'), _src_cli_codex_bridge_stop_tsx__rspack_import_20);
+const route18 = Object.assign({}, Reflect.get(_src_cli_codex_desktop_shim_tsx__rspack_import_21, 'default'), _src_cli_codex_desktop_shim_tsx__rspack_import_21);
+const route19 = Object.assign({}, Reflect.get(_src_cli_codex_list_threads_tsx__rspack_import_22, 'default'), _src_cli_codex_list_threads_tsx__rspack_import_22);
+const route20 = Object.assign({}, Reflect.get(_src_cli_codex_queue_tsx__rspack_import_23, 'default'), _src_cli_codex_queue_tsx__rspack_import_23);
+const route21 = Object.assign({}, Reflect.get(_src_cli_codex_send_tsx__rspack_import_24, 'default'), _src_cli_codex_send_tsx__rspack_import_24);
+const route22 = Object.assign({}, Reflect.get(_src_cli_codex_status_tsx__rspack_import_25, 'default'), _src_cli_codex_status_tsx__rspack_import_25);
+const route23 = Object.assign({}, Reflect.get(_src_cli_codex_wait_tsx__rspack_import_26, 'default'), _src_cli_codex_wait_tsx__rspack_import_26);
+const route24 = Object.assign({}, Reflect.get(_src_cli_codex_watch_tsx__rspack_import_27, 'default'), _src_cli_codex_watch_tsx__rspack_import_27);
+const route25 = Object.assign({}, Reflect.get(_src_cli_doctor_tsx__rspack_import_28, 'default'), _src_cli_doctor_tsx__rspack_import_28);
+const route26 = Object.assign({}, Reflect.get(_src_cli_groups_add_tsx__rspack_import_29, 'default'), _src_cli_groups_add_tsx__rspack_import_29);
+const route27 = Object.assign({}, Reflect.get(_src_cli_groups_create_tsx__rspack_import_30, 'default'), _src_cli_groups_create_tsx__rspack_import_30);
+const route28 = Object.assign({}, Reflect.get(_src_cli_groups_delete_tsx__rspack_import_31, 'default'), _src_cli_groups_delete_tsx__rspack_import_31);
+const route29 = Object.assign({}, Reflect.get(_src_cli_groups_get_tsx__rspack_import_32, 'default'), _src_cli_groups_get_tsx__rspack_import_32);
+const route30 = Object.assign({}, Reflect.get(_src_cli_groups_list_tsx__rspack_import_33, 'default'), _src_cli_groups_list_tsx__rspack_import_33);
+const route31 = Object.assign({}, Reflect.get(_src_cli_groups_members_tsx__rspack_import_34, 'default'), _src_cli_groups_members_tsx__rspack_import_34);
+const route32 = Object.assign({}, Reflect.get(_src_cli_groups_remove_tsx__rspack_import_35, 'default'), _src_cli_groups_remove_tsx__rspack_import_35);
+const route33 = Object.assign({}, Reflect.get(_src_cli_groups_set_tsx__rspack_import_36, 'default'), _src_cli_groups_set_tsx__rspack_import_36);
+const route34 = Object.assign({}, Reflect.get(_src_cli_groups_update_tsx__rspack_import_37, 'default'), _src_cli_groups_update_tsx__rspack_import_37);
+const route35 = Object.assign({}, Reflect.get(_src_cli_history_tsx__rspack_import_38, 'default'), _src_cli_history_tsx__rspack_import_38);
+const route36 = Object.assign({}, Reflect.get(_src_cli_send_tsx__rspack_import_39, 'default'), _src_cli_send_tsx__rspack_import_39);
+const route37 = Object.assign({}, Reflect.get(_src_cli_skills_add_tsx__rspack_import_40, 'default'), _src_cli_skills_add_tsx__rspack_import_40);
+const route38 = Object.assign({}, Reflect.get(_src_cli_skills_list_tsx__rspack_import_41, 'default'), _src_cli_skills_list_tsx__rspack_import_41);
+const route39 = Object.assign({}, Reflect.get(_src_cli_skills_remove_tsx__rspack_import_42, 'default'), _src_cli_skills_remove_tsx__rspack_import_42);
+const route40 = Object.assign({}, Reflect.get(_src_cli_thread_tsx__rspack_import_43, 'default'), _src_cli_thread_tsx__rspack_import_43);
+const pluginRoot = (0, _agent_bundle_runtime__rspack_import_44.E7)({
     fallback: (0, node_url__rspack_import_2.fileURLToPath)(new URL('..', import.meta.url)),
     stateAnchor: 'user-data'
 });
@@ -27863,197 +28257,203 @@ const routes = Object.freeze({
         name: "chatgpt-desktop read",
         module: route7
     }),
+    "cli:chatgpt-desktop/search": Object.freeze({
+        id: "cli:chatgpt-desktop/search",
+        kind: "cli",
+        name: "chatgpt-desktop search",
+        module: route8
+    }),
     "cli:chatgpt-desktop/send": Object.freeze({
         id: "cli:chatgpt-desktop/send",
         kind: "cli",
         name: "chatgpt-desktop send",
-        module: route8
+        module: route9
     }),
     "cli:chatgpt-desktop/status": Object.freeze({
         id: "cli:chatgpt-desktop/status",
         kind: "cli",
         name: "chatgpt-desktop status",
-        module: route9
+        module: route10
     }),
     "cli:chatgpt-desktop/threads": Object.freeze({
         id: "cli:chatgpt-desktop/threads",
         kind: "cli",
         name: "chatgpt-desktop threads",
-        module: route10
+        module: route11
     }),
     "cli:claude/send": Object.freeze({
         id: "cli:claude/send",
         kind: "cli",
         name: "claude send",
-        module: route11
+        module: route12
     }),
     "cli:codex/bridge/respond": Object.freeze({
         id: "cli:codex/bridge/respond",
         kind: "cli",
         name: "codex bridge respond",
-        module: route12
+        module: route13
     }),
     "cli:codex/bridge/run": Object.freeze({
         id: "cli:codex/bridge/run",
         kind: "cli",
         name: "codex bridge run",
-        module: route13
+        module: route14
     }),
     "cli:codex/bridge/start": Object.freeze({
         id: "cli:codex/bridge/start",
         kind: "cli",
         name: "codex bridge start",
-        module: route14
+        module: route15
     }),
     "cli:codex/bridge/status": Object.freeze({
         id: "cli:codex/bridge/status",
         kind: "cli",
         name: "codex bridge status",
-        module: route15
+        module: route16
     }),
     "cli:codex/bridge/stop": Object.freeze({
         id: "cli:codex/bridge/stop",
         kind: "cli",
         name: "codex bridge stop",
-        module: route16
+        module: route17
     }),
     "cli:codex/desktop-shim": Object.freeze({
         id: "cli:codex/desktop-shim",
         kind: "cli",
         name: "codex desktop-shim",
-        module: route17
+        module: route18
     }),
     "cli:codex/list-threads": Object.freeze({
         id: "cli:codex/list-threads",
         kind: "cli",
         name: "codex list-threads",
-        module: route18
+        module: route19
     }),
     "cli:codex/queue": Object.freeze({
         id: "cli:codex/queue",
         kind: "cli",
         name: "codex queue",
-        module: route19
+        module: route20
     }),
     "cli:codex/send": Object.freeze({
         id: "cli:codex/send",
         kind: "cli",
         name: "codex send",
-        module: route20
+        module: route21
     }),
     "cli:codex/status": Object.freeze({
         id: "cli:codex/status",
         kind: "cli",
         name: "codex status",
-        module: route21
+        module: route22
     }),
     "cli:codex/wait": Object.freeze({
         id: "cli:codex/wait",
         kind: "cli",
         name: "codex wait",
-        module: route22
+        module: route23
     }),
     "cli:codex/watch": Object.freeze({
         id: "cli:codex/watch",
         kind: "cli",
         name: "codex watch",
-        module: route23
+        module: route24
     }),
     "cli:doctor": Object.freeze({
         id: "cli:doctor",
         kind: "cli",
         name: "doctor",
-        module: route24
+        module: route25
     }),
     "cli:groups/add": Object.freeze({
         id: "cli:groups/add",
         kind: "cli",
         name: "groups add",
-        module: route25
+        module: route26
     }),
     "cli:groups/create": Object.freeze({
         id: "cli:groups/create",
         kind: "cli",
         name: "groups create",
-        module: route26
+        module: route27
     }),
     "cli:groups/delete": Object.freeze({
         id: "cli:groups/delete",
         kind: "cli",
         name: "groups delete",
-        module: route27
+        module: route28
     }),
     "cli:groups/get": Object.freeze({
         id: "cli:groups/get",
         kind: "cli",
         name: "groups get",
-        module: route28
+        module: route29
     }),
     "cli:groups/list": Object.freeze({
         id: "cli:groups/list",
         kind: "cli",
         name: "groups list",
-        module: route29
+        module: route30
     }),
     "cli:groups/members": Object.freeze({
         id: "cli:groups/members",
         kind: "cli",
         name: "groups members",
-        module: route30
+        module: route31
     }),
     "cli:groups/remove": Object.freeze({
         id: "cli:groups/remove",
         kind: "cli",
         name: "groups remove",
-        module: route31
+        module: route32
     }),
     "cli:groups/set": Object.freeze({
         id: "cli:groups/set",
         kind: "cli",
         name: "groups set",
-        module: route32
+        module: route33
     }),
     "cli:groups/update": Object.freeze({
         id: "cli:groups/update",
         kind: "cli",
         name: "groups update",
-        module: route33
+        module: route34
     }),
     "cli:history": Object.freeze({
         id: "cli:history",
         kind: "cli",
         name: "history",
-        module: route34
+        module: route35
     }),
     "cli:send": Object.freeze({
         id: "cli:send",
         kind: "cli",
         name: "send",
-        module: route35
+        module: route36
     }),
     "cli:skills/add": Object.freeze({
         id: "cli:skills/add",
         kind: "cli",
         name: "skills add",
-        module: route36
+        module: route37
     }),
     "cli:skills/list": Object.freeze({
         id: "cli:skills/list",
         kind: "cli",
         name: "skills list",
-        module: route37
+        module: route38
     }),
     "cli:skills/remove": Object.freeze({
         id: "cli:skills/remove",
         kind: "cli",
         name: "skills remove",
-        module: route38
+        module: route39
     }),
     "cli:thread": Object.freeze({
         id: "cli:thread",
         kind: "cli",
         name: "thread",
-        module: route39
+        module: route40
     })
 });
 const requests = new Map();
@@ -28088,18 +28488,18 @@ const render = async (message)=>{
     };
     try {
         const cwd = process.cwd();
-        await (0, _agent_bundle_runtime__rspack_import_44.iC)({
+        await (0, _agent_bundle_runtime__rspack_import_45.iC)({
             capabilities: {
-                command: (0, _agent_bundle_runtime__rspack_import_44.hU)(),
-                filesystem: (0, _agent_bundle_runtime__rspack_import_44.hU)(),
-                network: (0, _agent_bundle_runtime__rspack_import_44.hU)(),
-                projectRoot: (0, _agent_bundle_runtime__rspack_import_44.qC)({
+                command: (0, _agent_bundle_runtime__rspack_import_45.hU)(),
+                filesystem: (0, _agent_bundle_runtime__rspack_import_45.hU)(),
+                network: (0, _agent_bundle_runtime__rspack_import_45.hU)(),
+                projectRoot: (0, _agent_bundle_runtime__rspack_import_45.qC)({
                     root: cwd
                 }, 'derived')
             },
-            host: (0, _agent_bundle_runtime__rspack_import_44.hU)('unsupported-surface'),
+            host: (0, _agent_bundle_runtime__rspack_import_45.hU)('unsupported-surface'),
             invocation: message.request,
-            lineage: (0, _agent_bundle_runtime__rspack_import_44.hU)('unsupported-surface'),
+            lineage: (0, _agent_bundle_runtime__rspack_import_45.hU)('unsupported-surface'),
             plugin: pluginRoot.identity,
             progress: {
                 report: async (update)=>{
@@ -28112,8 +28512,8 @@ const render = async (message)=>{
             },
             process: processHit,
             signal: controller.signal,
-            terminal: message.terminal === undefined ? (0, _agent_bundle_runtime__rspack_import_44.hU)('not-provided') : (0, _agent_bundle_runtime__rspack_import_44.qC)(message.terminal, 'native'),
-            workspace: (0, _agent_bundle_runtime__rspack_import_44.qC)({
+            terminal: message.terminal === undefined ? (0, _agent_bundle_runtime__rspack_import_45.hU)('not-provided') : (0, _agent_bundle_runtime__rspack_import_45.qC)(message.terminal, 'native'),
+            workspace: (0, _agent_bundle_runtime__rspack_import_45.qC)({
                 root: cwd
             }, 'derived')
         }, async ()=>{
@@ -28122,7 +28522,7 @@ const render = async (message)=>{
                 type: 'observed-render-start'
             });
             const renderStartedAt = performance.now();
-            const flight = (0, _agent_bundle_runtime_flight_server__rspack_import_45.y)(composeLayouts(observedRoute, {
+            const flight = (0, _agent_bundle_runtime_flight_server__rspack_import_46.y)(composeLayouts(observedRoute, {
                 ...message.props,
                 signal: controller.signal
             }, controller.signal), {

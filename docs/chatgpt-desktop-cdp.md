@@ -5,6 +5,10 @@ Protocol on **127.0.0.1 only**. There is no remote transport. CDP/DOM details
 stay inside `src/core/chatgpt-desktop/`; MCP tools and CLI commands call the
 `ChatGptDesktopAdapter` surface.
 
+List / search / read prefer the local Codex **app-server** (verified on
+0.158.0). Send / new-thread-in-project / wait-for-reply / selected-thread stay
+on CDP. DOM read is a fallback only when app-server is unavailable.
+
 ## Enable remote debugging (macOS)
 
 Electron fuses on ChatGPT.app block Node inspect / `RunAsNode`, but they do
@@ -28,6 +32,7 @@ Override the port with `CHATGPT_DESKTOP_CDP_PORT` or `--port`.
 ```sh
 gbot chatgpt-desktop status
 gbot chatgpt-desktop threads --limit 20
+gbot chatgpt-desktop search "launch"
 gbot chatgpt-desktop read <threadId>
 gbot chatgpt-desktop send --thread-id <threadId> "hello"
 gbot chatgpt-desktop send "start a new chat with this text"
@@ -38,8 +43,9 @@ gbot chatgpt-desktop send "start a new chat with this text"
 | Tool | Role |
 | --- | --- |
 | `chatgpt_desktop_status` | CDP `/json/version` (+ optional attach) and app-server probe |
-| `chatgpt_desktop_list_threads` | App-server `thread/list` when available; merges CDP sidebar fields |
-| `chatgpt_desktop_read_thread` | Visible turns via CDP; deep/full history via app-server |
+| `chatgpt_desktop_list_threads` | App-server `thread/list` (`modelProviders: []`); merge CDP UI fields |
+| `chatgpt_desktop_search_threads` | App-server list + metadata filter |
+| `chatgpt_desktop_read_thread` | App-server `thread/read` + `thread/turns/list` (`itemsView: "full"`) |
 | `chatgpt_desktop_send` | Composer submit over CDP (new-thread-in-project included) |
 | `chatgpt_desktop_wait_reply` | Poll for a new assistant turn over CDP |
 
@@ -48,36 +54,59 @@ Every list/read/send/wait/open result includes `backend: "cdp" | "app-server"`.
 ## Thread id mapping
 
 Desktop sidebar rows expose `data-app-action-sidebar-thread-id` as
-`local:<conversationId>`. The Codex app-server uses the bare `<conversationId>`
-for `thread/list`, `thread/read`, and `thread/resume`.
+`local:<conversationId>`. App-server rejects the prefixed form with
+`invalid thread id`. Always strip `local:` before RPC calls
+(`toAppServerThreadId` / `requireAppServerThreadId`).
 
 | Form | Example | Where |
 | --- | --- | --- |
 | Desktop sidebar | `local:11111111-1111-1111-1111-111111111111` | CDP DOM |
-| App-server | `11111111-1111-1111-1111-111111111111` | `codex-bridge` / app-server |
+| App-server | `11111111-1111-1111-1111-111111111111` | JSON-RPC |
 | Temporary (CDP-only) | `local:client-new-thread:…` | Composer before first reply |
 
-Helpers in `thread-ids.ts` (`toAppServerThreadId`, `toDesktopThreadId`,
-`appServerThreadIdCandidates`) accept either durable form. Temporary
-`local:client-new-thread:…` ids do **not** map until
-`data-response-annotation-conversation` resolves a real conversation id.
-List/read results prefer the Desktop `local:…` form so callers can round-trip
-the same id into send/wait.
+Turn ids from app-server match DOM keys `history-content:turn:<id>`
+(`toDomTurnKey`). App-server history is usually richer than the virtualized
+DOM (tool calls, reasoning, timing, and sometimes more turns).
+
+## App-server read protocol (0.158.0)
+
+1. `initialize` then `initialized` notification (via `openCodexSession`)
+2. `thread/read` for **metadata only** (`includeTurns` is deprecated for
+   paginated threads)
+3. Page history with `thread/turns/list` (`itemsView: "full"`, `cursor` /
+   `nextCursor`); `thread/items/list` is a fallback
+4. **Do not** `thread/resume` for reads — resume attaches a live session
+
+`thread/list` filters to the current model provider by default. Pass
+`modelProviders: []` for every provider, and `useStateDbOnly: true` for speed
+(~0.02s; a cold rollout scan can take ~36s). Pagination uses `limit` / `cursor`
+/ `nextCursor`. The same fix applies to `gbot codex list-threads` /
+`codex_threads`.
+
+Surfaced list fields: `id`, `name`, `preview`, `cwd`, `createdAt` /
+`updatedAt` (unix s), `section {id,name}` (Pinned → `pinned: true`),
+`projectId`, `status`, `modelProvider`, `model`, `originator`. `archived` is a
+list filter, not a field.
+
+### Remote-control threads
+
+Threads owned by another host are not loaded locally and return
+`thread not loaded`. The adapter raises `RemoteThreadNotLoadedError` and, when
+possible, names the owning `hostId` from
+`~/.codex/.codex-global-state.json` keys `remote-thread-summaries-v3:<hostId>`.
+SSH remoting is **not** implemented in this PR (follow-up).
 
 ## Backend capability matrix
 
 | Operation | CDP | App-server |
 | --- | --- | --- |
-| `status` | `/json/version` + attach | daemon probe (`codexStatus`) |
-| `list_threads` | sidebar DOM (pinned/selected/project/kind) | primary inventory (`thread/list`) |
-| `read_thread` (visible / limit ≤ on-screen) | harvest rendered turns | — |
-| `read_thread` (full / limit > visible) | wheel crawl **fallback only** | primary (`thread/read`, resume+turns, turns/items list) |
-| `open_thread` | click sidebar row | `thread/resume` fallback when CDP down |
+| `status` | `/json/version` + attach | daemon probe |
+| `list_threads` | merge selected / UI overlay | primary (`thread/list`, all providers) |
+| `search_threads` | merge selected when connected | primary (list + filter) |
+| `read_thread` | DOM harvest / wheel **fallback only** | primary (`thread/read` + turns/list) |
+| `open_thread` (selected) | click sidebar row | **not used** (resume attaches) |
 | `send` / new-thread-in-project | composer + Enter / project button | **not used** |
 | `wait_reply` | Stop gone + final-assistant | **not used** |
-
-List merges app-server rows with CDP-only fields (`pinned`, `selected`,
-`project`, `kind`) when CDP is connected, and appends CDP-only temporary rows.
 
 ## Target selection
 
@@ -96,13 +125,11 @@ All selectors live in `src/core/chatgpt-desktop/cdp-dom.ts`:
 - Reply text: last turn’s `[data-local-conversation-final-assistant=true] [data-markdown-text-style=assistant-message]`
 - New chat: `button[aria-label="Start new chat in <project>"]` (preferred) or sidebar “New chat”
 - Conversation id: `[data-response-annotation-conversation]` (resolves `local:client-new-thread:…`)
-- Open: click sidebar row, wait until “Loading task…” clears (default 90s)
-- Visible read: harvest currently rendered turns (no wheel)
-- Full-read fallback: mouseWheel (negative deltaY) on `[data-app-action-timeline-scroll]` (column-reverse); skip `history-gap:` keys — only when app-server misses the thread or is unreachable
+- Open / selected: click sidebar row, wait until “Loading task…” clears (default 90s)
+- Read fallback: harvest rendered turns; optional mouseWheel on `[data-app-action-timeline-scroll]`
 
 ## App-server reuse
 
-Deep history and thread listing reuse the existing client in `codex-bridge.js`
+List / search / read reuse the existing client in `codex-bridge.js`
 (`listCodexThreads`, `openCodexSession`, `codexStatus`) — no duplicated
-JSON-RPC stack. Send / new-thread-in-project / wait-for-reply stay on CDP
-because those Desktop UI actions are not app-server operations in this adapter.
+JSON-RPC stack. Send / new-thread-in-project / wait-for-reply stay on CDP.

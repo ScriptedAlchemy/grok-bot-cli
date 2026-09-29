@@ -22973,6 +22973,13 @@ var __webpack_modules__ = {
             if (value == null) return null;
             return typeof value === "string" ? singleLine(value) : value;
         }
+        function summarizeSection(section) {
+            if (!isObject(section) || typeof section.id !== "string" || !section.id) return null;
+            return {
+                id: singleLine(section.id),
+                name: lineField(section.name)
+            };
+        }
         function summarizeThread(t) {
             if (!isObject(t) || typeof t.id !== "string" || !t.id) throw new CodexProtocolError("thread/list", "entry without a string `id`");
             const type = isObject(t.status) && typeof t.status.type === "string" ? t.status.type : "unknown";
@@ -22984,7 +22991,13 @@ var __webpack_modules__ = {
                 preview: typeof t.preview === "string" ? stripTerminalControls(t.preview) : "",
                 cwd: lineField(t.cwd),
                 source: sourceField(t.source),
-                updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : null
+                createdAt: typeof t.createdAt === "number" ? t.createdAt : null,
+                updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : null,
+                section: summarizeSection(t.section),
+                projectId: lineField(t.projectId),
+                modelProvider: lineField(t.modelProvider),
+                model: lineField(t.model),
+                originator: lineField(t.originator)
             };
         }
         const THREAD_LIST_MAX_LIMIT = 200;
@@ -22998,6 +23011,7 @@ var __webpack_modules__ = {
                 const params = {
                     limit,
                     useStateDbOnly: true,
+                    modelProviders: [],
                     ...cursor !== undefined ? {
                         cursor
                     } : {}

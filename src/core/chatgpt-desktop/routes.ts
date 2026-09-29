@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { outcomeFromError } from '../codex/contract.js';
-import { NotImplementedError } from './errors.js';
+import { NotImplementedError, RemoteThreadNotLoadedError } from './errors.js';
 import { getChatGptDesktopAdapter } from './facade.js';
 import { resolveCdpPort } from './loopback.js';
 
@@ -16,6 +16,14 @@ export const statusSchema = z
 export const listThreadsSchema = z
   .object({
     port: z.number().int().min(1).max(65535).optional(),
+    limit: z.number().int().min(1).max(200).default(50),
+  })
+  .strict();
+
+export const searchThreadsSchema = z
+  .object({
+    port: z.number().int().min(1).max(65535).optional(),
+    query: z.string().min(1).max(512),
     limit: z.number().int().min(1).max(200).default(50),
   })
   .strict();
@@ -65,7 +73,7 @@ async function withAdapter<T>(
   try {
     await adapter.connect({ port: resolved });
   } catch {
-    // status/list may still succeed via HTTP probe or app-server list/deep-read.
+    // status/list/search/read may still succeed via HTTP probe or app-server.
   }
   return run(adapter);
 }
@@ -84,6 +92,17 @@ function mapError(error: unknown): OperationResult {
       reason: 'not-implemented',
       code: 'NOT_IMPLEMENTED',
       error: error.message,
+      exitCode: 1 as const,
+    });
+  }
+  if (error instanceof RemoteThreadNotLoadedError) {
+    return asResult({
+      delivery: error.delivery,
+      reason: error.reason,
+      code: error.code,
+      error: error.message,
+      threadId: error.threadId,
+      ...(error.hostId ? { hostId: error.hostId } : {}),
       exitCode: 1 as const,
     });
   }
@@ -110,6 +129,22 @@ export async function listThreadsOperation(
     const out = await withAdapter(input.port, (adapter) =>
       adapter.listThreads({ limit: input.limit }),
     );
+    return asResult({ ...out, exitCode: 0 as const });
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function searchThreadsOperation(
+  input: z.infer<typeof searchThreadsSchema>,
+): Promise<OperationResult> {
+  try {
+    const out = await withAdapter(input.port, async (adapter) => {
+      if (typeof adapter.searchThreads !== 'function') {
+        throw new NotImplementedError('searchThreads', 'adapter does not implement search');
+      }
+      return adapter.searchThreads({ query: input.query, limit: input.limit });
+    });
     return asResult({ ...out, exitCode: 0 as const });
   } catch (error) {
     return mapError(error);
@@ -179,10 +214,11 @@ export function resultText(result: OperationResult): string {
   }
   if (result.reachable === false) return String(result.message ?? 'ChatGPT Desktop CDP unreachable');
   if (Array.isArray(result.threads)) {
-    return `${result.threads.length} threads via ${result.backend ?? 'unknown'}`;
+    const via = result.query ? ` matching ${JSON.stringify(result.query)}` : '';
+    return `${result.threads.length} threads${via} via ${result.backend ?? 'unknown'}`;
   }
   if (Array.isArray(result.turns)) {
-    const mode = result.full ? 'full' : 'visible';
+    const mode = result.full ? 'full' : 'page';
     return `${result.turns.length} turns (${mode}) on ${result.threadId} via ${result.backend ?? 'unknown'}`;
   }
   if (result.delivery === 'accepted') {

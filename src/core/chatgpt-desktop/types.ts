@@ -8,24 +8,43 @@ export type ChatGptDesktopTarget = {
   readonly attached: boolean;
 };
 
+export type ChatGptDesktopThreadSection = {
+  readonly id: string;
+  readonly name: string | null;
+};
+
 export type ChatGptDesktopThread = {
   readonly threadId: string;
   readonly title: string;
   readonly pinned: boolean;
+  /** CDP-only: currently selected sidebar row. */
   readonly selected: boolean;
   readonly kind: string;
-  /** CDP-only: project folder from the sidebar when known. */
+  /** Project folder name when known (CDP sidebar or app-server projectId). */
   readonly project?: string;
+  readonly preview?: string;
+  readonly cwd?: string | null;
+  readonly createdAt?: number | null;
+  readonly updatedAt?: number | null;
+  readonly section?: ChatGptDesktopThreadSection | null;
+  readonly projectId?: string | null;
+  readonly status?: string;
+  readonly modelProvider?: string | null;
+  readonly model?: string | null;
+  readonly originator?: string | null;
 };
 
 export type ChatGptDesktopTurn = {
+  /** Prefer DOM form `history-content:turn:<id>` when the bare turn id is known. */
   readonly turnKey: string;
-  readonly role: 'user' | 'assistant' | 'status';
+  readonly role: 'user' | 'assistant' | 'status' | 'tool' | 'reasoning';
   readonly text: string;
   /** User bubble text when the turn holds both sides. */
   readonly userText?: string;
   /** Final assistant markdown when present on the same turn. */
   readonly assistantText?: string;
+  readonly startedAt?: number | null;
+  readonly endedAt?: number | null;
 };
 
 export type ChatGptDesktopStatus = {
@@ -50,6 +69,8 @@ export type ListThreadsResult = {
   readonly threads: readonly ChatGptDesktopThread[];
   readonly backend: ChatGptDesktopBackend;
   readonly limit: number;
+  readonly nextCursor?: string | null;
+  readonly query?: string;
 };
 
 export type ReadThreadResult = {
@@ -58,6 +79,11 @@ export type ReadThreadResult = {
   readonly backend: ChatGptDesktopBackend;
   readonly limit: number;
   readonly full: boolean;
+  readonly title?: string;
+  readonly cwd?: string | null;
+  readonly status?: string;
+  readonly modelProvider?: string | null;
+  readonly model?: string | null;
 };
 
 export type SendMessageResult = {

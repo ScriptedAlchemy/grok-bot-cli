@@ -1,8 +1,14 @@
 /**
- * App-server path for ChatGPT Desktop list/deep-read/open.
+ * App-server path for ChatGPT Desktop list / search / read.
  * Reuses the existing codex-bridge client — does not duplicate the WebSocket/JSON-RPC stack.
  *
- * Send, new-thread-in-project, and wait-for-reply stay on CDP (see facade).
+ * Verified against Codex app-server 0.158.0:
+ * - initialize → initialized → thread/list | thread/read | thread/turns/list | thread/items/list
+ * - Do not use thread/resume for reads (it attaches a live session).
+ * - includeTurns on thread/read is deprecated for paginated threads; read metadata,
+ *   then page with thread/turns/list (itemsView: "full").
+ *
+ * Send, new-thread-in-project, wait-for-reply, and selected-thread stay on CDP (see facade).
  */
 
 import {
@@ -10,41 +16,66 @@ import {
   listCodexThreads,
   openCodexSession,
 } from '../codex-bridge.js';
+import { RemoteThreadNotLoadedError } from './errors.js';
+import { findRemoteThreadHostId } from './remote-threads.js';
 import {
-  appServerThreadIdCandidates,
+  requireAppServerThreadId,
   toDesktopThreadId,
+  toDomTurnKey,
 } from './thread-ids.js';
 import type {
+  ChatGptDesktopThread,
+  ChatGptDesktopTurn,
   ListThreadsResult,
-  OpenThreadResult,
   ReadThreadResult,
 } from './types.js';
 
 export async function appServerListThreads({
   limit = 50,
+  cursor,
 }: {
   limit?: number;
+  cursor?: string;
 } = {}): Promise<ListThreadsResult> {
-  const out = await listCodexThreads({ limit });
+  const out = await listCodexThreads({ limit, cursor });
   return {
     backend: 'app-server',
     limit: out.limit,
-    threads: out.threads.map((thread: {
-      id?: string;
-      name?: string;
-      preview?: string;
-      cwd?: string;
-    }) => {
-      const bare = String(thread.id ?? '');
-      return {
-        // Present Desktop-form ids so callers can pass them straight back to read/send.
-        threadId: bare ? toDesktopThreadId(bare) : '',
-        title: String(thread.name || thread.preview || thread.cwd || thread.id || ''),
-        pinned: false,
-        selected: false,
-        kind: 'codex',
-      };
-    }),
+    nextCursor: out.nextCursor ?? null,
+    threads: out.threads.map(mapListedThread),
+  };
+}
+
+export async function appServerSearchThreads({
+  query,
+  limit = 50,
+}: {
+  query: string;
+  limit?: number;
+}): Promise<ListThreadsResult> {
+  const needle = query.trim().toLowerCase();
+  if (!needle) {
+    return appServerListThreads({ limit });
+  }
+  const matched: ChatGptDesktopThread[] = [];
+  let cursor: string | undefined;
+  // Page the full inventory (modelProviders: [] is applied inside listCodexThreads).
+  for (let page = 0; page < 20 && matched.length < limit; page++) {
+    const out = await listCodexThreads({ limit: 200, cursor });
+    for (const thread of out.threads) {
+      const mapped = mapListedThread(thread);
+      if (threadMatchesQuery(mapped, needle)) matched.push(mapped);
+      if (matched.length >= limit) break;
+    }
+    if (out.nextCursor == null || typeof out.nextCursor !== 'string') break;
+    cursor = out.nextCursor;
+  }
+  return {
+    backend: 'app-server',
+    limit,
+    query,
+    nextCursor: null,
+    threads: matched.slice(0, limit),
   };
 }
 
@@ -57,59 +88,26 @@ export async function appServerReadThread({
   limit?: number;
   full?: boolean;
 }): Promise<ReadThreadResult> {
-  const candidates = appServerThreadIdCandidates(threadId);
-  if (candidates.length === 0) {
-    throw new Error(
-      `No app-server thread id mapping for ${threadId} (temporary Desktop rows need CDP)`,
-    );
-  }
-
+  // Prefixed `local:` ids fail with `invalid thread id` — always strip first.
+  const bare = requireAppServerThreadId(threadId);
   const { client } = await openCodexSession();
   try {
-    let lastError: unknown;
-    for (const candidate of candidates) {
-      try {
-        const turns = await readTurnsForId(client, candidate, { limit, full });
-        return {
-          threadId: toDesktopThreadId(candidate),
-          turns,
-          backend: 'app-server',
-          limit,
-          full,
-        };
-      } catch (error) {
-        lastError = error;
-      }
-    }
-    throw lastError instanceof Error
-      ? lastError
-      : new Error(`app-server thread read failed for ${threadId}`);
-  } finally {
-    client.close();
-  }
-}
-
-export async function appServerOpenThread(threadId: string): Promise<OpenThreadResult> {
-  const candidates = appServerThreadIdCandidates(threadId);
-  if (candidates.length === 0) {
-    throw new Error(
-      `No app-server thread id mapping for ${threadId} (temporary Desktop rows need CDP)`,
-    );
-  }
-  const { client } = await openCodexSession();
-  try {
-    let lastError: unknown;
-    for (const candidate of candidates) {
-      try {
-        await client.request('thread/resume', { threadId: candidate, excludeTurns: true });
-        return { threadId: toDesktopThreadId(candidate), backend: 'app-server' };
-      } catch (error) {
-        lastError = error;
-      }
-    }
-    throw lastError instanceof Error
-      ? lastError
-      : new Error(`app-server thread/resume failed for ${threadId}`);
+    const meta = await readThreadMetadata(client, bare);
+    const turns = await listTurnsFull(client, bare, { limit, full });
+    return {
+      threadId: toDesktopThreadId(bare),
+      turns,
+      backend: 'app-server',
+      limit,
+      full,
+      title: meta.title,
+      cwd: meta.cwd,
+      status: meta.status,
+      modelProvider: meta.modelProvider,
+      model: meta.model,
+    };
+  } catch (error) {
+    throw maybeRemoteThreadError(error, bare);
   } finally {
     client.close();
   }
@@ -136,53 +134,166 @@ type AppServerClient = {
   request: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 };
 
-async function readTurnsForId(
+type ListedThread = {
+  id?: string;
+  name?: string | null;
+  preview?: string;
+  cwd?: string | null;
+  createdAt?: number | null;
+  updatedAt?: number | null;
+  section?: { id?: string; name?: string | null } | null;
+  projectId?: string | null;
+  status?: string;
+  modelProvider?: string | null;
+  model?: string | null;
+  originator?: string | null;
+};
+
+function mapListedThread(thread: ListedThread): ChatGptDesktopThread {
+  const bare = String(thread.id ?? '');
+  const section =
+    thread.section && typeof thread.section.id === 'string'
+      ? { id: thread.section.id, name: thread.section.name ?? null }
+      : null;
+  const pinned =
+    section?.id === 'Pinned' ||
+    section?.name === 'Pinned' ||
+    false;
+  return {
+    threadId: bare ? toDesktopThreadId(bare) : '',
+    title: String(thread.name || thread.preview || thread.cwd || thread.id || ''),
+    pinned,
+    selected: false,
+    kind: 'codex',
+    preview: typeof thread.preview === 'string' ? thread.preview : undefined,
+    cwd: thread.cwd ?? null,
+    createdAt: thread.createdAt ?? null,
+    updatedAt: thread.updatedAt ?? null,
+    section,
+    projectId: thread.projectId ?? null,
+    project: thread.projectId ?? undefined,
+    status: thread.status,
+    modelProvider: thread.modelProvider ?? null,
+    model: thread.model ?? null,
+    originator: thread.originator ?? null,
+  };
+}
+
+function threadMatchesQuery(thread: ChatGptDesktopThread, needle: string): boolean {
+  const haystacks = [
+    thread.threadId,
+    thread.title,
+    thread.preview,
+    thread.cwd,
+    thread.project,
+    thread.projectId,
+    thread.model,
+    thread.modelProvider,
+    thread.originator,
+    thread.section?.name,
+    thread.section?.id,
+  ];
+  return haystacks.some((value) => typeof value === 'string' && value.toLowerCase().includes(needle));
+}
+
+async function readThreadMetadata(
+  client: AppServerClient,
+  threadId: string,
+): Promise<{
+  title?: string;
+  cwd?: string | null;
+  status?: string;
+  modelProvider?: string | null;
+  model?: string | null;
+}> {
+  try {
+    // Metadata only — includeTurns is deprecated for paginated threads.
+    const read = await client.request('thread/read', { threadId }) as {
+      thread?: Record<string, unknown>;
+    };
+    const thread = read.thread && typeof read.thread === 'object' ? read.thread : {};
+    const statusObj = thread.status;
+    const statusType =
+      statusObj && typeof statusObj === 'object' && typeof (statusObj as { type?: unknown }).type === 'string'
+        ? String((statusObj as { type: string }).type)
+        : typeof thread.status === 'string'
+          ? thread.status
+          : undefined;
+    return {
+      title:
+        typeof thread.name === 'string'
+          ? thread.name
+          : typeof thread.preview === 'string'
+            ? thread.preview
+            : undefined,
+      cwd: typeof thread.cwd === 'string' ? thread.cwd : null,
+      status: statusType,
+      modelProvider: typeof thread.modelProvider === 'string' ? thread.modelProvider : null,
+      model: typeof thread.model === 'string' ? thread.model : null,
+    };
+  } catch (error) {
+    throw maybeRemoteThreadError(error, threadId);
+  }
+}
+
+async function listTurnsFull(
   client: AppServerClient,
   threadId: string,
   { limit, full }: { limit: number; full: boolean },
-): Promise<ReadThreadResult['turns']> {
-  // Prefer thread/read (full history inspection). Fall back to resume-with-turns,
-  // then paginated turns/items lists — same client, no duplicated transport.
+): Promise<ChatGptDesktopTurn[]> {
+  const collected: unknown[] = [];
+  let cursor: string | undefined;
   try {
-    const read = await client.request('thread/read', { threadId }) as {
-      thread?: { turns?: unknown[]; items?: unknown[] };
-      turns?: unknown[];
-      items?: unknown[];
-    };
-    const raw = read.thread?.turns ?? read.turns ?? read.thread?.items ?? read.items ?? [];
-    if (Array.isArray(raw) && raw.length > 0) {
-      return sliceTurns(normalizeTurns(raw), { limit, full });
+    for (let page = 0; page < 40; page++) {
+      const result = await client.request('thread/turns/list', {
+        threadId,
+        limit: 100,
+        itemsView: 'full',
+        ...(cursor ? { cursor } : {}),
+      }) as { data?: unknown[]; nextCursor?: string | null };
+      if (!Array.isArray(result.data)) {
+        throw new Error(`thread/turns/list missing data array for ${threadId}`);
+      }
+      collected.push(...result.data);
+      if (result.nextCursor == null || typeof result.nextCursor !== 'string') break;
+      cursor = result.nextCursor;
+      if (!full && collected.length >= limit) break;
     }
-  } catch {
-    // try resume / list below
+  } catch (error) {
+    if (isThreadNotLoaded(error)) throw maybeRemoteThreadError(error, threadId);
+    // Older daemons may lack itemsView; retry without it, then items/list.
+    if (collected.length === 0) {
+      return listTurnsFallback(client, threadId, { limit, full });
+    }
+    throw error;
   }
 
-  try {
-    const resumed = await client.request('thread/resume', {
-      threadId,
-      excludeTurns: false,
-    }) as {
-      thread?: { turns?: unknown[]; items?: unknown[] };
-      turns?: unknown[];
-    };
-    const raw = resumed.thread?.turns ?? resumed.turns ?? resumed.thread?.items ?? [];
-    if (Array.isArray(raw) && raw.length > 0) {
-      return sliceTurns(normalizeTurns(raw), { limit, full });
-    }
-  } catch {
-    // try list below
+  if (collected.length === 0) {
+    return listTurnsFallback(client, threadId, { limit, full });
   }
+  return sliceTurns(normalizeTurns(collected), { limit, full });
+}
 
+async function listTurnsFallback(
+  client: AppServerClient,
+  threadId: string,
+  { limit, full }: { limit: number; full: boolean },
+): Promise<ChatGptDesktopTurn[]> {
   for (const method of ['thread/turns/list', 'thread/items/list'] as const) {
     try {
       const collected: unknown[] = [];
       let cursor: string | undefined;
-      for (let page = 0; page < 20; page++) {
-        const result = await client.request(method, {
+      for (let page = 0; page < 40; page++) {
+        const params: Record<string, unknown> = {
           threadId,
           limit: 100,
           ...(cursor ? { cursor } : {}),
-        }) as { data?: unknown[]; nextCursor?: string | null };
+        };
+        if (method === 'thread/turns/list') params.itemsView = 'full';
+        const result = await client.request(method, params) as {
+          data?: unknown[];
+          nextCursor?: string | null;
+        };
         if (!Array.isArray(result.data)) break;
         collected.push(...result.data);
         if (result.nextCursor == null || typeof result.nextCursor !== 'string') break;
@@ -192,43 +303,136 @@ async function readTurnsForId(
       if (collected.length > 0) {
         return sliceTurns(normalizeTurns(collected), { limit, full });
       }
-    } catch {
-      // try next method
+    } catch (error) {
+      if (isThreadNotLoaded(error)) throw maybeRemoteThreadError(error, threadId);
     }
   }
-
   throw new Error(`app-server has no turn history for thread ${threadId}`);
 }
 
 function sliceTurns(
-  turns: ReadThreadResult['turns'],
+  turns: ChatGptDesktopTurn[],
   { limit, full }: { limit: number; full: boolean },
-): ReadThreadResult['turns'] {
+): ChatGptDesktopTurn[] {
   if (limit <= 0) return turns;
   if (full) return turns.slice(0, limit);
   return turns.slice(-limit);
 }
 
-function normalizeTurns(raw: unknown[]): ReadThreadResult['turns'] {
-  const turns: Array<ReadThreadResult['turns'][number]> = [];
+function normalizeTurns(raw: unknown[]): ChatGptDesktopTurn[] {
+  const turns: ChatGptDesktopTurn[] = [];
   for (const [index, item] of raw.entries()) {
     if (!item || typeof item !== 'object') continue;
     const row = item as Record<string, unknown>;
-    const text =
-      typeof row.text === 'string'
-        ? row.text
-        : typeof row.content === 'string'
-          ? row.content
-          : '';
-    const type = String(row.type ?? row.role ?? '');
-    let role: 'user' | 'assistant' | 'status' = 'assistant';
-    if (/user/i.test(type)) role = 'user';
-    else if (/status|system|reasoning/i.test(type) && !text) role = 'status';
-    turns.push({
-      turnKey: String(row.id ?? row.turnId ?? index),
-      role,
-      text,
-    });
+    const id = String(row.id ?? row.turnId ?? index);
+    const items = Array.isArray(row.items) ? row.items : null;
+    if (items) {
+      turns.push(normalizeTurnWithItems(id, row, items));
+      continue;
+    }
+    turns.push(normalizeLeafItem(id, row));
   }
   return turns;
+}
+
+function normalizeTurnWithItems(
+  id: string,
+  row: Record<string, unknown>,
+  items: unknown[],
+): ChatGptDesktopTurn {
+  let userText = '';
+  let assistantText = '';
+  let toolText = '';
+  let reasoningText = '';
+  for (const entry of items) {
+    if (!entry || typeof entry !== 'object') continue;
+    const item = entry as Record<string, unknown>;
+    const type = String(item.type ?? item.role ?? '');
+    const text = extractText(item);
+    if (/user/i.test(type)) userText = joinText(userText, text);
+    else if (/agent|assistant|message/i.test(type) && !/reasoning|tool/i.test(type)) {
+      assistantText = joinText(assistantText, text);
+    } else if (/tool/i.test(type)) toolText = joinText(toolText, text || type);
+    else if (/reasoning/i.test(type)) reasoningText = joinText(reasoningText, text);
+  }
+  let role: ChatGptDesktopTurn['role'] = 'assistant';
+  let text = assistantText || userText;
+  if (userText && !assistantText) {
+    role = 'user';
+    text = userText;
+  } else if (!userText && !assistantText && toolText) {
+    role = 'tool';
+    text = toolText;
+  } else if (!userText && !assistantText && reasoningText) {
+    role = 'reasoning';
+    text = reasoningText;
+  }
+  return {
+    turnKey: toDomTurnKey(id),
+    role,
+    text,
+    ...(userText ? { userText } : {}),
+    ...(assistantText ? { assistantText } : {}),
+    startedAt: typeof row.startedAt === 'number' ? row.startedAt : null,
+    endedAt: typeof row.endedAt === 'number' ? row.endedAt : null,
+  };
+}
+
+function normalizeLeafItem(id: string, row: Record<string, unknown>): ChatGptDesktopTurn {
+  const text = extractText(row);
+  const type = String(row.type ?? row.role ?? '');
+  let role: ChatGptDesktopTurn['role'] = 'assistant';
+  if (/user/i.test(type)) role = 'user';
+  else if (/tool/i.test(type)) role = 'tool';
+  else if (/reasoning/i.test(type)) role = 'reasoning';
+  else if (/status|system/i.test(type) && !text) role = 'status';
+  return {
+    turnKey: toDomTurnKey(id),
+    role,
+    text,
+    startedAt: typeof row.startedAt === 'number' ? row.startedAt : null,
+    endedAt: typeof row.endedAt === 'number' ? row.endedAt : null,
+  };
+}
+
+function extractText(row: Record<string, unknown>): string {
+  if (typeof row.text === 'string') return row.text;
+  if (typeof row.content === 'string') return row.content;
+  if (typeof row.preview === 'string') return row.preview;
+  return '';
+}
+
+function joinText(left: string, right: string): string {
+  if (!right) return left;
+  if (!left) return right;
+  return `${left}\n${right}`;
+}
+
+function isThreadNotLoaded(error: unknown): boolean {
+  const message = errorMessage(error);
+  return /thread not loaded|not loaded|invalid thread id/i.test(message);
+}
+
+function maybeRemoteThreadError(error: unknown, threadId: string): Error {
+  const message = errorMessage(error);
+  if (/thread not loaded|not loaded/i.test(message)) {
+    const hostId = findRemoteThreadHostId(threadId);
+    return new RemoteThreadNotLoadedError(threadId, hostId);
+  }
+  if (error instanceof Error) return error;
+  return new Error(message || `app-server error for thread ${threadId}`);
+}
+
+function errorMessage(error: unknown): string {
+  if (!error) return '';
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  if (typeof error === 'object' && error && 'rpc' in error) {
+    const rpc = (error as { rpc?: { message?: unknown } }).rpc;
+    if (rpc && typeof rpc.message === 'string') return rpc.message;
+  }
+  return String(error);
 }

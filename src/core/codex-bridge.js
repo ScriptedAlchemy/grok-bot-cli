@@ -827,6 +827,14 @@ function sourceField(value) {
   return typeof value === "string" ? singleLine(value) : value;
 }
 
+function summarizeSection(section) {
+  if (!isObject(section) || typeof section.id !== "string" || !section.id) return null;
+  return {
+    id: singleLine(section.id),
+    name: lineField(section.name),
+  };
+}
+
 function summarizeThread(t) {
   if (!isObject(t) || typeof t.id !== "string" || !t.id) throw new CodexProtocolError("thread/list", "entry without a string `id`");
   const type = isObject(t.status) && typeof t.status.type === "string" ? t.status.type : "unknown";
@@ -838,7 +846,13 @@ function summarizeThread(t) {
     preview: typeof t.preview === "string" ? stripTerminalControls(t.preview) : "",
     cwd: lineField(t.cwd),
     source: sourceField(t.source),
+    createdAt: typeof t.createdAt === "number" ? t.createdAt : null,
     updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : null,
+    section: summarizeSection(t.section),
+    projectId: lineField(t.projectId),
+    modelProvider: lineField(t.modelProvider),
+    model: lineField(t.model),
+    originator: lineField(t.originator),
   };
 }
 
@@ -854,9 +868,15 @@ export async function listCodexThreads({ limit = 20, cursor, env = process.env }
   if (cursor !== undefined && (typeof cursor !== "string" || !cursor)) throw new RangeError("--cursor must be a non-empty string");
   const { client } = await openSession(env);
   try {
-    // The default listing rescans every rollout file to repair metadata (26 s on a busy machine);
-    // the state DB already holds what we print.
-    const params = { limit, useStateDbOnly: true, ...(cursor !== undefined ? { cursor } : {}) };
+    // Default thread/list filters to the current model provider and misses other
+    // providers' threads. Pass modelProviders: [] for the full inventory.
+    // useStateDbOnly avoids a cold rollout rescan (tens of seconds).
+    const params = {
+      limit,
+      useStateDbOnly: true,
+      modelProviders: [],
+      ...(cursor !== undefined ? { cursor } : {}),
+    };
     let out;
     try {
       out = await client.request("thread/list", params);

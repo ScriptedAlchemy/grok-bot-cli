@@ -19,6 +19,7 @@ import { ChatGptDesktopFacade } from '../../src/core/chatgpt-desktop/facade.js';
 const desktopTools = [
   'chatgpt_desktop_list_threads',
   'chatgpt_desktop_read_thread',
+  'chatgpt_desktop_search_threads',
   'chatgpt_desktop_send',
   'chatgpt_desktop_status',
   'chatgpt_desktop_wait_reply',
@@ -188,6 +189,7 @@ describe('chatgpt-desktop thread id mapping', () => {
       threadIdsEquivalent,
       toAppServerThreadId,
       toDesktopThreadId,
+      toDomTurnKey,
     } = await import('../../src/core/chatgpt-desktop/index.js');
 
     const bare = '11111111-1111-1111-1111-111111111111';
@@ -198,7 +200,9 @@ describe('chatgpt-desktop thread id mapping', () => {
     expect(toDesktopThreadId(local)).toBe(local);
     expect(threadIdsEquivalent(local, bare)).toBe(true);
     expect(appServerThreadIdCandidates(local)[0]).toBe(bare);
-    expect(appServerThreadIdCandidates(local)).toContain(local);
+    expect(appServerThreadIdCandidates(local)).toEqual([bare]);
+    expect(toDomTurnKey('abc')).toBe('history-content:turn:abc');
+    expect(toDomTurnKey('history-content:turn:abc')).toBe('history-content:turn:abc');
 
     const temp = `${TEMP_THREAD_ID_PREFIX}deadbeef`;
     expect(isTemporaryDesktopThreadId(temp)).toBe(true);
@@ -258,7 +262,7 @@ describe('chatgpt-desktop thread id mapping', () => {
 });
 
 describe('chatgpt-desktop MCP tools', () => {
-  it('registers the five chatgpt_desktop_* tools on the grok-bot server', async () => {
+  it('registers the chatgpt_desktop_* tools on the grok-bot server', async () => {
     const surface = await listMcpSurface({ server: 'grok-bot' });
     for (const name of desktopTools) {
       expect(surface.tools.includes(name)).toBe(true);
@@ -411,8 +415,60 @@ describe('chatgpt-desktop CLI', () => {
   });
 });
 
-describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () => {
-  it('lists via app-server (merged with CDP), deep-reads via app-server, keeps send/wait on CDP', async () => {
+describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () => {
+  const appFallbacks = (calls: string[]) => ({
+    listThreads: async ({ limit = 50 } = {}) => {
+      calls.push('app-server.listThreads');
+      return {
+        backend: 'app-server' as const,
+        limit,
+        threads: [
+          {
+            threadId: 'local:11111111-1111-1111-1111-111111111111',
+            title: 'from app-server',
+            pinned: false,
+            selected: false,
+            kind: 'codex',
+            section: { id: 'Pinned', name: 'Pinned' },
+            modelProvider: 'openai',
+          },
+        ],
+      };
+    },
+    searchThreads: async ({ query, limit = 50 }: { query: string; limit?: number }) => {
+      calls.push('app-server.searchThreads');
+      return {
+        backend: 'app-server' as const,
+        limit,
+        query,
+        threads: [
+          {
+            threadId: 'local:11111111-1111-1111-1111-111111111111',
+            title: 'from app-server',
+            pinned: true,
+            selected: false,
+            kind: 'codex',
+          },
+        ],
+      };
+    },
+    readThread: async ({ threadId, limit = 100, full = false }: { threadId: string; limit?: number; full?: boolean }) => {
+      calls.push('app-server.readThread');
+      return {
+        threadId,
+        backend: 'app-server' as const,
+        limit,
+        full,
+        turns: [
+          { turnKey: 'history-content:turn:t1', role: 'user' as const, text: 'hello' },
+          { turnKey: 'history-content:turn:t2', role: 'assistant' as const, text: 'deep history' },
+        ],
+      };
+    },
+    statusProbe: async () => ({ reachable: true, mode: 'daemon', socketPath: '/tmp/fake.sock' }),
+  });
+
+  it('lists/searches/reads via app-server (merged with CDP), keeps send/wait/open on CDP', async () => {
     const calls: string[] = [];
     const cdp = fakeAdapter({
       async connect() {
@@ -442,12 +498,7 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
           backend: 'cdp',
           limit,
           full,
-          turns: full
-            ? [
-                { turnKey: 'old', role: 'user' as const, text: 'wheel' },
-                { turnKey: 'new', role: 'assistant' as const, text: 'wheel-reply' },
-              ]
-            : [{ turnKey: 'visible', role: 'assistant' as const, text: 'on screen' }],
+          turns: [{ turnKey: 'visible', role: 'assistant' as const, text: 'on screen' }],
         };
       },
       async sendMessage({ threadId, text }) {
@@ -470,6 +521,10 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
           delivery: 'replied' as const,
         };
       },
+      async openThread(threadId) {
+        calls.push('cdp.openThread');
+        return { threadId, backend: 'cdp' as const };
+      },
       async status() {
         return {
           reachable: true,
@@ -481,39 +536,7 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
       },
     });
 
-    const facade = new ChatGptDesktopFacade(cdp, 9222, {
-      listThreads: async ({ limit = 50 } = {}) => {
-        calls.push('app-server.listThreads');
-        return {
-          backend: 'app-server',
-          limit,
-          threads: [
-            {
-              threadId: 'local:11111111-1111-1111-1111-111111111111',
-              title: 'from app-server',
-              pinned: false,
-              selected: false,
-              kind: 'codex',
-            },
-          ],
-        };
-      },
-      readThread: async ({ threadId, limit = 100, full = false }) => {
-        calls.push('app-server.readThread');
-        return {
-          threadId,
-          backend: 'app-server',
-          limit,
-          full,
-          turns: [
-            { turnKey: 't1', role: 'user', text: 'hello' },
-            { turnKey: 't2', role: 'assistant', text: 'deep history' },
-          ],
-        };
-      },
-      openThread: async (threadId) => ({ threadId, backend: 'app-server' as const }),
-      statusProbe: async () => ({ reachable: true, mode: 'daemon', socketPath: '/tmp/fake.sock' }),
-    });
+    const facade = new ChatGptDesktopFacade(cdp, 9222, appFallbacks(calls));
 
     const listed = await facade.listThreads({ limit: 5 });
     expect(listed).toMatchObject({
@@ -522,33 +545,37 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
         {
           threadId: 'local:11111111-1111-1111-1111-111111111111',
           title: 'from app-server',
-          pinned: true,
           selected: true,
           project: 'Launch',
         },
       ],
     });
 
-    // limit 100 > one visible turn → escalate to app-server
+    const searched = await facade.searchThreads({ query: 'app-server', limit: 5 });
+    expect(searched).toMatchObject({
+      backend: 'app-server',
+      query: 'app-server',
+      threads: [{ selected: true, project: 'Launch' }],
+    });
+
+    // App-server is primary for every durable read (no visible-first CDP hop).
     const deep = await facade.readThread({
       threadId: 'local:11111111-1111-1111-1111-111111111111',
       limit: 100,
     });
-    expect(deep).toMatchObject({ backend: 'app-server', turns: [{ text: 'hello' }, { text: 'deep history' }] });
+    expect(deep).toMatchObject({
+      backend: 'app-server',
+      turns: [
+        { turnKey: 'history-content:turn:t1', text: 'hello' },
+        { turnKey: 'history-content:turn:t2', text: 'deep history' },
+      ],
+    });
 
-    // full=true → app-server without requiring a visible undershoot
     const full = await facade.readThread({
       threadId: 'local:11111111-1111-1111-1111-111111111111',
       full: true,
     });
     expect(full.backend).toBe('app-server');
-
-    // small limit satisfied by visible CDP harvest
-    const visible = await facade.readThread({
-      threadId: 'local:11111111-1111-1111-1111-111111111111',
-      limit: 1,
-    });
-    expect(visible).toMatchObject({ backend: 'cdp', turns: [{ text: 'on screen' }] });
 
     const sent = await facade.sendMessage({ threadId: 'local:11111111-1111-1111-1111-111111111111', text: 'hi' });
     expect(sent).toMatchObject({ backend: 'cdp', delivery: 'accepted' });
@@ -556,20 +583,24 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
     const waited = await facade.waitForReply({ threadId: 'local:11111111-1111-1111-1111-111111111111' });
     expect(waited).toMatchObject({ backend: 'cdp', delivery: 'replied' });
 
+    const opened = await facade.openThread('local:11111111-1111-1111-1111-111111111111');
+    expect(opened).toMatchObject({ backend: 'cdp' });
+
     expect(calls).toEqual([
       'app-server.listThreads',
       'cdp.connect',
       'cdp.listThreads',
-      'cdp.readThread:visible',
+      'app-server.searchThreads',
+      'cdp.listThreads',
       'app-server.readThread',
       'app-server.readThread',
-      'cdp.readThread:visible',
       'cdp.sendMessage',
       'cdp.waitForReply',
+      'cdp.openThread',
     ]);
   });
 
-  it('falls back to CDP wheel crawl when app-server deep-read fails', async () => {
+  it('falls back to CDP read when app-server is unavailable', async () => {
     const calls: string[] = [];
     const facade = new ChatGptDesktopFacade(
       fakeAdapter({
@@ -590,12 +621,10 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
       9222,
       {
         listThreads: async () => ({ backend: 'app-server', limit: 1, threads: [] }),
+        searchThreads: async () => ({ backend: 'app-server', limit: 1, query: '', threads: [] }),
         readThread: async () => {
           calls.push('app-server.readThread');
           throw new Error('unknown thread');
-        },
-        openThread: async () => {
-          throw new Error('unused');
         },
         statusProbe: async () => ({ reachable: false }),
       },
@@ -606,7 +635,7 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
       full: true,
     });
     expect(read).toMatchObject({ backend: 'cdp', turns: [{ text: 'from wheel' }] });
-    expect(calls).toEqual(['cdp.connect', 'app-server.readThread', 'cdp.readThread:full']);
+    expect(calls).toEqual(['app-server.readThread', 'cdp.connect', 'cdp.readThread:full']);
   });
 
   it('does not fall back send/wait to app-server when CDP is down', async () => {
@@ -647,6 +676,12 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
             },
           ],
         }),
+        searchThreads: async ({ query, limit = 50 }) => ({
+          backend: 'app-server',
+          limit,
+          query,
+          threads: [],
+        }),
         readThread: async ({ threadId, limit = 100, full = false }) => ({
           threadId,
           backend: 'app-server',
@@ -654,7 +689,6 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
           full,
           turns: [{ turnKey: 't1', role: 'assistant', text: 'fallback reply' }],
         }),
-        openThread: async (threadId) => ({ threadId, backend: 'app-server' as const }),
         statusProbe: async () => ({ reachable: true, mode: 'daemon', socketPath: '/tmp/fake.sock' }),
       },
     );
@@ -676,7 +710,7 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
     expect(status).toMatchObject({
       reachable: true,
       appServerFallback: { reachable: true, mode: 'daemon' },
-      message: 'CDP unreachable; Codex app-server available for list/deep-read',
+      message: 'CDP unreachable; Codex app-server available for list/search/read',
       exitCode: 0,
     });
   });
@@ -704,10 +738,8 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
             },
           ],
         }),
+        searchThreads: async () => ({ backend: 'app-server', limit: 1, query: '', threads: [] }),
         readThread: async () => {
-          throw new Error('unused');
-        },
-        openThread: async () => {
           throw new Error('unused');
         },
         statusProbe: async () => ({ reachable: false }),
@@ -718,6 +750,28 @@ describe('chatgpt-desktop app-server list/deep-read + CDP-only send/wait', () =>
       backend: 'app-server',
       threads: [{ threadId: 'local:codex-1' }],
     });
+  });
+
+  it('surfaces RemoteThreadNotLoadedError with hostId from global state', async () => {
+    const { mkdtempSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { RemoteThreadNotLoadedError, findRemoteThreadHostId } = await import(
+      '../../src/core/chatgpt-desktop/index.js'
+    );
+    const home = mkdtempSync(join(tmpdir(), 'gbot-remote-'));
+    writeFileSync(
+      join(home, '.codex-global-state.json'),
+      JSON.stringify({
+        'remote-thread-summaries-v3:host-abc': [{ id: 'remote-thread-1' }],
+      }),
+    );
+    expect(findRemoteThreadHostId('remote-thread-1', { CODEX_HOME: home })).toBe('host-abc');
+    expect(findRemoteThreadHostId('local:remote-thread-1', { CODEX_HOME: home })).toBe('host-abc');
+    const err = new RemoteThreadNotLoadedError('remote-thread-1', 'host-abc');
+    expect(err.code).toBe('REMOTE_THREAD_NOT_LOADED');
+    expect(err.hostId).toBe('host-abc');
+    expect(err.message).toMatch(/host-abc/);
   });
 });
 

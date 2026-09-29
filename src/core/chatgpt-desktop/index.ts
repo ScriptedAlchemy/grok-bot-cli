@@ -23,6 +23,7 @@ export {
   CdpHostRejectedError,
   CdpUnreachableError,
   NotImplementedError,
+  RemoteThreadNotLoadedError,
 } from './errors.js';
 export {
   ChatGptDesktopFacade,
@@ -32,13 +33,20 @@ export {
 } from './facade.js';
 export type { ChatGptDesktopFallbacks } from './facade.js';
 export {
+  HISTORY_CONTENT_TURN_PREFIX,
   LOCAL_THREAD_ID_PREFIX,
   appServerThreadIdCandidates,
   isTemporaryDesktopThreadId,
+  requireAppServerThreadId,
   threadIdsEquivalent,
   toAppServerThreadId,
   toDesktopThreadId,
+  toDomTurnKey,
 } from './thread-ids.js';
+export {
+  codexGlobalStatePath,
+  findRemoteThreadHostId,
+} from './remote-threads.js';
 export {
   CDP_LOOPBACK_HOST,
   DEFAULT_CDP_PORT,
@@ -62,6 +70,8 @@ export {
   readThreadSchema,
   resultSchema,
   resultText,
+  searchThreadsOperation,
+  searchThreadsSchema,
   sendOperation,
   sendSchema,
   statusOperation,
@@ -74,6 +84,7 @@ export type {
   ChatGptDesktopStatus,
   ChatGptDesktopTarget,
   ChatGptDesktopThread,
+  ChatGptDesktopThreadSection,
   ChatGptDesktopTurn,
   ListThreadsResult,
   OpenThreadResult,

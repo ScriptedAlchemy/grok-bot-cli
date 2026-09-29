@@ -103,20 +103,109 @@ test("codex list-threads passes --limit and prints threads", async () => {
     const text = await gbot(fake.home, "codex", "list-threads", "--limit", "1");
     assert.equal(text.code, 0, text.err);
     assert.equal(text.out, "t-1  idle - Fix the build\n    /repo/a\n    please fix the build\n\nmore: --cursor \"cursor-2\"\n");
-    assert.deepEqual(fake.received.find((m) => m.method === "thread/list").params, { limit: 1, useStateDbOnly: true });
+    assert.deepEqual(fake.received.find((m) => m.method === "thread/list").params, {
+      limit: 1,
+      useStateDbOnly: true,
+      modelProviders: [],
+    });
 
     const json = await gbot(fake.home, "codex", "list-threads", "--json");
     assert.equal(json.code, 0, json.err);
     assert.deepEqual(JSON.parse(json.out), {
       threads: [
-        { id: "t-1", status: "idle", activeFlags: [], name: "Fix the build", preview: "please fix the build", cwd: "/repo/a", source: "vscode", updatedAt: 1700000001 },
-        { id: "t-2", status: "notLoaded", activeFlags: [], name: null, preview: "second   thread\npreview", cwd: "/repo/b", source: "cli", updatedAt: 1700000000 },
+        {
+          id: "t-1",
+          status: "idle",
+          activeFlags: [],
+          name: "Fix the build",
+          preview: "please fix the build",
+          cwd: "/repo/a",
+          source: "vscode",
+          createdAt: null,
+          updatedAt: 1700000001,
+          section: null,
+          projectId: null,
+          modelProvider: null,
+          model: null,
+          originator: null,
+        },
+        {
+          id: "t-2",
+          status: "notLoaded",
+          activeFlags: [],
+          name: null,
+          preview: "second   thread\npreview",
+          cwd: "/repo/b",
+          source: "cli",
+          createdAt: null,
+          updatedAt: 1700000000,
+          section: null,
+          projectId: null,
+          modelProvider: null,
+          model: null,
+          originator: null,
+        },
       ],
       nextCursor: null,
       limit: 20,
       exitCode: 0,
     });
-    assert.deepEqual(fake.received.at(-1).params, { limit: 20, useStateDbOnly: true });
+    assert.deepEqual(fake.received.at(-1).params, {
+      limit: 20,
+      useStateDbOnly: true,
+      modelProviders: [],
+    });
+  } finally {
+    await fake.close();
+  }
+});
+
+test("codex list-threads passes modelProviders:[] so other providers are not filtered out", async () => {
+  const seen = [];
+  const fake = await fakeAppServer({
+    ...baseHandlers,
+    "thread/list": (params, ok) => {
+      seen.push(params);
+      ok({
+        data: [
+          {
+            id: "openai-1",
+            status: { type: "idle" },
+            name: "OpenAI thread",
+            preview: "a",
+            cwd: "/a",
+            modelProvider: "openai",
+            updatedAt: 1,
+          },
+          {
+            id: "other-1",
+            status: { type: "idle" },
+            name: "Other provider",
+            preview: "b",
+            cwd: "/b",
+            modelProvider: "azure",
+            section: { id: "Pinned", name: "Pinned" },
+            projectId: "proj-1",
+            model: "gpt-x",
+            originator: "desktop",
+            createdAt: 10,
+            updatedAt: 20,
+          },
+        ],
+        nextCursor: null,
+      });
+    },
+  });
+  try {
+    const { code, out } = await gbot(fake.home, "codex", "list-threads", "--json");
+    assert.equal(code, 0, out);
+    assert.deepEqual(seen[0], { limit: 20, useStateDbOnly: true, modelProviders: [] });
+    const page = JSON.parse(out);
+    assert.deepEqual(page.threads.map((t) => t.id), ["openai-1", "other-1"]);
+    assert.equal(page.threads[1].modelProvider, "azure");
+    assert.deepEqual(page.threads[1].section, { id: "Pinned", name: "Pinned" });
+    assert.equal(page.threads[1].projectId, "proj-1");
+    assert.equal(page.threads[1].createdAt, 10);
   } finally {
     await fake.close();
   }
@@ -792,7 +881,7 @@ test("codex list-threads pages with --cursor, echoes nextCursor, and rejects unk
     const second = await gbot(fake.home, "codex", "list-threads", "--limit", "1", "--cursor", "page-2", "--json");
     assert.deepEqual(JSON.parse(second.out).threads.map((t) => t.id), ["t-2"]);
     assert.equal(JSON.parse(second.out).nextCursor, null);
-    assert.deepEqual(seen.at(-1), { limit: 1, useStateDbOnly: true, cursor: "page-2" });
+    assert.deepEqual(seen.at(-1), { limit: 1, useStateDbOnly: true, modelProviders: [], cursor: "page-2" });
 
     const unknown = await gbot(fake.home, "codex", "list-threads", "--all");
     assert.equal(unknown.code, 2);
@@ -835,8 +924,38 @@ test("codex list-threads sanitizes text fields, keeps structured source, and rej
     assert.equal(code, 0);
     const { threads } = JSON.parse(out);
     assert.deepEqual(threads, [
-      { id: "t-x line", status: "active", activeFlags: ["waitingOnApproval"], name: "a b", preview: "keep\nnewlines", cwd: "/r", source: { custom: "hauler\u001b[0m" }, updatedAt: null },
-      { id: "t-odd", status: "unknown", activeFlags: [], name: null, preview: "", cwd: null, source: "cli", updatedAt: null },
+      {
+        id: "t-x line",
+        status: "active",
+        activeFlags: ["waitingOnApproval"],
+        name: "a b",
+        preview: "keep\nnewlines",
+        cwd: "/r",
+        source: { custom: "hauler\u001b[0m" },
+        createdAt: null,
+        updatedAt: null,
+        section: null,
+        projectId: null,
+        modelProvider: null,
+        model: null,
+        originator: null,
+      },
+      {
+        id: "t-odd",
+        status: "unknown",
+        activeFlags: [],
+        name: null,
+        preview: "",
+        cwd: null,
+        source: "cli",
+        createdAt: null,
+        updatedAt: null,
+        section: null,
+        projectId: null,
+        modelProvider: null,
+        model: null,
+        originator: null,
+      },
     ]);
   } finally {
     await fake.close();

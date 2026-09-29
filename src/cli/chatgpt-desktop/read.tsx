@@ -10,7 +10,7 @@ import {
 
 export const config = {
   description:
-    'Read a ChatGPT Desktop thread. Visible turns via CDP; --full / deep history via app-server (wheel crawl last-resort).',
+    'Read a ChatGPT Desktop thread via app-server (turns/list); CDP DOM is fallback only.',
   exitCode: 'result',
   positionals: ['threadId'],
   inputJsonSchema: {
