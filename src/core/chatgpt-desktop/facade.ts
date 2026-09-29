@@ -55,16 +55,18 @@ const defaultFallbacks: ChatGptDesktopFallbacks = {
 export type ListThreadsOptions = {
   limit?: number;
   /**
-   * Machine / location filter discovered from remote summaries + `local`.
-   * `all` (default) | `local` | `<hostId or friendly name>`.
+   * Any string (not an enum). Reserved: `all` (default), `local`. Otherwise a
+   * hostId or friendly name discovered at runtime — see `listHosts` /
+   * `chatgpt_desktop_list_hosts`. New machines appear with no code change.
    */
   host?: string;
   /**
-   * Passed through to app-server `thread/list` as `modelProviders`.
-   * Omit / empty = all providers (`modelProviders: []`).
+   * Any modelProvider id string (not an enum). Passed through to app-server
+   * `thread/list` as `modelProviders`. Omit / empty = all. Discovered values:
+   * see `listHosts` / `chatgpt_desktop_list_hosts`.
    */
   modelProvider?: string;
-  /** When `"host"`, also return `groups` keyed by host. */
+  /** When `"host"`, also return `groups` keyed by host (grouping mode). */
   groupBy?: 'host';
 };
 

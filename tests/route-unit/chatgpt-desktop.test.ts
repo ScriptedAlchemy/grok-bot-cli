@@ -60,16 +60,18 @@ function fakeAdapter(overrides: Partial<ChatGptDesktopAdapter> = {}): ChatGptDes
       };
     },
     async listHosts() {
+      // Stub only — production discovery is dynamic (see listDiscoveredHosts /
+      // chatgpt_desktop_list_hosts). Do not treat these ids as an allowlist.
       return {
         backend: 'app-server' as const,
         hostsSource: 'remote-thread-summaries-v3+local',
-        modelProviders: ['openai'],
+        modelProviders: ['fixture-provider'],
         modelProvidersSource: 'thread/list-distinct',
         hosts: [
           { hostId: 'local', hostName: 'local', location: 'local' as const, threadCount: 1 },
           {
-            hostId: 'host-macbook',
-            hostName: "Zack's MacBook",
+            hostId: 'fixture-remote-a',
+            hostName: 'Fixture Remote A',
             location: 'remote' as const,
             threadCount: 2,
           },
@@ -325,10 +327,10 @@ describe('chatgpt-desktop MCP tools', () => {
       exitCode: 0,
       hostsSource: 'remote-thread-summaries-v3+local',
       modelProvidersSource: 'thread/list-distinct',
-      modelProviders: ['openai'],
+      modelProviders: ['fixture-provider'],
       hosts: [
         { hostId: 'local', location: 'local' },
-        { hostId: 'host-macbook', hostName: "Zack's MacBook" },
+        { hostId: 'fixture-remote-a', hostName: 'Fixture Remote A' },
       ],
     });
 
@@ -1045,6 +1047,137 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
     expect(err.hostName).toBe("Zack's MacBook");
     expect(err.hint).toMatch(/host-macbook/);
     expect(err.message).toMatch(/app-server/);
+  });
+
+  it('discovers an unknown hostId from global-state and filters by it with no code change', async () => {
+    const { copyFileSync, mkdtempSync, readFileSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { randomUUID } = await import('node:crypto');
+    const {
+      finalizeThreadList,
+      listDiscoveredHosts,
+      listRemoteThreadsFromState,
+    } = await import('../../src/core/chatgpt-desktop/index.js');
+
+    // Brand-new id never mentioned in source — only injected into the fixture.
+    const unknownHostId = `host-supercomputer-${randomUUID().slice(0, 8)}`;
+    const unknownFriendly = 'Supercomputer Lab 9000';
+    const unknownThreadId = randomUUID();
+
+    const home = mkdtempSync(join(tmpdir(), 'gbot-remote-unknown-'));
+    const fixturePath = join(process.cwd(), 'tests/fixtures/codex-global-state-remote.json');
+    const statePath = join(home, '.codex-global-state.json');
+    const base = JSON.parse(readFileSync(fixturePath, 'utf8')) as Record<string, unknown>;
+    const hostsV1 = (base['remote-hosts-v1'] ?? {}) as Record<string, unknown>;
+    hostsV1[unknownHostId] = { name: unknownFriendly, envName: 'lab' };
+    base['remote-hosts-v1'] = hostsV1;
+    base[`remote-thread-summaries-v3:${unknownHostId}`] = {
+      hostName: unknownFriendly,
+      threads: [
+        {
+          id: unknownThreadId,
+          title: 'Brand new machine thread',
+          updatedAt: 1700000999,
+          modelProvider: 'brand-new-provider',
+        },
+      ],
+    };
+    writeFileSync(statePath, JSON.stringify(base, null, 2));
+    // Keep a copy of the stock fixture nearby so the test still proves we
+    // started from fixture data and only added the unknown host.
+    copyFileSync(fixturePath, join(home, 'stock-fixture.json'));
+
+    const env = { CODEX_HOME: home };
+    const remotes = listRemoteThreadsFromState(env);
+    expect(remotes.some((t) => t.hostId === unknownHostId)).toBe(true);
+
+    const discovered = listDiscoveredHosts(env, { localThreadCount: 0 });
+    expect(discovered.map((h) => h.hostId)).toContain(unknownHostId);
+    expect(discovered.find((h) => h.hostId === unknownHostId)).toMatchObject({
+      hostId: unknownHostId,
+      hostName: unknownFriendly,
+      location: 'remote',
+      threadCount: 1,
+    });
+
+    const filtered = finalizeThreadList(
+      {
+        backend: 'app-server',
+        limit: 50,
+        threads: [
+          {
+            threadId: 'local:local-thread-1',
+            title: 'Local only',
+            pinned: false,
+            selected: false,
+            kind: 'codex',
+            location: 'local',
+            hostId: null,
+            hostName: null,
+          },
+        ],
+      },
+      { limit: 50, remotes, host: unknownHostId },
+    );
+    expect(filtered.host).toBe(unknownHostId);
+    expect(filtered.threads.length).toBeGreaterThan(0);
+    expect(filtered.threads.every((t) => t.hostId === unknownHostId)).toBe(true);
+
+    const byFriendly = finalizeThreadList(
+      {
+        backend: 'app-server',
+        limit: 50,
+        threads: [],
+      },
+      { limit: 50, remotes, host: 'Supercomputer Lab' },
+    );
+    expect(byFriendly.threads.every((t) => t.hostId === unknownHostId)).toBe(true);
+    expect(byFriendly.threads.length).toBeGreaterThan(0);
+
+    const facade = new ChatGptDesktopFacade(
+      fakeAdapter({
+        async connect() {
+          throw new CdpUnreachableError('offline');
+        },
+        async listThreads() {
+          throw new CdpUnreachableError('offline');
+        },
+      }),
+      9222,
+      {
+        listThreads: async ({ limit = 50 } = {}) => ({
+          backend: 'app-server' as const,
+          limit,
+          threads: [],
+        }),
+        searchThreads: async () => ({
+          backend: 'app-server' as const,
+          limit: 1,
+          query: '',
+          threads: [],
+        }),
+        readThread: async () => {
+          throw new Error('unused');
+        },
+        statusProbe: async () => ({ reachable: true, mode: 'daemon' }),
+        listRemoteThreads: () => remotes,
+        discoverModelProviders: async () => ({
+          providers: ['brand-new-provider'],
+          source: 'thread/list-distinct' as const,
+        }),
+        discoverRemoteEnvironments: async () => ({ hosts: [], source: null }),
+        listHosts: (processEnv, opts) => listDiscoveredHosts(env, opts),
+      },
+    );
+    const hostList = await facade.listHosts();
+    expect(hostList.hosts.some((h) => h.hostId === unknownHostId)).toBe(true);
+    expect(hostList.hosts.find((h) => h.hostId === unknownHostId)).toMatchObject({
+      hostName: unknownFriendly,
+      threadCount: 1,
+      location: 'remote',
+    });
+    expect(hostList.modelProviders).toContain('brand-new-provider');
   });
 
   it('skips malformed global-state files without throwing', async () => {

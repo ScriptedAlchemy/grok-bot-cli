@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop list hosts',
     description:
-      'Discover ChatGPT Desktop hosts dynamically: always includes local, plus every remote-thread-summaries-v3:<hostId> key from ~/.codex/.codex-global-state.json (friendly names + thread counts). Also reports modelProviders discovered via an app-server list method when present, otherwise distinct modelProvider values from thread/list. Use this instead of hardcoding host ids. Result includes hostsSource and modelProvidersSource.',
+      'Discover ChatGPT Desktop hosts and modelProviders at runtime — never hardcode them. Hosts: always local, plus every remote-thread-summaries-v3:<hostId> key from ~/.codex/.codex-global-state.json (friendly names + thread counts), merged with any app-server remote-environment/connection list method when present. Providers: app-server list method when present, else distinct modelProvider values from thread/list. New machines/connections Zack adds later show up with no code change. Result includes hostsSource and modelProvidersSource.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,

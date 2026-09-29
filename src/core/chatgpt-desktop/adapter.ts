@@ -18,9 +18,9 @@ export interface ChatGptDesktopAdapter {
   listTargets(): Promise<readonly ChatGptDesktopTarget[]>;
   listThreads(options?: {
     limit?: number;
-    /** `all` (default) | `local` | hostId / friendly name. */
+    /** Any string: `all` (default) | `local` | hostId / friendly name from list_hosts. Not an enum. */
     host?: string;
-    /** Passed through to app-server `modelProviders` (omit/empty = all). */
+    /** Any modelProvider id (app-server modelProviders). Omit = all. See list_hosts. Not an enum. */
     modelProvider?: string;
     groupBy?: 'host';
   }): Promise<ListThreadsResult>;
@@ -28,14 +28,17 @@ export interface ChatGptDesktopAdapter {
   searchThreads?(options: {
     query: string;
     limit?: number;
+    /** Any string; see list_hosts. Not an enum. */
     host?: string;
+    /** Any modelProvider id; see list_hosts. Not an enum. */
     modelProvider?: string;
     groupBy?: 'host';
   }): Promise<ListThreadsResult>;
   /**
    * Optional; facades that discover remote-control hosts implement this.
    * Returns `local` + every `remote-thread-summaries-v3:<hostId>` host with
-   * counts / friendly names, plus discovered `modelProviders`.
+   * counts / friendly names, plus discovered `modelProviders`. Never hardcode
+   * those ids — new machines/connections appear with no code change.
    */
   listHosts?(): Promise<ListHostsResult>;
   readThread(options: {

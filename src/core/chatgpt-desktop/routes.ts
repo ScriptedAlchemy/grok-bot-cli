@@ -17,9 +17,17 @@ export const listThreadsSchema = z
   .object({
     port: z.number().int().min(1).max(65535).optional(),
     limit: z.number().int().min(1).max(200).default(50),
-    /** `all` (default) | `local` | hostId / friendly name. */
+    /**
+     * Any string. Reserved: `all` (default), `local`. Otherwise a hostId or
+     * friendly name discovered at runtime — see `chatgpt_desktop_list_hosts`.
+     * Not an enum; new machines appear with no code change.
+     */
     host: z.string().min(1).max(256).optional(),
-    /** Passed through to app-server `modelProviders` (omit = all). */
+    /**
+     * Any modelProvider id string (passed through as app-server
+     * `modelProviders`). Omit for all. Discovered values: see
+     * `chatgpt_desktop_list_hosts`. Not an enum.
+     */
     modelProvider: z.string().min(1).max(256).optional(),
     groupBy: z.literal('host').optional(),
   })
@@ -30,7 +38,9 @@ export const searchThreadsSchema = z
     port: z.number().int().min(1).max(65535).optional(),
     query: z.string().min(1).max(512),
     limit: z.number().int().min(1).max(200).default(50),
+    /** Any string; see `chatgpt_desktop_list_hosts`. Not an enum. */
     host: z.string().min(1).max(256).optional(),
+    /** Any modelProvider id; see `chatgpt_desktop_list_hosts`. Not an enum. */
     modelProvider: z.string().min(1).max(256).optional(),
     groupBy: z.literal('host').optional(),
   })

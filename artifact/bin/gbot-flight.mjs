@@ -8616,7 +8616,7 @@ var __webpack_modules__ = {
         var zod__rspack_import_2 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
         var _core_chatgpt_desktop_routes_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const config = {
-            description: 'List discovered ChatGPT Desktop hosts (local + remote-thread-summaries-v3) with thread counts, friendly names, and modelProviders.',
+            description: 'Discover ChatGPT Desktop hosts and modelProviders at runtime (never hardcode). Always includes local plus every remote-thread-summaries-v3:<hostId>; merges app-server remote-environment methods when present. Providers from app-server list or distinct thread/list values.',
             exitCode: 'result',
             inputJsonSchema: {
                 additionalProperties: false,
@@ -8738,7 +8738,7 @@ var __webpack_modules__ = {
         var zod__rspack_import_2 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
         var _core_chatgpt_desktop_routes_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const config = {
-            description: 'Search ChatGPT Desktop threads; --host and --model-provider are separate filters.',
+            description: 'Search ChatGPT Desktop threads. --host and --model-provider accept any string (see gbot chatgpt-desktop hosts); not enums.',
             exitCode: 'result',
             positionals: [
                 'query'
@@ -8747,14 +8747,14 @@ var __webpack_modules__ = {
                 additionalProperties: false,
                 properties: {
                     groupBy: {
-                        description: 'Group results by host',
+                        description: 'Group results by host (grouping mode, not a host id)',
                         enum: [
                             'host'
                         ],
                         type: 'string'
                     },
                     host: {
-                        description: 'Filter: all (default) | local | hostId or friendly name',
+                        description: 'Any string: all (default), local, or a hostId/friendly name from `gbot chatgpt-desktop hosts`. Not an enum.',
                         type: 'string'
                     },
                     limit: {
@@ -8763,7 +8763,7 @@ var __webpack_modules__ = {
                         type: 'number'
                     },
                     modelProvider: {
-                        description: 'Pass-through to app-server modelProviders (omit = all)',
+                        description: 'Any modelProvider id (app-server modelProviders pass-through). Omit = all. See `gbot chatgpt-desktop hosts`. Not an enum.',
                         type: 'string'
                     },
                     port: {
@@ -8925,20 +8925,20 @@ var __webpack_modules__ = {
         var zod__rspack_import_2 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
         var _core_chatgpt_desktop_routes_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const config = {
-            description: 'List local + remote-control ChatGPT Desktop threads; --host and --model-provider are separate filters.',
+            description: 'List local + remote-control ChatGPT Desktop threads. --host and --model-provider accept any string (see gbot chatgpt-desktop hosts); not enums.',
             exitCode: 'result',
             inputJsonSchema: {
                 additionalProperties: false,
                 properties: {
                     groupBy: {
-                        description: 'Group results by host',
+                        description: 'Group results by host (grouping mode, not a host id)',
                         enum: [
                             'host'
                         ],
                         type: 'string'
                     },
                     host: {
-                        description: 'Filter: all (default) | local | hostId or friendly name',
+                        description: 'Any string: all (default), local, or a hostId/friendly name from `gbot chatgpt-desktop hosts`. Not an enum.',
                         type: 'string'
                     },
                     limit: {
@@ -8947,7 +8947,7 @@ var __webpack_modules__ = {
                         type: 'number'
                     },
                     modelProvider: {
-                        description: 'Pass-through to app-server modelProviders (omit = all)',
+                        description: 'Any modelProvider id (app-server modelProviders pass-through). Omit = all. See `gbot chatgpt-desktop hosts`. Not an enum.',
                         type: 'string'
                     },
                     port: {

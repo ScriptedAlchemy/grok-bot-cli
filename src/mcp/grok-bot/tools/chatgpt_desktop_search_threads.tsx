@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop search threads',
     description:
-      'Search ChatGPT Desktop / Codex threads through the local app-server and remote-control summaries. Separate filters: host (all|local|<hostId or friendly name>) and modelProvider (app-server modelProviders pass-through). Optional groupBy=host. Discover hosts via chatgpt_desktop_list_hosts. Result includes backend.',
+      'Search ChatGPT Desktop / Codex threads through the local app-server and remote-control summaries. Separate filters host and modelProvider accept any string (not enums) — discover allowed values via chatgpt_desktop_list_hosts. Optional groupBy=host. Result includes backend.',
     annotations: { readOnlyHint: true },
     inputSchema,
     resultSchema,
@@ -27,17 +27,17 @@ export default defineTool(
         host: {
           type: 'string',
           description:
-            'Machine/location filter: "all" (default), "local", or a hostId / friendly name from chatgpt_desktop_list_hosts.',
+            'Any string filter for machine/location. Reserved: "all" (default), "local". Otherwise a hostId or friendly name discovered at runtime — see chatgpt_desktop_list_hosts. Not an enum; new machines/connections appear with no code change.',
         },
         modelProvider: {
           type: 'string',
           description:
-            'Filter passed through to app-server thread/list modelProviders. Omit for all providers.',
+            'Any modelProvider id string (passed through to app-server modelProviders). Omit for all providers. Discovered values: see chatgpt_desktop_list_hosts. Not an enum.',
         },
         groupBy: {
           type: 'string',
           enum: ['host'],
-          description: 'When "host", also return groups[] keyed by host.',
+          description: 'When "host", also return groups[] keyed by host (grouping mode, not a host id).',
         },
       },
       required: ['query'],

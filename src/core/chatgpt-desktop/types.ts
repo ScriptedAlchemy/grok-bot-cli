@@ -86,9 +86,9 @@ export type ListThreadsResult = {
   readonly limit: number;
   readonly nextCursor?: string | null;
   readonly query?: string;
-  /** Host filter applied: `all` | `local` | hostId / friendly name. */
+  /** Host filter applied: any string (`all` | `local` | hostId / friendly name from list_hosts). */
   readonly host?: string;
-  /** Model-provider filter passed through to app-server `modelProviders`. */
+  /** Model-provider filter (any string; see list_hosts). Passed through to app-server `modelProviders`. */
   readonly modelProvider?: string;
   readonly groupBy?: 'host';
   /** Present when `groupBy: "host"`. */

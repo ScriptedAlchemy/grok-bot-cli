@@ -11512,7 +11512,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop list hosts',
-            description: 'Discover ChatGPT Desktop hosts dynamically: always includes local, plus every remote-thread-summaries-v3:<hostId> key from ~/.codex/.codex-global-state.json (friendly names + thread counts). Also reports modelProviders discovered via an app-server list method when present, otherwise distinct modelProvider values from thread/list. Use this instead of hardcoding host ids. Result includes hostsSource and modelProvidersSource.',
+            description: 'Discover ChatGPT Desktop hosts and modelProviders at runtime — never hardcode them. Hosts: always local, plus every remote-thread-summaries-v3:<hostId> key from ~/.codex/.codex-global-state.json (friendly names + thread counts), merged with any app-server remote-environment/connection list method when present. Providers: app-server list method when present, else distinct modelProvider values from thread/list. New machines/connections Zack adds later show up with no code change. Result includes hostsSource and modelProvidersSource.',
             annotations: {
                 readOnlyHint: true
             },
@@ -11551,7 +11551,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop list threads',
-            description: 'List ChatGPT Desktop / Codex threads: local app-server thread/list merged with remote-control summaries from ~/.codex/.codex-global-state.json. Separate filters: host (all|local|<hostId or friendly name>, default all) and modelProvider (passed through as modelProviders; omit/empty = all). Optional groupBy=host. Each thread has location local|remote and hostId/hostName. Discover hosts via chatgpt_desktop_list_hosts. Result includes backend.',
+            description: 'List ChatGPT Desktop / Codex threads: local app-server thread/list merged with remote-control summaries from ~/.codex/.codex-global-state.json. Separate filters host and modelProvider accept any string (not enums) — discover allowed values via chatgpt_desktop_list_hosts. Optional groupBy=host. Each thread has location local|remote and hostId/hostName. Result includes backend.',
             annotations: {
                 readOnlyHint: true
             },
@@ -11570,18 +11570,18 @@ var __webpack_modules__ = {
                     },
                     host: {
                         type: 'string',
-                        description: 'Machine/location filter: "all" (default), "local", or a hostId / friendly name from chatgpt_desktop_list_hosts.'
+                        description: 'Any string filter for machine/location. Reserved: "all" (default), "local". Otherwise a hostId or friendly name discovered at runtime — see chatgpt_desktop_list_hosts. Not an enum; new machines/connections appear with no code change.'
                     },
                     modelProvider: {
                         type: 'string',
-                        description: 'Filter passed through to app-server thread/list modelProviders. Omit for all providers.'
+                        description: 'Any modelProvider id string (passed through to app-server modelProviders). Omit for all providers. Discovered values: see chatgpt_desktop_list_hosts. Not an enum.'
                     },
                     groupBy: {
                         type: 'string',
                         enum: [
                             'host'
                         ],
-                        description: 'When "host", also return groups[] keyed by host.'
+                        description: 'When "host", also return groups[] keyed by host (grouping mode, not a host id).'
                     }
                 },
                 required: []
@@ -11668,7 +11668,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop search threads',
-            description: 'Search ChatGPT Desktop / Codex threads through the local app-server and remote-control summaries. Separate filters: host (all|local|<hostId or friendly name>) and modelProvider (app-server modelProviders pass-through). Optional groupBy=host. Discover hosts via chatgpt_desktop_list_hosts. Result includes backend.',
+            description: 'Search ChatGPT Desktop / Codex threads through the local app-server and remote-control summaries. Separate filters host and modelProvider accept any string (not enums) — discover allowed values via chatgpt_desktop_list_hosts. Optional groupBy=host. Result includes backend.',
             annotations: {
                 readOnlyHint: true
             },
@@ -11691,18 +11691,18 @@ var __webpack_modules__ = {
                     },
                     host: {
                         type: 'string',
-                        description: 'Machine/location filter: "all" (default), "local", or a hostId / friendly name from chatgpt_desktop_list_hosts.'
+                        description: 'Any string filter for machine/location. Reserved: "all" (default), "local". Otherwise a hostId or friendly name discovered at runtime — see chatgpt_desktop_list_hosts. Not an enum; new machines/connections appear with no code change.'
                     },
                     modelProvider: {
                         type: 'string',
-                        description: 'Filter passed through to app-server thread/list modelProviders. Omit for all providers.'
+                        description: 'Any modelProvider id string (passed through to app-server modelProviders). Omit for all providers. Discovered values: see chatgpt_desktop_list_hosts. Not an enum.'
                     },
                     groupBy: {
                         type: 'string',
                         enum: [
                             'host'
                         ],
-                        description: 'When "host", also return groups[] keyed by host.'
+                        description: 'When "host", also return groups[] keyed by host (grouping mode, not a host id).'
                     }
                 },
                 required: [
@@ -27915,7 +27915,7 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": true
             },
-            "description": "Discover ChatGPT Desktop hosts dynamically: always includes local, plus every remote-thread-summaries-v3:<hostId> key from ~/.codex/.codex-global-state.json (friendly names + thread counts). Also reports modelProviders discovered via an app-server list method when present, otherwise distinct modelProvider values from thread/list. Use this instead of hardcoding host ids. Result includes hostsSource and modelProvidersSource.",
+            "description": "Discover ChatGPT Desktop hosts and modelProviders at runtime — never hardcode them. Hosts: always local, plus every remote-thread-summaries-v3:<hostId> key from ~/.codex/.codex-global-state.json (friendly names + thread counts), merged with any app-server remote-environment/connection list method when present. Providers: app-server list method when present, else distinct modelProvider values from thread/list. New machines/connections Zack adds later show up with no code change. Result includes hostsSource and modelProvidersSource.",
             "inputJsonSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -27939,19 +27939,19 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": true
             },
-            "description": "List ChatGPT Desktop / Codex threads: local app-server thread/list merged with remote-control summaries from ~/.codex/.codex-global-state.json. Separate filters: host (all|local|<hostId or friendly name>, default all) and modelProvider (passed through as modelProviders; omit/empty = all). Optional groupBy=host. Each thread has location local|remote and hostId/hostName. Discover hosts via chatgpt_desktop_list_hosts. Result includes backend.",
+            "description": "List ChatGPT Desktop / Codex threads: local app-server thread/list merged with remote-control summaries from ~/.codex/.codex-global-state.json. Separate filters host and modelProvider accept any string (not enums) — discover allowed values via chatgpt_desktop_list_hosts. Optional groupBy=host. Each thread has location local|remote and hostId/hostName. Result includes backend.",
             "inputJsonSchema": {
                 "additionalProperties": false,
                 "properties": {
                     "groupBy": {
-                        "description": "When \"host\", also return groups[] keyed by host.",
+                        "description": "When \"host\", also return groups[] keyed by host (grouping mode, not a host id).",
                         "enum": [
                             "host"
                         ],
                         "type": "string"
                     },
                     "host": {
-                        "description": "Machine/location filter: \"all\" (default), \"local\", or a hostId / friendly name from chatgpt_desktop_list_hosts.",
+                        "description": "Any string filter for machine/location. Reserved: \"all\" (default), \"local\". Otherwise a hostId or friendly name discovered at runtime — see chatgpt_desktop_list_hosts. Not an enum; new machines/connections appear with no code change.",
                         "type": "string"
                     },
                     "limit": {
@@ -27959,7 +27959,7 @@ const routes = Object.freeze({
                         "type": "number"
                     },
                     "modelProvider": {
-                        "description": "Filter passed through to app-server thread/list modelProviders. Omit for all providers.",
+                        "description": "Any modelProvider id string (passed through to app-server modelProviders). Omit for all providers. Discovered values: see chatgpt_desktop_list_hosts. Not an enum.",
                         "type": "string"
                     },
                     "port": {
@@ -28026,19 +28026,19 @@ const routes = Object.freeze({
             "annotations": {
                 "readOnlyHint": true
             },
-            "description": "Search ChatGPT Desktop / Codex threads through the local app-server and remote-control summaries. Separate filters: host (all|local|<hostId or friendly name>) and modelProvider (app-server modelProviders pass-through). Optional groupBy=host. Discover hosts via chatgpt_desktop_list_hosts. Result includes backend.",
+            "description": "Search ChatGPT Desktop / Codex threads through the local app-server and remote-control summaries. Separate filters host and modelProvider accept any string (not enums) — discover allowed values via chatgpt_desktop_list_hosts. Optional groupBy=host. Result includes backend.",
             "inputJsonSchema": {
                 "additionalProperties": false,
                 "properties": {
                     "groupBy": {
-                        "description": "When \"host\", also return groups[] keyed by host.",
+                        "description": "When \"host\", also return groups[] keyed by host (grouping mode, not a host id).",
                         "enum": [
                             "host"
                         ],
                         "type": "string"
                     },
                     "host": {
-                        "description": "Machine/location filter: \"all\" (default), \"local\", or a hostId / friendly name from chatgpt_desktop_list_hosts.",
+                        "description": "Any string filter for machine/location. Reserved: \"all\" (default), \"local\". Otherwise a hostId or friendly name discovered at runtime — see chatgpt_desktop_list_hosts. Not an enum; new machines/connections appear with no code change.",
                         "type": "string"
                     },
                     "limit": {
@@ -28046,7 +28046,7 @@ const routes = Object.freeze({
                         "type": "number"
                     },
                     "modelProvider": {
-                        "description": "Filter passed through to app-server thread/list modelProviders. Omit for all providers.",
+                        "description": "Any modelProvider id string (passed through to app-server modelProviders). Omit for all providers. Discovered values: see chatgpt_desktop_list_hosts. Not an enum.",
                         "type": "string"
                     },
                     "port": {

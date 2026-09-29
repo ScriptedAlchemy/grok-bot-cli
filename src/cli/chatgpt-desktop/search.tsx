@@ -10,20 +10,26 @@ import {
 
 export const config = {
   description:
-    'Search ChatGPT Desktop threads; --host and --model-provider are separate filters.',
+    'Search ChatGPT Desktop threads. --host and --model-provider accept any string (see gbot chatgpt-desktop hosts); not enums.',
   exitCode: 'result',
   positionals: ['query'],
   inputJsonSchema: {
     additionalProperties: false,
     properties: {
-      groupBy: { description: 'Group results by host', enum: ['host'], type: 'string' },
+      groupBy: {
+        description: 'Group results by host (grouping mode, not a host id)',
+        enum: ['host'],
+        type: 'string',
+      },
       host: {
-        description: 'Filter: all (default) | local | hostId or friendly name',
+        description:
+          'Any string: all (default), local, or a hostId/friendly name from `gbot chatgpt-desktop hosts`. Not an enum.',
         type: 'string',
       },
       limit: { default: 50, description: 'Max matches (1-200)', type: 'number' },
       modelProvider: {
-        description: 'Pass-through to app-server modelProviders (omit = all)',
+        description:
+          'Any modelProvider id (app-server modelProviders pass-through). Omit = all. See `gbot chatgpt-desktop hosts`. Not an enum.',
         type: 'string',
       },
       port: { description: 'Local CDP port', type: 'number' },

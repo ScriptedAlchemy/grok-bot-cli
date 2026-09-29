@@ -31,15 +31,18 @@ Override the port with `CHATGPT_DESKTOP_CDP_PORT` or `--port`.
 
 ```sh
 gbot chatgpt-desktop status
-gbot chatgpt-desktop hosts
+gbot chatgpt-desktop hosts   # discover hostIds + modelProviders at runtime
 gbot chatgpt-desktop threads --limit 20
 gbot chatgpt-desktop threads --host local
-gbot chatgpt-desktop threads --host macbook --model-provider openai
+gbot chatgpt-desktop threads --host <hostId> --model-provider <providerId>
 gbot chatgpt-desktop search "launch" --host all
 gbot chatgpt-desktop read <threadId>
 gbot chatgpt-desktop send --thread-id <threadId> "hello"
 gbot chatgpt-desktop send "start a new chat with this text"
 ```
+
+`--host` / `--model-provider` accept **any string** (not enums). Discover
+allowed values with `gbot chatgpt-desktop hosts` / `chatgpt_desktop_list_hosts`.
 
 ## MCP tools
 
@@ -96,10 +99,12 @@ list filter, not a field.
 
 `chatgpt_desktop_list_threads` / search take two independent filters:
 
-| Filter | Values | Default | Effect |
+| Filter | Values (any string — not an enum) | Default | Effect |
 | --- | --- | --- | --- |
-| `host` | `all` \| `local` \| `<hostId or friendly name>` | `all` | Machine/location from remote summaries + local |
-| `modelProvider` | provider id string | omit / `[]` = all | Passed through to app-server `modelProviders` |
+| `host` | `all` \| `local` \| any hostId / friendly name from `list_hosts` | `all` | Machine/location from remote summaries + local |
+| `modelProvider` | any provider id from `list_hosts` | omit / `[]` = all | Passed through to app-server `modelProviders` |
+
+New machines or connections appear in `list_hosts` with **no code change**.
 
 Optional `groupBy: "host"` returns `groups[]` keyed by host.
 
