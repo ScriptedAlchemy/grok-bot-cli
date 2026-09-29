@@ -8,7 +8,47 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { fakeAppServer, createCodexFixtureHome } from "./helpers/codex-server.js";
 
-import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, codexSocketPath, codexStatus, detectDesktopPrivateAppServer, unreachableMessage, looksLikeGrokBotBox, boxUnreachableMessage } from "../src/core/codex-bridge.js";
+import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, startCodexThread, codexSocketPath, codexStatus, detectDesktopPrivateAppServer, unreachableMessage, looksLikeGrokBotBox, boxUnreachableMessage } from "../src/core/codex-bridge.js";
+
+test('send applies model and effort overrides supported by Codex 0.158.0', async () => {
+ const fake = await fakeAppServer(baseHandlers);
+ try {
+  const receipt = await sendToCodexThread('t-1', 'hello', { env: { CODEX_HOME: fake.home }, model: 'gpt-6-astra', effort: 'xhigh' });
+  assert.equal(receipt.delivery, 'accepted');
+  const resume = fake.received.find(m => m.method === 'thread/resume');
+  const turn = fake.received.find(m => m.method === 'turn/start');
+  assert.equal(resume.params.model, 'gpt-6-astra');
+  assert.deepEqual(resume.params.config, { model_reasoning_effort: 'xhigh' });
+  assert.equal(turn.params.model, 'gpt-6-astra');
+  assert.equal(turn.params.effort, 'xhigh');
+  assert.equal((await sendToCodexThread('t-1', 'hello', { env: { CODEX_HOME: fake.home }, effort: 'extreme' })).reason, 'usage');
+  assert.equal(fake.received.filter(m => m.method === 'turn/start').length, 1);
+ } finally { await fake.close(); }
+});
+
+test('new thread uses thread/start cwd and selection before its first turn', async () => {
+ const fake = await fakeAppServer({ ...baseHandlers,
+  'thread/start': (params, ok) => ok({ thread: { id: 't-1' }, model: params.model }),
+  'thread/resume': (params, ok) => ok({ thread: { id: params.threadId, status: { type: 'idle' } }, cwd: process.cwd() }),
+ });
+ try {
+  const receipt = await startCodexThread({ cwd: process.cwd(), expectedCwd: process.cwd(), model: 'gpt-6', effort: 'high', message: 'hello', env: { CODEX_HOME: fake.home } });
+  assert.equal(receipt.delivery, 'accepted');
+  const start = fake.received.find(m => m.method === 'thread/start');
+  assert.equal(start.params.cwd, process.cwd());
+  assert.deepEqual(start.params.config, { model_reasoning_effort: 'high' });
+  assert.equal(fake.received.find(m => m.method === 'turn/start').params.effort, 'high');
+  await assert.rejects(startCodexThread({ cwd: process.cwd(), expectedCwd: '/tmp', env: { CODEX_HOME: fake.home } }), /cwd/);
+  assert.equal(fake.received.filter(m => m.method === 'thread/start').length, 1);
+ } finally { await fake.close(); }
+});
+
+test('missing Codex socket explains local placement and existing bridge', () => {
+ const box = unreachableMessage('/home/box/.codex/app-server-control/app-server-control.sock', 'unknown', { HOME: '/home/box' });
+ assert.match(box, /same machine as gbot/);
+ assert.match(box, /CODEX_APP_SERVER_SOCK/);
+ assert.match(box, /Grok Bot Shell.*machineId/);
+});
 import { desktopShimStatus } from "../src/core/desktop-shim.js";
 import { formatCodexStatus } from "../src/core/format.js";
 import { createServer as createTcpServer } from "node:net";
@@ -827,12 +867,12 @@ test("codex status separates schema compatibility from reachability and bounds t
     assert.equal(code, 0, out);
     const status = JSON.parse(out);
     assert.equal(status.reachable, true);
-    assert.deepEqual(status.schema, { pinned: "0.154.0", daemon: "0.160.0", compatibility: "unverified" });
+    assert.deepEqual(status.schema, { pinned: "0.158.0", daemon: "0.160.0", compatibility: "unverified" });
     assert.equal(status.codexHome, null, "non-string codexHome is not passed through");
     assert.equal(status.cliVersionProbe, "missing", "PATH has no codex binary");
     assert.equal(status.desktopAttached, "unknown");
     const text = await gbot(fake.home, "codex", "status");
-    assert.match(text.out, /pinned schema: 0\.154\.0 \(unverified\)/);
+    assert.match(text.out, /pinned schema: 0\.158\.0 \(unverified\)/);
     assert.match(text.out, /desktop attached: unknown/);
   } finally {
     await fake.close();
@@ -903,7 +943,7 @@ test("codex list-threads fails with bad-response when the daemon returns an unkn
     assert.equal(failure.reason, "bad-response");
     assert.equal(failure.exitCode, 1);
     assert.match(failure.error, /unexpected thread\/list response: missing `data` array/);
-    assert.match(failure.error, /pinned to app-server schema 0\.154\.0/);
+    assert.match(failure.error, /pinned to app-server schema 0\.158\.0/);
   } finally {
     await fake.close();
   }
@@ -1179,6 +1219,12 @@ test("every codex send rejection carries the envelope, and unknown statuses are 
       assert.equal(code, 1, label);
       const failure = JSON.parse(out);
       assert.equal(failure.reason, reason, label);
+      if (label === 'experimental off') {
+        assert.match(failure.error, /Codex 0\.158\.0.*stable API/);
+        assert.match(failure.error, /GROK_BOT_CODEX_EXPERIMENTAL=1/);
+        assert.match(failure.error, /--when-busy steer.*wait until.*idle/);
+        assert.equal(fake.received.some(m => m.method === 'thread/queue/add'), false);
+      }
       assert.equal(failure.correlationId, "corr-9", label + " keeps the correlation id");
       assert.match(failure.messageId, /^[0-9a-f-]{36}$/, label + " names the message");
       assert.equal(failure.hop, 0, label);

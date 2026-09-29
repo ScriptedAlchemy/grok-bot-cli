@@ -1,13 +1,12 @@
 # Busy-thread delivery for `gbot codex send`
 
 Decision record for [#38](https://github.com/ScriptedAlchemy/grok-bot-cli/issues/38). Evidence is the
-app-server schema emitted by `codex app-server generate-json-schema` for codex-cli 0.154.0 — the release
-`src/core/codex-bridge.js` is pinned to — generated both without and with `--experimental`, plus a live probe
-against a 0.154.0 daemon (below).
+app-server schema emitted by `codex app-server generate-json-schema` for codex-cli 0.158.0,
+generated both without and with `--experimental`. The live probe below used a 0.154.0 daemon.
 
 ## What the protocol offers
 
-| Surface | In 0.154.0 | Notes |
+| Surface | In 0.158.0 | Notes |
 | --- | --- | --- |
 | `turn/start` on an idle thread | stable client request | Starts a new turn; `TurnStartResponse.turn.id` is the new turn. |
 | `turn/start` on an **active** thread | stable client request | Steers the running turn. `TurnStartParams.turnTrigger` is documented as "Ignored when this request steers an already-active turn", so the call does not queue behind the human's turn — it joins it. |
@@ -16,6 +15,8 @@ against a 0.154.0 daemon (below).
 | `thread/queue/add` / `list` / `update` / `delete` / `reorder` / `start` | **experimental** client requests | Present only in the `--experimental` schema and only for a client that initialized with `capabilities.experimentalApi: true`. `add` takes `{ threadId, clientUserMessageId, input }` and returns a `QueuedSubmission { id, clientUserMessageId, input }`; `list` pages with `cursor`/`limit`; `start` runs one queued submission as a turn. |
 | `thread/queue/changed` | server notification | Emitted when a thread's queue changes. |
 | `ThreadStatus` | type | `notLoaded`, `idle`, `active` (with `activeFlags`: `waitingOnApproval`, `waitingOnUserInput`), `systemError`. |
+
+The stable 0.158.0 `ClientRequest` has no `thread/queue/*` requests; they remain in the experimental schema. Without `GROK_BOT_CODEX_EXPERIMENTAL=1`, queue selection fails before connecting and suggests guarded steering or waiting for idle. With the gate, gbot asks for `experimentalApi` and treats a `-32601` response as unsupported at runtime.
 
 ### Live probe (0.154.0 daemon, 2026-09-15)
 

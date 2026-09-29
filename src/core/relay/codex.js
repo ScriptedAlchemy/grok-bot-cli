@@ -160,6 +160,8 @@ export function createRelayCodex({
           },
           whenBusy: active ? "steer" : "reject",
           ...(active ? { expectedTurnId: active } : {}),
+          ...(record.model ? { model: record.model } : {}),
+          ...(record.effort ? { effort: record.effort } : {}),
         });
         if (
           !active ||

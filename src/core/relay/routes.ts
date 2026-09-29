@@ -213,6 +213,8 @@ export async function codexReturnOperation(
     envelope?: boolean;
     hop?: number;
     correlationId?: string;
+    model?: string;
+    effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
   },
   context?: AgentRequest,
 ) {
@@ -234,6 +236,8 @@ export async function codexReturnOperation(
         busyPolicy: input.whenBusy,
         hop: input.hop,
         correlationId: input.correlationId,
+        model: input.model,
+        effort: input.effort,
       },
       options(context),
     ),

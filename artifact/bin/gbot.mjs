@@ -8012,6 +8012,96 @@ var __webpack_modules__ = {
             resultSchema: resultSchema
         });
     },
+    "./src/cli/codex/new.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        __webpack_require__.r(__webpack_exports__);
+        var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.js");
+        var _agent_bundle_runtime__rspack_import_5 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
+        var zod__rspack_import_4 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
+        var _core_codex_bridge_js__rspack_import_1 = __webpack_require__("./src/core/codex-bridge.js");
+        var _core_codex_contract_js__rspack_import_2 = __webpack_require__("./src/core/codex/contract.js");
+        var _core_codex_routes_js__rspack_import_3 = __webpack_require__("./src/core/codex/routes.ts");
+        const inputSchema = zod__rspack_import_4.Ikc({
+            cwd: zod__rspack_import_4.YjP().min(1),
+            expectedCwd: zod__rspack_import_4.YjP().min(1).optional(),
+            model: zod__rspack_import_4.YjP().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/).optional(),
+            effort: zod__rspack_import_4.k5n([
+                'none',
+                'minimal',
+                'low',
+                'medium',
+                'high',
+                'xhigh'
+            ]).optional(),
+            message: zod__rspack_import_4.YOg(zod__rspack_import_4.YjP()).optional()
+        }).strict();
+        const config = {
+            description: 'Start a new Codex thread in --cwd, optionally with --model, --effort and a message.',
+            exitCode: 'result',
+            positionals: [
+                'message'
+            ],
+            inputJsonSchema: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    cwd: {
+                        type: 'string'
+                    },
+                    expectedCwd: {
+                        type: 'string'
+                    },
+                    model: {
+                        type: 'string'
+                    },
+                    effort: {
+                        type: 'string',
+                        enum: [
+                            'none',
+                            'minimal',
+                            'low',
+                            'medium',
+                            'high',
+                            'xhigh'
+                        ]
+                    },
+                    message: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    }
+                },
+                required: [
+                    'cwd'
+                ]
+            }
+        };
+        async function route({ input, signal }) {
+            let out;
+            try {
+                out = await (0, _core_codex_bridge_js__rspack_import_1.QC)({
+                    ...input,
+                    message: input.message?.join(' ').trim() || undefined,
+                    signal
+                });
+            } catch (error) {
+                out = (0, _core_codex_contract_js__rspack_import_2.DG)(error);
+            }
+            return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5.g.Result, {
+                value: out,
+                children: (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5.g.Text, {
+                    children: out.threadId && !('delivery' in out) ? `Started Codex thread ${out.threadId}` : (0, _core_codex_routes_js__rspack_import_3.D6)(out)
+                })
+            });
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            "default": ()=>route,
+            resultSchema: ()=>_core_codex_routes_js__rspack_import_3.FD
+        }, {
+            config: config,
+            inputSchema: inputSchema
+        });
+    },
     "./src/cli/codex/queue.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
         __webpack_require__.r(__webpack_exports__);
         var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.js");
@@ -8117,7 +8207,7 @@ var __webpack_modules__ = {
             description: 'Send to Codex; acceptance is distinct from completion. Options precede threadId.',
             exitCode: 'result',
             render: {
-                maxElapsedMs: 660000
+                maxElapsedMs: 7260000
             },
             positionals: [
                 'threadId',
@@ -8142,9 +8232,23 @@ var __webpack_modules__ = {
                     expectedCwd: {
                         type: 'string'
                     },
+                    model: {
+                        type: 'string'
+                    },
+                    effort: {
+                        type: 'string',
+                        enum: [
+                            'none',
+                            'minimal',
+                            'low',
+                            'medium',
+                            'high',
+                            'xhigh'
+                        ]
+                    },
                     timeoutMs: {
                         type: 'number',
-                        description: 'Observation timeout: 1-600000 milliseconds.'
+                        description: 'Observation timeout: 1-7200000 milliseconds.'
                     },
                     correlationId: {
                         type: 'string'
@@ -8279,7 +8383,7 @@ var __webpack_modules__ = {
             description: 'Bounded Codex wait observation; never interrupts execution.',
             exitCode: 'result',
             render: {
-                maxElapsedMs: 660000
+                maxElapsedMs: 7260000
             },
             positionals: [
                 'threadId',
@@ -8297,7 +8401,7 @@ var __webpack_modules__ = {
                     },
                     "timeoutMs": {
                         "type": "number",
-                        "description": "Observation timeout: 1-600000 milliseconds."
+                        "description": "Observation timeout: 1-7200000 milliseconds."
                     },
                     "turnId": {
                         "type": "string"
@@ -13231,13 +13335,22 @@ var __webpack_modules__ = {
         const observationFields = {
             expectedCwd: zod__rspack_import_3.YjP().min(1).optional(),
             threadId: id,
-            timeoutMs: zod__rspack_import_3.aig().int().min(1).max(600000).optional()
+            timeoutMs: zod__rspack_import_3.aig().int().min(1).max(7200000).optional()
         };
         const sendFields = {
             ...observationFields,
             correlationId: bareId.optional(),
             envelope: zod__rspack_import_3.zMY().optional(),
             hop: zod__rspack_import_3.aig().int().min(0).optional(),
+            model: zod__rspack_import_3.YjP().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/).optional(),
+            effort: zod__rspack_import_3.k5n([
+                'none',
+                'minimal',
+                'low',
+                'medium',
+                'high',
+                'xhigh'
+            ]).optional(),
             replyTo: bareId.optional(),
             expectedTurnId: bareId.optional(),
             whenBusy: zod__rspack_import_3.k5n([
@@ -13259,7 +13372,9 @@ var __webpack_modules__ = {
             maxOutputBytes: zod__rspack_import_3.aig().int().min(1).max(4194304).optional()
         }).strict();
         const watchSchema = zod__rspack_import_3.Ikc({
-            ...observationFields,
+            expectedCwd: zod__rspack_import_3.YjP().min(1).optional(),
+            threadId: id,
+            timeoutMs: zod__rspack_import_3.aig().int().min(1).max(600000).optional(),
             maxEvents: zod__rspack_import_3.aig().int().min(1).max(500).default(100)
         }).strict();
         const threadsSchema = zod__rspack_import_3.Ikc({
@@ -13316,6 +13431,8 @@ var __webpack_modules__ = {
                         envelope,
                         whenBusy: input.whenBusy,
                         expectedCwd: input.expectedCwd,
+                        model: input.model,
+                        effort: input.effort,
                         signal
                     });
                 }
@@ -13328,7 +13445,9 @@ var __webpack_modules__ = {
                     receipt = await conversation.send(input.message, {
                         envelope,
                         whenBusy: input.whenBusy,
-                        expectedTurnId: input.expectedTurnId
+                        expectedTurnId: input.expectedTurnId,
+                        model: input.model,
+                        effort: input.effort
                     });
                     if (!input.wait || receipt.delivery !== 'accepted' || !receipt.turnId) return receipt;
                     await progress?.(`Accepted message ${receipt.messageId}; observing turn ${receipt.turnId}`);
@@ -13617,7 +13736,9 @@ var __webpack_modules__ = {
                     requestId: input.requestId,
                     busyPolicy: input.whenBusy,
                     hop: input.hop,
-                    correlationId: input.correlationId
+                    correlationId: input.correlationId,
+                    model: input.model,
+                    effort: input.effort
                 }, options(context)));
         }
         __webpack_require__.d(__webpack_exports__, {
@@ -40818,9 +40939,9 @@ var __webpack_modules__ = {
             try {
                 var agent_bundle_launch_env_layer__rspack_import_0 = __webpack_require__("./.agent-bundle-virtual/bin-gbot-0.mjs");
                 var agent_bundle_cli_entry__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/cli-entry.js");
-                var _agent_bundle_runtime__rspack_import_46 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
-                var _agent_bundle_runtime__rspack_import_47 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
-                var _agent_bundle_runtime__rspack_import_48 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/index.js");
+                var _agent_bundle_runtime__rspack_import_47 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
+                var _agent_bundle_runtime__rspack_import_48 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
+                var _agent_bundle_runtime__rspack_import_49 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/index.js");
                 var node_url__rspack_import_2 = __webpack_require__("node:url");
                 var node_worker_threads__rspack_import_3 = __webpack_require__("node:worker_threads");
                 var _src_cli_approvals_list_tsx__rspack_import_4 = __webpack_require__("./src/cli/approvals/list.tsx");
@@ -40844,27 +40965,28 @@ var __webpack_modules__ = {
                 var _src_cli_codex_bridge_stop_tsx__rspack_import_22 = __webpack_require__("./src/cli/codex/bridge/stop.tsx");
                 var _src_cli_codex_desktop_shim_tsx__rspack_import_23 = __webpack_require__("./src/cli/codex/desktop-shim.tsx");
                 var _src_cli_codex_list_threads_tsx__rspack_import_24 = __webpack_require__("./src/cli/codex/list-threads.tsx");
-                var _src_cli_codex_queue_tsx__rspack_import_25 = __webpack_require__("./src/cli/codex/queue.tsx");
-                var _src_cli_codex_send_tsx__rspack_import_26 = __webpack_require__("./src/cli/codex/send.tsx");
-                var _src_cli_codex_status_tsx__rspack_import_27 = __webpack_require__("./src/cli/codex/status.tsx");
-                var _src_cli_codex_wait_tsx__rspack_import_28 = __webpack_require__("./src/cli/codex/wait.tsx");
-                var _src_cli_codex_watch_tsx__rspack_import_29 = __webpack_require__("./src/cli/codex/watch.tsx");
-                var _src_cli_doctor_tsx__rspack_import_30 = __webpack_require__("./src/cli/doctor.tsx");
-                var _src_cli_groups_add_tsx__rspack_import_31 = __webpack_require__("./src/cli/groups/add.tsx");
-                var _src_cli_groups_create_tsx__rspack_import_32 = __webpack_require__("./src/cli/groups/create.tsx");
-                var _src_cli_groups_delete_tsx__rspack_import_33 = __webpack_require__("./src/cli/groups/delete.tsx");
-                var _src_cli_groups_get_tsx__rspack_import_34 = __webpack_require__("./src/cli/groups/get.tsx");
-                var _src_cli_groups_list_tsx__rspack_import_35 = __webpack_require__("./src/cli/groups/list.tsx");
-                var _src_cli_groups_members_tsx__rspack_import_36 = __webpack_require__("./src/cli/groups/members.tsx");
-                var _src_cli_groups_remove_tsx__rspack_import_37 = __webpack_require__("./src/cli/groups/remove.tsx");
-                var _src_cli_groups_set_tsx__rspack_import_38 = __webpack_require__("./src/cli/groups/set.tsx");
-                var _src_cli_groups_update_tsx__rspack_import_39 = __webpack_require__("./src/cli/groups/update.tsx");
-                var _src_cli_history_tsx__rspack_import_40 = __webpack_require__("./src/cli/history.tsx");
-                var _src_cli_send_tsx__rspack_import_41 = __webpack_require__("./src/cli/send.tsx");
-                var _src_cli_skills_add_tsx__rspack_import_42 = __webpack_require__("./src/cli/skills/add.tsx");
-                var _src_cli_skills_list_tsx__rspack_import_43 = __webpack_require__("./src/cli/skills/list.tsx");
-                var _src_cli_skills_remove_tsx__rspack_import_44 = __webpack_require__("./src/cli/skills/remove.tsx");
-                var _src_cli_thread_tsx__rspack_import_45 = __webpack_require__("./src/cli/thread.tsx");
+                var _src_cli_codex_new_tsx__rspack_import_25 = __webpack_require__("./src/cli/codex/new.tsx");
+                var _src_cli_codex_queue_tsx__rspack_import_26 = __webpack_require__("./src/cli/codex/queue.tsx");
+                var _src_cli_codex_send_tsx__rspack_import_27 = __webpack_require__("./src/cli/codex/send.tsx");
+                var _src_cli_codex_status_tsx__rspack_import_28 = __webpack_require__("./src/cli/codex/status.tsx");
+                var _src_cli_codex_wait_tsx__rspack_import_29 = __webpack_require__("./src/cli/codex/wait.tsx");
+                var _src_cli_codex_watch_tsx__rspack_import_30 = __webpack_require__("./src/cli/codex/watch.tsx");
+                var _src_cli_doctor_tsx__rspack_import_31 = __webpack_require__("./src/cli/doctor.tsx");
+                var _src_cli_groups_add_tsx__rspack_import_32 = __webpack_require__("./src/cli/groups/add.tsx");
+                var _src_cli_groups_create_tsx__rspack_import_33 = __webpack_require__("./src/cli/groups/create.tsx");
+                var _src_cli_groups_delete_tsx__rspack_import_34 = __webpack_require__("./src/cli/groups/delete.tsx");
+                var _src_cli_groups_get_tsx__rspack_import_35 = __webpack_require__("./src/cli/groups/get.tsx");
+                var _src_cli_groups_list_tsx__rspack_import_36 = __webpack_require__("./src/cli/groups/list.tsx");
+                var _src_cli_groups_members_tsx__rspack_import_37 = __webpack_require__("./src/cli/groups/members.tsx");
+                var _src_cli_groups_remove_tsx__rspack_import_38 = __webpack_require__("./src/cli/groups/remove.tsx");
+                var _src_cli_groups_set_tsx__rspack_import_39 = __webpack_require__("./src/cli/groups/set.tsx");
+                var _src_cli_groups_update_tsx__rspack_import_40 = __webpack_require__("./src/cli/groups/update.tsx");
+                var _src_cli_history_tsx__rspack_import_41 = __webpack_require__("./src/cli/history.tsx");
+                var _src_cli_send_tsx__rspack_import_42 = __webpack_require__("./src/cli/send.tsx");
+                var _src_cli_skills_add_tsx__rspack_import_43 = __webpack_require__("./src/cli/skills/add.tsx");
+                var _src_cli_skills_list_tsx__rspack_import_44 = __webpack_require__("./src/cli/skills/list.tsx");
+                var _src_cli_skills_remove_tsx__rspack_import_45 = __webpack_require__("./src/cli/skills/remove.tsx");
+                var _src_cli_thread_tsx__rspack_import_46 = __webpack_require__("./src/cli/thread.tsx");
                 const route0 = Object.assign({}, Reflect.get(_src_cli_approvals_list_tsx__rspack_import_4, 'default'), _src_cli_approvals_list_tsx__rspack_import_4);
                 const route1 = Object.assign({}, Reflect.get(_src_cli_approvals_respond_tsx__rspack_import_5, 'default'), _src_cli_approvals_respond_tsx__rspack_import_5);
                 const route2 = Object.assign({}, Reflect.get(_src_cli_bots_create_tsx__rspack_import_6, 'default'), _src_cli_bots_create_tsx__rspack_import_6);
@@ -40886,28 +41008,29 @@ var __webpack_modules__ = {
                 const route18 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_stop_tsx__rspack_import_22, 'default'), _src_cli_codex_bridge_stop_tsx__rspack_import_22);
                 const route19 = Object.assign({}, Reflect.get(_src_cli_codex_desktop_shim_tsx__rspack_import_23, 'default'), _src_cli_codex_desktop_shim_tsx__rspack_import_23);
                 const route20 = Object.assign({}, Reflect.get(_src_cli_codex_list_threads_tsx__rspack_import_24, 'default'), _src_cli_codex_list_threads_tsx__rspack_import_24);
-                const route21 = Object.assign({}, Reflect.get(_src_cli_codex_queue_tsx__rspack_import_25, 'default'), _src_cli_codex_queue_tsx__rspack_import_25);
-                const route22 = Object.assign({}, Reflect.get(_src_cli_codex_send_tsx__rspack_import_26, 'default'), _src_cli_codex_send_tsx__rspack_import_26);
-                const route23 = Object.assign({}, Reflect.get(_src_cli_codex_status_tsx__rspack_import_27, 'default'), _src_cli_codex_status_tsx__rspack_import_27);
-                const route24 = Object.assign({}, Reflect.get(_src_cli_codex_wait_tsx__rspack_import_28, 'default'), _src_cli_codex_wait_tsx__rspack_import_28);
-                const route25 = Object.assign({}, Reflect.get(_src_cli_codex_watch_tsx__rspack_import_29, 'default'), _src_cli_codex_watch_tsx__rspack_import_29);
-                const route26 = Object.assign({}, Reflect.get(_src_cli_doctor_tsx__rspack_import_30, 'default'), _src_cli_doctor_tsx__rspack_import_30);
-                const route27 = Object.assign({}, Reflect.get(_src_cli_groups_add_tsx__rspack_import_31, 'default'), _src_cli_groups_add_tsx__rspack_import_31);
-                const route28 = Object.assign({}, Reflect.get(_src_cli_groups_create_tsx__rspack_import_32, 'default'), _src_cli_groups_create_tsx__rspack_import_32);
-                const route29 = Object.assign({}, Reflect.get(_src_cli_groups_delete_tsx__rspack_import_33, 'default'), _src_cli_groups_delete_tsx__rspack_import_33);
-                const route30 = Object.assign({}, Reflect.get(_src_cli_groups_get_tsx__rspack_import_34, 'default'), _src_cli_groups_get_tsx__rspack_import_34);
-                const route31 = Object.assign({}, Reflect.get(_src_cli_groups_list_tsx__rspack_import_35, 'default'), _src_cli_groups_list_tsx__rspack_import_35);
-                const route32 = Object.assign({}, Reflect.get(_src_cli_groups_members_tsx__rspack_import_36, 'default'), _src_cli_groups_members_tsx__rspack_import_36);
-                const route33 = Object.assign({}, Reflect.get(_src_cli_groups_remove_tsx__rspack_import_37, 'default'), _src_cli_groups_remove_tsx__rspack_import_37);
-                const route34 = Object.assign({}, Reflect.get(_src_cli_groups_set_tsx__rspack_import_38, 'default'), _src_cli_groups_set_tsx__rspack_import_38);
-                const route35 = Object.assign({}, Reflect.get(_src_cli_groups_update_tsx__rspack_import_39, 'default'), _src_cli_groups_update_tsx__rspack_import_39);
-                const route36 = Object.assign({}, Reflect.get(_src_cli_history_tsx__rspack_import_40, 'default'), _src_cli_history_tsx__rspack_import_40);
-                const route37 = Object.assign({}, Reflect.get(_src_cli_send_tsx__rspack_import_41, 'default'), _src_cli_send_tsx__rspack_import_41);
-                const route38 = Object.assign({}, Reflect.get(_src_cli_skills_add_tsx__rspack_import_42, 'default'), _src_cli_skills_add_tsx__rspack_import_42);
-                const route39 = Object.assign({}, Reflect.get(_src_cli_skills_list_tsx__rspack_import_43, 'default'), _src_cli_skills_list_tsx__rspack_import_43);
-                const route40 = Object.assign({}, Reflect.get(_src_cli_skills_remove_tsx__rspack_import_44, 'default'), _src_cli_skills_remove_tsx__rspack_import_44);
-                const route41 = Object.assign({}, Reflect.get(_src_cli_thread_tsx__rspack_import_45, 'default'), _src_cli_thread_tsx__rspack_import_45);
-                const pluginRoot = (0, _agent_bundle_runtime__rspack_import_46.E7)({
+                const route21 = Object.assign({}, Reflect.get(_src_cli_codex_new_tsx__rspack_import_25, 'default'), _src_cli_codex_new_tsx__rspack_import_25);
+                const route22 = Object.assign({}, Reflect.get(_src_cli_codex_queue_tsx__rspack_import_26, 'default'), _src_cli_codex_queue_tsx__rspack_import_26);
+                const route23 = Object.assign({}, Reflect.get(_src_cli_codex_send_tsx__rspack_import_27, 'default'), _src_cli_codex_send_tsx__rspack_import_27);
+                const route24 = Object.assign({}, Reflect.get(_src_cli_codex_status_tsx__rspack_import_28, 'default'), _src_cli_codex_status_tsx__rspack_import_28);
+                const route25 = Object.assign({}, Reflect.get(_src_cli_codex_wait_tsx__rspack_import_29, 'default'), _src_cli_codex_wait_tsx__rspack_import_29);
+                const route26 = Object.assign({}, Reflect.get(_src_cli_codex_watch_tsx__rspack_import_30, 'default'), _src_cli_codex_watch_tsx__rspack_import_30);
+                const route27 = Object.assign({}, Reflect.get(_src_cli_doctor_tsx__rspack_import_31, 'default'), _src_cli_doctor_tsx__rspack_import_31);
+                const route28 = Object.assign({}, Reflect.get(_src_cli_groups_add_tsx__rspack_import_32, 'default'), _src_cli_groups_add_tsx__rspack_import_32);
+                const route29 = Object.assign({}, Reflect.get(_src_cli_groups_create_tsx__rspack_import_33, 'default'), _src_cli_groups_create_tsx__rspack_import_33);
+                const route30 = Object.assign({}, Reflect.get(_src_cli_groups_delete_tsx__rspack_import_34, 'default'), _src_cli_groups_delete_tsx__rspack_import_34);
+                const route31 = Object.assign({}, Reflect.get(_src_cli_groups_get_tsx__rspack_import_35, 'default'), _src_cli_groups_get_tsx__rspack_import_35);
+                const route32 = Object.assign({}, Reflect.get(_src_cli_groups_list_tsx__rspack_import_36, 'default'), _src_cli_groups_list_tsx__rspack_import_36);
+                const route33 = Object.assign({}, Reflect.get(_src_cli_groups_members_tsx__rspack_import_37, 'default'), _src_cli_groups_members_tsx__rspack_import_37);
+                const route34 = Object.assign({}, Reflect.get(_src_cli_groups_remove_tsx__rspack_import_38, 'default'), _src_cli_groups_remove_tsx__rspack_import_38);
+                const route35 = Object.assign({}, Reflect.get(_src_cli_groups_set_tsx__rspack_import_39, 'default'), _src_cli_groups_set_tsx__rspack_import_39);
+                const route36 = Object.assign({}, Reflect.get(_src_cli_groups_update_tsx__rspack_import_40, 'default'), _src_cli_groups_update_tsx__rspack_import_40);
+                const route37 = Object.assign({}, Reflect.get(_src_cli_history_tsx__rspack_import_41, 'default'), _src_cli_history_tsx__rspack_import_41);
+                const route38 = Object.assign({}, Reflect.get(_src_cli_send_tsx__rspack_import_42, 'default'), _src_cli_send_tsx__rspack_import_42);
+                const route39 = Object.assign({}, Reflect.get(_src_cli_skills_add_tsx__rspack_import_43, 'default'), _src_cli_skills_add_tsx__rspack_import_43);
+                const route40 = Object.assign({}, Reflect.get(_src_cli_skills_list_tsx__rspack_import_44, 'default'), _src_cli_skills_list_tsx__rspack_import_44);
+                const route41 = Object.assign({}, Reflect.get(_src_cli_skills_remove_tsx__rspack_import_45, 'default'), _src_cli_skills_remove_tsx__rspack_import_45);
+                const route42 = Object.assign({}, Reflect.get(_src_cli_thread_tsx__rspack_import_46, 'default'), _src_cli_thread_tsx__rspack_import_46);
+                const pluginRoot = (0, _agent_bundle_runtime__rspack_import_47.E7)({
                     fallback: (0, node_url__rspack_import_2.fileURLToPath)(new URL('..', import.meta.url)),
                     stateAnchor: 'user-data'
                 });
@@ -40980,68 +41103,71 @@ var __webpack_modules__ = {
                     "cli:codex/list-threads": Object.freeze({
                         module: route20
                     }),
-                    "cli:codex/queue": Object.freeze({
+                    "cli:codex/new": Object.freeze({
                         module: route21
                     }),
-                    "cli:codex/send": Object.freeze({
+                    "cli:codex/queue": Object.freeze({
                         module: route22
                     }),
-                    "cli:codex/status": Object.freeze({
+                    "cli:codex/send": Object.freeze({
                         module: route23
                     }),
-                    "cli:codex/wait": Object.freeze({
+                    "cli:codex/status": Object.freeze({
                         module: route24
                     }),
-                    "cli:codex/watch": Object.freeze({
+                    "cli:codex/wait": Object.freeze({
                         module: route25
                     }),
-                    "cli:doctor": Object.freeze({
+                    "cli:codex/watch": Object.freeze({
                         module: route26
                     }),
-                    "cli:groups/add": Object.freeze({
+                    "cli:doctor": Object.freeze({
                         module: route27
                     }),
-                    "cli:groups/create": Object.freeze({
+                    "cli:groups/add": Object.freeze({
                         module: route28
                     }),
-                    "cli:groups/delete": Object.freeze({
+                    "cli:groups/create": Object.freeze({
                         module: route29
                     }),
-                    "cli:groups/get": Object.freeze({
+                    "cli:groups/delete": Object.freeze({
                         module: route30
                     }),
-                    "cli:groups/list": Object.freeze({
+                    "cli:groups/get": Object.freeze({
                         module: route31
                     }),
-                    "cli:groups/members": Object.freeze({
+                    "cli:groups/list": Object.freeze({
                         module: route32
                     }),
-                    "cli:groups/remove": Object.freeze({
+                    "cli:groups/members": Object.freeze({
                         module: route33
                     }),
-                    "cli:groups/set": Object.freeze({
+                    "cli:groups/remove": Object.freeze({
                         module: route34
                     }),
-                    "cli:groups/update": Object.freeze({
+                    "cli:groups/set": Object.freeze({
                         module: route35
                     }),
-                    "cli:history": Object.freeze({
+                    "cli:groups/update": Object.freeze({
                         module: route36
                     }),
-                    "cli:send": Object.freeze({
+                    "cli:history": Object.freeze({
                         module: route37
                     }),
-                    "cli:skills/add": Object.freeze({
+                    "cli:send": Object.freeze({
                         module: route38
                     }),
-                    "cli:skills/list": Object.freeze({
+                    "cli:skills/add": Object.freeze({
                         module: route39
                     }),
-                    "cli:skills/remove": Object.freeze({
+                    "cli:skills/list": Object.freeze({
                         module: route40
                     }),
-                    "cli:thread": Object.freeze({
+                    "cli:skills/remove": Object.freeze({
                         module: route41
+                    }),
+                    "cli:thread": Object.freeze({
+                        module: route42
                     })
                 });
                 const commands = Object.freeze([
@@ -42042,6 +42168,63 @@ var __webpack_modules__ = {
                     },
                     {
                         "aliases": [],
+                        "description": "Start a new Codex thread in --cwd, optionally with --model, --effort and a message.",
+                        "exitCode": "result",
+                        "options": [
+                            {
+                                "key": "cwd",
+                                "kind": "string",
+                                "option": "cwd",
+                                "repeated": false,
+                                "required": true
+                            },
+                            {
+                                "choices": [
+                                    "none",
+                                    "minimal",
+                                    "low",
+                                    "medium",
+                                    "high",
+                                    "xhigh"
+                                ],
+                                "key": "effort",
+                                "kind": "enum",
+                                "option": "effort",
+                                "repeated": false,
+                                "required": false
+                            },
+                            {
+                                "key": "expectedCwd",
+                                "kind": "string",
+                                "option": "expected-cwd",
+                                "repeated": false,
+                                "required": false
+                            },
+                            {
+                                "key": "message",
+                                "kind": "string",
+                                "option": "message",
+                                "positional": 0,
+                                "repeated": true,
+                                "required": false
+                            },
+                            {
+                                "key": "model",
+                                "kind": "string",
+                                "option": "model",
+                                "repeated": false,
+                                "required": false
+                            }
+                        ],
+                        "path": [
+                            "codex",
+                            "new"
+                        ],
+                        "rendered": true,
+                        "routeId": "cli:codex/new"
+                    },
+                    {
+                        "aliases": [],
                         "description": "List the experimental Codex thread queue (GROK_BOT_CODEX_EXPERIMENTAL=1).",
                         "exitCode": "result",
                         "options": [
@@ -42077,6 +42260,21 @@ var __webpack_modules__ = {
                                 "key": "correlationId",
                                 "kind": "string",
                                 "option": "correlation-id",
+                                "repeated": false,
+                                "required": false
+                            },
+                            {
+                                "choices": [
+                                    "none",
+                                    "minimal",
+                                    "low",
+                                    "medium",
+                                    "high",
+                                    "xhigh"
+                                ],
+                                "key": "effort",
+                                "kind": "enum",
+                                "option": "effort",
                                 "repeated": false,
                                 "required": false
                             },
@@ -42126,6 +42324,13 @@ var __webpack_modules__ = {
                                 "required": true
                             },
                             {
+                                "key": "model",
+                                "kind": "string",
+                                "option": "model",
+                                "repeated": false,
+                                "required": false
+                            },
+                            {
                                 "key": "replyTo",
                                 "kind": "string",
                                 "option": "reply-to",
@@ -42155,7 +42360,7 @@ var __webpack_modules__ = {
                                 "required": true
                             },
                             {
-                                "description": "Observation timeout: 1-600000 milliseconds.",
+                                "description": "Observation timeout: 1-7200000 milliseconds.",
                                 "key": "timeoutMs",
                                 "kind": "number",
                                 "option": "timeout-ms",
@@ -42187,7 +42392,7 @@ var __webpack_modules__ = {
                             "send"
                         ],
                         "render": {
-                            "maxElapsedMs": 660000
+                            "maxElapsedMs": 7260000
                         },
                         "rendered": true,
                         "routeId": "cli:codex/send"
@@ -42240,7 +42445,7 @@ var __webpack_modules__ = {
                                 "required": true
                             },
                             {
-                                "description": "Observation timeout: 1-600000 milliseconds.",
+                                "description": "Observation timeout: 1-7200000 milliseconds.",
                                 "key": "timeoutMs",
                                 "kind": "number",
                                 "option": "timeout-ms",
@@ -42261,7 +42466,7 @@ var __webpack_modules__ = {
                             "wait"
                         ],
                         "render": {
-                            "maxElapsedMs": 660000
+                            "maxElapsedMs": 7260000
                         },
                         "rendered": true,
                         "routeId": "cli:codex/wait"
@@ -43308,27 +43513,27 @@ var __webpack_modules__ = {
                         instanceId: processLifetime.instanceId,
                         pid: processLifetime.pid
                     };
-                    const result = await (0, _agent_bundle_runtime__rspack_import_47.iC)({
+                    const result = await (0, _agent_bundle_runtime__rspack_import_48.iC)({
                         capabilities: {
-                            command: (0, _agent_bundle_runtime__rspack_import_47.hU)(),
-                            filesystem: (0, _agent_bundle_runtime__rspack_import_47.hU)(),
-                            network: (0, _agent_bundle_runtime__rspack_import_47.hU)(),
-                            projectRoot: (0, _agent_bundle_runtime__rspack_import_47.qC)({
+                            command: (0, _agent_bundle_runtime__rspack_import_48.hU)(),
+                            filesystem: (0, _agent_bundle_runtime__rspack_import_48.hU)(),
+                            network: (0, _agent_bundle_runtime__rspack_import_48.hU)(),
+                            projectRoot: (0, _agent_bundle_runtime__rspack_import_48.qC)({
                                 root: cwd
                             }, 'derived')
                         },
-                        host: (0, _agent_bundle_runtime__rspack_import_47.hU)('unsupported-surface'),
+                        host: (0, _agent_bundle_runtime__rspack_import_48.hU)('unsupported-surface'),
                         invocation: {
                             kind: 'cli',
                             operationId: command.routeId,
                             surface: command.path.join(' ')
                         },
-                        lineage: (0, _agent_bundle_runtime__rspack_import_47.hU)('unsupported-surface'),
+                        lineage: (0, _agent_bundle_runtime__rspack_import_48.hU)('unsupported-surface'),
                         plugin: pluginRoot.identity,
                         process: processHit,
                         signal: context.signal,
-                        terminal: (0, _agent_bundle_runtime__rspack_import_47.qC)(context.terminal, 'native'),
-                        workspace: (0, _agent_bundle_runtime__rspack_import_47.qC)({
+                        terminal: (0, _agent_bundle_runtime__rspack_import_48.qC)(context.terminal, 'native'),
+                        workspace: (0, _agent_bundle_runtime__rspack_import_48.qC)({
                             root: cwd
                         }, 'derived')
                     }, async ()=>route.module.default({
@@ -43435,7 +43640,7 @@ var __webpack_modules__ = {
                             return stream;
                         }
                     });
-                    const dispatcher = (0, _agent_bundle_runtime__rspack_import_48.jK)(host);
+                    const dispatcher = (0, _agent_bundle_runtime__rspack_import_49.jK)(host);
                     return Object.freeze({
                         close: async ()=>{
                             await worker.terminate();
@@ -43483,7 +43688,7 @@ var __webpack_modules__ = {
                         execute,
                         name: "gbot",
                         render,
-                        version: "0.10.1"
+                        version: "0.10.2"
                     });
                 }
                 __webpack_require__.d(__webpack_exports__, {}, {
@@ -43927,7 +44132,7 @@ var __webpack_modules__ = {
         var _codex_thread_id_js__rspack_import_11 = __webpack_require__("./src/core/codex/thread-id.js");
         var _desktop_shim_js__rspack_import_9 = __webpack_require__("./src/core/desktop-shim.js");
         var _user_machine_guidance_js__rspack_import_10 = __webpack_require__("./src/core/user-machine-guidance.js");
-        const PINNED_CODEX_VERSION = "0.154.0";
+        const PINNED_CODEX_VERSION = "0.158.0";
         const UPSTREAM_DESKTOP_ISSUES = [
             "https://github.com/openai/codex/issues/41014",
             "https://github.com/openai/codex/issues/41112"
@@ -43988,7 +44193,7 @@ var __webpack_modules__ = {
                 "Either no daemon is running (start one with `codex app-server daemon start` or bootstrap),",
                 "or ChatGPT Desktop is running a private stdio app-server that external clients cannot reach",
                 "(" + UPSTREAM_DESKTOP_ISSUES.join(", ") + ").",
-                "gbot connects only to this machine's local socket; it has no remote transport.",
+                "Codex must run on the same machine as gbot. Set CODEX_APP_SERVER_SOCK to an existing local control socket if it is elsewhere; gbot has no remote transport.",
                 "gbot codex targets daemon-managed threads only."
             ].join("\n");
         }
@@ -44632,6 +44837,47 @@ var __webpack_modules__ = {
             };
         }
         const openSession = openCodexSession;
+        async function startCodexThread({ cwd, expectedCwd, model, effort, message, env = process.env, signal } = {}) {
+            validateModelEffort(model, effort);
+            if (typeof cwd !== "string" || !cwd.trim()) throw new RangeError("--cwd is required for a new Codex thread");
+            const resolvedCwd = (0, node_fs__rspack_import_1.realpathSync)(cwd);
+            if (expectedCwd !== undefined && (0, node_fs__rspack_import_1.realpathSync)(expectedCwd) !== resolvedCwd) throw new RangeError("New Codex thread cwd does not match expectedCwd");
+            if (message !== undefined && (typeof message !== "string" || !message.trim())) throw new RangeError("Message must contain text");
+            const { client } = await openSession(env, {
+                signal
+            });
+            let threadId, started;
+            try {
+                started = await client.request("thread/start", {
+                    cwd: resolvedCwd,
+                    ...model ? {
+                        model
+                    } : {},
+                    ...effort ? {
+                        config: {
+                            model_reasoning_effort: effort
+                        }
+                    } : {}
+                });
+                threadId = started?.thread?.id;
+                if (typeof threadId !== "string" || !ID_PATTERN.test(threadId)) throw new CodexProtocolError("thread/start", "missing `thread.id`");
+            } finally{
+                client.close();
+            }
+            if (message === undefined) return {
+                threadId,
+                cwd: resolvedCwd,
+                model: started.model ?? model,
+                exitCode: 0
+            };
+            return await sendToCodexThread(threadId, message, {
+                env,
+                expectedCwd: resolvedCwd,
+                model,
+                effort,
+                signal
+            });
+        }
         const CODEX_VERSION_PROBE_TIMEOUT_MS = 3000;
         function probeLocalCodexVersion(timeoutMs = CODEX_VERSION_PROBE_TIMEOUT_MS) {
             const out = (0, node_child_process__rspack_import_5.spawnSync)("codex", [
@@ -44973,7 +45219,7 @@ var __webpack_modules__ = {
         }
         function requireExperimental(env, what) {
             if (experimentalEnabled(env)) return;
-            throw new CodexSendError(what + " uses Codex's experimental app-server API (thread/queue/*), which is off by default. " + "Set GROK_BOT_CODEX_EXPERIMENTAL=1 to opt in; method names are pinned to Codex " + PINNED_CODEX_VERSION + ".", {
+            throw new CodexSendError(what + " needs thread/queue/add, which is experimental and absent from Codex " + PINNED_CODEX_VERSION + "'s stable API. " + "Use --when-busy steer with an expected turn ID, wait until the thread is idle, or opt in with GROK_BOT_CODEX_EXPERIMENTAL=1 on a Codex daemon that supports the experimental queue API.", {
                 delivery: "rejected",
                 reason: "experimental-disabled"
             });
@@ -44981,7 +45227,7 @@ var __webpack_modules__ = {
         function unsupportedOrRpc(err, method, threadId, envelope, turnId) {
             const guarded = method === "turn/steer";
             if (err instanceof CodexRpcError && err.rpc && err.rpc.code === -32601) {
-                return new CodexSendError("Codex app-server does not offer " + method + " (daemon predates it, or experimentalApi was not granted). " + (guarded ? "Upgrade Codex before retrying guarded steering." : "Upgrade Codex or send without --when-busy queue."), {
+                return new CodexSendError("Codex app-server does not offer " + method + " (daemon predates it, or experimentalApi was not granted). " + (guarded ? "Upgrade Codex before retrying guarded steering." : "Use --when-busy steer with an expected turn ID, wait for idle, or use a Codex daemon with experimental queue support and GROK_BOT_CODEX_EXPERIMENTAL=1."), {
                     delivery: "rejected",
                     reason: "unsupported",
                     threadId,
@@ -45097,7 +45343,7 @@ var __webpack_modules__ = {
         }
         async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({
             env
-        }), whenBusy = "reject", session, expectedTurnId, expectedCwd, signal } = {}) {
+        }), whenBusy = "reject", session, expectedTurnId, expectedCwd, model, effort, signal } = {}) {
             try {
                 const receipt = await sendToCodexThreadInner(threadId, text, {
                     env,
@@ -45106,6 +45352,8 @@ var __webpack_modules__ = {
                     session,
                     expectedTurnId,
                     expectedCwd,
+                    model,
+                    effort,
                     signal
                 });
                 return (0, _codex_contract_js__rspack_import_7.Dz)(receipt);
@@ -45117,7 +45365,19 @@ var __webpack_modules__ = {
                 return (0, _codex_contract_js__rspack_import_7.DG)(err);
             }
         }
-        async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, signal }) {
+        function validateModelEffort(model, effort) {
+            if (model !== undefined && (typeof model !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(model))) throw new RangeError("--model must be a nonempty model ID");
+            if (effort !== undefined && ![
+                "none",
+                "minimal",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+            ].includes(effort)) throw new RangeError("--effort must be none, minimal, low, medium, high, or xhigh");
+        }
+        async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, model, effort, signal }) {
+            validateModelEffort(model, effort);
             if (![
                 "reject",
                 "queue",
@@ -45163,7 +45423,15 @@ var __webpack_modules__ = {
                 try {
                     resumed = await client.request("thread/resume", {
                         threadId,
-                        excludeTurns: true
+                        excludeTurns: true,
+                        ...model ? {
+                            model
+                        } : {},
+                        ...effort ? {
+                            config: {
+                                model_reasoning_effort: effort
+                            }
+                        } : {}
                     });
                 } catch (err) {
                     assertNotCancelled();
@@ -45298,7 +45566,13 @@ var __webpack_modules__ = {
                             }
                         ],
                         clientUserMessageId: envelope.messageId,
-                        turnTrigger: "gbot"
+                        turnTrigger: "gbot",
+                        ...model ? {
+                            model
+                        } : {},
+                        ...effort ? {
+                            effort
+                        } : {}
                     });
                 } catch (err) {
                     if (err instanceof CodexSendError) throw err;
@@ -45357,6 +45631,7 @@ var __webpack_modules__ = {
             Bt: ()=>listCodexQueue,
             MU: ()=>codexStatus,
             Mr: ()=>withEnvelopeHeader,
+            QC: ()=>startCodexThread,
             X$: ()=>listCodexThreads1,
             ZS: ()=>sendToCodexThread,
             e0: ()=>experimentalEnabled,
@@ -45581,10 +45856,10 @@ var __webpack_modules__ = {
                 ];
                 if (afterMessageId !== undefined) boundedInteger(anchors.length, 200, 'afterMessageId count');
                 for (const anchor of anchors)conversationId(anchor, 'afterMessageId');
-                boundedInteger(timeoutMs, 600000, 'timeoutMs');
+                boundedInteger(timeoutMs, 7200000, 'timeoutMs');
                 boundedInteger(maxOutputBytes, BUDGET, 'maxOutputBytes');
                 if (waitSignal !== undefined && !(waitSignal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
-                let done = false, status = acceptedTurns.has(turnId) ? 'inProgress' : undefined, error, historyError, itemBytes = 0, truncated = overflow;
+                let done = false, status = acceptedTurns.has(turnId) ? 'inProgress' : undefined, error, historyError, itemBytes = 0, truncated = false;
                 const items = new Map();
                 const add = (item)=>{
                     if (!item || typeof item.id !== 'string' || typeof item.type !== 'string') throw new Error('Invalid history item');
@@ -45631,6 +45906,7 @@ var __webpack_modules__ = {
                 };
                 const result = (state, detail)=>{
                     const interactions = scan();
+                    const overflowUncertain = state === 'unknown' && /Notification coverage overflow/.test(detail ?? '');
                     const candidates = [
                         ...items.values()
                     ].map((x)=>x.item);
@@ -45639,7 +45915,7 @@ var __webpack_modules__ = {
                     const reply = {
                         text: '',
                         items: [],
-                        truncated: truncated || overflow
+                        truncated: truncated || overflowUncertain
                     };
                     for (const item of selected){
                         const text = reply.text ? `${reply.text}\n${item.text}` : item.text;
@@ -45672,7 +45948,7 @@ var __webpack_modules__ = {
                         interactions
                     };
                 };
-                let timer, notify;
+                let timer, pollTimer, notify;
                 const abortSignals = [
                     signal,
                     waitSignal
@@ -45688,10 +45964,18 @@ var __webpack_modules__ = {
                             'Codex connection closed'
                         ]);
                     };
-                    timer = setTimeout(()=>resolve([
+                    timer = setTimeout(()=>resolve(overflow ? [
+                            'unknown',
+                            'Notification coverage overflow; pending interaction status is uncertain'
+                        ] : [
                             'timeout',
                             'Observation deadline reached'
                         ]), timeoutMs);
+                    pollTimer = setInterval(()=>{
+                        for (const listener of [
+                            ...wake
+                        ])listener();
+                    }, 2000);
                     for (const s of abortSignals)s.addEventListener('abort', notify, {
                         once: true
                     });
@@ -45762,19 +46046,51 @@ var __webpack_modules__ = {
                             historyError
                         ];
                     }
+                    let lastPoll = 0;
                     while(!done){
                         const interactions = scan();
                         if (terminal(status)) return [
                             status,
                             error ?? historyError
                         ];
-                        if (historyError || overflow) return [
+                        if (historyError) return [
                             'unknown',
-                            historyError ?? 'Notification coverage overflow'
+                            historyError
                         ];
                         if (interactions.length) return [
                             'waiting-for-input'
                         ];
+                        if (Date.now() - lastPoll >= 2000) {
+                            lastPoll = Date.now();
+                            try {
+                                await visitCodexHistory(session, threadId, 'thread/turns/list', {}, (data)=>{
+                                    const turn = data.find((t)=>t?.id === turnId);
+                                    if (!turn) return false;
+                                    if (terminal(turn.status)) {
+                                        status = turn.status;
+                                        error = turn.error;
+                                    }
+                                    return true;
+                                }, {
+                                    stopped: ()=>done
+                                });
+                                if (terminal(status)) {
+                                    await visitCodexHistory(session, threadId, 'thread/items/list', {
+                                        turnId,
+                                        sortDirection: 'asc'
+                                    }, (data)=>{
+                                        for (const row of data)if (row?.turnId === turnId && row.item) add(row.item);
+                                        return false;
+                                    }, {
+                                        stopped: ()=>done
+                                    });
+                                    continue;
+                                }
+                            } catch (err) {
+                                historyError = err.message;
+                                truncated = true;
+                            }
+                        }
                         await new Promise((resolve)=>{
                             const listener = ()=>{
                                 wake.delete(listener);
@@ -45797,6 +46113,7 @@ var __webpack_modules__ = {
                 } finally{
                     done = true;
                     clearTimeout(timer);
+                    clearInterval(pollTimer);
                     wake.delete(notify);
                     for (const s of abortSignals)s.removeEventListener('abort', notify);
                     for (const listener of [
@@ -45844,7 +46161,7 @@ var __webpack_modules__ = {
                 close,
                 async send (text, { envelope = (0, _codex_bridge_js__rspack_import_2.nq)({
                     env
-                }), whenBusy = 'reject', expectedTurnId, signal: sendSignal } = {}) {
+                }), whenBusy = 'reject', expectedTurnId, model, effort, signal: sendSignal } = {}) {
                     if (closed) return (0, _contract_js__rspack_import_0.DG)(Object.assign(new Error('Conversation closed'), {
                         delivery: 'rejected',
                         reason: 'closed',
@@ -45863,6 +46180,8 @@ var __webpack_modules__ = {
                         expectedTurnId,
                         session,
                         expectedCwd,
+                        model,
+                        effort,
                         signal: submissionSignal
                     });
                     if (receipt.delivery === 'accepted' && receipt.turnId) {
@@ -48380,7 +48699,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
     "./src/core/user-machine-guidance.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         const USER_MACHINE_CODEX_CLAUDE_GUIDANCE = [
             "Codex and Claude sessions live on the user's registered machines (for example their Linux desktop or Mac), not on the Grok Bot agent box (/home/box).",
-            "gbot connects only to a local Unix socket ($CODEX_HOME/app-server-control/app-server-control.sock, or CODEX_APP_SERVER_SOCK). There is no remote transport.",
+            "Codex must run on the same machine as gbot. Set CODEX_APP_SERVER_SOCK to an existing local control socket, or use $CODEX_HOME/app-server-control/app-server-control.sock. There is no remote transport.",
             "When running on the box (HOME=/home/box), do not call codex_* or claude_send there. Run the gbot CLI on the user's machine through Grok Bot Shell with a machineId (the host's machine-targeted shell).",
             "On that machine, provide the socket with `codex app-server daemon start` (or bootstrap). Auth stays with each machine's native Codex or Claude login; gbot does not store or export credentials."
         ].join("\n");
@@ -48400,7 +48719,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
     },
     "./package.json" (module) {
         module.exports = {
-            "rE": "0.10.1"
+            "rE": "0.10.2"
         };
     }
 };

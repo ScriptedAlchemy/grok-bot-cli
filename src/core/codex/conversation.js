@@ -95,9 +95,9 @@ export async function openCodexConversation(threadId, options = {}) {
     const anchors = afterMessageId === undefined ? [] : Array.isArray(afterMessageId) ? afterMessageId : [afterMessageId];
     if (afterMessageId !== undefined) boundedInteger(anchors.length, 200, 'afterMessageId count');
     for (const anchor of anchors) conversationId(anchor, 'afterMessageId');
-    boundedInteger(timeoutMs, 600000, 'timeoutMs'); boundedInteger(maxOutputBytes, BUDGET, 'maxOutputBytes');
+    boundedInteger(timeoutMs, 7200000, 'timeoutMs'); boundedInteger(maxOutputBytes, BUDGET, 'maxOutputBytes');
     if (waitSignal !== undefined && !(waitSignal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
-    let done = false, status = acceptedTurns.has(turnId) ? 'inProgress' : undefined, error, historyError, itemBytes = 0, truncated = overflow;
+    let done = false, status = acceptedTurns.has(turnId) ? 'inProgress' : undefined, error, historyError, itemBytes = 0, truncated = false;
     const items = new Map();
     const add = item => {
       if (!item || typeof item.id !== 'string' || typeof item.type !== 'string') throw new Error('Invalid history item');
@@ -126,11 +126,12 @@ export async function openCodexConversation(threadId, options = {}) {
     };
     const result = (state, detail) => {
       const interactions = scan();
+      const overflowUncertain = state === 'unknown' && /Notification coverage overflow/.test(detail ?? '');
       const candidates = [...items.values()].map(x => x.item);
       const finals = candidates.filter(i => i.phase === 'final_answer');
       // Old app-servers omit phase; use their completed agent items only at terminal status.
       const selected = finals.length ? finals : terminal(state) ? candidates : [];
-      const reply = { text: '', items: [], truncated: truncated || overflow };
+      const reply = { text: '', items: [], truncated: truncated || overflowUncertain };
       for (const item of selected) {
         const text = reply.text ? `${reply.text}\n${item.text}` : item.text;
         if (Buffer.byteLength(JSON.stringify({ text, items: [...reply.items, item] })) > maxOutputBytes) { reply.truncated = true; break; }
@@ -138,14 +139,15 @@ export async function openCodexConversation(threadId, options = {}) {
       }
       return { threadId, turnId, ...(messageId === undefined ? {} : { messageId }), execution: { state, ...(detail ? { error: detail } : {}) }, reply, interactions };
     };
-    let timer, notify;
+    let timer, pollTimer, notify;
     const abortSignals = [signal, waitSignal].filter(Boolean);
     const stopped = new Promise(resolve => {
       notify = () => {
         if (abortSignals.some(s => s.aborted) || closed) resolve(['unknown', 'Observation cancelled']);
         else if (disconnected) resolve(['disconnected', 'Codex connection closed']);
       };
-      timer = setTimeout(() => resolve(['timeout', 'Observation deadline reached']), timeoutMs);
+      timer = setTimeout(() => resolve(overflow ? ['unknown', 'Notification coverage overflow; pending interaction status is uncertain'] : ['timeout', 'Observation deadline reached']), timeoutMs);
+      pollTimer = setInterval(() => { for (const listener of [...wake]) listener(); }, 2000);
       for (const s of abortSignals) s.addEventListener('abort', notify, { once: true });
       wake.add(notify); notify();
     });
@@ -175,11 +177,30 @@ export async function openCodexConversation(threadId, options = {}) {
         if (afterMessageId !== undefined && !historyTerminal) return scan().length ? ['waiting-for-input'] : ['unknown', 'Anchored reply awaits terminal history'];
       } catch (err) { historyError = err.message; truncated = true; }
       if (afterMessageId !== undefined && historyError) { items.clear(); return ['unknown', historyError]; }
+      let lastPoll = 0;
       while (!done) {
         const interactions = scan();
         if (terminal(status)) return [status, error ?? historyError];
-        if (historyError || overflow) return ['unknown', historyError ?? 'Notification coverage overflow'];
+        if (historyError) return ['unknown', historyError];
         if (interactions.length) return ['waiting-for-input'];
+        if (Date.now() - lastPoll >= 2000) {
+          lastPoll = Date.now();
+          try {
+            await visitCodexHistory(session, threadId, 'thread/turns/list', {}, data => {
+              const turn = data.find(t => t?.id === turnId);
+              if (!turn) return false;
+              if (terminal(turn.status)) { status = turn.status; error = turn.error; }
+              return true;
+            }, { stopped: () => done });
+            if (terminal(status)) {
+              await visitCodexHistory(session, threadId, 'thread/items/list', { turnId, sortDirection: 'asc' }, data => {
+                for (const row of data) if (row?.turnId === turnId && row.item) add(row.item);
+                return false;
+              }, { stopped: () => done });
+              continue;
+            }
+          } catch (err) { historyError = err.message; truncated = true; }
+        }
         await new Promise(resolve => {
           const listener = () => { wake.delete(listener); resolve(); };
           wake.add(listener);
@@ -188,7 +209,7 @@ export async function openCodexConversation(threadId, options = {}) {
       return ['unknown', 'Observation ended'];
     };
     try { const [state, detail] = await Promise.race([stopped, collect()]); return result(state, detail); }
-    finally { done = true; clearTimeout(timer); wake.delete(notify); for (const s of abortSignals) s.removeEventListener('abort', notify); for (const listener of [...wake]) listener(); }
+    finally { done = true; clearTimeout(timer); clearInterval(pollTimer); wake.delete(notify); for (const s of abortSignals) s.removeEventListener('abort', notify); for (const listener of [...wake]) listener(); }
   }
 
   /** @param {{timeoutMs?: number, maxEvents?: number, signal?: AbortSignal}} [options] */
@@ -211,12 +232,12 @@ export async function openCodexConversation(threadId, options = {}) {
   }
   return { threadId, cwd: resumed.cwd ?? resumed.thread.cwd, wait, watch, close,
     /** @param {string} text
-     * @param {{envelope?: object, whenBusy?: string, expectedTurnId?: string, signal?: AbortSignal}} [options] */
-    async send(text, { envelope = buildEnvelope({ env }), whenBusy = 'reject', expectedTurnId, signal: sendSignal } = {}) {
+     * @param {{envelope?: object, whenBusy?: string, expectedTurnId?: string, model?: string, effort?: string, signal?: AbortSignal}} [options] */
+    async send(text, { envelope = buildEnvelope({ env }), whenBusy = 'reject', expectedTurnId, model, effort, signal: sendSignal } = {}) {
       if (closed) return outcomeFromError(Object.assign(new Error('Conversation closed'), { delivery: 'rejected', reason: 'closed', threadId, envelope }));
       if (sendSignal !== undefined && !(sendSignal instanceof AbortSignal)) throw new TypeError('signal must be an AbortSignal');
       const submissionSignal = signal && sendSignal ? AbortSignal.any([signal, sendSignal]) : sendSignal ?? signal;
-      const receipt = await sendToCodexThread(threadId, text, { env, envelope, whenBusy, expectedTurnId, session, expectedCwd, signal: submissionSignal });
+      const receipt = await sendToCodexThread(threadId, text, { env, envelope, whenBusy, expectedTurnId, session, expectedCwd, model, effort, signal: submissionSignal });
       if (receipt.delivery === 'accepted' && receipt.turnId) {
         acceptedTurns.add(receipt.turnId);
         if (acceptedTurns.size > 100) acceptedTurns.delete(acceptedTurns.values().next().value);
