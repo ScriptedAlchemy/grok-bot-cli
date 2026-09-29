@@ -13,7 +13,7 @@ export default defineTool(
   {
     title: 'ChatGPT Desktop send',
     description:
-      'Send a message in ChatGPT Desktop via local CDP only: focus [data-codex-composer], Input.insertText, Enter (Send button fallback). Omit threadId to start a new chat; pass project to prefer "Start new chat in <project>". Temporary sidebar ids are local:client-new-thread:… until reload — use chatgpt_desktop_wait_reply to resolve the real conversation id. Does not use app-server.',
+      'Send a message in ChatGPT Desktop via local CDP only: focus [data-codex-composer], Input.insertText, Enter (Send button fallback). Omit threadId to start a new chat; pass project to prefer "Start new chat in <project>". After a new-thread send, waits for data-response-annotation-conversation and returns that durable id as threadId (never local:client-new-thread:*). temporaryThreadId may still name the brief sidebar row. Does not use app-server.',
     annotations: { readOnlyHint: false },
     inputSchema,
     resultSchema,

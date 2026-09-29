@@ -4,8 +4,15 @@ export {
   ASSISTANT_MESSAGE_SELECTOR,
   ATTR,
   COMPOSER_SELECTOR,
+  DEFAULT_CONVERSATION_RESOLVE_MS,
+  DEFAULT_FULL_READ_IDLE_WHEELS,
+  DEFAULT_FULL_READ_MAX_WHEELS,
+  DEFAULT_OPEN_TIMEOUT_MS,
   FINAL_ASSISTANT_SELECTOR,
+  FULL_READ_WHEEL_DELTA_Y,
+  HISTORY_GAP_PREFIX,
   IGNORED_TARGET_URL_MARKERS,
+  LOADING_TASK_TEXT,
   MAIN_CONTENT_SURFACE_CLASS_PREFIX,
   MAIN_WINDOW_URL,
   SELECTORS,
@@ -16,6 +23,7 @@ export {
   isMainWindowTarget,
   newChatInProjectSelector,
   pickMainWindowTarget,
+  resolveDurableThreadId,
   summarizeTargetInfos,
 } from './cdp-dom.js';
 export { CdpSession } from './cdp-session.js';

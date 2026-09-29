@@ -7049,16 +7049,17 @@ var __webpack_modules__ = {
         var _errors_js__rspack_import_0 = __webpack_require__("./src/core/chatgpt-desktop/errors.ts");
         var _cdp_session_js__rspack_import_1 = __webpack_require__("./src/core/chatgpt-desktop/cdp-session.ts");
         var _cdp_dom_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/cdp-dom.ts");
-        var _loopback_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
+        var _thread_ids_js__rspack_import_3 = __webpack_require__("./src/core/chatgpt-desktop/thread-ids.ts");
+        var _loopback_js__rspack_import_4 = __webpack_require__("./src/core/chatgpt-desktop/loopback.ts");
         class CdpChatGptDesktopAdapter {
-            #port = (0, _loopback_js__rspack_import_3.L0)();
+            #port = (0, _loopback_js__rspack_import_4.L0)();
             #session = null;
             #version = null;
             #pageSessionId = null;
             #mainTargetId = null;
             async connect({ port }) {
                 await this.close();
-                this.#port = (0, _loopback_js__rspack_import_3.L0)(process.env, port);
+                this.#port = (0, _loopback_js__rspack_import_4.L0)(process.env, port);
                 const session = new _cdp_session_js__rspack_import_1.a(this.#port);
                 try {
                     this.#version = await session.connect();
@@ -7105,7 +7106,7 @@ var __webpack_modules__ = {
             async sendMessage({ threadId, text, project, openTimeoutMs = 90000 }) {
                 const sessionId = await this.#ensurePageSession();
                 let temporaryThreadId;
-                let resolvedThreadId = threadId ?? 'new';
+                const startedNew = !threadId;
                 if (threadId) {
                     await this.#openAndWait(sessionId, threadId, openTimeoutMs);
                 } else {
@@ -7117,15 +7118,24 @@ var __webpack_modules__ = {
                         limit: 20
                     });
                     const temp = threads.find((t)=>t.threadId.startsWith(_cdp_dom_js__rspack_import_2.hA) && t.selected) ?? threads.find((t)=>t.threadId.startsWith(_cdp_dom_js__rspack_import_2.hA));
-                    if (temp) {
-                        temporaryThreadId = temp.threadId;
-                        resolvedThreadId = temp.threadId;
-                    }
+                    if (temp) temporaryThreadId = temp.threadId;
                 }
                 const { sentVia } = await (0, _cdp_dom_js__rspack_import_2.lh)(this.#requireSession(), sessionId, text);
+                let conversationId;
+                if (startedNew || threadId && (0, _thread_ids_js__rspack_import_3.vr)(threadId)) {
+                    const resolveMs = Math.min(openTimeoutMs, 60000);
+                    conversationId = await (0, _cdp_dom_js__rspack_import_2.z9)(this.#requireSession(), sessionId, {
+                        timeoutMs: resolveMs
+                    });
+                }
+                const durable = (0, _cdp_dom_js__rspack_import_2.X8)(conversationId, threadId);
+                if (!durable) {
+                    throw new Error('ChatGPT Desktop send accepted but no durable conversation id was available; ' + 'refusing to return a local:client-new-thread:* id as threadId');
+                }
                 return {
-                    threadId: resolvedThreadId,
+                    threadId: durable,
                     temporaryThreadId,
+                    conversationId: conversationId || (0, _thread_ids_js__rspack_import_3.nn)(durable) || durable,
                     project,
                     backend: 'cdp',
                     experimental: false,
@@ -7136,7 +7146,7 @@ var __webpack_modules__ = {
             }
             async waitForReply({ threadId, timeoutMs = 120000 }) {
                 const sessionId = await this.#ensurePageSession();
-                if (threadId && !threadId.startsWith(_cdp_dom_js__rspack_import_2.hA) && threadId !== 'new') {
+                if (threadId && !(0, _thread_ids_js__rspack_import_3.vr)(threadId) && threadId !== 'new') {
                     try {
                         await this.#openAndWait(sessionId, threadId, 90000);
                     } catch  {}
@@ -7147,10 +7157,13 @@ var __webpack_modules__ = {
                         timeoutMs,
                         baselineFinalCount: baseline.finalAssistantCount
                     });
-                    const resolvedId = done.conversationId || threadId || 'unknown';
+                    const durable = (0, _cdp_dom_js__rspack_import_2.X8)(done.conversationId, threadId) ?? (done.conversationId ? (0, _thread_ids_js__rspack_import_3.BS)(done.conversationId) : null);
+                    if (!durable) {
+                        throw new Error('ChatGPT Desktop reply finished without a durable conversation id on ' + '[data-response-annotation-conversation]');
+                    }
                     return {
-                        threadId: resolvedId,
-                        conversationId: done.conversationId || undefined,
+                        threadId: durable,
+                        conversationId: done.conversationId || (0, _thread_ids_js__rspack_import_3.nn)(durable) || durable,
                         reply: done.reply,
                         backend: 'cdp',
                         experimental: false,
@@ -7158,8 +7171,19 @@ var __webpack_modules__ = {
                     };
                 } catch (error) {
                     const last = await (0, _cdp_dom_js__rspack_import_2.YX)(this.#requireSession(), sessionId);
+                    const durable = (0, _cdp_dom_js__rspack_import_2.X8)(last.conversationId, threadId);
+                    if (last.reply && durable) {
+                        return {
+                            threadId: durable,
+                            conversationId: last.conversationId || (0, _thread_ids_js__rspack_import_3.nn)(durable) || durable,
+                            reply: last.reply,
+                            backend: 'cdp',
+                            experimental: false,
+                            delivery: 'replied'
+                        };
+                    }
                     return {
-                        threadId: last.conversationId || threadId || 'unknown',
+                        threadId: durable ?? (threadId && !(0, _thread_ids_js__rspack_import_3.vr)(threadId) ? threadId : 'unknown'),
                         conversationId: last.conversationId || undefined,
                         reply: last.reply,
                         backend: 'cdp',
@@ -7261,6 +7285,7 @@ var __webpack_modules__ = {
         });
     },
     "./src/core/chatgpt-desktop/cdp-dom.ts" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        var _codex_thread_id_js__rspack_import_0 = __webpack_require__("./src/core/codex/thread-id.js");
         const MAIN_WINDOW_URL = 'app://-/index.html';
         const IGNORED_TARGET_URL_MARKERS = [
             'initialRoute=%2Favatar-overlay',
@@ -7289,8 +7314,10 @@ var __webpack_modules__ = {
         const TEMP_THREAD_ID_PREFIX = 'local:client-new-thread:';
         const LOADING_TASK_TEXT = 'Loading task…';
         const DEFAULT_OPEN_TIMEOUT_MS = 90000;
+        const DEFAULT_CONVERSATION_RESOLVE_MS = 60000;
         const DEFAULT_FULL_READ_IDLE_WHEELS = 8;
         const DEFAULT_FULL_READ_MAX_WHEELS = 400;
+        const FULL_READ_WHEEL_DELTA_Y = -800;
         const COMPOSER_SELECTOR = `[${ATTR.composer}="true"][contenteditable="true"]`;
         const SEND_BUTTON_SELECTOR = 'button[aria-label="Send"]';
         const STOP_BUTTON_SELECTOR = 'main button[aria-label="Stop"]';
@@ -7332,14 +7359,37 @@ var __webpack_modules__ = {
             return targets.find((t)=>isMainWindowTarget(t)) ?? null;
         }
         function dedupeThreadsById(threads) {
-            const seen = new Set();
-            const out = [];
+            const byKey = new Map();
             for (const thread of threads){
-                if (!thread.threadId || seen.has(thread.threadId)) continue;
-                seen.add(thread.threadId);
-                out.push(thread);
+                if (!thread.threadId) continue;
+                const key = durableThreadKey(thread.threadId);
+                const existing = byKey.get(key);
+                if (!existing) {
+                    byKey.set(key, thread);
+                    continue;
+                }
+                byKey.set(key, preferThreadRow(existing, thread));
             }
-            return out;
+            return [
+                ...byKey.values()
+            ];
+        }
+        function durableThreadKey(threadId) {
+            if ((0, _codex_thread_id_js__rspack_import_0.vr)(threadId)) return threadId;
+            try {
+                return (0, _codex_thread_id_js__rspack_import_0.SX)(threadId);
+            } catch  {
+                return threadId.startsWith("local:") ? threadId.slice("local:".length) || threadId : threadId;
+            }
+        }
+        function toDesktopForm(threadId) {
+            if (!threadId || (0, _codex_thread_id_js__rspack_import_0.vr)(threadId)) return threadId;
+            if (threadId.startsWith("local:")) return threadId;
+            return `${"local:"}${threadId}`;
+        }
+        function preferThreadRow(left, right) {
+            const score = (row)=>(row.selected ? 4 : 0) + (row.pinned ? 2 : 0) + (row.threadId.startsWith("local:") && !(0, _codex_thread_id_js__rspack_import_0.vr)(row.threadId) ? 1 : 0);
+            return score(right) > score(left) ? right : left;
         }
         const LIST_THREADS_EXPRESSION = `(() => {
   const skipProjectLabels = new Set(['Recent', 'Pinned', 'Threads', 'Chats']);
@@ -7374,13 +7424,24 @@ var __webpack_modules__ = {
   return out;
 })()`;
         function openThreadExpression(threadId) {
+            const bare = durableThreadKey(threadId);
+            const desktop = toDesktopForm(bare);
+            const candidates = [
+                ...new Set([
+                    threadId,
+                    bare,
+                    desktop
+                ].filter(Boolean))
+            ];
             return `(() => {
-    const id = ${JSON.stringify(threadId)};
+    const candidates = ${JSON.stringify(candidates)};
     const rows = Array.from(document.querySelectorAll(${JSON.stringify(SELECTORS.threadRow)}));
-    const row = rows.find((el) => el.getAttribute(${JSON.stringify(ATTR.threadId)}) === id);
+    const row = rows.find((el) =>
+      candidates.includes(el.getAttribute(${JSON.stringify(ATTR.threadId)}) || ''),
+    );
     if (!row) return { ok: false, error: 'thread-not-found' };
     row.click();
-    return { ok: true, threadId: id };
+    return { ok: true, threadId: row.getAttribute(${JSON.stringify(ATTR.threadId)}) || candidates[0] };
   })()`;
         }
         function startNewChatExpression(project) {
@@ -7443,6 +7504,12 @@ var __webpack_modules__ = {
     reply,
     lastTurnKey,
   };
+})()`;
+        const CONVERSATION_ID_EXPRESSION = `(() => {
+  const annotation = document.querySelector(${JSON.stringify(CONVERSATION_ANNOTATION_SELECTOR)});
+  return annotation
+    ? (annotation.getAttribute(${JSON.stringify(ATTR.conversationAnnotation)}) || '')
+    : '';
 })()`;
         const HARVEST_VISIBLE_TURNS_EXPRESSION = `(() => {
   const gapPrefix = ${JSON.stringify(HISTORY_GAP_PREFIX)};
@@ -7624,6 +7691,32 @@ var __webpack_modules__ = {
                 lastTurnKey: String(state?.lastTurnKey ?? '')
             };
         }
+        async function readConversationIdFromDom(session, sessionId) {
+            const value = await session.evaluate(CONVERSATION_ID_EXPRESSION, {
+                sessionId
+            });
+            return typeof value === 'string' ? value.trim() : '';
+        }
+        async function waitForConversationId(session, sessionId, { timeoutMs = DEFAULT_CONVERSATION_RESOLVE_MS } = {}) {
+            const deadline = Date.now() + timeoutMs;
+            while(Date.now() < deadline){
+                const id = await readConversationIdFromDom(session, sessionId);
+                if (id && !(0, _codex_thread_id_js__rspack_import_0.vr)(id) && !id.startsWith(TEMP_THREAD_ID_PREFIX)) {
+                    return id;
+                }
+                await delay(200);
+            }
+            throw new Error(`ChatGPT Desktop conversation id did not appear on [data-response-annotation-conversation] within ${timeoutMs}ms`);
+        }
+        function resolveDurableThreadId(conversationId, fallbackThreadId) {
+            if (conversationId && !(0, _codex_thread_id_js__rspack_import_0.vr)(conversationId)) {
+                return toDesktopForm(conversationId);
+            }
+            if (fallbackThreadId && !(0, _codex_thread_id_js__rspack_import_0.vr)(fallbackThreadId) && fallbackThreadId !== 'new') {
+                return toDesktopForm(fallbackThreadId);
+            }
+            return null;
+        }
         async function waitForReplyDone(session, sessionId, { timeoutMs = 120000, baselineFinalCount = 0 } = {}) {
             const deadline = Date.now() + timeoutMs;
             let sawStop = false;
@@ -7692,7 +7785,7 @@ var __webpack_modules__ = {
                     x: metrics.x,
                     y: metrics.y,
                     deltaX: 0,
-                    deltaY: -800
+                    deltaY: FULL_READ_WHEEL_DELTA_Y
                 }, {
                     sessionId
                 });
@@ -7721,10 +7814,12 @@ var __webpack_modules__ = {
             JU: ()=>readTurnsFromDom,
             Kl: ()=>openThreadInDom,
             Mr: ()=>summarizeTargetInfos,
+            X8: ()=>resolveDurableThreadId,
             YX: ()=>readReplyState,
             Zx: ()=>waitForLoadingTaskGone,
             lh: ()=>sendMessageInDom,
-            s0: ()=>startNewChatInDom
+            s0: ()=>startNewChatInDom,
+            z9: ()=>waitForConversationId
         }, {
             hA: TEMP_THREAD_ID_PREFIX
         });
@@ -10045,7 +10140,7 @@ var __webpack_modules__ = {
         var _core_chatgpt_desktop_routes_js__rspack_import_2 = __webpack_require__("./src/core/chatgpt-desktop/routes.ts");
         const __rspack_default_export = (0, agent_bundle_routes__rspack_import_1.uO)({
             title: 'ChatGPT Desktop send',
-            description: 'Send a message in ChatGPT Desktop via local CDP only: focus [data-codex-composer], Input.insertText, Enter (Send button fallback). Omit threadId to start a new chat; pass project to prefer "Start new chat in <project>". Temporary sidebar ids are local:client-new-thread:… until reload — use chatgpt_desktop_wait_reply to resolve the real conversation id. Does not use app-server.',
+            description: 'Send a message in ChatGPT Desktop via local CDP only: focus [data-codex-composer], Input.insertText, Enter (Send button fallback). Omit threadId to start a new chat; pass project to prefer "Start new chat in <project>". After a new-thread send, waits for data-response-annotation-conversation and returns that durable id as threadId (never local:client-new-thread:*). temporaryThreadId may still name the brief sidebar row. Does not use app-server.',
             annotations: {
                 readOnlyHint: false
             },
@@ -59488,7 +59583,7 @@ var __webpack_modules__ = {
                     "annotations": {
                         "readOnlyHint": false
                     },
-                    "description": "Send a message in ChatGPT Desktop via local CDP only: focus [data-codex-composer], Input.insertText, Enter (Send button fallback). Omit threadId to start a new chat; pass project to prefer \"Start new chat in <project>\". Temporary sidebar ids are local:client-new-thread:… until reload — use chatgpt_desktop_wait_reply to resolve the real conversation id. Does not use app-server.",
+                    "description": "Send a message in ChatGPT Desktop via local CDP only: focus [data-codex-composer], Input.insertText, Enter (Send button fallback). Omit threadId to start a new chat; pass project to prefer \"Start new chat in <project>\". After a new-thread send, waits for data-response-annotation-conversation and returns that durable id as threadId (never local:client-new-thread:*). temporaryThreadId may still name the brief sidebar row. Does not use app-server.",
                     "inputJsonSchema": {
                         "additionalProperties": false,
                         "properties": {

@@ -7,6 +7,11 @@
 
 import type { ChatGptDesktopTarget, ChatGptDesktopThread, ChatGptDesktopTurn } from './types.js';
 import type { CdpSession } from './cdp-session.js';
+import {
+  LOCAL_THREAD_ID_PREFIX,
+  isTemporaryDesktopThreadId,
+  normalizeCodexThreadId,
+} from '../codex/thread-id.js';
 
 /** Exact main-window URL; ignore overlays / detached / webviews. */
 export const MAIN_WINDOW_URL = 'app://-/index.html';
@@ -40,8 +45,16 @@ export const HISTORY_GAP_PREFIX = 'history-gap:';
 export const TEMP_THREAD_ID_PREFIX = 'local:client-new-thread:';
 export const LOADING_TASK_TEXT = 'Loading task…';
 export const DEFAULT_OPEN_TIMEOUT_MS = 90_000;
+/** How long a new-thread send waits for the real conversation annotation. */
+export const DEFAULT_CONVERSATION_RESOLVE_MS = 60_000;
 export const DEFAULT_FULL_READ_IDLE_WHEELS = 8;
 export const DEFAULT_FULL_READ_MAX_WHEELS = 400;
+/**
+ * Timeline is `column-reverse`: scrollTop 0 is the newest message. Setting
+ * scrollTop does not load older history — use mouseWheel with this deltaY
+ * (negative = toward older turns).
+ */
+export const FULL_READ_WHEEL_DELTA_Y = -800;
 
 /** Verified composer: contenteditable textbox. */
 export const COMPOSER_SELECTOR =
@@ -121,14 +134,48 @@ export function pickMainWindowTarget(
 export function dedupeThreadsById(
   threads: readonly ChatGptDesktopThread[],
 ): ChatGptDesktopThread[] {
-  const seen = new Set<string>();
-  const out: ChatGptDesktopThread[] = [];
+  const byKey = new Map<string, ChatGptDesktopThread>();
   for (const thread of threads) {
-    if (!thread.threadId || seen.has(thread.threadId)) continue;
-    seen.add(thread.threadId);
-    out.push(thread);
+    if (!thread.threadId) continue;
+    const key = durableThreadKey(thread.threadId);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, thread);
+      continue;
+    }
+    byKey.set(key, preferThreadRow(existing, thread));
   }
-  return out;
+  return [...byKey.values()];
+}
+
+function durableThreadKey(threadId: string): string {
+  if (isTemporaryDesktopThreadId(threadId)) return threadId;
+  try {
+    return normalizeCodexThreadId(threadId);
+  } catch {
+    return threadId.startsWith(LOCAL_THREAD_ID_PREFIX)
+      ? threadId.slice(LOCAL_THREAD_ID_PREFIX.length) || threadId
+      : threadId;
+  }
+}
+
+function toDesktopForm(threadId: string): string {
+  if (!threadId || isTemporaryDesktopThreadId(threadId)) return threadId;
+  if (threadId.startsWith(LOCAL_THREAD_ID_PREFIX)) return threadId;
+  return `${LOCAL_THREAD_ID_PREFIX}${threadId}`;
+}
+
+function preferThreadRow(
+  left: ChatGptDesktopThread,
+  right: ChatGptDesktopThread,
+): ChatGptDesktopThread {
+  const score = (row: ChatGptDesktopThread) =>
+    (row.selected ? 4 : 0)
+    + (row.pinned ? 2 : 0)
+    + (row.threadId.startsWith(LOCAL_THREAD_ID_PREFIX) && !isTemporaryDesktopThreadId(row.threadId)
+      ? 1
+      : 0);
+  return score(right) > score(left) ? right : left;
 }
 
 export const LIST_THREADS_EXPRESSION = `(() => {
@@ -165,13 +212,18 @@ export const LIST_THREADS_EXPRESSION = `(() => {
 })()`;
 
 export function openThreadExpression(threadId: string): string {
+  const bare = durableThreadKey(threadId);
+  const desktop = toDesktopForm(bare);
+  const candidates = [...new Set([threadId, bare, desktop].filter(Boolean))];
   return `(() => {
-    const id = ${JSON.stringify(threadId)};
+    const candidates = ${JSON.stringify(candidates)};
     const rows = Array.from(document.querySelectorAll(${JSON.stringify(SELECTORS.threadRow)}));
-    const row = rows.find((el) => el.getAttribute(${JSON.stringify(ATTR.threadId)}) === id);
+    const row = rows.find((el) =>
+      candidates.includes(el.getAttribute(${JSON.stringify(ATTR.threadId)}) || ''),
+    );
     if (!row) return { ok: false, error: 'thread-not-found' };
     row.click();
-    return { ok: true, threadId: id };
+    return { ok: true, threadId: row.getAttribute(${JSON.stringify(ATTR.threadId)}) || candidates[0] };
   })()`;
 }
 
@@ -238,6 +290,14 @@ export const REPLY_STATE_EXPRESSION = `(() => {
     reply,
     lastTurnKey,
   };
+})()`;
+
+/** Any conversation annotation on the page (user turn or assistant). */
+export const CONVERSATION_ID_EXPRESSION = `(() => {
+  const annotation = document.querySelector(${JSON.stringify(CONVERSATION_ANNOTATION_SELECTOR)});
+  return annotation
+    ? (annotation.getAttribute(${JSON.stringify(ATTR.conversationAnnotation)}) || '')
+    : '';
 })()`;
 
 /**
@@ -460,6 +520,57 @@ export async function readReplyState(
   };
 }
 
+/** Read the current `data-response-annotation-conversation` value, if any. */
+export async function readConversationIdFromDom(
+  session: CdpSession,
+  sessionId: string,
+): Promise<string> {
+  const value = await session.evaluate<string>(CONVERSATION_ID_EXPRESSION, { sessionId });
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * Wait until the real conversation id appears on
+ * `[data-response-annotation-conversation]`. Rejects temporary sidebar ids.
+ */
+export async function waitForConversationId(
+  session: CdpSession,
+  sessionId: string,
+  { timeoutMs = DEFAULT_CONVERSATION_RESOLVE_MS }: { timeoutMs?: number } = {},
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const id = await readConversationIdFromDom(session, sessionId);
+    if (id && !isTemporaryDesktopThreadId(id) && !id.startsWith(TEMP_THREAD_ID_PREFIX)) {
+      return id;
+    }
+    await delay(200);
+  }
+  throw new Error(
+    `ChatGPT Desktop conversation id did not appear on [data-response-annotation-conversation] within ${timeoutMs}ms`,
+  );
+}
+
+/**
+ * Prefer a durable Desktop thread id. Never returns `local:client-new-thread:*`.
+ */
+export function resolveDurableThreadId(
+  conversationId: string | null | undefined,
+  fallbackThreadId?: string | null,
+): string | null {
+  if (conversationId && !isTemporaryDesktopThreadId(conversationId)) {
+    return toDesktopForm(conversationId);
+  }
+  if (
+    fallbackThreadId
+    && !isTemporaryDesktopThreadId(fallbackThreadId)
+    && fallbackThreadId !== 'new'
+  ) {
+    return toDesktopForm(fallbackThreadId);
+  }
+  return null;
+}
+
 /**
  * Wait until Stop is gone and a new final-assistant marker exists.
  * Returns reply text + conversation id from the annotation.
@@ -581,7 +692,7 @@ export async function readTurnsFromDom(
         x: metrics.x,
         y: metrics.y,
         deltaX: 0,
-        deltaY: -800,
+        deltaY: FULL_READ_WHEEL_DELTA_Y,
       },
       { sessionId },
     );

@@ -157,9 +157,11 @@ All selectors live in `src/core/chatgpt-desktop/cdp-dom.ts`:
 - Reply done: `main button[aria-label="Stop"]` gone + new `[data-local-conversation-final-assistant=true]`
 - Reply text: last turn’s `[data-local-conversation-final-assistant=true] [data-markdown-text-style=assistant-message]`
 - New chat: `button[aria-label="Start new chat in <project>"]` (preferred) or sidebar “New chat”
-- Conversation id: `[data-response-annotation-conversation]` (resolves `local:client-new-thread:…`)
-- Open / selected: click sidebar row, wait until “Loading task…” clears (default 90s)
-- Read fallback: harvest rendered turns; optional mouseWheel on `[data-app-action-timeline-scroll]`
+- Conversation id: `[data-response-annotation-conversation]` — after a new-thread send, `threadId` is this durable id (never `local:client-new-thread:…`; that may appear only as `temporaryThreadId`)
+- Open / selected: click sidebar row (bare or `local:` id), wait until “Loading task…” clears (default 90s, timed out)
+- Read fallback: harvest rendered turns; full history uses mouseWheel (`deltaY` negative) because the timeline is column-reverse (`scrollTop` 0 is newest and does not load older turns)
+- Target attach: exact `app://-/index.html` via `Target.getTargets` (not `/json/list` order)
+- CDP: 127.0.0.1 only
 
 ## App-server reuse
 

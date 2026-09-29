@@ -2,6 +2,7 @@ import type { ChatGptDesktopAdapter } from './adapter.js';
 import { CdpUnreachableError } from './errors.js';
 import { CdpSession } from './cdp-session.js';
 import {
+  DEFAULT_CONVERSATION_RESOLVE_MS,
   DEFAULT_OPEN_TIMEOUT_MS,
   TEMP_THREAD_ID_PREFIX,
   listThreadsFromDom,
@@ -9,12 +10,15 @@ import {
   pickMainWindowTarget,
   readReplyState,
   readTurnsFromDom,
+  resolveDurableThreadId,
   sendMessageInDom,
   startNewChatInDom,
   summarizeTargetInfos,
+  waitForConversationId,
   waitForLoadingTaskGone,
   waitForReplyDone,
 } from './cdp-dom.js';
+import { isTemporaryDesktopThreadId, toAppServerThreadId, toDesktopThreadId } from './thread-ids.js';
 import { resolveCdpPort } from './loopback.js';
 import type {
   ChatGptDesktopStatus,
@@ -108,7 +112,7 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
   }): Promise<SendMessageResult> {
     const sessionId = await this.#ensurePageSession();
     let temporaryThreadId: string | undefined;
-    let resolvedThreadId = threadId ?? 'new';
+    const startedNew = !threadId;
 
     if (threadId) {
       await this.#openAndWait(sessionId, threadId, openTimeoutMs);
@@ -118,16 +122,31 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
       const threads = await listThreadsFromDom(this.#requireSession(), sessionId, { limit: 20 });
       const temp = threads.find((t) => t.threadId.startsWith(TEMP_THREAD_ID_PREFIX) && t.selected)
         ?? threads.find((t) => t.threadId.startsWith(TEMP_THREAD_ID_PREFIX));
-      if (temp) {
-        temporaryThreadId = temp.threadId;
-        resolvedThreadId = temp.threadId;
-      }
+      if (temp) temporaryThreadId = temp.threadId;
     }
 
     const { sentVia } = await sendMessageInDom(this.#requireSession(), sessionId, text);
+
+    let conversationId: string | undefined;
+    if (startedNew || (threadId && isTemporaryDesktopThreadId(threadId))) {
+      const resolveMs = Math.min(openTimeoutMs, DEFAULT_CONVERSATION_RESOLVE_MS);
+      conversationId = await waitForConversationId(this.#requireSession(), sessionId, {
+        timeoutMs: resolveMs,
+      });
+    }
+
+    const durable = resolveDurableThreadId(conversationId, threadId);
+    if (!durable) {
+      throw new Error(
+        'ChatGPT Desktop send accepted but no durable conversation id was available; '
+          + 'refusing to return a local:client-new-thread:* id as threadId',
+      );
+    }
+
     return {
-      threadId: resolvedThreadId,
+      threadId: durable,
       temporaryThreadId,
+      conversationId: conversationId || toAppServerThreadId(durable) || durable,
       project,
       backend: 'cdp',
       experimental: false,
@@ -145,7 +164,7 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
     timeoutMs?: number;
   }): Promise<WaitForReplyResult> {
     const sessionId = await this.#ensurePageSession();
-    if (threadId && !threadId.startsWith(TEMP_THREAD_ID_PREFIX) && threadId !== 'new') {
+    if (threadId && !isTemporaryDesktopThreadId(threadId) && threadId !== 'new') {
       // Stay on the current chat for temp/new; otherwise ensure the thread is open.
       try {
         await this.#openAndWait(sessionId, threadId, DEFAULT_OPEN_TIMEOUT_MS);
@@ -160,10 +179,18 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
         timeoutMs,
         baselineFinalCount: baseline.finalAssistantCount,
       });
-      const resolvedId = done.conversationId || threadId || 'unknown';
+      const durable =
+        resolveDurableThreadId(done.conversationId, threadId)
+        ?? (done.conversationId ? toDesktopThreadId(done.conversationId) : null);
+      if (!durable) {
+        throw new Error(
+          'ChatGPT Desktop reply finished without a durable conversation id on '
+            + '[data-response-annotation-conversation]',
+        );
+      }
       return {
-        threadId: resolvedId,
-        conversationId: done.conversationId || undefined,
+        threadId: durable,
+        conversationId: done.conversationId || toAppServerThreadId(durable) || durable,
         reply: done.reply,
         backend: 'cdp',
         experimental: false,
@@ -171,8 +198,19 @@ export class CdpChatGptDesktopAdapter implements ChatGptDesktopAdapter {
       };
     } catch (error) {
       const last = await readReplyState(this.#requireSession(), sessionId);
+      const durable = resolveDurableThreadId(last.conversationId, threadId);
+      if (last.reply && durable) {
+        return {
+          threadId: durable,
+          conversationId: last.conversationId || toAppServerThreadId(durable) || durable,
+          reply: last.reply,
+          backend: 'cdp',
+          experimental: false,
+          delivery: 'replied',
+        };
+      }
       return {
-        threadId: last.conversationId || threadId || 'unknown',
+        threadId: durable ?? (threadId && !isTemporaryDesktopThreadId(threadId) ? threadId : 'unknown'),
         conversationId: last.conversationId || undefined,
         reply: last.reply,
         backend: 'cdp',

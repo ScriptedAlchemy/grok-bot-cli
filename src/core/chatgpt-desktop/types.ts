@@ -129,8 +129,14 @@ export type SendMessageResult = {
   readonly experimental: boolean;
   readonly delivery: 'accepted' | 'rejected' | 'unknown';
   readonly message?: string;
-  /** Temporary sidebar id before reload (`local:client-new-thread:…`). */
+  /**
+   * Temporary sidebar id before the real conversation annotation appears
+   * (`local:client-new-thread:…`). Never used as `threadId` once the real id
+   * is known from `data-response-annotation-conversation`.
+   */
   readonly temporaryThreadId?: string;
+  /** Real conversation id from `data-response-annotation-conversation`. */
+  readonly conversationId?: string;
   readonly project?: string;
   readonly sentVia?: 'enter' | 'button';
 };

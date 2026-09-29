@@ -95,8 +95,11 @@ function fakeAdapter(overrides: Partial<ChatGptDesktopAdapter> = {}): ChatGptDes
     },
     async sendMessage({ threadId, text, project }) {
       return {
-        threadId: threadId ?? 'local:client-new-thread:deadbeef',
+        threadId: threadId && !threadId.startsWith('local:client-new-thread:')
+          ? threadId
+          : 'local:11111111-1111-1111-1111-111111111111',
         temporaryThreadId: threadId ? undefined : 'local:client-new-thread:deadbeef',
+        conversationId: '11111111-1111-1111-1111-111111111111',
         project,
         backend: 'cdp',
         experimental: false,
@@ -107,7 +110,7 @@ function fakeAdapter(overrides: Partial<ChatGptDesktopAdapter> = {}): ChatGptDes
     },
     async waitForReply({ threadId }) {
       return {
-        threadId: threadId ?? 'conv-real-id',
+        threadId: 'local:conv-real-id',
         conversationId: 'conv-real-id',
         reply: 'hi there',
         backend: 'cdp',
@@ -189,15 +192,23 @@ describe('chatgpt-desktop loopback + relaunch helpers', () => {
         { threadId: 'a', title: '1', pinned: false, selected: false, kind: 'local' },
         { threadId: 'a', title: '1b', pinned: false, selected: true, kind: 'local' },
         { threadId: 'b', title: '2', pinned: false, selected: false, kind: 'local' },
-      ]).map((t) => t.threadId),
-    ).toEqual(['a', 'b']);
+        { threadId: 'local:c', title: 'c-desktop', pinned: false, selected: false, kind: 'local' },
+        { threadId: 'c', title: 'c-bare', pinned: true, selected: false, kind: 'local' },
+      ]).map((t) => ({ id: t.threadId, pinned: t.pinned, selected: t.selected })),
+    ).toEqual([
+      { id: 'a', pinned: false, selected: true },
+      { id: 'b', pinned: false, selected: false },
+      { id: 'c', pinned: true, selected: false },
+    ]);
 
     const targets = summarizeTargetInfos([
       { targetId: 'overlay', type: 'page', url: 'app://-/index.html?initialRoute=%2Favatar-overlay' },
-      { targetId: 'main', type: 'page', title: 'ChatGPT', url: MAIN_WINDOW_URL },
       { targetId: 'web', type: 'page', url: 'https://chatgpt.com/pricing' },
+      { targetId: 'main', type: 'page', title: 'ChatGPT', url: MAIN_WINDOW_URL },
     ]);
+    // Exact URL wins regardless of /json/list-style order (overlay/web listed first).
     expect(pickMainWindowTarget(targets)?.targetId).toBe('main');
+    expect(pickMainWindowTarget(targets.slice().reverse())?.targetId).toBe('main');
   });
 });
 
@@ -352,10 +363,15 @@ describe('chatgpt-desktop MCP tools', () => {
       delivery: 'accepted',
       backend: 'cdp',
       experimental: false,
+      threadId: 'local:11111111-1111-1111-1111-111111111111',
       temporaryThreadId: 'local:client-new-thread:deadbeef',
+      conversationId: '11111111-1111-1111-1111-111111111111',
       project: 'Launch',
       exitCode: 0,
     });
+    expect(String((sent.structuredContent as { threadId?: string }).threadId ?? '')).not.toMatch(
+      /^local:client-new-thread:/,
+    );
 
     const waited = await invokeMcpTool('chatgpt_desktop_wait_reply', {
       server: 'grok-bot',
@@ -366,6 +382,7 @@ describe('chatgpt-desktop MCP tools', () => {
       delivery: 'replied',
       reply: 'hi there',
       conversationId: 'conv-real-id',
+      threadId: 'local:conv-real-id',
       exitCode: 0,
     });
   });
@@ -550,7 +567,11 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
       async sendMessage({ threadId, text }) {
         calls.push('cdp.sendMessage');
         return {
-          threadId: threadId ?? 'local:client-new-thread:x',
+          threadId: threadId && !threadId.startsWith('local:client-new-thread:')
+            ? threadId
+            : 'local:resolved-after-send',
+          temporaryThreadId: threadId ? undefined : 'local:client-new-thread:x',
+          conversationId: 'resolved-after-send',
           backend: 'cdp',
           experimental: false,
           delivery: 'accepted' as const,
@@ -560,7 +581,10 @@ describe('chatgpt-desktop app-server list/read/search + CDP-only send/wait', () 
       async waitForReply({ threadId }) {
         calls.push('cdp.waitForReply');
         return {
-          threadId: threadId ?? 'unknown',
+          threadId: threadId && !threadId.startsWith('local:client-new-thread:')
+            ? threadId
+            : 'local:resolved-after-send',
+          conversationId: 'resolved-after-send',
           reply: 'ok',
           backend: 'cdp',
           experimental: false,
@@ -1081,5 +1105,85 @@ describe('chatgpt-desktop CDP HTTP status probe', () => {
         server.close((error) => (error ? reject(error) : resolve())),
       );
     }
+  });
+});
+
+describe('chatgpt-desktop production-risk guards', () => {
+  it('never treats local:client-new-thread as a durable send/wait id', async () => {
+    const { resolveDurableThreadId, TEMP_THREAD_ID_PREFIX } = await import(
+      '../../src/core/chatgpt-desktop/cdp-dom.js'
+    );
+    expect(resolveDurableThreadId(null, `${TEMP_THREAD_ID_PREFIX}abc`)).toBeNull();
+    expect(resolveDurableThreadId(`${TEMP_THREAD_ID_PREFIX}abc`)).toBeNull();
+    expect(resolveDurableThreadId('conv-real')).toBe('local:conv-real');
+    expect(resolveDurableThreadId('local:conv-real', `${TEMP_THREAD_ID_PREFIX}x`)).toBe(
+      'local:conv-real',
+    );
+  });
+
+  it('loads history with mouseWheel (column-reverse), not scrollTop writes', async () => {
+    const {
+      FULL_READ_WHEEL_DELTA_Y,
+      readTurnsFromDom,
+    } = await import('../../src/core/chatgpt-desktop/cdp-dom.js');
+    expect(FULL_READ_WHEEL_DELTA_Y).toBeLessThan(0);
+
+    const sends: Array<{ method: string; params?: Record<string, unknown> }> = [];
+    let evaluateN = 0;
+    const session = {
+      async evaluate(expression: string) {
+        evaluateN += 1;
+        if (expression.includes('scrollTop')) {
+          return { ok: true, x: 10, y: 20, scrollTop: 0, scrollHeight: 2000, clientHeight: 400 };
+        }
+        // First harvest: one turn; later harvests idle so wheel loop stops.
+        if (evaluateN <= 2) {
+          return [{ turnKey: 'history-content:turn:1', role: 'assistant', text: 'hi' }];
+        }
+        return [{ turnKey: 'history-content:turn:1', role: 'assistant', text: 'hi' }];
+      },
+      async send(method: string, params?: Record<string, unknown>) {
+        sends.push({ method, params });
+      },
+    };
+
+    const turns = await readTurnsFromDom(session as never, 'sess', {
+      full: true,
+      limit: 10,
+      idleWheels: 2,
+      maxWheels: 3,
+    });
+    expect(turns.length).toBeGreaterThan(0);
+    expect(sends.some((s) => s.method === 'Input.dispatchMouseEvent')).toBe(true);
+    expect(
+      sends.every(
+        (s) =>
+          s.method !== 'Input.dispatchMouseEvent'
+          || (s.params?.type === 'mouseWheel'
+            && s.params?.deltaY === FULL_READ_WHEEL_DELTA_Y
+            && !('scrollTop' in (s.params ?? {}))),
+      ),
+    ).toBe(true);
+  });
+
+  it('times out when Loading task… never clears', async () => {
+    const { waitForLoadingTaskGone, LOADING_TASK_TEXT } = await import(
+      '../../src/core/chatgpt-desktop/cdp-dom.js'
+    );
+    const session = {
+      async evaluate() {
+        return false;
+      },
+    };
+    await expect(
+      waitForLoadingTaskGone(session as never, 'sess', { timeoutMs: 50 }),
+    ).rejects.toThrow(LOADING_TASK_TEXT);
+  });
+
+  it('opens sidebar rows for both local: and bare thread ids', async () => {
+    const { openThreadExpression } = await import('../../src/core/chatgpt-desktop/cdp-dom.js');
+    const expr = openThreadExpression('local:abc-123');
+    expect(expr).toContain('local:abc-123');
+    expect(expr).toContain('abc-123');
   });
 });
