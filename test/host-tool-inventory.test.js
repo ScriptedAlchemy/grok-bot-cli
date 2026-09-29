@@ -11,7 +11,17 @@ const config = JSON.parse(await readFile(new URL('../artifact/.mcp.json', import
 const entry = config.mcpServers['grok-bot'].args[0].replace('${CLAUDE_PLUGIN_ROOT}', resolve('artifact'));
 const codex = ['codex_send', 'codex_threads', 'codex_wait', 'codex_watch', 'gbot_codex_respond'];
 const grok = ['gbot_send', 'gbot_thread', 'gbot_grok_approvals', 'gbot_grok_respond'];
-const shared = ['claude_send', 'gbot_bridge_start', 'gbot_bridge_status', 'gbot_bridge_stop'];
+const shared = [
+  'chatgpt_desktop_list_threads',
+  'chatgpt_desktop_read_thread',
+  'chatgpt_desktop_send',
+  'chatgpt_desktop_status',
+  'chatgpt_desktop_wait_reply',
+  'claude_send',
+  'gbot_bridge_start',
+  'gbot_bridge_status',
+  'gbot_bridge_stop',
+];
 
 test('built MCP artifact exposes the other host tools and shared bridge controls', async () => {
   for (const [name, hidden] of [['codex_cli_rs', codex], ['Grok Bot', grok], ['Cursor', []]]) {

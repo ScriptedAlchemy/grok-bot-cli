@@ -133,7 +133,7 @@ beforeEach(() => {
 describe('grok-bot MCP server', () => {
   it('registers messaging, conversation and managed bridge tools', async () => {
     const surface = await listMcpSurface({ server: 'grok-bot' });
-    expect([...surface.tools].sort()).toEqual(['claude_send', 'codex_send', 'codex_threads', 'codex_wait', 'codex_watch', 'gbot_bridge_start', 'gbot_bridge_status', 'gbot_bridge_stop', 'gbot_codex_respond', 'gbot_grok_approvals', 'gbot_grok_respond', 'gbot_send', 'gbot_thread']);
+    expect([...surface.tools].sort()).toEqual(['chatgpt_desktop_list_threads', 'chatgpt_desktop_read_thread', 'chatgpt_desktop_send', 'chatgpt_desktop_status', 'chatgpt_desktop_wait_reply', 'claude_send', 'codex_send', 'codex_threads', 'codex_wait', 'codex_watch', 'gbot_bridge_start', 'gbot_bridge_status', 'gbot_bridge_stop', 'gbot_codex_respond', 'gbot_grok_approvals', 'gbot_grok_respond', 'gbot_send', 'gbot_thread']);
   });
 
   it('lists and responds to an exact current Grok approval through the native API', async () => {

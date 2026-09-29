@@ -223,6 +223,19 @@ Residual risks, stated honestly: requests without both matching thread and turn 
 
 Current shim limitation: Desktop's spawn-time app-tools MCP `-c` overrides are not forwarded to the already-running managed daemon. No restoration path or app-tools parity has been demonstrated here; this is not a claim of permanent protocol impossibility. Fully quit and relaunch ChatGPT.app after install (or login) so it inherits `CODEX_CLI_PATH`. `status` reads the macOS GUI-domain value via `launchctl getenv` (what Desktop actually inherits) alongside the calling shell's value. LaunchAgent persistence is macOS-first; elsewhere install still writes the wrapper and bridge but leaves `CODEX_CLI_PATH` for you to export. `~/.codex/bin` holds scripts only — there is no extra revert note to clean up; revert is `gbot codex desktop-shim uninstall` plus this section.
 
+**ChatGPT Desktop over CDP (scaffold).** Prefer the Desktop UI surface via Chrome DevTools Protocol when you need more than the app-server socket. CDP is **local-only** (`127.0.0.1`); there is no remote transport. Relaunch the macOS app with a debug port (Electron fuses block Node inspect, not Chromium's flag):
+
+```sh
+osascript -e 'tell application "ChatGPT" to quit' \
+  && open -a /Applications/ChatGPT.app --args --remote-debugging-port=9222
+gbot chatgpt-desktop status
+gbot chatgpt-desktop threads --limit 20
+gbot chatgpt-desktop read <threadId>
+gbot chatgpt-desktop send --thread-id <threadId> "hello"
+```
+
+MCP tools: `chatgpt_desktop_status`, `chatgpt_desktop_list_threads`, `chatgpt_desktop_read_thread`, `chatgpt_desktop_send`, `chatgpt_desktop_wait_reply`. List/read/send/wait fall back to the existing Codex app-server client when CDP is down and report `backend: "cdp" | "app-server"`. DOM selectors live in one module (`src/core/chatgpt-desktop/cdp-dom.ts`). Details: [docs/chatgpt-desktop-cdp.md](docs/chatgpt-desktop-cdp.md).
+
 **Status contract (`gbot codex status --json`).** `reachable` is endpoint reachability only. `socketState` is `socket`, `absent`, `permission-denied`, or `not-a-socket`; `mode` is `daemon` for a usable daemon, otherwise the failure: `socket-absent`, `permission-denied` (the file or the connect refused this user), `not-a-socket`, `connect-failed` (socket present, nothing completed the WebSocket upgrade), `handshake-failed` (upgrade or `initialize` failed), `windows-unsupported`, or `bad-response` (reachable, but `initialize` returned something off-schema — `reachable` stays `true`). `schema.compatibility` is `exact` when the daemon reports the pinned version, `unverified` when it differs (methods usually survive upgrades, but the shapes are not re-checked), or `unknown`. `cliVersionProbe` reports whether `codex --version` answered (`ok`, `missing`, `timeout` after 3 s, `error`). The document is always written to stdout and includes `exitCode`; it is `0` only for a usable daemon.
 
 `desktopShimConfigured` is true when the installed wrapper is selected by Desktop-facing `CODEX_CLI_PATH` (the GUI domain on macOS). This describes configuration for future launches; a running Desktop may not have inherited it, and the wrapper may have fallen back to stock Codex. `desktopAttached` is `"private-stdio"` when a Desktop-bundled app-server process is observed, otherwise `"unknown"`. That process observation and shim configuration can both be present. Neither a configured shim nor a reachable daemon proves Desktop is attached to that daemon. Verify actual attachment with a controlled shared-thread interaction and matching thread/turn IDs.
@@ -258,7 +271,8 @@ that gives Codex, Claude Code, and Cursor a `grok-bot` MCP server with messaging
 Codex conversation, and managed bridge tools, plus a `talk-to-grok-bot` skill.
 `gbot_send` and `gbot_thread` handle Grok conversations; `codex_threads`,
 `codex_send`, `codex_wait`, and `codex_watch` handle Codex conversations.
-`gbot_bridge_start`, `gbot_bridge_status`, `gbot_bridge_stop`, and
+`chatgpt_desktop_*` tools drive ChatGPT Desktop over local CDP (with app-server
+fallback). `gbot_bridge_start`, `gbot_bridge_status`, `gbot_bridge_stop`, and
 `gbot_codex_respond` manage automatic delivery and scoped operator responses.
 The tools bundle this repository's gateway client and worker, so the installed
 plugin does not need `gbot` on `PATH`.
