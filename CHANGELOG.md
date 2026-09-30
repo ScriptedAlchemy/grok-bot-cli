@@ -1,5 +1,12 @@
 # grok-bot-cli
 
+## 0.11.2
+
+### Patch Changes
+
+- 3e4b05a: Update agent-bundle to the merged main preview (ae3473c36b) and rebuild the plugin artifact.
+- 3ff286e: Update `@modelcontextprotocol/server` to 2.2.0 and rebuild the bundled Claude channel MCP artifact.
+
 ## 0.11.1
 
 ### Patch Changes
