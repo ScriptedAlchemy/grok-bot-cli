@@ -58,7 +58,7 @@
     "@agent-bundle/runtime": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/@agent-bundle/runtime@ae3473c36b1a02548022f4881cc75e904c6ea59a",
     "@changesets/cli": "3.0.3",
     "@modelcontextprotocol/server": "2.2.0",
-    "@rstest/core": "0.12.2",
+    "@rstest/core": "0.12.3",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.18",
     "agent-bundle": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/agent-bundle@ae3473c36b1a02548022f4881cc75e904c6ea59a",
