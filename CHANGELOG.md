@@ -1,5 +1,11 @@
 # grok-bot-cli
 
+## 0.11.3
+
+### Patch Changes
+
+- 026c9fa: Add Codex desktop guidance for discovering and messaging the Dot assistant through native host-aware tools, and update MCP server and Node type dependencies.
+
 ## 0.11.2
 
 ### Patch Changes
