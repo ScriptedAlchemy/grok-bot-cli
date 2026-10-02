@@ -9520,8 +9520,8 @@ var __webpack_modules__ = {
         });
     },
     "./node_modules/@modelcontextprotocol/server/dist/index.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _mcp_DYuW2ZSs_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/mcp-DYuW2ZSs.mjs");
-        var _src_BHSMhZ_W_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-BHSMhZ_W.mjs");
+        var _mcp_DIH4cS6P_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/mcp-DIH4cS6P.mjs");
+        var _src_Cqbh3MYc_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-Cqbh3MYc.mjs");
         var _modelcontextprotocol_server_shims__rspack_import_2 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
         var PerRequestHTTPServerTransport = class {
             onclose;
@@ -9785,6 +9785,7 @@ var __webpack_modules__ = {
         var WebStandardStreamableHTTPServerTransport = class {
             sessionIdGenerator;
             _started = false;
+            _hasHandledRequest = false;
             _closed = false;
             _streamMapping = new Map();
             _requestToStreamMapping = new Map();
@@ -9886,6 +9887,8 @@ var __webpack_modules__ = {
             }
             async handleRequest(req, options) {
                 if (this._closed) return this.createJsonErrorResponse(404, -32001, "Session not found");
+                if (!this.sessionIdGenerator && this._hasHandledRequest) throw new Error("Stateless transport cannot be reused across requests. Create a new transport per request.");
+                this._hasHandledRequest = true;
                 const validationError = this.validateRequestHeaders(req);
                 if (validationError) return validationError;
                 switch(req.method){
@@ -10391,6 +10394,9 @@ var __webpack_modules__ = {
         function internalServerErrorResponse(id = null) {
             return jsonRpcErrorResponse(500, -32603, "Internal server error", void 0, id);
         }
+        function assertNotServing(server) {
+            if (server.transport !== void 0) throw new Error("The factory returned an instance that is still serving another request. Return a new instance for each request.");
+        }
         function createLegacyStatelessFallback(factory, onerror, keepAliveMs, maxRequestBodySize) {
             return async (request, options)=>{
                 if (request.method.toUpperCase() !== "POST") return jsonRpcErrorResponse(405, -32e3, "Method not allowed.");
@@ -10598,6 +10604,7 @@ var __webpack_modules__ = {
                     requestInfo: request
                 });
                 const server = product instanceof McpServer ? product.server : product;
+                assertNotServing(server);
                 if (route.messageKind === "request" && route.message.method === "subscriptions/listen") {
                     const capabilities = server.getCapabilities();
                     const serverInfo = serverIdentityOf(server);
@@ -10633,6 +10640,7 @@ var __webpack_modules__ = {
                     reportError(toError(error));
                     return internalServerErrorResponse(route.message.id);
                 }
+                assertNotServing(server);
                 setNegotiatedProtocolVersion(server, claimedRevision);
                 installModernOnlyHandlers(server, SUPPORTED_MODERN_PROTOCOL_VERSIONS);
                 if (meta !== void 0) seedClientIdentityFromEnvelope(server, {
@@ -10804,8 +10812,11 @@ var __webpack_modules__ = {
                 ok: true
             };
             let hostname;
+            let scheme;
             try {
-                hostname = new URL(originHeader).hostname;
+                const url = new URL(originHeader);
+                hostname = url.hostname;
+                scheme = url.protocol;
             } catch  {
                 return {
                     ok: false,
@@ -10820,7 +10831,7 @@ var __webpack_modules__ = {
                 message: `Invalid Origin header: ${originHeader}`,
                 originHeader
             };
-            if (!allowedOriginHostnames.includes(hostname)) return {
+            if (!(scheme !== "http:" && scheme !== "https:" && allowedOriginHostnames.includes(`${scheme}//*`)) && !allowedOriginHostnames.includes(hostname)) return {
                 ok: false,
                 errorCode: "invalid_origin",
                 message: `Invalid Origin: ${hostname}`,
@@ -10943,11 +10954,11 @@ var __webpack_modules__ = {
             return fromJsonSchema$1(schema, validator ?? (_defaultValidator ??= new DefaultJsonSchemaValidator()));
         }
         __webpack_require__.d(__webpack_exports__, {
-            _k: ()=>_mcp_DYuW2ZSs_mjs__rspack_import_0.t
+            _k: ()=>_mcp_DIH4cS6P_mjs__rspack_import_0.t
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/mcp-DYuW2ZSs.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _src_BHSMhZ_W_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-BHSMhZ_W.mjs");
+    "./node_modules/@modelcontextprotocol/server/dist/mcp-DIH4cS6P.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _src_Cqbh3MYc_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-Cqbh3MYc.mjs");
         var _modelcontextprotocol_server_shims__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
         const COMPLETABLE_SYMBOL = Symbol.for("mcp.completable");
         function completable(schema, complete) {
@@ -11312,6 +11323,15 @@ var __webpack_modules__ = {
                     };
             }
         }
+        function comparableResource(value) {
+            const text = String(value);
+            const hash = text.indexOf("#");
+            return (hash === -1 ? text : text.slice(0, hash)).replace(/\/$/, "");
+        }
+        function sameResource(reported, expected) {
+            if (!reported) return false;
+            return comparableResource(reported) === comparableResource(expected);
+        }
         function headerQuotedValue(value) {
             return value.replaceAll(/[\\"]/g, String.raw`\$&`).replaceAll(/[^\u0020-\u007E]/g, " ");
         }
@@ -11322,11 +11342,12 @@ var __webpack_modules__ = {
             return header;
         }
         async function verifyBearerToken(authorizationHeader, options) {
-            const { verifier, requiredScopes = [] } = options;
+            const { verifier, requiredScopes = [], expectedResource } = options;
             if (!authorizationHeader) throw new OAuthError(OAuthErrorCode.InvalidToken, "Missing Authorization header");
             const [type, token] = authorizationHeader.split(" ");
             if (type?.toLowerCase() !== "bearer" || !token) throw new OAuthError(OAuthErrorCode.InvalidToken, "Invalid Authorization header format, expected 'Bearer TOKEN'");
             const authInfo = await verifier.verifyAccessToken(token);
+            if (expectedResource !== void 0 && !sameResource(authInfo.resource, expectedResource)) throw new OAuthError(OAuthErrorCode.InvalidToken, "Token was not issued for this resource");
             if (requiredScopes.length > 0) {
                 if (!requiredScopes.every((scope)=>authInfo.scopes.includes(scope))) throw new OAuthError(OAuthErrorCode.InsufficientScope, "Insufficient scope");
             }
@@ -11378,11 +11399,12 @@ var __webpack_modules__ = {
             }
         }
         function requireBearerAuth(options) {
-            const { verifier, requiredScopes = [], resourceMetadataUrl } = options;
+            const { verifier, requiredScopes = [], resourceMetadataUrl, expectedResource } = options;
             const resolved = {
                 verifier,
                 requiredScopes,
-                resourceMetadataUrl
+                resourceMetadataUrl,
+                expectedResource
             };
             return async (request)=>{
                 const [authorizationHeader] = (request.headers.get("authorization") ?? "").split(",");
@@ -11530,10 +11552,10 @@ var __webpack_modules__ = {
             };
         }
         function coerceEmbeddedInputRequest(method, key, entry) {
-            if (entry === null || typeof entry !== "object" || typeof entry.method !== "string") throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an invalid input request '${key}': each inputRequests entry must be an embedded elicitation/create, sampling/createMessage, or roots/list request`);
+            if (entry === null || typeof entry !== "object" || typeof entry.method !== "string") throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an invalid input request '${key}': each inputRequests entry must be an embedded elicitation/create, sampling/createMessage, or roots/list request`);
             const embedded = entry;
-            const required = (0, _src_BHSMhZ_W_mjs__rspack_import_0.Ht)(embedded);
-            if (required === void 0) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input request '${key}' of kind '${embedded.method}', which is not an embedded request the 2026-07-28 revision defines`);
+            const required = (0, _src_Cqbh3MYc_mjs__rspack_import_0.Ht)(embedded);
+            if (required === void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input request '${key}' of kind '${embedded.method}', which is not an embedded request the 2026-07-28 revision defines`);
             return {
                 embedded,
                 required
@@ -11561,7 +11583,7 @@ var __webpack_modules__ = {
                 ],
                 isError: true
             };
-            throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError, message);
+            throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, message);
         }
         var LegacyInputRequiredShim = class {
             constructor(_host){
@@ -11574,25 +11596,25 @@ var __webpack_modules__ = {
                 let round = 0;
                 while(true){
                     round += 1;
-                    if (round > maxRounds) return legacyShimFailure(method, (0, _src_BHSMhZ_W_mjs__rspack_import_0.w)(method, maxRounds));
+                    if (round > maxRounds) return legacyShimFailure(method, (0, _src_Cqbh3MYc_mjs__rspack_import_0.w)(method, maxRounds));
                     const inputRequests = current.inputRequests;
                     const hasInputRequests = inputRequests != null && Object.keys(inputRequests).length > 0;
                     const requestState = typeof current.requestState === "string" ? current.requestState : void 0;
-                    if (!hasInputRequests && requestState === void 0) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result with neither inputRequests nor requestState (every InputRequiredResult must include at least one of the two)`);
+                    if (!hasInputRequests && requestState === void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result with neither inputRequests nor requestState (every InputRequiredResult must include at least one of the two)`);
                     let responses;
                     if (hasInputRequests) {
                         const declared = this._host.resolvedClientCapabilities(ctx);
                         const coerced = [];
                         for (const [key, entry] of Object.entries(inputRequests)){
                             const { embedded, required } = coerceEmbeddedInputRequest(method, key, entry);
-                            if (embedded.method !== "roots/list" && embedded.params === void 0) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input request '${key}' of kind '${embedded.method}' without params`);
-                            if ((0, _src_BHSMhZ_W_mjs__rspack_import_0.Vt)(required, declared) !== void 0) return legacyShimFailure(method, `Cannot request input '${key}' (${embedded.method}): the client on this 2025-era connection did not declare the required capability${declared === void 0 ? " (no client capabilities are available on this connection — per-request legacy serving cannot receive server-to-client requests)" : ""}`);
+                            if (embedded.method !== "roots/list" && embedded.params === void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input request '${key}' of kind '${embedded.method}' without params`);
+                            if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.Vt)(required, declared) !== void 0) return legacyShimFailure(method, `Cannot request input '${key}' (${embedded.method}): the client on this 2025-era connection did not declare the required capability${declared === void 0 ? " (no client capabilities are available on this connection — per-request legacy serving cannot receive server-to-client requests)" : ""}`);
                             coerced.push([
                                 key,
                                 embedded
                             ]);
                         }
-                        const roundAbort = (0, _src_BHSMhZ_W_mjs__rspack_import_0.T)(outerSignal);
+                        const roundAbort = (0, _src_Cqbh3MYc_mjs__rspack_import_0.T)(outerSignal);
                         try {
                             const legOptions = {
                                 relatedRequestId: ctx.mcpReq.id,
@@ -11619,22 +11641,22 @@ var __webpack_modules__ = {
                         } finally{
                             roundAbort.dispose();
                         }
-                    } else await (0, _src_BHSMhZ_W_mjs__rspack_import_0.E)(250, outerSignal);
+                    } else await (0, _src_Cqbh3MYc_mjs__rspack_import_0.E)(250, outerSignal);
                     let ctxNext = {
                         ...ctx,
                         mcpReq: {
                             ...ctx.mcpReq,
                             inputResponses: responses,
                             droppedInputResponseKeys: void 0,
-                            requestState: (0, _src_BHSMhZ_W_mjs__rspack_import_0.v)(requestState)
+                            requestState: (0, _src_Cqbh3MYc_mjs__rspack_import_0.v)(requestState)
                         }
                     };
                     if (requestState !== void 0) {
                         const decoded = await this._host.verifyRequestState(requestState, ctxNext, method);
-                        if (decoded !== void 0) ctxNext = (0, _src_BHSMhZ_W_mjs__rspack_import_0.b)(ctxNext, decoded);
+                        if (decoded !== void 0) ctxNext = (0, _src_Cqbh3MYc_mjs__rspack_import_0.b)(ctxNext, decoded);
                     }
                     const next = await handler(request, ctxNext);
-                    if (!(0, _src_BHSMhZ_W_mjs__rspack_import_0.q)(next)) return next;
+                    if (!(0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(next)) return next;
                     current = next;
                 }
             }
@@ -11673,7 +11695,7 @@ var __webpack_modules__ = {
         function serverIdentityOf1(server) {
             return readServerIdentity(server);
         }
-        var Server = class extends _src_BHSMhZ_W_mjs__rspack_import_0.g {
+        var Server = class extends _src_Cqbh3MYc_mjs__rspack_import_0.g {
             _clientCapabilities;
             _clientVersion;
             static{
@@ -11723,19 +11745,23 @@ var __webpack_modules__ = {
                 this._requestStateVerify = options?.requestState?.verify;
                 this._inputRequiredServing = resolveLegacyShimOptions(options?.inputRequired);
                 if (options?.cacheHints !== void 0) {
-                    for (const [operation, hint] of Object.entries(options.cacheHints))if (hint !== void 0) (0, _src_BHSMhZ_W_mjs__rspack_import_0.ht)(hint, `cacheHints['${operation}']`);
+                    for (const [operation, hint] of Object.entries(options.cacheHints))if (hint !== void 0) (0, _src_Cqbh3MYc_mjs__rspack_import_0.ht)(hint, `cacheHints['${operation}']`);
                     this._cacheHints = options.cacheHints;
                 }
                 this.setRequestHandler("initialize", (request)=>this._oninitialize(request));
                 this.setNotificationHandler("notifications/initialized", ()=>this.oninitialized?.());
-                if ((0, _src_BHSMhZ_W_mjs__rspack_import_0.xt)(this._supportedProtocolVersions).length > 0) this.setRequestHandler("server/discover", ()=>this._ondiscover());
+                if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.xt)(this._supportedProtocolVersions).length > 0) this.setRequestHandler("server/discover", ()=>this._ondiscover());
                 if (this._capabilities.logging) this._registerLoggingHandler();
+            }
+            async connect(transport) {
+                if (this.transport !== void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.AlreadyConnected, "Use a separate Server instance per connection: this instance is already connected to a transport. To connect it to a new transport, call close() first.");
+                await super.connect(transport);
             }
             _registerLoggingHandler() {
                 this.setRequestHandler("logging/setLevel", async (request, ctx)=>{
                     const transportSessionId = ctx.sessionId || ctx.http?.req?.headers.get("mcp-session-id") || void 0;
                     const { level } = request.params;
-                    const parseResult = (0, _src_BHSMhZ_W_mjs__rspack_import_0.N)(_src_BHSMhZ_W_mjs__rspack_import_0.nt, level);
+                    const parseResult = (0, _src_Cqbh3MYc_mjs__rspack_import_0.N)(_src_Cqbh3MYc_mjs__rspack_import_0.nt, level);
                     if (parseResult.success) this._loggingLevels.set(transportSessionId, parseResult.data);
                     return {};
                 });
@@ -11750,7 +11776,7 @@ var __webpack_modules__ = {
                             if (!this._capabilities.logging) return Promise.resolve();
                             let threshold;
                             if (this._servedModernEra()) {
-                                threshold = ctx.mcpReq.envelope?.[_src_BHSMhZ_W_mjs__rspack_import_0.jt];
+                                threshold = ctx.mcpReq.envelope?.[_src_Cqbh3MYc_mjs__rspack_import_0.jt];
                                 if (threshold === void 0) return Promise.resolve();
                             } else threshold = this._loggingLevels.get(ctx.sessionId) ?? this._loggingLevels.get(void 0);
                             if (threshold !== void 0 && this.LOG_LEVEL_SEVERITY.get(level) < this.LOG_LEVEL_SEVERITY.get(threshold)) return Promise.resolve();
@@ -11775,7 +11801,7 @@ var __webpack_modules__ = {
                 };
             }
             _loggingLevels = new Map();
-            LOG_LEVEL_SEVERITY = new Map(_src_BHSMhZ_W_mjs__rspack_import_0.nt.options.map((level, index)=>[
+            LOG_LEVEL_SEVERITY = new Map(_src_Cqbh3MYc_mjs__rspack_import_0.nt.options.map((level, index)=>[
                     level,
                     index
                 ]));
@@ -11784,9 +11810,9 @@ var __webpack_modules__ = {
                 return currentLevel ? this.LOG_LEVEL_SEVERITY.get(level) < this.LOG_LEVEL_SEVERITY.get(currentLevel) : false;
             };
             registerCapabilities(capabilities) {
-                if (this.transport) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.AlreadyConnected, "Cannot register capabilities after connecting to transport");
+                if (this.transport) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.AlreadyConnected, "Cannot register capabilities after connecting to transport");
                 const hadLogging = !!this._capabilities.logging;
-                this._capabilities = (0, _src_BHSMhZ_W_mjs__rspack_import_0._)(this._capabilities, capabilities);
+                this._capabilities = (0, _src_Cqbh3MYc_mjs__rspack_import_0._)(this._capabilities, capabilities);
                 if (!hadLogging && this._capabilities.logging) this._registerLoggingHandler();
             }
             _wrapHandler(method, handler) {
@@ -11795,69 +11821,69 @@ var __webpack_modules__ = {
                     const isInputRequiredCapable = INPUT_REQUIRED_CAPABLE_METHODS.has(method);
                     if (cacheHint === void 0 && !isInputRequiredCapable) return async (request, ctx)=>{
                         const result = await handler(request, ctx);
-                        if ((0, _src_BHSMhZ_W_mjs__rspack_import_0.q)(result)) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but only tools/call, prompts/get and resources/read support input_required (protocol revision 2026-07-28)`);
+                        if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but only tools/call, prompts/get and resources/read support input_required (protocol revision 2026-07-28)`);
                         return result;
                     };
                     return async (request, ctx)=>{
                         const result = isInputRequiredCapable ? await this._invokeInputRequiredCapableHandler(method, handler, request, ctx) : await handler(request, ctx);
-                        if ((0, _src_BHSMhZ_W_mjs__rspack_import_0.q)(result)) {
-                            if (!isInputRequiredCapable) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but only tools/call, prompts/get and resources/read support input_required (protocol revision 2026-07-28)`);
+                        if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) {
+                            if (!isInputRequiredCapable) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but only tools/call, prompts/get and resources/read support input_required (protocol revision 2026-07-28)`);
                             return result;
                         }
-                        return cacheHint === void 0 ? result : (0, _src_BHSMhZ_W_mjs__rspack_import_0.gt)(result, cacheHint);
+                        return cacheHint === void 0 ? result : (0, _src_Cqbh3MYc_mjs__rspack_import_0.gt)(result, cacheHint);
                     };
                 }
                 return async (request, ctx)=>{
-                    const codec = (0, _src_BHSMhZ_W_mjs__rspack_import_0.ct)(this._negotiatedProtocolVersion);
+                    const codec = (0, _src_Cqbh3MYc_mjs__rspack_import_0.ct)(this._negotiatedProtocolVersion);
                     const validatedRequest = codec.validateRequest("tools/call", request);
-                    if (!validatedRequest.ok) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(validatedRequest.reason === "not-in-era" ? _src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError : _src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, validatedRequest.reason === "not-in-era" ? "No wire schema for tools/call in the resolved era" : `Invalid tools/call request: ${validatedRequest.message}`);
+                    if (!validatedRequest.ok) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(validatedRequest.reason === "not-in-era" ? _src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError : _src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, validatedRequest.reason === "not-in-era" ? "No wire schema for tools/call in the resolved era" : `Invalid tools/call request: ${validatedRequest.message}`);
                     const result = await this._invokeInputRequiredCapableHandler("tools/call", handler, request, ctx);
-                    if ((0, _src_BHSMhZ_W_mjs__rspack_import_0.q)(result)) return result;
-                    const normalizedResult = (0, _src_BHSMhZ_W_mjs__rspack_import_0._t)(result);
+                    if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) return result;
+                    const normalizedResult = (0, _src_Cqbh3MYc_mjs__rspack_import_0._t)(result);
                     const validationResult = codec.validateResult("tools/call", normalizedResult);
-                    if (!validationResult.ok) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(validationResult.reason === "not-in-era" ? _src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError : _src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, validationResult.reason === "not-in-era" ? "No wire schema for tools/call in the resolved era" : `Invalid tools/call result: ${validationResult.message}`);
+                    if (!validationResult.ok) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(validationResult.reason === "not-in-era" ? _src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError : _src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, validationResult.reason === "not-in-era" ? "No wire schema for tools/call in the resolved era" : `Invalid tools/call result: ${validationResult.message}`);
                     return validationResult.value;
                 };
             }
             _servedModernEra() {
-                return this._negotiatedProtocolVersion !== void 0 && (0, _src_BHSMhZ_W_mjs__rspack_import_0.yt)(this._negotiatedProtocolVersion);
+                return this._negotiatedProtocolVersion !== void 0 && (0, _src_Cqbh3MYc_mjs__rspack_import_0.yt)(this._negotiatedProtocolVersion);
             }
             async _invokeInputRequiredCapableHandler(method, handler, request, ctx) {
                 const servedModern = this._servedModernEra();
                 const rawRequestState = ctx.mcpReq.requestState();
-                if (rawRequestState !== void 0 && typeof rawRequestState !== "string") throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, "Invalid or expired requestState", {
+                if (rawRequestState !== void 0 && typeof rawRequestState !== "string") throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, "Invalid or expired requestState", {
                     reason: "invalid_request_state"
                 });
                 let ctxForHandler = ctx;
                 if (typeof rawRequestState === "string") {
                     const decoded = await this._verifyRequestState(rawRequestState, ctx, method);
-                    if (decoded !== void 0) ctxForHandler = (0, _src_BHSMhZ_W_mjs__rspack_import_0.b)(ctx, decoded);
+                    if (decoded !== void 0) ctxForHandler = (0, _src_Cqbh3MYc_mjs__rspack_import_0.b)(ctx, decoded);
                 }
                 let result;
                 try {
                     result = await handler(request, ctxForHandler);
                 } catch (error) {
-                    if (error instanceof _src_BHSMhZ_W_mjs__rspack_import_0.ut && error.code === _src_BHSMhZ_W_mjs__rspack_import_0.mt.UrlElicitationRequired) {
+                    if (error instanceof _src_Cqbh3MYc_mjs__rspack_import_0.ut && error.code === _src_Cqbh3MYc_mjs__rspack_import_0.mt.UrlElicitationRequired) {
                         if (!servedModern) throw error;
-                        throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError, `URL elicitation cannot be signalled by throwing UrlElicitationRequiredError on protocol revision ${this._negotiatedProtocolVersion}: return inputRequired({ inputRequests: { …: inputRequired.elicitUrl(...) } }) from the handler instead. The urlElicitationRequired error (-32042) of earlier revisions is not available on this revision.`);
+                        throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `URL elicitation cannot be signalled by throwing UrlElicitationRequiredError on protocol revision ${this._negotiatedProtocolVersion}: return inputRequired({ inputRequests: { …: inputRequired.elicitUrl(...) } }) from the handler instead. The urlElicitationRequired error (-32042) of earlier revisions is not available on this revision.`);
                     }
                     throw error;
                 }
-                if (!(0, _src_BHSMhZ_W_mjs__rspack_import_0.q)(result)) return result;
+                if (!(0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) return result;
                 if (!servedModern) {
-                    if (!this._inputRequiredServing.legacyShim) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but this request is served on protocol revision ${this._negotiatedProtocolVersion ?? _src_BHSMhZ_W_mjs__rspack_import_0.At}, which has no input_required vocabulary`);
+                    if (!this._inputRequiredServing.legacyShim) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but this request is served on protocol revision ${this._negotiatedProtocolVersion ?? _src_Cqbh3MYc_mjs__rspack_import_0.At}, which has no input_required vocabulary`);
                     return await this._legacyInputRequiredShim().fulfill(method, handler, request, ctxForHandler, result);
                 }
                 const inputRequests = result.inputRequests;
                 const hasInputRequests = inputRequests != null && Object.keys(inputRequests).length > 0;
                 const hasRequestState = typeof result.requestState === "string";
-                if (!hasInputRequests && !hasRequestState) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result with neither inputRequests nor requestState (every InputRequiredResult must include at least one of the two)`);
+                if (!hasInputRequests && !hasRequestState) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result with neither inputRequests nor requestState (every InputRequiredResult must include at least one of the two)`);
                 if (hasInputRequests) {
                     const declared = this._inputRequestCapabilityView(ctx);
                     for (const [key, entry] of Object.entries(inputRequests)){
                         const { embedded, required } = coerceEmbeddedInputRequest(method, key, entry);
-                        const missing = (0, _src_BHSMhZ_W_mjs__rspack_import_0.Vt)(required, declared);
-                        if (missing !== void 0) throw new _src_BHSMhZ_W_mjs__rspack_import_0.lt({
+                        const missing = (0, _src_Cqbh3MYc_mjs__rspack_import_0.Vt)(required, declared);
+                        if (missing !== void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.lt({
                             requiredCapabilities: missing
                         }, `Cannot request input '${key}' (${embedded.method}): the request's client capabilities do not declare the required capability`);
                     }
@@ -11870,16 +11896,16 @@ var __webpack_modules__ = {
                     return await this._requestStateVerify(state, ctx);
                 } catch (error) {
                     this.onerror?.(new Error(`requestState verification rejected ${method}: ${error instanceof Error ? error.message : String(error)}`));
-                    throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, "Invalid or expired requestState", {
+                    throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, "Invalid or expired requestState", {
                         reason: "invalid_request_state"
                     });
                 }
             }
             _inputRequestCapabilityView(ctx) {
-                return this._servedModernEra() ? ctx.mcpReq.envelope?.[_src_BHSMhZ_W_mjs__rspack_import_0.Ct] : this._clientCapabilities;
+                return this._servedModernEra() ? ctx.mcpReq.envelope?.[_src_Cqbh3MYc_mjs__rspack_import_0.Ct] : this._clientCapabilities;
             }
             _assertPushApiInServedEra(method) {
-                if (this._servedModernEra()) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.MethodNotSupportedByProtocolVersion, `Server-to-client requests are not available on protocol revision ${this._negotiatedProtocolVersion}: '${method}' cannot be sent while serving a request on that revision. Return inputRequired({ ... }) from the handler instead — the client fulfils the embedded requests and retries the original request (multi round-trip requests).`, {
+                if (this._servedModernEra()) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.MethodNotSupportedByProtocolVersion, `Server-to-client requests are not available on protocol revision ${this._negotiatedProtocolVersion}: '${method}' cannot be sent while serving a request on that revision. Return inputRequired({ ... }) from the handler instead — the client fulfils the embedded requests and retries the original request (multi round-trip requests).`, {
                     method,
                     era: "2026-07-28"
                 });
@@ -11887,13 +11913,13 @@ var __webpack_modules__ = {
             assertCapabilityForMethod(method) {
                 switch(method){
                     case "sampling/createMessage":
-                        if (!this._clientCapabilities?.sampling) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support sampling (required for ${method})`);
+                        if (!this._clientCapabilities?.sampling) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support sampling (required for ${method})`);
                         break;
                     case "elicitation/create":
-                        if (!this._clientCapabilities?.elicitation) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support elicitation (required for ${method})`);
+                        if (!this._clientCapabilities?.elicitation) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support elicitation (required for ${method})`);
                         break;
                     case "roots/list":
-                        if (!this._clientCapabilities?.roots) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support listing roots (required for ${method})`);
+                        if (!this._clientCapabilities?.roots) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support listing roots (required for ${method})`);
                         break;
                     case "ping":
                         break;
@@ -11902,20 +11928,20 @@ var __webpack_modules__ = {
             assertNotificationCapability(method) {
                 switch(method){
                     case "notifications/message":
-                        if (!this._capabilities.logging) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support logging (required for ${method})`);
+                        if (!this._capabilities.logging) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support logging (required for ${method})`);
                         break;
                     case "notifications/resources/updated":
                     case "notifications/resources/list_changed":
-                        if (!this._capabilities.resources) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying about resources (required for ${method})`);
+                        if (!this._capabilities.resources) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying about resources (required for ${method})`);
                         break;
                     case "notifications/tools/list_changed":
-                        if (!this._capabilities.tools) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying of tool list changes (required for ${method})`);
+                        if (!this._capabilities.tools) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying of tool list changes (required for ${method})`);
                         break;
                     case "notifications/prompts/list_changed":
-                        if (!this._capabilities.prompts) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying of prompt list changes (required for ${method})`);
+                        if (!this._capabilities.prompts) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying of prompt list changes (required for ${method})`);
                         break;
                     case "notifications/elicitation/complete":
-                        if (!this._clientCapabilities?.elicitation?.url) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support URL elicitation (required for ${method})`);
+                        if (!this._clientCapabilities?.elicitation?.url) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support URL elicitation (required for ${method})`);
                         break;
                     case "notifications/cancelled":
                         break;
@@ -11926,23 +11952,23 @@ var __webpack_modules__ = {
             assertRequestHandlerCapability(method) {
                 switch(method){
                     case "completion/complete":
-                        if (!this._capabilities.completions) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support completions (required for ${method})`);
+                        if (!this._capabilities.completions) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support completions (required for ${method})`);
                         break;
                     case "logging/setLevel":
-                        if (!this._capabilities.logging) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support logging (required for ${method})`);
+                        if (!this._capabilities.logging) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support logging (required for ${method})`);
                         break;
                     case "prompts/get":
                     case "prompts/list":
-                        if (!this._capabilities.prompts) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support prompts (required for ${method})`);
+                        if (!this._capabilities.prompts) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support prompts (required for ${method})`);
                         break;
                     case "resources/list":
                     case "resources/templates/list":
                     case "resources/read":
-                        if (!this._capabilities.resources) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support resources (required for ${method})`);
+                        if (!this._capabilities.resources) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support resources (required for ${method})`);
                         break;
                     case "tools/call":
                     case "tools/list":
-                        if (!this._capabilities.tools) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support tools (required for ${method})`);
+                        if (!this._capabilities.tools) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support tools (required for ${method})`);
                         break;
                     case "ping":
                     case "initialize":
@@ -11953,8 +11979,8 @@ var __webpack_modules__ = {
                 const requestedVersion = request.params.protocolVersion;
                 this._clientCapabilities = request.params.capabilities;
                 this._clientVersion = request.params.clientInfo;
-                const legacyVersions = (0, _src_BHSMhZ_W_mjs__rspack_import_0.bt)(this._supportedProtocolVersions);
-                const protocolVersion = legacyVersions.includes(requestedVersion) ? requestedVersion : legacyVersions[0] ?? _src_BHSMhZ_W_mjs__rspack_import_0.At;
+                const legacyVersions = (0, _src_Cqbh3MYc_mjs__rspack_import_0.bt)(this._supportedProtocolVersions);
+                const protocolVersion = legacyVersions.includes(requestedVersion) ? requestedVersion : legacyVersions[0] ?? _src_Cqbh3MYc_mjs__rspack_import_0.At;
                 this._negotiatedProtocolVersion = protocolVersion;
                 this.transport?.setProtocolVersion?.(protocolVersion);
                 return {
@@ -11968,7 +11994,7 @@ var __webpack_modules__ = {
             }
             _ondiscover() {
                 return {
-                    supportedVersions: (0, _src_BHSMhZ_W_mjs__rspack_import_0.xt)(this._supportedProtocolVersions),
+                    supportedVersions: (0, _src_Cqbh3MYc_mjs__rspack_import_0.xt)(this._supportedProtocolVersions),
                     capabilities: discoverAdvertisedCapabilities(this.getCapabilities()),
                     ...this._instructions && {
                         instructions: this._instructions
@@ -12001,7 +12027,7 @@ var __webpack_modules__ = {
             }
             async createMessage(params, options) {
                 this._assertPushApiInServedEra("sampling/createMessage");
-                if ((params.tools || params.toolChoice) && !this._clientCapabilities?.sampling?.tools) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support sampling tools capability.");
+                if ((params.tools || params.toolChoice) && !this._clientCapabilities?.sampling?.tools) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support sampling tools capability.");
                 if (params.messages.length > 0) {
                     const lastMessage = params.messages.at(-1);
                     const lastContent = Array.isArray(lastMessage.content) ? lastMessage.content : [
@@ -12014,15 +12040,15 @@ var __webpack_modules__ = {
                     ] : [];
                     const hasPreviousToolUse = previousContent.some((c)=>c.type === "tool_use");
                     if (hasToolResults) {
-                        if (lastContent.some((c)=>c.type !== "tool_result")) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, "The last message must contain only tool_result content if any is present");
-                        if (!hasPreviousToolUse) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, "tool_result blocks are not matching any tool_use from the previous message");
+                        if (lastContent.some((c)=>c.type !== "tool_result")) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, "The last message must contain only tool_result content if any is present");
+                        if (!hasPreviousToolUse) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, "tool_result blocks are not matching any tool_use from the previous message");
                     }
                     if (hasPreviousToolUse) {
                         const toolUseIds = new Set(previousContent.filter((c)=>c.type === "tool_use").map((c)=>c.id));
                         const toolResultIds = new Set(lastContent.filter((c)=>c.type === "tool_result").map((c)=>c.toolUseId));
                         if (toolUseIds.size !== toolResultIds.size || ![
                             ...toolUseIds
-                        ].every((id)=>toolResultIds.has(id))) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, "ids of tool_result blocks and tool_use blocks from previous message do not match");
+                        ].every((id)=>toolResultIds.has(id))) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, "ids of tool_result blocks and tool_use blocks from previous message do not match");
                     }
                 }
                 const hasTools = Boolean(params.tools || params.toolChoice);
@@ -12031,17 +12057,17 @@ var __webpack_modules__ = {
                     params
                 }, options);
                 const outcome = this._wireCodec().samplingResultVariant(hasTools, wide);
-                if (!outcome.ok) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.InvalidResult, `Invalid sampling/createMessage result: ${outcome.reason === "invalid" ? outcome.message : outcome.reason}`);
+                if (!outcome.ok) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.InvalidResult, `Invalid sampling/createMessage result: ${outcome.reason === "invalid" ? outcome.message : outcome.reason}`);
                 return outcome.value;
             }
             async elicitInput(params, options) {
                 this._assertPushApiInServedEra("elicitation/create");
                 switch(params.mode ?? "form"){
                     case "url":
-                        if (!this._clientCapabilities?.elicitation?.url) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support url elicitation.");
+                        if (!this._clientCapabilities?.elicitation?.url) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support url elicitation.");
                         break;
                     case "form":
-                        if (!this._clientCapabilities?.elicitation?.form) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support form elicitation.");
+                        if (!this._clientCapabilities?.elicitation?.form) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support form elicitation.");
                         break;
                 }
                 return this._sendElicitationLeg(params, options);
@@ -12070,17 +12096,17 @@ var __webpack_modules__ = {
                             }, options);
                             if (validateAcceptedContent && result.action === "accept" && result.content && formParams.requestedSchema) try {
                                 const validationResult = this._jsonSchemaValidator.getValidator(formParams.requestedSchema)(result.content);
-                                if (!validationResult.valid) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Elicitation response content does not match requested schema: ${validationResult.errorMessage}`);
+                                if (!validationResult.valid) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Elicitation response content does not match requested schema: ${validationResult.errorMessage}`);
                             } catch (error) {
-                                if (error instanceof _src_BHSMhZ_W_mjs__rspack_import_0.ut) throw error;
-                                throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InternalError, `Error validating elicitation response: ${error instanceof Error ? error.message : String(error)}`);
+                                if (error instanceof _src_Cqbh3MYc_mjs__rspack_import_0.ut) throw error;
+                                throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Error validating elicitation response: ${error instanceof Error ? error.message : String(error)}`);
                             }
                             return result;
                         }
                 }
             }
             createElicitationCompletionNotifier(elicitationId, options) {
-                if (!this._clientCapabilities?.elicitation?.url) throw new _src_BHSMhZ_W_mjs__rspack_import_0.Kt(_src_BHSMhZ_W_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support URL elicitation (required for notifications/elicitation/complete)");
+                if (!this._clientCapabilities?.elicitation?.url) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support URL elicitation (required for notifications/elicitation/complete)");
                 return ()=>this.notification({
                         method: "notifications/elicitation/complete",
                         params: {
@@ -12128,8 +12154,35 @@ var __webpack_modules__ = {
                 ...capabilities
             };
         }
+        function toolInputElementCount(value, max) {
+            let count = 0;
+            const stack = [
+                value
+            ];
+            while(stack.length > 0){
+                const node = stack.pop();
+                if (node === null || typeof node !== "object") continue;
+                if (Array.isArray(node)) for (const child of node){
+                    if (++count > max) return count;
+                    if (child !== null && typeof child === "object") stack.push(child);
+                }
+                else for(const key in node){
+                    if (!Object.prototype.hasOwnProperty.call(node, key)) continue;
+                    if (++count > max) return count;
+                    const child = node[key];
+                    if (child !== null && typeof child === "object") stack.push(child);
+                }
+            }
+            return count;
+        }
+        function resolveMaxToolInputElements(value) {
+            if (value === void 0 || value === Infinity) return void 0;
+            if (typeof value !== "number" || Number.isNaN(value) || value < 1) throw new RangeError(`maxToolInputElements must be a number of at least 1, or Infinity, got ${String(value)}`);
+            return value;
+        }
         var McpServer1 = class {
             server;
+            _maxToolInputElements;
             _registeredResources = {};
             _registeredResourceTemplates = {};
             _registeredTools = {};
@@ -12141,7 +12194,7 @@ var __webpack_modules__ = {
                 if (Object.hasOwn(this._toolInputSchemaJson, name)) return this._toolInputSchemaJson[name];
                 if (tool.inputSchema === void 0) return EMPTY_OBJECT_JSON_SCHEMA;
                 try {
-                    const json = (0, _src_BHSMhZ_W_mjs__rspack_import_0.j)(tool.inputSchema, "input");
+                    const json = (0, _src_Cqbh3MYc_mjs__rspack_import_0.j)(tool.inputSchema, "input");
                     this._toolInputSchemaJson[name] = json;
                     return json;
                 } catch  {
@@ -12150,6 +12203,7 @@ var __webpack_modules__ = {
             }
             constructor(serverInfo, options){
                 this.server = new Server(serverInfo, options);
+                this._maxToolInputElements = resolveMaxToolInputElements(options?.maxToolInputElements);
                 if (options?.capabilities?.tools) this.setToolRequestHandlers();
                 if (options?.capabilities?.resources) this.setResourceRequestHandlers();
                 if (options?.capabilities?.prompts) this.setPromptRequestHandlers();
@@ -12214,28 +12268,28 @@ var __webpack_modules__ = {
                                 name,
                                 title: tool.title,
                                 description: tool.description,
-                                inputSchema: tool.inputSchema ? (0, _src_BHSMhZ_W_mjs__rspack_import_0.j)(tool.inputSchema, "input") : EMPTY_OBJECT_JSON_SCHEMA,
+                                inputSchema: tool.inputSchema ? convertListedInputSchema(name, tool.inputSchema) : EMPTY_OBJECT_JSON_SCHEMA,
                                 annotations: tool.annotations,
                                 icons: tool.icons,
                                 execution: tool.execution,
                                 _meta: tool._meta
                             };
-                            if (tool.outputSchema) toolDefinition.outputSchema = (0, _src_BHSMhZ_W_mjs__rspack_import_0.j)(tool.outputSchema, "output");
+                            if (tool.outputSchema) toolDefinition.outputSchema = (0, _src_Cqbh3MYc_mjs__rspack_import_0.j)(tool.outputSchema, "output");
                             return toolDefinition;
                         })
                     }));
                 this.server.setRequestHandler("tools/call", async (request, ctx)=>{
                     const tool = this._registeredTools[request.params.name];
-                    if (!tool) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Tool ${request.params.name} not found`);
-                    if (!tool.enabled) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Tool ${request.params.name} disabled`);
+                    if (!tool) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Tool ${request.params.name} not found`);
+                    if (!tool.enabled) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Tool ${request.params.name} disabled`);
                     try {
                         const args = await this.validateToolInput(tool, request.params.arguments, request.params.name);
                         const result = await this.executeToolHandler(tool, args, ctx);
                         await this.validateToolOutput(tool, result, request.params.name);
-                        if ((0, _src_BHSMhZ_W_mjs__rspack_import_0.q)(result)) return result;
+                        if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) return result;
                         return this.server.projectCallToolResult(result, tool.outputSchemaJson);
                     } catch (error) {
-                        if (error instanceof _src_BHSMhZ_W_mjs__rspack_import_0.ut && error.code === _src_BHSMhZ_W_mjs__rspack_import_0.mt.UrlElicitationRequired) throw error;
+                        if (error instanceof _src_Cqbh3MYc_mjs__rspack_import_0.ut && error.code === _src_Cqbh3MYc_mjs__rspack_import_0.mt.UrlElicitationRequired) throw error;
                         return this.createToolError(error instanceof Error ? error.message : String(error));
                     }
                 });
@@ -12253,18 +12307,19 @@ var __webpack_modules__ = {
                 };
             }
             async validateToolInput(tool, args, toolName) {
+                if (this._maxToolInputElements !== void 0 && toolInputElementCount(args, this._maxToolInputElements) > this._maxToolInputElements) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Invalid arguments for tool ${toolName}: arguments contain more than the maximum of ${this._maxToolInputElements} elements`);
                 if (!tool.inputSchema) return;
-                const parseResult = await (0, _src_BHSMhZ_W_mjs__rspack_import_0.M)(tool.inputSchema, args ?? {});
-                if (!parseResult.success) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Input validation error: Invalid arguments for tool ${toolName}: ${parseResult.error}`);
+                const parseResult = await (0, _src_Cqbh3MYc_mjs__rspack_import_0.M)(tool.inputSchema, args ?? {});
+                if (!parseResult.success) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Input validation error: Invalid arguments for tool ${toolName}: ${parseResult.error}`);
                 return parseResult.data;
             }
             async validateToolOutput(tool, result, toolName) {
                 if (!tool.outputSchema) return;
-                if ((0, _src_BHSMhZ_W_mjs__rspack_import_0.q)(result)) return;
+                if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) return;
                 if (result.isError) return;
-                if (result.structuredContent === void 0) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Output validation error: Tool ${toolName} has an output schema but no structured content was provided`);
-                const parseResult = await (0, _src_BHSMhZ_W_mjs__rspack_import_0.M)(tool.outputSchema, result.structuredContent);
-                if (!parseResult.success) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Output validation error: Invalid structured content for tool ${toolName}: ${parseResult.error}`);
+                if (result.structuredContent === void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Output validation error: Tool ${toolName} has an output schema but no structured content was provided`);
+                const parseResult = await (0, _src_Cqbh3MYc_mjs__rspack_import_0.M)(tool.outputSchema, result.structuredContent);
+                if (!parseResult.success) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Output validation error: Invalid structured content for tool ${toolName}: ${parseResult.error}`);
             }
             async executeToolHandler(tool, args, ctx) {
                 return tool.executor(args, ctx);
@@ -12279,21 +12334,21 @@ var __webpack_modules__ = {
                 this.server.setRequestHandler("completion/complete", async (request)=>{
                     switch(request.params.ref.type){
                         case "ref/prompt":
-                            (0, _src_BHSMhZ_W_mjs__rspack_import_0.H)(request);
+                            (0, _src_Cqbh3MYc_mjs__rspack_import_0.H)(request);
                             return this.handlePromptCompletion(request, request.params.ref);
                         case "ref/resource":
-                            (0, _src_BHSMhZ_W_mjs__rspack_import_0.U)(request);
+                            (0, _src_Cqbh3MYc_mjs__rspack_import_0.U)(request);
                             return this.handleResourceCompletion(request, request.params.ref);
                         default:
-                            throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Invalid completion reference: ${request.params.ref}`);
+                            throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Invalid completion reference: ${request.params.ref}`);
                     }
                 });
                 this._completionHandlerInitialized = true;
             }
             async handlePromptCompletion(request, ref) {
                 const prompt = this._registeredPrompts[ref.name];
-                if (!prompt) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${ref.name} not found`);
-                if (!prompt.enabled) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${ref.name} disabled`);
+                if (!prompt) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${ref.name} not found`);
+                if (!prompt.enabled) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${ref.name} disabled`);
                 if (!prompt.argsSchema) return EMPTY_COMPLETION_RESULT;
                 const field = unwrapOptionalSchema(getSchemaShape(prompt.argsSchema)?.[request.params.argument.name]);
                 if (!isCompletable(field)) return EMPTY_COMPLETION_RESULT;
@@ -12305,7 +12360,7 @@ var __webpack_modules__ = {
                 const template = Object.values(this._registeredResourceTemplates).find((t)=>t.resourceTemplate.uriTemplate.toString() === ref.uri);
                 if (!template) {
                     if (this._registeredResources[ref.uri]) return EMPTY_COMPLETION_RESULT;
-                    throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Resource template ${request.params.ref.uri} not found`);
+                    throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Resource template ${request.params.ref.uri} not found`);
                 }
                 const completer = template.resourceTemplate.completeCallback(request.params.argument.name);
                 if (!completer) return EMPTY_COMPLETION_RESULT;
@@ -12358,24 +12413,24 @@ var __webpack_modules__ = {
                     try {
                         uri = new URL(request.params.uri);
                     } catch  {
-                        throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Resource URI ${request.params.uri} is invalid`, {
+                        throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Resource URI ${request.params.uri} is invalid`, {
                             uri: request.params.uri,
                             reason: "invalid_uri"
                         });
                     }
                     const resource = this._registeredResources[uri.toString()];
                     if (resource) {
-                        if (!resource.enabled) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Resource ${uri} disabled`);
-                        return (0, _src_BHSMhZ_W_mjs__rspack_import_0.gt)(await resource.readCallback(uri, ctx), resource.cacheHint);
+                        if (!resource.enabled) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Resource ${uri} disabled`);
+                        return (0, _src_Cqbh3MYc_mjs__rspack_import_0.gt)(await resource.readCallback(uri, ctx), resource.cacheHint);
                     }
                     for (const template of Object.values(this._registeredResourceTemplates)){
                         const variables = template.resourceTemplate.uriTemplate.match(uri.toString());
                         if (variables) {
-                            if (!template.enabled) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Resource template ${template.resourceTemplate.uriTemplate} disabled`);
-                            return (0, _src_BHSMhZ_W_mjs__rspack_import_0.gt)(await template.readCallback(uri, variables, ctx), template.cacheHint);
+                            if (!template.enabled) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Resource template ${template.resourceTemplate.uriTemplate} disabled`);
+                            return (0, _src_Cqbh3MYc_mjs__rspack_import_0.gt)(await template.readCallback(uri, variables, ctx), template.cacheHint);
                         }
                     }
-                    throw new _src_BHSMhZ_W_mjs__rspack_import_0.dt(request.params.uri);
+                    throw new _src_Cqbh3MYc_mjs__rspack_import_0.dt(request.params.uri);
                 });
                 this._resourceHandlersInitialized = true;
             }
@@ -12395,7 +12450,7 @@ var __webpack_modules__ = {
                                 name,
                                 title: prompt.title,
                                 description: prompt.description,
-                                arguments: prompt.argsSchema ? (0, _src_BHSMhZ_W_mjs__rspack_import_0.A)(prompt.argsSchema) : void 0,
+                                arguments: prompt.argsSchema ? (0, _src_Cqbh3MYc_mjs__rspack_import_0.A)(prompt.argsSchema) : void 0,
                                 icons: prompt.icons,
                                 _meta: prompt._meta
                             };
@@ -12403,8 +12458,8 @@ var __webpack_modules__ = {
                     }));
                 this.server.setRequestHandler("prompts/get", async (request, ctx)=>{
                     const prompt = this._registeredPrompts[request.params.name];
-                    if (!prompt) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${request.params.name} not found`);
-                    if (!prompt.enabled) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${request.params.name} disabled`);
+                    if (!prompt) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${request.params.name} not found`);
+                    if (!prompt.enabled) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${request.params.name} disabled`);
                     return prompt.handler(request.params.arguments, ctx);
                 });
                 this._promptHandlersInitialized = true;
@@ -12412,7 +12467,7 @@ var __webpack_modules__ = {
             registerResource(name, uriOrTemplate, config, readCallback) {
                 const { cacheHint, scopeChallenge, ...resourceMetadata } = config;
                 const metadata = resourceMetadata;
-                if (cacheHint !== void 0) (0, _src_BHSMhZ_W_mjs__rspack_import_0.ht)(cacheHint, `resource ${name}`);
+                if (cacheHint !== void 0) (0, _src_Cqbh3MYc_mjs__rspack_import_0.ht)(cacheHint, `resource ${name}`);
                 if (typeof uriOrTemplate === "string") {
                     if (this._registeredResources[uriOrTemplate]) throw new Error(`Resource ${uriOrTemplate} is already registered`);
                     const registeredResource = this._createRegisteredResource(name, config.title, uriOrTemplate, metadata, scopeChallenge, readCallback);
@@ -12557,20 +12612,20 @@ var __webpack_modules__ = {
                 return registeredPrompt;
             }
             _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, icons, execution, scopeChallenge, _meta, handler) {
-                (0, _src_BHSMhZ_W_mjs__rspack_import_0.s)(name);
-                if (inputSchema !== void 0) try {
-                    const json = (0, _src_BHSMhZ_W_mjs__rspack_import_0.j)(inputSchema, "input");
-                    this._toolInputSchemaJson[name] = json;
-                    const scan = (0, _src_BHSMhZ_W_mjs__rspack_import_0.B)(json);
-                    if (!scan.valid) console.warn(`[mcp-sdk] tool '${name}' carries an invalid x-mcp-header declaration and will be excluded by conforming Streamable HTTP clients: ${scan.reason}`);
-                } catch  {}
+                (0, _src_Cqbh3MYc_mjs__rspack_import_0.s)(name);
                 let currentHandler = handler;
+                let outputSchemaJson;
                 const registeredTool = {
                     title,
                     description,
                     inputSchema,
                     outputSchema,
-                    outputSchemaJson: convertOutputSchemaJson(outputSchema),
+                    get outputSchemaJson () {
+                        return outputSchemaJson ??= convertOutputSchemaJson(registeredTool.outputSchema);
+                    },
+                    set outputSchemaJson (value){
+                        outputSchemaJson = value;
+                    },
                     annotations,
                     icons,
                     execution,
@@ -12590,7 +12645,7 @@ var __webpack_modules__ = {
                         }),
                     update: (updates)=>{
                         if (updates.name !== void 0 && updates.name !== name) {
-                            if (typeof updates.name === "string") (0, _src_BHSMhZ_W_mjs__rspack_import_0.s)(updates.name);
+                            if (typeof updates.name === "string") (0, _src_Cqbh3MYc_mjs__rspack_import_0.s)(updates.name);
                             delete this._registeredTools[name];
                             delete this._toolInputSchemaJson[name];
                             if (updates.name) {
@@ -12633,12 +12688,12 @@ var __webpack_modules__ = {
             registerTool(name, config, cb) {
                 if (this._registeredTools[name]) throw new Error(`Tool ${name} is already registered`);
                 const { title, description, inputSchema, outputSchema, annotations, icons, scopeChallenge, _meta } = config;
-                return this._createRegisteredTool(name, title, description, (0, _src_BHSMhZ_W_mjs__rspack_import_0.r)(inputSchema), (0, _src_BHSMhZ_W_mjs__rspack_import_0.r)(outputSchema), annotations, icons, void 0, scopeChallenge, _meta, cb);
+                return this._createRegisteredTool(name, title, description, (0, _src_Cqbh3MYc_mjs__rspack_import_0.r)(inputSchema), (0, _src_Cqbh3MYc_mjs__rspack_import_0.r)(outputSchema), annotations, icons, void 0, scopeChallenge, _meta, cb);
             }
             registerPrompt(name, config, cb) {
                 if (this._registeredPrompts[name]) throw new Error(`Prompt ${name} is already registered`);
                 const { title, description, argsSchema, icons, scopeChallenge, _meta } = config;
-                const registeredPrompt = this._createRegisteredPrompt(name, title, description, (0, _src_BHSMhZ_W_mjs__rspack_import_0.r)(argsSchema), cb, icons, scopeChallenge, _meta);
+                const registeredPrompt = this._createRegisteredPrompt(name, title, description, (0, _src_Cqbh3MYc_mjs__rspack_import_0.r)(argsSchema), cb, icons, scopeChallenge, _meta);
                 this.setPromptRequestHandlers();
                 this.sendPromptListChanged();
                 return registeredPrompt;
@@ -12687,10 +12742,16 @@ var __webpack_modules__ = {
             type: "object",
             properties: {}
         };
+        function convertListedInputSchema(name, inputSchema) {
+            const json = (0, _src_Cqbh3MYc_mjs__rspack_import_0.j)(inputSchema, "input");
+            const scan = (0, _src_Cqbh3MYc_mjs__rspack_import_0.B)(json);
+            if (!scan.valid) console.warn(`[mcp-sdk] tool '${name}' carries an invalid x-mcp-header declaration and will be excluded by conforming Streamable HTTP clients: ${scan.reason}`);
+            return json;
+        }
         function convertOutputSchemaJson(outputSchema) {
             if (outputSchema === void 0) return void 0;
             try {
-                return (0, _src_BHSMhZ_W_mjs__rspack_import_0.j)(outputSchema, "output");
+                return (0, _src_Cqbh3MYc_mjs__rspack_import_0.j)(outputSchema, "output");
             } catch  {
                 return;
             }
@@ -12699,8 +12760,8 @@ var __webpack_modules__ = {
             if (argsSchema) {
                 const typedCallback = callback;
                 return async (args, ctx)=>{
-                    const parseResult = await (0, _src_BHSMhZ_W_mjs__rspack_import_0.M)(argsSchema, args);
-                    if (!parseResult.success) throw new _src_BHSMhZ_W_mjs__rspack_import_0.ut(_src_BHSMhZ_W_mjs__rspack_import_0.mt.InvalidParams, `Invalid arguments for prompt ${name}: ${parseResult.error}`);
+                    const parseResult = await (0, _src_Cqbh3MYc_mjs__rspack_import_0.M)(argsSchema, args ?? {});
+                    if (!parseResult.success) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Invalid arguments for prompt ${name}: ${parseResult.error}`);
                     return typedCallback(parseResult.data, ctx);
                 };
             } else {
@@ -12747,7 +12808,7 @@ var __webpack_modules__ = {
             f: ()=>_ajvProvider_CEoC_sr_mjs__rspack_import_0.n
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/src-BHSMhZ_W.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+    "./node_modules/@modelcontextprotocol/server/dist/src-Cqbh3MYc.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         var _chunk_Br0eD_fh_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/chunk-Br0eD_fh.mjs");
         var _dialects_DoSzNhcb_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/dialects-DoSzNhcb.mjs");
         var _modelcontextprotocol_core_internal__rspack_import_2 = __webpack_require__("./node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/internal.mjs");
@@ -15360,7 +15421,8 @@ var __webpack_modules__ = {
                     InputRequiredResultSchema
                 ])),
                 CompleteResultResponseSchema: wireResultResponse(CompleteResultSchema$1),
-                DiscoverResultResponseSchema: wireResultResponse(DiscoverResultSchema$1)
+                DiscoverResultResponseSchema: wireResultResponse(DiscoverResultSchema$1),
+                SubscriptionsListenResultResponseSchema: wireResultResponse(SubscriptionsListenResultSchema$1)
             };
         }
         let memo;
@@ -15891,6 +15953,9 @@ var __webpack_modules__ = {
         }
         function isSpecNotificationMethod(method) {
             return ALL_CODECS.some((codec)=>codec.hasNotificationMethod(method));
+        }
+        function isExtensionReusedRequestMethod(method) {
+            return method === "tasks/get" || method === "tasks/cancel";
         }
         const ALL_CODECS = [
             rev2025Codec,
@@ -17316,6 +17381,7 @@ var __webpack_modules__ = {
             _transport;
             _requestMessageId = 0;
             _requestHandlers = new Map();
+            _customSchemaRequestMethods = new Set();
             _requestHandlerAbortControllers = new Map();
             _notificationHandlers = new Map();
             _responseHandlers = new Map();
@@ -17504,7 +17570,7 @@ var __webpack_modules__ = {
                         return;
                     }
                 }
-                if (isSpecRequestMethod(request.method) && !codec.hasRequestMethod(request.method)) {
+                if (isSpecRequestMethod(request.method) && !codec.hasRequestMethod(request.method) && !(isExtensionReusedRequestMethod(request.method) && this._customSchemaRequestMethods.has(request.method))) {
                     sendErrorResponse(ProtocolErrorCode1.MethodNotFound, "Method not found");
                     return;
                 }
@@ -17638,8 +17704,11 @@ var __webpack_modules__ = {
             }
             request(request, schemaOrOptions, maybeOptions) {
                 const codec = this._resolveOutboundCodec(request.method);
+                if (isStandardSchema(schemaOrOptions)) {
+                    if (!isExtensionReusedRequestMethod(request.method)) this._assertOutboundRequestInEra(codec, request.method);
+                    return this._requestWithSchemaViaCodec(codec, request, schemaOrOptions, maybeOptions);
+                }
                 this._assertOutboundRequestInEra(codec, request.method);
-                if (isStandardSchema(schemaOrOptions)) return this._requestWithSchemaViaCodec(codec, request, schemaOrOptions, maybeOptions);
                 const validate = codecResultValidator(codec, request.method);
                 if (validate === void 0) throw new TypeError(`'${request.method}' is not a spec method; pass a result schema as the second argument to request().`);
                 return this._requestWithSchemaViaCodec(codec, request, validate, schemaOrOptions);
@@ -17840,6 +17909,8 @@ var __webpack_modules__ = {
                     return maybeHandler(parsed.data, ctx);
                 };
                 else throw new TypeError("setRequestHandler: handler is required");
+                if (typeof schemasOrHandler === "function") this._customSchemaRequestMethods.delete(method);
+                else this._customSchemaRequestMethods.add(method);
                 this._requestHandlers.set(method, this._wrapHandler(method, stored));
             }
             _wrapHandler(_method, handler) {
@@ -17848,6 +17919,7 @@ var __webpack_modules__ = {
             _outboundServerInfo() {}
             removeRequestHandler(method) {
                 this._requestHandlers.delete(method);
+                this._customSchemaRequestMethods.delete(method);
             }
             assertCanSetRequestHandler(method) {
                 if (this._requestHandlers.has(method)) throw new Error(`A request handler for ${method} already exists, which would be overridden`);
