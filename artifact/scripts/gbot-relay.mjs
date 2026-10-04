@@ -22880,7 +22880,8 @@ var __webpack_modules__ = {
                 expectedCwd: resolvedCwd,
                 model,
                 effort,
-                signal
+                signal,
+                freshThreadCwd: resolvedCwd
             });
         }
         const CODEX_VERSION_PROBE_TIMEOUT_MS = 3000;
@@ -23473,7 +23474,7 @@ var __webpack_modules__ = {
         }
         async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({
             env
-        }), whenBusy = "reject", session, expectedTurnId, expectedCwd, model, effort, signal } = {}) {
+        }), whenBusy = "reject", session, expectedTurnId, expectedCwd, model, effort, signal, freshThreadCwd } = {}) {
             try {
                 const receipt = await sendToCodexThreadInner(threadId, text, {
                     env,
@@ -23484,7 +23485,8 @@ var __webpack_modules__ = {
                     expectedCwd,
                     model,
                     effort,
-                    signal
+                    signal,
+                    freshThreadCwd
                 });
                 return (0, _codex_contract_js__rspack_import_7.Dz)(receipt);
             } catch (err) {
@@ -23506,7 +23508,7 @@ var __webpack_modules__ = {
                 "xhigh"
             ].includes(effort)) throw new RangeError("--effort must be none, minimal, low, medium, high, or xhigh");
         }
-        async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, model, effort, signal }) {
+        async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, model, effort, signal, freshThreadCwd }) {
             validateModelEffort(model, effort);
             if (![
                 "reject",
@@ -23565,15 +23567,30 @@ var __webpack_modules__ = {
                     });
                 } catch (err) {
                     assertNotCancelled();
-                    if (err instanceof CodexSendError || err instanceof _codex_remote_control_js__rspack_import_8.Rg) throw err;
-                    const explained = explainSendError(err, threadId, env);
-                    if (explained instanceof _codex_remote_control_js__rspack_import_8.Rg) throw explained;
-                    throw new CodexSendError(explained.message, {
-                        delivery: err instanceof CodexRpcError ? "rejected" : err && err.delivery || "unknown",
-                        reason: err instanceof CodexRpcError ? /no rollout found|thread not found/i.test(String(err.rpc && err.rpc.message)) ? "unknown-thread" : /active writer/i.test(String(err.rpc && err.rpc.message)) ? "external-owner" : "rejected" : "transport",
-                        threadId,
-                        ...envelope
-                    });
+                    if (freshThreadCwd !== undefined && err instanceof CodexRpcError && /no rollout found/i.test(String(err.rpc && err.rpc.message))) {
+                        resumed = {
+                            thread: {
+                                id: threadId,
+                                status: {
+                                    type: "idle"
+                                }
+                            },
+                            cwd: freshThreadCwd,
+                            ...model ? {
+                                model
+                            } : {}
+                        };
+                    } else {
+                        if (err instanceof CodexSendError || err instanceof _codex_remote_control_js__rspack_import_8.Rg) throw err;
+                        const explained = explainSendError(err, threadId, env);
+                        if (explained instanceof _codex_remote_control_js__rspack_import_8.Rg) throw explained;
+                        throw new CodexSendError(explained.message, {
+                            delivery: err instanceof CodexRpcError ? "rejected" : err && err.delivery || "unknown",
+                            reason: err instanceof CodexRpcError ? /no rollout found|thread not found/i.test(String(err.rpc && err.rpc.message)) ? "unknown-thread" : /active writer/i.test(String(err.rpc && err.rpc.message)) ? "external-owner" : "rejected" : "transport",
+                            threadId,
+                            ...envelope
+                        });
+                    }
                 }
                 assertNotCancelled();
                 if (!isObject(resumed) || !isObject(resumed.thread) || typeof resumed.thread.id !== "string") {
