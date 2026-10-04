@@ -24744,6 +24744,11 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
   launchctl unsetenv CODEX_APP_SERVER_WS_URL 2>/dev/null || true
   echo "$(ts) CODEX_CLI_PATH=$(launchctl getenv CODEX_CLI_PATH)"
   if [[ -x "$REAL" ]]; then
+    # launchd gives login jobs a 256-file soft limit; a busy daemon (many threads, shell pipes,
+    # sqlite handles) exhausts it ("Too many open files") and turns fail. Raise it before the
+    # daemon starts: it inherits this limit.
+    ulimit -n 65536 2>/dev/null || ulimit -n 10240 2>/dev/null || ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
+    echo "$(ts) open-file limit $(ulimit -n)"
     "$REAL" app-server daemon start >/dev/null 2>&1 || true
     echo "$(ts) daemon start attempted"
   fi
@@ -25919,6 +25924,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
     },
     "./src/core/relay/completion.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         var _sender_prefix_js__rspack_import_0 = __webpack_require__("./src/core/sender-prefix.js");
+        var _detail_js__rspack_import_2 = __webpack_require__("./src/core/relay/detail.js");
         var _records_js__rspack_import_1 = __webpack_require__("./src/core/relay/records.js");
         function createCompletion({ env = process.env, state, codex, update, newRecord, runnable }) {
             let offset = 0;
@@ -25973,6 +25979,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                         continue;
                     }
                     if (result.execution.error && /coverage|Invalid|anchor/.test(result.execution.error)) continue;
+                    const turnError = (0, _detail_js__rspack_import_2.m)(result.execution.error);
                     const changes = [];
                     let returnId = null;
                     if (first.returnToGrok) {
@@ -25990,7 +25997,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                                 continue;
                             }
                             const sources = group.flatMap((r)=>r.sourceIds), suffix = result.reply.truncated ? "\n[Output truncated]" : "";
-                            let output = result.reply.text || `Codex turn ${execution} with no final text.`;
+                            let output = result.reply.text || `Codex turn ${execution} with no final text${turnError ? `: ${turnError}` : "."}`;
                             const prefix = (0, _sender_prefix_js__rspack_import_0.xA)({
                                 threadId: first.threadId,
                                 cwd: first.expectedCwd,
@@ -26021,7 +26028,10 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                         ...r,
                         execution,
                         reason: null,
-                        returnId
+                        returnId,
+                        ...execution !== "completed" && turnError ? {
+                            detail: turnError
+                        } : {}
                     }));
                     await state.commit(changes);
                 }
@@ -26099,6 +26109,16 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             Q: CONTROL_BYTES
         });
     },
+    "./src/core/relay/detail.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        function errorDetail(value) {
+            const raw = typeof value === "string" ? value : value instanceof Error ? value.message : "";
+            const text = raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+            return text ? text.slice(0, 1024) : undefined;
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            m: ()=>errorDetail
+        });
+    },
     "./src/core/relay/engine.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         var node_crypto__rspack_import_0 = __webpack_require__("node:crypto");
         var node_os__rspack_import_1 = __webpack_require__("node:os");
@@ -26109,6 +26129,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         var _intake_js__rspack_import_6 = __webpack_require__("./src/core/relay/intake.js");
         var _sender_prefix_js__rspack_import_7 = __webpack_require__("./src/core/sender-prefix.js");
         var _completion_js__rspack_import_8 = __webpack_require__("./src/core/relay/completion.js");
+        var _detail_js__rspack_import_10 = __webpack_require__("./src/core/relay/detail.js");
         var _gateway_js__rspack_import_9 = __webpack_require__("./src/core/gateway.js");
         function createGateway() {
             return {
@@ -26152,10 +26173,14 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             const change = async (section, value)=>state.commit([
                     (0, _records_js__rspack_import_5.op)(section, value)
                 ]);
-            const update = async (id, patch)=>change("records", {
+            const update = async (id, patch)=>{
+                const next = {
                     ...state.read().records[id],
                     ...patch
-                });
+                };
+                for (const key of Object.keys(next))if (next[key] === undefined) delete next[key];
+                return change("records", next);
+            };
             const { envelope, newRecord } = (0, _records_js__rspack_import_5.w4)({
                 env,
                 clock
@@ -26258,6 +26283,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     }
                 } catch (error) {
                     result = {
+                        detail: (0, _detail_js__rspack_import_10.m)(error),
                         delivery: error.delivery === "rejected" ? "rejected" : "unknown",
                         reason: error.delivery === "rejected" ? error.reason === "cancelled" ? "cancelled" : "submission-rejected" : "transport-uncertain"
                     };
@@ -26271,7 +26297,8 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     submission: delivery,
                     messageId: typeof result?.messageId === "string" ? result.messageId : null,
                     turnId: typeof result?.turnId === "string" ? result.turnId : null,
-                    reason: delivery === "unknown" ? "delivery-unknown" : delivery === "rejected" ? (result.reason ?? "rejected").slice(0, 1024) : null
+                    reason: delivery === "unknown" ? "delivery-unknown" : delivery === "rejected" ? (result.reason ?? "rejected").slice(0, 1024) : null,
+                    detail: delivery === "accepted" ? undefined : (0, _detail_js__rspack_import_10.m)(result.detail ?? result.error ?? result.message)
                 });
                 return state.read().records[id];
             }
@@ -26992,7 +27019,10 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     bindingId: record.bindingId
                 },
                 execution: record.execution,
-                reason: record.reason
+                reason: record.reason,
+                ...record.detail ? {
+                    detail: record.detail
+                } : {}
             };
         }
         function createRecordFactory({ env, clock }) {
@@ -27150,6 +27180,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 "paused"
             ]),
             reason,
+            detail: zod__rspack_import_3.YjP().max(1024).optional(),
             turnId: relayId.nullable(),
             requestId: relayId.nullable(),
             messageId: relayId.nullable(),

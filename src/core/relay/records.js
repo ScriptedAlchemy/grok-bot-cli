@@ -62,6 +62,7 @@ export function receipt(record) {
     },
     execution: record.execution,
     reason: record.reason,
+    ...(record.detail ? { detail: record.detail } : {}),
   };
 }
 

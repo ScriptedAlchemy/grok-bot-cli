@@ -227,7 +227,9 @@ export async function codexReturnOperation(
   assertManagedSendOptions(input);
   if (input.whenBusy === "queue")
     throw Error(
-      "Managed relay supports steer or reject, not experimental queue",
+      "--when-busy queue is not available with --reply-to-grok / bindingId: Codex's thread queue is experimental and cannot carry the managed Grok return route. " +
+        "Omit --when-busy (default: an active turn is steered with a guarded steer, an idle thread starts a new turn), pass --when-busy steer to say so explicitly, " +
+        "or --when-busy reject to fail instead of steering a busy thread.",
     );
   return withRedactedErrors(() =>
     managedOperation(

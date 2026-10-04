@@ -730,3 +730,17 @@ test("Codex -> Grok requests and returns carry the sender prefix with thread id,
   assert.match(returned, /; reply: codex_send\(\{threadId:"thread", message:"\.\.\."\}\) via MCP on /);
   assert.ok(returned.endsWith("]\nCodex answer"), returned);
 });
+
+test("a rejected managed send keeps the daemon's explanation as receipt detail", async (t) => {
+  const f = await fixture(t, { active: true });
+  const out = await f.engine.sendToCodex({
+    grokTarget: "target",
+    codexThreadId: "thread",
+    message: "busy thread",
+    busyPolicy: "reject",
+  });
+  assert.equal(out.delivery, "rejected");
+  assert.equal(out.reason, "busy");
+  assert.match(out.detail, /busy|active|mid-turn|go idle/i);
+  assert.ok(out.detail.length <= 1024);
+});
