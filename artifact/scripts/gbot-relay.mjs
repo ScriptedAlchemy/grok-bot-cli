@@ -23045,7 +23045,52 @@ var __webpack_modules__ = {
             };
         }
         const THREAD_LIST_MAX_LIMIT = 200;
-        async function listCodexThreads({ limit = 20, cursor, modelProviders = [], env = process.env } = {}) {
+        const THREAD_SORT_KEYS = null && {
+            updated: "updated_at",
+            created: "created_at",
+            recency: "recency_at"
+        };
+        const GBOT_CURSOR = "gbot1:";
+        const DURATION_MS = null && {
+            s: 1000,
+            m: 60000,
+            h: 3600000,
+            d: 86400000,
+            w: 604800000
+        };
+        const toSeconds = (value)=>value > 1e11 ? value / 1000 : value;
+        function parseActiveWithin(text) {
+            const m = /^(\d+(?:\.\d+)?)\s*([smhdw])$/i.exec(String(text).trim());
+            if (!m) throw new RangeError("--active-within must look like 30m, 12h, 7d or 2w");
+            return Number(m[1]) * DURATION_MS[m[2].toLowerCase()];
+        }
+        function parseSince(value) {
+            const text = String(value).trim();
+            const n = /^\d+(?:\.\d+)?$/.test(text) ? toSeconds(Number(text)) : Date.parse(text) / 1000;
+            if (!Number.isFinite(n)) throw new RangeError("--since must be an ISO date/time or epoch seconds");
+            return n;
+        }
+        function encodeThreadCursor(state) {
+            return GBOT_CURSOR + Buffer.from(JSON.stringify(state)).toString("base64url");
+        }
+        function decodeThreadCursor(cursor) {
+            if (cursor === undefined) return {
+                skip: 0
+            };
+            if (!cursor.startsWith(GBOT_CURSOR)) return {
+                c: cursor,
+                skip: 0
+            };
+            try {
+                const v = JSON.parse(Buffer.from(cursor.slice(GBOT_CURSOR.length), "base64url").toString("utf8"));
+                if (isObject(v) && Number.isInteger(v.skip) && v.skip >= 0 && (v.c === undefined || typeof v.c === "string")) return {
+                    c: v.c,
+                    skip: v.skip
+                };
+            } catch  {}
+            throw new RangeError("--cursor is not a valid thread cursor");
+        }
+        async function listCodexThreads({ limit = 20, cursor, modelProviders = [], modelProvider, sort = "updated", order: order1 = "desc", query, since, activeWithin, cwd, archived, sourceKinds, now = Date.now(), env = process.env } = {}) {
             if (!Number.isInteger(limit) || limit < 1 || limit > THREAD_LIST_MAX_LIMIT) {
                 throw new RangeError("--limit must be an integer 1-" + THREAD_LIST_MAX_LIMIT);
             }
@@ -23053,45 +23098,125 @@ var __webpack_modules__ = {
             if (!Array.isArray(modelProviders) || modelProviders.some((p)=>typeof p !== "string")) {
                 throw new RangeError("modelProviders must be an array of strings (empty = all providers)");
             }
+            if (!Object.hasOwn(THREAD_SORT_KEYS, sort)) throw new RangeError("--sort must be one of: " + Object.keys(THREAD_SORT_KEYS).join(", "));
+            if (order1 !== "asc" && order1 !== "desc") throw new RangeError("--order must be asc or desc");
+            if (query !== undefined && (typeof query !== "string" || !query.trim())) throw new RangeError("--query must be a non-empty string");
+            if (sourceKinds !== undefined && (!Array.isArray(sourceKinds) || sourceKinds.some((k)=>typeof k !== "string" || !k))) {
+                throw new RangeError("--source-kind must be a non-empty string");
+            }
+            const providers = modelProvider ? [
+                ...modelProviders,
+                modelProvider
+            ] : modelProviders;
+            const needle = query?.trim().toLowerCase();
+            const cutoffs = [];
+            if (since !== undefined) cutoffs.push(parseSince(since));
+            if (activeWithin !== undefined) cutoffs.push((now - parseActiveWithin(activeWithin)) / 1000);
+            const cutoff = cutoffs.length ? Math.max(...cutoffs) : undefined;
+            const clientSide = needle !== undefined || cutoff !== undefined;
+            const activityOf = (t)=>typeof t.updatedAt === "number" ? toSeconds(t.updatedAt) : typeof t.createdAt === "number" ? toSeconds(t.createdAt) : null;
+            const keep = (t)=>{
+                if (cutoff !== undefined) {
+                    const at = activityOf(t);
+                    if (at === null || at < cutoff) return false;
+                }
+                if (needle !== undefined && ![
+                    t.name,
+                    t.preview,
+                    t.id
+                ].some((f)=>typeof f === "string" && f.toLowerCase().includes(needle))) return false;
+                return true;
+            };
+            const pageSize = clientSide ? THREAD_LIST_MAX_LIMIT : limit;
+            const start = decodeThreadCursor(cursor);
             const { client } = await openSession(env);
             try {
                 const baseParams = {
-                    limit,
-                    modelProviders,
-                    ...cursor !== undefined ? {
-                        cursor
+                    limit: pageSize,
+                    modelProviders: providers,
+                    sortKey: THREAD_SORT_KEYS[sort],
+                    ...order1 === "asc" ? {
+                        sortDirection: "asc"
+                    } : {},
+                    ...cwd ? {
+                        cwd
+                    } : {},
+                    ...archived === true ? {
+                        archived: true
+                    } : {},
+                    ...sourceKinds?.length ? {
+                        sourceKinds
                     } : {}
                 };
-                let out;
-                let usedStateDbOnly = true;
-                try {
-                    out = await client.request("thread/list", {
-                        ...baseParams,
-                        useStateDbOnly: true
-                    });
-                } catch (err) {
-                    throw transportError(err);
-                }
-                if (!isObject(out) || !Array.isArray(out.data)) throw new CodexProtocolError("thread/list", "missing `data` array");
-                if (out.data.length === 0 && cursor === undefined && (out.nextCursor == null || out.nextCursor === "")) {
+                const fetchPage = async (pageCursor, useStateDbOnly)=>{
                     try {
-                        out = await client.request("thread/list", {
+                        return await client.request("thread/list", {
                             ...baseParams,
-                            useStateDbOnly: false
+                            ...pageCursor !== undefined ? {
+                                cursor: pageCursor
+                            } : {},
+                            useStateDbOnly
                         });
-                        usedStateDbOnly = false;
                     } catch (err) {
                         throw transportError(err);
                     }
+                };
+                const checkPage = (out)=>{
                     if (!isObject(out) || !Array.isArray(out.data)) throw new CodexProtocolError("thread/list", "missing `data` array");
+                    if (out.nextCursor != null && typeof out.nextCursor !== "string") throw new CodexProtocolError("thread/list", "`nextCursor` is not a string");
+                };
+                const threads = [];
+                let usedStateDbOnly = true;
+                let scanned = 0;
+                let nextCursor = null;
+                let pageCursor = start.c;
+                let skip = start.skip;
+                for(;;){
+                    let out = await fetchPage(pageCursor, true);
+                    checkPage(out);
+                    if (out.data.length === 0 && pageCursor === undefined && (out.nextCursor == null || out.nextCursor === "")) {
+                        out = await fetchPage(pageCursor, false);
+                        usedStateDbOnly = false;
+                        checkPage(out);
+                    }
+                    const rows = out.data.map(summarizeThread);
+                    scanned += rows.length;
+                    let matches = rows.filter(keep);
+                    const pageSkip = skip;
+                    if (skip) {
+                        matches = matches.slice(skip);
+                        skip = 0;
+                    }
+                    const need = limit - threads.length;
+                    if (matches.length > need) {
+                        threads.push(...matches.slice(0, need));
+                        nextCursor = encodeThreadCursor({
+                            ...pageCursor !== undefined ? {
+                                c: pageCursor
+                            } : {},
+                            skip: pageSkip + need
+                        });
+                        break;
+                    }
+                    threads.push(...matches);
+                    const more = out.nextCursor || null;
+                    const last = rows[rows.length - 1];
+                    const pastCutoff = cutoff !== undefined && sort === "updated" && order1 === "desc" && last !== undefined && (activityOf(last) ?? -Infinity) < cutoff;
+                    if (!more || pastCutoff) break;
+                    if (threads.length >= limit) {
+                        nextCursor = more;
+                        break;
+                    }
+                    pageCursor = more;
                 }
-                if (out.nextCursor != null && typeof out.nextCursor !== "string") throw new CodexProtocolError("thread/list", "`nextCursor` is not a string");
-                const threads = out.data.map(summarizeThread);
                 return {
                     threads,
-                    nextCursor: out.nextCursor ?? null,
+                    nextCursor,
                     limit,
-                    useStateDbOnly: usedStateDbOnly
+                    useStateDbOnly: usedStateDbOnly,
+                    sort,
+                    order: order1,
+                    scanned
                 };
             } finally{
                 client.close();
@@ -25793,12 +25918,13 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         });
     },
     "./src/core/relay/completion.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _records_js__rspack_import_0 = __webpack_require__("./src/core/relay/records.js");
-        function createCompletion({ state, codex, update, newRecord, runnable }) {
+        var _sender_prefix_js__rspack_import_0 = __webpack_require__("./src/core/sender-prefix.js");
+        var _records_js__rspack_import_1 = __webpack_require__("./src/core/relay/records.js");
+        function createCompletion({ env = process.env, state, codex, update, newRecord, runnable }) {
             let offset = 0;
             async function completions() {
                 const groups = new Map();
-                for (const r of (0, _records_js__rspack_import_0.V0)(state.read()))if (r.kind === "codex" && r.submission === "accepted" && r.turnId && !(0, _records_js__rspack_import_0.Fo)(r) && ![
+                for (const r of (0, _records_js__rspack_import_1.V0)(state.read()))if (r.kind === "codex" && r.submission === "accepted" && r.turnId && !(0, _records_js__rspack_import_1.Fo)(r) && ![
                     "capacity",
                     "hop-limit"
                 ].includes(r.reason) && runnable(r)) {
@@ -25850,7 +25976,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     const changes = [];
                     let returnId = null;
                     if (first.returnToGrok) {
-                        returnId = "return:" + (0, _records_js__rspack_import_0.tW)([
+                        returnId = "return:" + (0, _records_js__rspack_import_1.tW)([
                             first.targetId,
                             first.threadId,
                             first.turnId
@@ -25865,7 +25991,16 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                             }
                             const sources = group.flatMap((r)=>r.sourceIds), suffix = result.reply.truncated ? "\n[Output truncated]" : "";
                             let output = result.reply.text || `Codex turn ${execution} with no final text.`;
-                            const prefix = `[Codex ${first.threadId}; turn ${first.turnId}; status ${execution}; sources ${sources.slice(0, 8).map((id)=>id.slice(0, 128)).join(", ")}${sources.length > 8 ? " (additional source IDs retained in relay state)" : ""}]\n`;
+                            const prefix = (0, _sender_prefix_js__rspack_import_0.xA)({
+                                threadId: first.threadId,
+                                cwd: first.expectedCwd,
+                                env,
+                                details: [
+                                    `turn ${first.turnId}`,
+                                    `status ${execution}`,
+                                    `sources ${sources.slice(0, 8).map((id)=>id.slice(0, 128)).join(", ")}${sources.length > 8 ? " (additional source IDs retained in relay state)" : ""}`
+                                ]
+                            }) + "\n";
                             const budget = 65536 - Buffer.byteLength(prefix + suffix) - 32;
                             let truncated = false;
                             while(Buffer.byteLength(output) > budget){
@@ -25879,10 +26014,10 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                                 hop: first.hop + 1,
                                 maxHops: first.maxHops
                             });
-                            changes.push((0, _records_js__rspack_import_0.op)("records", outgoing));
+                            changes.push((0, _records_js__rspack_import_1.op)("records", outgoing));
                         }
                     }
-                    for (const r of group)changes.push((0, _records_js__rspack_import_0.op)("records", {
+                    for (const r of group)changes.push((0, _records_js__rspack_import_1.op)("records", {
                         ...r,
                         execution,
                         reason: null,
@@ -25972,13 +26107,14 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         var _codex_js__rspack_import_4 = __webpack_require__("./src/core/relay/codex.js");
         var _records_js__rspack_import_5 = __webpack_require__("./src/core/relay/records.js");
         var _intake_js__rspack_import_6 = __webpack_require__("./src/core/relay/intake.js");
-        var _completion_js__rspack_import_7 = __webpack_require__("./src/core/relay/completion.js");
-        var _gateway_js__rspack_import_8 = __webpack_require__("./src/core/gateway.js");
+        var _sender_prefix_js__rspack_import_7 = __webpack_require__("./src/core/sender-prefix.js");
+        var _completion_js__rspack_import_8 = __webpack_require__("./src/core/relay/completion.js");
+        var _gateway_js__rspack_import_9 = __webpack_require__("./src/core/gateway.js");
         function createGateway() {
             return {
-                resolve: async (ref)=>(0, _gateway_js__rspack_import_8.qE)(await (0, _gateway_js__rspack_import_8.Vq)(), ref),
-                tail: async (id)=>(0, _gateway_js__rspack_import_8.bA)(await (0, _gateway_js__rspack_import_8.Vq)(), id, 200),
-                send: async (id, text, extra)=>(0, _gateway_js__rspack_import_8.LV)(await (0, _gateway_js__rspack_import_8.Vq)({
+                resolve: async (ref)=>(0, _gateway_js__rspack_import_9.qE)(await (0, _gateway_js__rspack_import_9.Vq)(), ref),
+                tail: async (id)=>(0, _gateway_js__rspack_import_9.bA)(await (0, _gateway_js__rspack_import_9.Vq)(), id, 200),
+                send: async (id, text, extra)=>(0, _gateway_js__rspack_import_9.LV)(await (0, _gateway_js__rspack_import_9.Vq)({
                         signal: extra.signal
                     }), id, text, extra)
             };
@@ -26031,7 +26167,8 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 newRecord,
                 stoppedBindings
             });
-            const completions = (0, _completion_js__rspack_import_7.P)({
+            const completions = (0, _completion_js__rspack_import_8.P)({
+                env,
                 state,
                 codex,
                 update,
@@ -26175,9 +26312,14 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     if (old.fingerprint !== fingerprint) throw new Error("Idempotency conflict");
                     return (0, _records_js__rspack_import_5.R9)(old);
                 }
-                const text = (0, _records_js__rspack_import_5.Lo)(input.message);
+                const raw = (0, _records_js__rspack_import_5.Lo)(input.message);
                 envelope(input);
                 const r = await route(input);
+                const text = kind === "grok-request" ? (0, _records_js__rspack_import_5.Lo)((0, _sender_prefix_js__rspack_import_7.Xt)(raw, {
+                    threadId: r.threadId,
+                    cwd: r.expectedCwd,
+                    env
+                })) : raw;
                 await baseline(r.targetId);
                 if (state.read().targets[r.targetId].state !== "running") throw new Error("Target coverage is paused");
                 const record = newRecord(kind, id, r, text, {
@@ -27375,6 +27517,42 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         }
         __webpack_require__.d(__webpack_exports__, {
             F: ()=>runRelayWorker
+        });
+    },
+    "./src/core/sender-prefix.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var node_os__rspack_import_0 = __webpack_require__("node:os");
+        const oneLine = (value)=>String(value ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/[\]]/g, ")").trim();
+        function machineName(env = process.env) {
+            try {
+                return oneLine(env.GROK_BOT_MACHINE_NAME || (0, node_os__rspack_import_0.hostname)());
+            } catch  {
+                return "";
+            }
+        }
+        function codexSenderPrefix({ threadId, machine, cwd, details = [], env = process.env } = {}) {
+            const id = oneLine(threadId);
+            if (!id) return "";
+            const where = oneLine(machine ?? machineName(env));
+            const dir = oneLine(cwd);
+            const head = "from Codex thread " + id + (where ? " @ " + where : "") + (dir ? (where ? ", " : " ") + "cwd " + dir : "");
+            const reply = "reply: codex_send({threadId:\"" + id + "\", message:\"...\"})" + (where ? " via MCP on " + where : " via MCP") + " (or CLI: gbot codex send " + id + " \"...\")";
+            return "[" + [
+                head,
+                ...details.map(oneLine).filter(Boolean),
+                reply
+            ].join("; ") + "]";
+        }
+        function withCodexSender(text, fields) {
+            const prefix = codexSenderPrefix(fields);
+            return prefix ? prefix + "\n" + text : text;
+        }
+        function envCodexThreadId(env = process.env) {
+            const id = env.CODEX_THREAD_ID?.trim();
+            return id && /^[A-Za-z0-9_.:-]{1,128}$/.test(id) ? id : undefined;
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            Xt: ()=>withCodexSender,
+            xA: ()=>codexSenderPrefix
         });
     },
     "./src/core/store.js" (__unused_rspack___webpack_module__, __unused_rspack___webpack_exports__, __webpack_require__) {

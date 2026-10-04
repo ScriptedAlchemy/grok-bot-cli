@@ -39,7 +39,7 @@ Shell with a machineId, after `codex app-server daemon start` (or bootstrap) the
 Grok tools use the Grok gateway. Portable MCP artifacts must be configured in an
 MCP-capable host; they are not automatically loaded by the Grok app.
 
-- `codex_threads`: bounded discovery of daemon-managed Codex threads.
+- `codex_threads`: discovery of daemon-managed Codex threads, newest activity first. `query` (name/title, preview or id prefix, all pages), `activeWithin`/`since`, `sort`/`order`, `cwd`, `modelProvider`, `sourceKind`, `archived`; `limit` is the page size (1-200) and `nextCursor` continues.
 - `codex_send`: submit a message with a correlation envelope. Default delivery is
   immediate acceptance, which does not mean execution finished. `wait: true` adds
   bounded execution and final reply fields. An accepted message remains accepted
