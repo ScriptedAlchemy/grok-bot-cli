@@ -103,8 +103,11 @@ export function formatCodexThread(t) {
   const preview = t.preview
     ? "\n    " + stripTerminalControls(String(t.preview).replace(/\s+/g, " ")).slice(0, 200)
     : "";
+  const at = typeof t.updatedAt === "number" && Number.isFinite(t.updatedAt)
+    ? new Date((t.updatedAt > 1e11 ? t.updatedAt : t.updatedAt * 1000)).toISOString().replace(/\.\d{3}Z$/, "Z")
+    : "";
   return stripTerminalControls(t.id) + "  " + stripTerminalControls(t.status) + title
-    + "\n    " + stripTerminalControls(t.cwd ?? "") + preview;
+    + "\n    " + stripTerminalControls(t.cwd ?? "") + (at ? "  (updated " + at + ")" : "") + preview;
 }
 
 /** Shell-safe single-quoting for copy-pasteable export lines (spaces, quotes, $). */

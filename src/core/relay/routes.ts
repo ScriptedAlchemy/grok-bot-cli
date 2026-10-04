@@ -11,6 +11,7 @@ import {
 } from "../../gbot.js";
 
 import { buildEnvelope, withEnvelopeHeader } from "../codex-bridge.js";
+import { withCodexSender } from "../sender-prefix.js";
 
 const id = z.string().min(1).max(128);
 export const routeFields = {
@@ -138,10 +139,15 @@ export async function grokSendOperation(
     throw Error(
       "Automatic reply delivery requires a native Codex source, codexThreadId or bindingId",
     );
-  const message =
+  const stamped =
     input.hop !== undefined || input.correlationId !== undefined
       ? withEnvelopeHeader(input.message, buildEnvelope(input))
       : input.message;
+  // Codex -> Grok without the managed relay: still say which thread is asking and how to answer.
+  const message = withCodexSender(stamped, {
+    threadId: route.codexThreadId,
+    cwd: route.expectedCwd,
+  });
   const sent = await withRedactedErrors(async () =>
     sendPrompt(await connectGateway(), input.target, message),
   );
