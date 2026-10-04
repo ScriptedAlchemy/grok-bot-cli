@@ -493,4 +493,15 @@ describe('grok-bot MCP server', () => {
     expect(contentText(result.content)).toContain('No bot or group named "Nobody"');
     expect(calls.map((call) => call.method)).toEqual(['listAgents']);
   });
+  it('codex_send with replyToGrok explains that --when-busy queue is unavailable and what to use', async () => {
+    const result = await invokeMcpTool('codex_send', {
+      input: { message: 'x', replyToGrok: 'bot-1', threadId: '01a03c14-5bb0-7850-a2c7-15f6f4a1ab74', whenBusy: 'queue' },
+      server: 'grok-bot',
+    });
+    expect(result.isError).toBe(true);
+    const text = contentText(result.content);
+    expect(text).toContain('--when-busy queue is not available');
+    expect(text).toContain('Omit --when-busy');
+    expect(text).toContain('steer');
+  });
 });

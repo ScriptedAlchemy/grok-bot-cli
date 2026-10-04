@@ -7,6 +7,7 @@ import {
   resultText,
 } from '../../../core/codex/routes.js';
 import { z } from 'zod';
+import { describeDelivery } from '../../../core/format.js';
 import {
   codexReturnOperation,
   relayResultSchema,
@@ -90,7 +91,7 @@ export default defineTool(
       const out = await codexReturnOperation(input, context);
       return (
         <Agent.Result value={out}>
-          <Agent.Text>{`Delivery ${out.delivery}; terminal answer returns to Grok automatically.`}</Agent.Text>
+          <Agent.Text>{describeDelivery(out, { managed: true })}</Agent.Text>
         </Agent.Result>
       );
     }

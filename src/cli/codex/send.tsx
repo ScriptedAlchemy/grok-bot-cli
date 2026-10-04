@@ -7,6 +7,7 @@ import {
   sendOperation,
   resultText,
 } from '../../core/codex/routes.js';
+import { describeDelivery } from '../../core/format.js';
 import {
   codexReturnOperation,
   relayResultSchema,
@@ -101,7 +102,7 @@ export default async function route({
       <Agent.Result
         value={{ ...out, exitCode: out.delivery === 'rejected' ? 1 : 0 }}
       >
-        <Agent.Text>{`Delivery ${out.delivery}; terminal answer returns to Grok automatically.`}</Agent.Text>
+        <Agent.Text>{describeDelivery(out, { managed: true })}</Agent.Text>
       </Agent.Result>
     );
   }

@@ -1,4 +1,5 @@
 import { codexSenderPrefix } from "../sender-prefix.js";
+import { errorDetail } from "./detail.js";
 import { hash, op, records, terminal, MAX_TEXT } from "./records.js";
 
 /** Each target/thread/turn gets one durable return intent, anchored to its associated inputs. */
@@ -71,6 +72,7 @@ export function createCompletion({
         /coverage|Invalid|anchor/.test(result.execution.error)
       )
         continue;
+      const turnError = errorDetail(result.execution.error);
       const changes = [];
       let returnId = null;
       if (first.returnToGrok) {
@@ -88,7 +90,8 @@ export function createCompletion({
           const sources = group.flatMap((r) => r.sourceIds),
             suffix = result.reply.truncated ? "\n[Output truncated]" : "";
           let output =
-            result.reply.text || `Codex turn ${execution} with no final text.`;
+            result.reply.text ||
+            `Codex turn ${execution} with no final text${turnError ? `: ${turnError}` : "."}`;
           const prefix =
             codexSenderPrefix({
               threadId: first.threadId,
@@ -135,7 +138,13 @@ export function createCompletion({
       }
       for (const r of group)
         changes.push(
-          op("records", { ...r, execution, reason: null, returnId }),
+          op("records", {
+            ...r,
+            execution,
+            reason: null,
+            returnId,
+            ...(execution !== "completed" && turnError ? { detail: turnError } : {}),
+          }),
         );
       await state.commit(changes);
     }

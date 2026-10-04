@@ -194,6 +194,11 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
   launchctl unsetenv CODEX_APP_SERVER_WS_URL 2>/dev/null || true
   echo "$(ts) CODEX_CLI_PATH=$(launchctl getenv CODEX_CLI_PATH)"
   if [[ -x "$REAL" ]]; then
+    # launchd gives login jobs a 256-file soft limit; a busy daemon (many threads, shell pipes,
+    # sqlite handles) exhausts it ("Too many open files") and turns fail. Raise it before the
+    # daemon starts: it inherits this limit.
+    ulimit -n 65536 2>/dev/null || ulimit -n 10240 2>/dev/null || ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
+    echo "$(ts) open-file limit $(ulimit -n)"
     "$REAL" app-server daemon start >/dev/null 2>&1 || true
     echo "$(ts) daemon start attempted"
   fi

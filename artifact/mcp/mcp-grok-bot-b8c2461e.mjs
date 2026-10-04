@@ -10806,7 +10806,7 @@ var __webpack_modules__ = {
         }
         async function codexReturnOperation(input, context) {
             assertManagedSendOptions(input);
-            if (input.whenBusy === "queue") throw Error("Managed relay supports steer or reject, not experimental queue");
+            if (input.whenBusy === "queue") throw Error("--when-busy queue is not available with --reply-to-grok / bindingId: Codex's thread queue is experimental and cannot carry the managed Grok return route. " + "Omit --when-busy (default: an active turn is steered with a guarded steer, an idle thread starts a new turn), pass --when-busy steer to say so explicitly, " + "or --when-busy reject to fail instead of steering a busy thread.");
             return (0, _gbot_js__rspack_import_1.yF)(()=>(0, _managed_js__rspack_import_0.Bb)("sendToCodex", {
                     grokTarget: input.replyToGrok,
                     codexThreadId: input.threadId,
@@ -11528,6 +11528,7 @@ var __webpack_modules__ = {
         var agent_bundle_routes__rspack_import_1 = __webpack_require__("./node_modules/agent-bundle/dist/routes.js");
         var _core_codex_routes_js__rspack_import_2 = __webpack_require__("./src/core/codex/routes.ts");
         var zod__rspack_import_4 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
+        var _core_format_js__rspack_import_7 = __webpack_require__("./src/core/format.js");
         var _core_relay_routes_js__rspack_import_3 = __webpack_require__("./src/core/relay/routes.ts");
         const inputSchema = _core_codex_routes_js__rspack_import_2.Wi.extend({
             whenBusy: zod__rspack_import_4.k5n([
@@ -11639,7 +11640,9 @@ var __webpack_modules__ = {
                 return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6.g.Result, {
                     value: out,
                     children: (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_6.g.Text, {
-                        children: `Delivery ${out.delivery}; terminal answer returns to Grok automatically.`
+                        children: (0, _core_format_js__rspack_import_7.Ks)(out, {
+                            managed: true
+                        })
                     })
                 });
             }
@@ -64766,6 +64769,11 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
   launchctl unsetenv CODEX_APP_SERVER_WS_URL 2>/dev/null || true
   echo "$(ts) CODEX_CLI_PATH=$(launchctl getenv CODEX_CLI_PATH)"
   if [[ -x "$REAL" ]]; then
+    # launchd gives login jobs a 256-file soft limit; a busy daemon (many threads, shell pipes,
+    # sqlite handles) exhausts it ("Too many open files") and turns fail. Raise it before the
+    # daemon starts: it inherits this limit.
+    ulimit -n 65536 2>/dev/null || ulimit -n 10240 2>/dev/null || ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
+    echo "$(ts) open-file limit $(ulimit -n)"
     "$REAL" app-server daemon start >/dev/null 2>&1 || true
     echo "$(ts) daemon start attempted"
   fi
@@ -65171,7 +65179,27 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             for (const warning of s.warnings ?? [])lines.push("warning: " + String(warning));
             return lines.join("\n");
         }
+        const DELIVERY_HINTS = {
+            busy: "The thread is mid-turn. Wait for it to go idle, or send with --when-busy steer (managed --reply-to-grok sends steer an active turn by default).",
+            "thread-error": "Codex reports the thread in systemError. That is usually the Codex daemon failing (e.g. out of file descriptors: `gbot codex status`, then `codex app-server daemon restart` when no turn is running) or a broken rollout file; the thread needs a healthy daemon or to be opened in a Codex client.",
+            "unknown-status": "This gbot does not know the thread status the daemon reported; upgrade gbot or check `gbot codex list-threads`.",
+            "experimental-disabled": "--when-busy queue needs GROK_BOT_CODEX_EXPERIMENTAL=1 on a daemon with the experimental queue API; otherwise wait for idle or use --when-busy steer.",
+            "submission-rejected": "The Codex daemon refused the message; see the detail text.",
+            transport: "The connection to the Codex daemon dropped; delivery is unknown. Check the thread before resending."
+        };
+        function describeDelivery(out, { managed = false } = {}) {
+            const delivery = String(out?.delivery ?? "unknown");
+            if (delivery === "rejected") {
+                const reason = typeof out.reason === "string" && out.reason ? out.reason : "rejected";
+                const detail = typeof out.detail === "string" && out.detail ? out.detail : typeof out.error === "string" ? out.error : "";
+                const hint = DELIVERY_HINTS[reason] ?? "";
+                return `Delivery rejected (${stripTerminalControls(reason)})${detail ? `: ${stripTerminalControls(detail)}` : ""}${hint ? `\n${hint}` : ""}`;
+            }
+            if (managed) return `Delivery ${delivery}; terminal answer returns to Grok automatically. If the turn fails, the failure text (including the Codex error) is sent back instead of a final answer.`;
+            return `Delivery ${delivery}`;
+        }
         __webpack_require__.d(__webpack_exports__, {
+            Ks: ()=>describeDelivery,
             nz: ()=>formatCodexThread
         });
     },

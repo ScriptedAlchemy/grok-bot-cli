@@ -145,3 +145,25 @@ export function formatDesktopShimStatus(s) {
   for (const warning of s.warnings ?? []) lines.push("warning: " + String(warning));
   return lines.join("\n");
 }
+
+const DELIVERY_HINTS = {
+  busy: "The thread is mid-turn. Wait for it to go idle, or send with --when-busy steer (managed --reply-to-grok sends steer an active turn by default).",
+  "thread-error": "Codex reports the thread in systemError. That is usually the Codex daemon failing (e.g. out of file descriptors: `gbot codex status`, then `codex app-server daemon restart` when no turn is running) or a broken rollout file; the thread needs a healthy daemon or to be opened in a Codex client.",
+  "unknown-status": "This gbot does not know the thread status the daemon reported; upgrade gbot or check `gbot codex list-threads`.",
+  "experimental-disabled": "--when-busy queue needs GROK_BOT_CODEX_EXPERIMENTAL=1 on a daemon with the experimental queue API; otherwise wait for idle or use --when-busy steer.",
+  "submission-rejected": "The Codex daemon refused the message; see the detail text.",
+  transport: "The connection to the Codex daemon dropped; delivery is unknown. Check the thread before resending.",
+};
+
+/** One honest line for a send receipt: acceptance, rejection reason + daemon detail + next step. */
+export function describeDelivery(out, { managed = false } = {}) {
+  const delivery = String(out?.delivery ?? "unknown");
+  if (delivery === "rejected") {
+    const reason = typeof out.reason === "string" && out.reason ? out.reason : "rejected";
+    const detail = typeof out.detail === "string" && out.detail ? out.detail : typeof out.error === "string" ? out.error : "";
+    const hint = DELIVERY_HINTS[reason] ?? "";
+    return `Delivery rejected (${stripTerminalControls(reason)})${detail ? `: ${stripTerminalControls(detail)}` : ""}${hint ? `\n${hint}` : ""}`;
+  }
+  if (managed) return `Delivery ${delivery}; terminal answer returns to Grok automatically. If the turn fails, the failure text (including the Codex error) is sent back instead of a final answer.`;
+  return `Delivery ${delivery}`;
+}

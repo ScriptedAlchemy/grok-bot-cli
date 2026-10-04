@@ -87,3 +87,7 @@ Claude's development-channel opt-in. Supply `name`, `message`, and optional
 `timeoutMs` (1..120000). `replied` means the reply tool ran; `unknown` is not
 rejection and must not be automatically retried. Normal Claude tool approvals remain
 in its session. CLI: `gbot claude send NAME "message" --json`.
+
+## When a Codex send is rejected or the turn fails
+
+A managed `codex_send` (`replyToGrok`) / `gbot codex send --reply-to-grok` receipt that is `rejected` has `reason` and `detail`: read the detail. `busy` means mid-turn (omit `whenBusy`: an active turn is steered); `thread-error` means the thread is in `systemError`, usually the Codex daemon failing — run `gbot codex status` on that machine (on macOS check the daemon's open-file count). `whenBusy: "queue"` is not available with `replyToGrok`. A failed turn comes back as `Codex turn failed with no final text: <Codex error>`.
