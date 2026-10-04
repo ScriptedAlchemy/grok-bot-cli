@@ -195,7 +195,8 @@ All gateway / `EnsureSandBox` fetches use `redirect: "error"` so credentials are
 ```sh
 codex app-server daemon start          # once per machine session
 gbot codex status                      # socket, daemon version, reachability
-gbot codex list-threads --limit 10     # id, status, cwd, preview
+gbot codex list-threads --limit 10     # newest activity first: id, status, cwd, updated, preview
+gbot codex list-threads --query zerofs --active-within 7d   # find an old-but-active thread
 gbot codex send <threadId> "Grok here: the build is green, please continue."
 gbot codex send --model gpt-6-astra --effort high <threadId> "Review this change"
 gbot codex new --cwd /path/to/project --model gpt-6-astra --effort high "Start here"
@@ -248,7 +249,7 @@ MCP tools: `chatgpt_desktop_status`, `chatgpt_desktop_list_threads`, `chatgpt_de
 
 `desktopShimConfigured` is true when the installed wrapper is selected by Desktop-facing `CODEX_CLI_PATH` (the GUI domain on macOS). This describes configuration for future launches; a running Desktop may not have inherited it, and the wrapper may have fallen back to stock Codex. `desktopAttached` is `"private-stdio"` when a Desktop-bundled app-server process is observed, otherwise `"unknown"`. That process observation and shim configuration can both be present. Neither a configured shim nor a reachable daemon proves Desktop is attached to that daemon. Verify actual attachment with a controlled shared-thread interaction and matching thread/turn IDs.
 
-**Thread discovery.** `list-threads --limit N` (1–200) pages with the opaque `--cursor` from the previous `nextCursor`; JSON keeps the cursor verbatim, text output prints a sanitized `more: --cursor …` hint. Requests pass `modelProviders: []` so threads from every provider appear (the daemon otherwise filters to the current provider) and `useStateDbOnly: true` for a fast state-DB listing, falling back to a full scan when that first page is empty. Text fields are stripped of terminal control sequences in both outputs (single-line fields also lose line breaks; `preview` keeps its newlines; a structured `source` such as `{ "custom": … }` passes through unchanged), `status` is one of `notLoaded | idle | active | systemError | unknown`, and non-numeric `updatedAt` / `createdAt` become `null`. Extra fields when present: `section`, `projectId`, `modelProvider`, `model`, `originator`. Unknown arguments are rejected before the socket is touched; a response that does not match the pinned schema (including an entry without a string `id`) fails with `reason: "bad-response"`.
+**Thread discovery.** `list-threads` is newest-activity-first (`--sort updated`, the default; `--sort created|recency`, `--order asc`) and finds old-but-active threads: `--query zerofs` (case-insensitive name/title, preview or id prefix, scanning every page, not just the first 100), `--active-within 7d` / `--since 2026-09-01`, `--cwd`, `--model-provider`, `--source-kind`, `--archived`; the `codex_threads` MCP tool takes the same fields (`query`, `activeWithin`, `since`, `sort`, `order`, ...). `--limit N` (1–200) is the page size and pages with the opaque `--cursor` from the previous `nextCursor`; JSON keeps the cursor verbatim, text output prints a sanitized `more: --cursor …` hint. Requests pass `modelProviders: []` so threads from every provider appear (the daemon otherwise filters to the current provider) and `useStateDbOnly: true` for a fast state-DB listing, falling back to a full scan when that first page is empty. Text fields are stripped of terminal control sequences in both outputs (single-line fields also lose line breaks; `preview` keeps its newlines; a structured `source` such as `{ "custom": … }` passes through unchanged), `status` is one of `notLoaded | idle | active | systemError | unknown`, and non-numeric `updatedAt` / `createdAt` become `null`. Extra fields when present: `section`, `projectId`, `modelProvider`, `model`, `originator`. Unknown arguments are rejected before the socket is touched; a response that does not match the pinned schema (including an entry without a string `id`) fails with `reason: "bad-response"`. With client-side filters (`--query`, `--since`, `--active-within`) a page can hold more matches than `--limit`; `nextCursor` is then a `gbot1:` cursor that resumes inside that page, so nothing repeats or is skipped.
 
 **Routes, attribution, and loops.** `gbot codex send` runs on the machine that owns `CODEX_HOME`, as the user who owns the socket, with that user's Codex credentials; the socket path comes only from `CODEX_HOME` or `CODEX_APP_SERVER_SOCK`, never from the message or an agent-supplied argument. gbot has no remote transport. A cloud-hosted Grok Bot on the box cannot reach a desktop socket at `/home/box/.codex/...` — use Grok Bot Shell with a machineId to run `gbot` on the user's registered machine (after `codex app-server daemon start` / bootstrap there). `GROK_BOT_CODEX_THREADS=id,id` lets the operator pin `send` to approved threads (`reason: "route-not-allowed"` otherwise). Every send gets a delivery envelope: `messageId` (also sent as Codex's native `clientUserMessageId`), `correlationId` (defaults to the message id), optional `replyTo`, and `hop`. A reply passes the original correlation id and `hop` + 1:
 
@@ -286,6 +287,13 @@ fallback). Claude Code and Cursor bundles also include `/gbot:codex-send`,
 `gbot_codex_respond` manage automatic delivery and scoped operator responses.
 The tools bundle this repository's gateway client and worker, so the installed
 plugin does not need `gbot` on `PATH`.
+
+**Replying to a Codex sender.** Messages a Codex thread sends to Grok Bot
+(`gbot_send` with a native or explicit `codexThreadId`, the managed bridge, its
+returned answers, and `gbot send` run inside a Codex terminal via `$CODEX_THREAD_ID`)
+start with `[from Codex thread <id> @ <machine>, cwd <cwd>; reply: codex_send({threadId:"<id>", message:"..."}) via MCP on <machine> (or CLI: gbot codex send <id> "...")]`.
+`<machine>` is the real hostname (`GROK_BOT_MACHINE_NAME` overrides); unknown fields are left out but the thread id never is.
+Find a thread to answer with `codex_threads` (`query`, `activeWithin`, newest activity first).
 
 Install the committed bundle directly from GitHub without cloning or building it:
 
