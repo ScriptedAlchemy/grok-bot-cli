@@ -6,9 +6,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { codexSenderPrefix, envCodexThreadId, withCodexSender } from "../src/core/sender-prefix.js";
 import { fakeAppServer, createCodexFixtureHome } from "./helpers/codex-server.js";
 
-import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, startCodexThread, codexSocketPath, codexStatus, detectDesktopPrivateAppServer, unreachableMessage, looksLikeGrokBotBox, boxUnreachableMessage } from "../src/core/codex-bridge.js";
+import { decodeFrame, encodeFrame, websocketAccept, connectCodexAppServer, sendToCodexThread, listCodexThreads, startCodexThread, codexSocketPath, codexStatus, detectDesktopPrivateAppServer, unreachableMessage, looksLikeGrokBotBox, boxUnreachableMessage } from "../src/core/codex-bridge.js";
 
 test('send applies model and effort overrides supported by Codex 0.158.0', async () => {
  const fake = await fakeAppServer(baseHandlers);
@@ -142,11 +143,11 @@ test("codex list-threads passes --limit and prints threads", async () => {
   try {
     const text = await gbot(fake.home, "codex", "list-threads", "--limit", "1");
     assert.equal(text.code, 0, text.err);
-    assert.equal(text.out, "t-1  idle - Fix the build\n    /repo/a\n    please fix the build\n\nmore: --cursor \"cursor-2\"\n");
+    assert.equal(text.out, "t-1  idle - Fix the build\n    /repo/a  (updated 2023-11-14T22:13:21Z)\n    please fix the build\n\nmore: --cursor \"cursor-2\"\n");
     assert.deepEqual(fake.received.find((m) => m.method === "thread/list").params, {
       limit: 1,
       useStateDbOnly: true,
-      modelProviders: [],
+      modelProviders: [], sortKey: "updated_at",
     });
 
     const json = await gbot(fake.home, "codex", "list-threads", "--json");
@@ -189,12 +190,15 @@ test("codex list-threads passes --limit and prints threads", async () => {
       nextCursor: null,
       limit: 20,
       useStateDbOnly: true,
+      sort: "updated",
+      order: "desc",
+      scanned: 2,
       exitCode: 0,
     });
     assert.deepEqual(fake.received.at(-1).params, {
       limit: 20,
       useStateDbOnly: true,
-      modelProviders: [],
+      modelProviders: [], sortKey: "updated_at",
     });
   } finally {
     await fake.close();
@@ -240,7 +244,7 @@ test("codex list-threads passes modelProviders:[] so other providers are not fil
   try {
     const { code, out } = await gbot(fake.home, "codex", "list-threads", "--json");
     assert.equal(code, 0, out);
-    assert.deepEqual(seen[0], { limit: 20, useStateDbOnly: true, modelProviders: [] });
+    assert.deepEqual(seen[0], { limit: 20, useStateDbOnly: true, modelProviders: [], sortKey: "updated_at" });
     const page = JSON.parse(out);
     assert.deepEqual(page.threads.map((t) => t.id), ["openai-1", "other-1"]);
     assert.equal(page.threads[1].modelProvider, "azure");
@@ -922,7 +926,7 @@ test("codex list-threads pages with --cursor, echoes nextCursor, and rejects unk
     const second = await gbot(fake.home, "codex", "list-threads", "--limit", "1", "--cursor", "page-2", "--json");
     assert.deepEqual(JSON.parse(second.out).threads.map((t) => t.id), ["t-2"]);
     assert.equal(JSON.parse(second.out).nextCursor, null);
-    assert.deepEqual(seen.at(-1), { limit: 1, useStateDbOnly: true, modelProviders: [], cursor: "page-2" });
+    assert.deepEqual(seen.at(-1), { limit: 1, useStateDbOnly: true, modelProviders: [], sortKey: "updated_at", cursor: "page-2" });
 
     const unknown = await gbot(fake.home, "codex", "list-threads", "--all");
     assert.equal(unknown.code, 2);
@@ -1587,8 +1591,8 @@ test("codex list-threads falls back to a full scan when useStateDbOnly returns n
     assert.deepEqual(page.threads.map((t) => t.id), ["t-1"]);
     assert.equal(page.useStateDbOnly, false);
     assert.deepEqual(seen, [
-      { limit: 20, modelProviders: [], useStateDbOnly: true },
-      { limit: 20, modelProviders: [], useStateDbOnly: false },
+      { limit: 20, modelProviders: [], sortKey: "updated_at", useStateDbOnly: true },
+      { limit: 20, modelProviders: [], sortKey: "updated_at", useStateDbOnly: false },
     ]);
   } finally {
     await fake.close();
@@ -1719,4 +1723,134 @@ test("normalizeCodexThreadId strips local: and rejects temporary Desktop rows", 
   assert.equal(isTemporaryDesktopThreadId("local:client-new-thread:x"), true);
   assert.throws(() => normalizeCodexThreadId("local:client-new-thread:x"), /Temporary Desktop/);
   assert.throws(() => normalizeCodexThreadId("client-new-thread:x"), /Temporary Desktop/);
+});
+
+// A daemon with 450 threads whose creation order differs from its activity order: the
+// thread we want was created first but touched last.
+function bigDaemon() {
+  const rows = Array.from({ length: 450 }, (_, i) => ({
+    id: `01a0${String(i).padStart(4, "0")}-aaaa-7000-8000-000000000000`,
+    status: { type: "idle" },
+    name: i === 3 ? "ZeroFS recovery notes" : `Thread ${i}`,
+    preview: i === 3 ? "recover the zero fs pool" : `preview ${i}`,
+    cwd: `/repo/${i % 5}`,
+    source: "cli",
+    createdAt: 1_700_000_000 + (449 - i),
+    updatedAt: 1_700_000_000 + (i === 3 ? 100_000 : 449 - i),
+  }));
+  const calls = [];
+  return {
+    calls,
+    handler: (params, ok) => {
+      calls.push(params);
+      const key = params.sortKey === "updated_at" ? "updatedAt" : "createdAt";
+      let sorted = [...rows].sort((a, b) => (params.sortDirection === "asc" ? a[key] - b[key] : b[key] - a[key]));
+      if (params.cwd) sorted = sorted.filter((r) => r.cwd === params.cwd);
+      const offset = params.cursor ? Number(params.cursor.slice(2)) : 0;
+      const page = sorted.slice(offset, offset + params.limit);
+      ok({ data: page, nextCursor: offset + page.length < sorted.length ? "o:" + (offset + page.length) : null });
+    },
+  };
+}
+
+test("list-threads sorts by recent activity by default and finds an old-but-active thread past page one", async () => {
+  const daemon = bigDaemon();
+  const fake = await fakeAppServer({ ...baseHandlers, "thread/list": daemon.handler });
+  const env = { CODEX_HOME: fake.home };
+  try {
+    const recent = await listCodexThreads({ limit: 5, env });
+    assert.equal(recent.sort, "updated");
+    assert.equal(daemon.calls[0].sortKey, "updated_at");
+    assert.equal(recent.threads[0].name, "ZeroFS recovery notes");
+    assert.match(recent.nextCursor, /^o:/);
+
+    const created = await listCodexThreads({ limit: 5, sort: "created", env });
+    assert.equal(created.threads[0].name, "Thread 0");
+    assert.equal(daemon.calls.at(-1).sortKey, "created_at");
+    // In creation order the thread is 4th; ask for the oldest first and it is last of 450.
+    const oldest = await listCodexThreads({ limit: 1, sort: "created", order: "asc", env });
+    assert.equal(oldest.threads[0].name, "Thread 449");
+    assert.equal(daemon.calls.at(-1).sortDirection, "asc");
+  } finally {
+    await fake.close();
+  }
+});
+
+test("list-threads query scans every page by name, preview and id prefix", async () => {
+  const daemon = bigDaemon();
+  const fake = await fakeAppServer({ ...baseHandlers, "thread/list": daemon.handler });
+  const env = { CODEX_HOME: fake.home };
+  try {
+    const byName = await listCodexThreads({ query: "zerofs", sort: "created", env });
+    assert.deepEqual(byName.threads.map((t) => t.name), ["ZeroFS recovery notes"]);
+    assert.equal(byName.scanned, 450);
+    assert.equal(byName.nextCursor, null);
+    assert.ok(daemon.calls.length >= 3, "paged past the first 200");
+
+    const byPreview = await listCodexThreads({ query: "zero fs pool", env });
+    assert.equal(byPreview.threads.length, 1);
+    const byId = await listCodexThreads({ query: "01a00003-AAAA", sort: "created", env });
+    assert.deepEqual(byId.threads.map((t) => t.id), ["01a00003-aaaa-7000-8000-000000000000"]);
+    assert.equal((await listCodexThreads({ query: "no such thread", env })).threads.length, 0);
+  } finally {
+    await fake.close();
+  }
+});
+
+test("list-threads activeWithin/since filter by updatedAt and a gbot cursor resumes mid-page without gaps or repeats", async () => {
+  const daemon = bigDaemon();
+  const fake = await fakeAppServer({ ...baseHandlers, "thread/list": daemon.handler });
+  const env = { CODEX_HOME: fake.home };
+  const now = (1_700_000_000 + 449) * 1000;
+  try {
+    // Updated within the last 300s => updatedAt >= base+149: threads 0..300 (301, the revived one among them).
+    const within = await listCodexThreads({ activeWithin: "5m", limit: 150, now, env });
+    assert.equal(within.threads.length, 150);
+    assert.match(within.nextCursor, /^gbot1:/);
+    const rest = await listCodexThreads({ activeWithin: "5m", limit: 200, cursor: within.nextCursor, now, env });
+    assert.equal(rest.threads.length, 151);
+    assert.equal(rest.nextCursor, null);
+    const ids = [...within.threads, ...rest.threads].map((t) => t.id);
+    assert.equal(new Set(ids).size, 301);
+    assert.equal(ids[0], "01a00003-aaaa-7000-8000-000000000000");
+
+    const since = await listCodexThreads({ since: new Date((1_700_000_000 + 440) * 1000).toISOString(), limit: 50, env });
+    assert.equal(since.threads.length, 10);
+    assert.equal(since.nextCursor, null);
+    const epoch = await listCodexThreads({ since: String(1_700_000_000 + 440), limit: 50, env });
+    assert.equal(epoch.threads.length, 10);
+    await assert.rejects(listCodexThreads({ activeWithin: "soon", env }), /--active-within/);
+    await assert.rejects(listCodexThreads({ since: "not a date", env }), /--since/);
+    await assert.rejects(listCodexThreads({ cursor: "gbot1:%%%", env }), /valid thread cursor/);
+  } finally {
+    await fake.close();
+  }
+});
+
+test("list-threads passes cwd, provider, archived and source kind filters to the daemon", async () => {
+  const daemon = bigDaemon();
+  const fake = await fakeAppServer({ ...baseHandlers, "thread/list": daemon.handler });
+  try {
+    const out = await listCodexThreads({ cwd: "/repo/3", modelProvider: "openai", archived: true, sourceKinds: ["vscode"], limit: 3, env: { CODEX_HOME: fake.home } });
+    assert.ok(out.threads.every((t) => t.cwd === "/repo/3"));
+    assert.deepEqual(daemon.calls[0], { limit: 3, modelProviders: ["openai"], sortKey: "updated_at", cwd: "/repo/3", archived: true, sourceKinds: ["vscode"], useStateDbOnly: true });
+  } finally {
+    await fake.close();
+  }
+});
+
+test("Codex sender prefix names thread, machine, cwd and both reply forms; unknown fields drop out", () => {
+  const full = codexSenderPrefix({ threadId: "01a03c14-5bb0-7850-a2c7-15f6f4a1ab74", machine: "mac-studio", cwd: "/repo/x" });
+  assert.equal(full, '[from Codex thread 01a03c14-5bb0-7850-a2c7-15f6f4a1ab74 @ mac-studio, cwd /repo/x; reply: codex_send({threadId:"01a03c14-5bb0-7850-a2c7-15f6f4a1ab74", message:"..."}) via MCP on mac-studio (or CLI: gbot codex send 01a03c14-5bb0-7850-a2c7-15f6f4a1ab74 "...")]');
+  const noCwd = codexSenderPrefix({ threadId: "t-1", machine: "box" });
+  assert.match(noCwd, /^\[from Codex thread t-1 @ box; reply: /);
+  assert.doesNotMatch(noCwd, /cwd/);
+  const bare = codexSenderPrefix({ threadId: "t-1", machine: "" });
+  assert.match(bare, /^\[from Codex thread t-1; reply: codex_send\(\{threadId:"t-1", message:"\.\.\."\}\) via MCP \(or CLI/);
+  assert.equal(codexSenderPrefix({ machine: "box", cwd: "/x" }), "");
+  assert.equal(withCodexSender("hello", { cwd: "/x" }), "hello");
+  assert.equal(codexSenderPrefix({ threadId: "t-1", machine: "a]\nb", cwd: "/x]\u0007y" }).includes("\n"), false);
+  assert.equal(envCodexThreadId({ CODEX_THREAD_ID: " t-9 " }), "t-9");
+  assert.equal(envCodexThreadId({ CODEX_THREAD_ID: "bad id" }), undefined);
+  assert.equal(envCodexThreadId({}), undefined);
 });

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { hostname, tmpdir } from "node:os";
+import { realpathSync } from "node:fs";
 import { join } from "node:path";
 import { fakeAppServer } from "./helpers/codex-server.js";
 
@@ -710,4 +711,22 @@ test("invalid per-send binding busy policies reject before recording or submitti
     ).length,
     0,
   );
+});
+
+test("Codex -> Grok requests and returns carry the sender prefix with thread id, machine, cwd and reply forms", async (t) => {
+  const f = await fixture(t);
+  const cwd = realpathSync(process.cwd());
+  const machine = hostname();
+  const prefix = `[from Codex thread thread @ ${machine}, cwd ${cwd}; reply: codex_send({threadId:"thread", message:"..."}) via MCP on ${machine} (or CLI: gbot codex send thread "...")]`;
+  await f.engine.sendToGrok({ grokTarget: "target", codexThreadId: "thread", message: "Ask Grok", requestId: "ask" });
+  assert.equal(f.sent[0].text, prefix + "\nAsk Grok");
+
+  const g = await fixture(t);
+  await g.engine.startBinding({ grokTarget: "target", codexThreadId: "thread", requestId: "link" });
+  g.page.push({ id: "g1", kind: "send-message", requestId: "proactive", message: { content: "Hello Codex" } });
+  await g.engine.tick();
+  const returned = g.sent[0].text;
+  assert.ok(returned.startsWith(`[from Codex thread thread @ ${machine}, cwd ${cwd}; turn turn-1; status completed; sources `), returned);
+  assert.match(returned, /; reply: codex_send\(\{threadId:"thread", message:"\.\.\."\}\) via MCP on /);
+  assert.ok(returned.endsWith("]\nCodex answer"), returned);
 });
