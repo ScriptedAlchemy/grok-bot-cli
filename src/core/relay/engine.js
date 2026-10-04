@@ -12,6 +12,7 @@ import {
   createRecordFactory,
 } from "./records.js";
 import { createIntake } from "./intake.js";
+import { withCodexSender } from "../sender-prefix.js";
 import { createCompletion } from "./completion.js";
 import {
   connectGateway,
@@ -97,6 +98,7 @@ export async function openRelayEngine({
     stoppedBindings,
   });
   const completions = createCompletion({
+    env,
     state,
     codex,
     update,
@@ -246,9 +248,16 @@ export async function openRelayEngine({
         throw new Error("Idempotency conflict");
       return receipt(old);
     }
-    const text = messageText(input.message);
+    const raw = messageText(input.message);
     envelope(input);
     const r = await route(input);
+    // Codex -> Grok: say which thread/machine/cwd is asking and how to answer it.
+    const text =
+      kind === "grok-request"
+        ? messageText(
+            withCodexSender(raw, { threadId: r.threadId, cwd: r.expectedCwd, env }),
+          )
+        : raw;
     await baseline(r.targetId);
     if (state.read().targets[r.targetId].state !== "running")
       throw new Error("Target coverage is paused");

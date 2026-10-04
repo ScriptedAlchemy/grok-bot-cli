@@ -1,7 +1,9 @@
+import { codexSenderPrefix } from "../sender-prefix.js";
 import { hash, op, records, terminal, MAX_TEXT } from "./records.js";
 
 /** Each target/thread/turn gets one durable return intent, anchored to its associated inputs. */
 export function createCompletion({
+  env = process.env,
   state,
   codex,
   update,
@@ -87,12 +89,22 @@ export function createCompletion({
             suffix = result.reply.truncated ? "\n[Output truncated]" : "";
           let output =
             result.reply.text || `Codex turn ${execution} with no final text.`;
-          const prefix = `[Codex ${first.threadId}; turn ${first.turnId}; status ${execution}; sources ${sources
-            .slice(0, 8)
-            .map((id) => id.slice(0, 128))
-            .join(
-              ", ",
-            )}${sources.length > 8 ? " (additional source IDs retained in relay state)" : ""}]\n`;
+          const prefix =
+            codexSenderPrefix({
+              threadId: first.threadId,
+              cwd: first.expectedCwd,
+              env,
+              details: [
+                `turn ${first.turnId}`,
+                `status ${execution}`,
+                `sources ${sources
+                  .slice(0, 8)
+                  .map((id) => id.slice(0, 128))
+                  .join(
+                    ", ",
+                  )}${sources.length > 8 ? " (additional source IDs retained in relay state)" : ""}`,
+              ],
+            }) + "\n";
           // Bound UTF-8 without cutting a code point, and make truncation explicit.
           const budget = MAX_TEXT - Buffer.byteLength(prefix + suffix) - 32;
           let truncated = false;

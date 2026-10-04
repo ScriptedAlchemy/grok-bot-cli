@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { buildEnvelope, listCodexThreads, sendToCodexThread } from '../codex-bridge.js';
 import { outcomeFromError } from './contract.js';
 import { openCodexConversation } from './conversation.js';
+import { formatCodexThread } from '../format.js';
 import { normalizeCodexThreadId } from './thread-id.js';
 
 const bareId = z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/);
@@ -34,7 +35,26 @@ export const sendFields = {
 export const sendSchema = z.object({ ...sendFields, message: z.string().min(1).max(4194304) }).strict();
 export const waitSchema = z.object({ ...observationFields, turnId: bareId, messageId: bareId.optional(), maxOutputBytes: z.number().int().min(1).max(4194304).optional() }).strict();
 export const watchSchema = z.object({ expectedCwd: z.string().min(1).optional(), threadId: id, timeoutMs: z.number().int().min(1).max(600000).optional(), maxEvents: z.number().int().min(1).max(500).default(100) }).strict();
-export const threadsSchema = z.object({ limit: z.number().int().min(1).max(200).default(20), cursor: z.string().min(1).max(4096).optional() }).strict();
+export const threadsSchema = z.object({
+  limit: z.number().int().min(1).max(200).default(20),
+  cursor: z.string().min(1).max(4096).optional(),
+  /** Recent activity (updatedAt) first by default; `created` is the daemon's own default order. */
+  sort: z.enum(['updated', 'created', 'recency']).default('updated'),
+  order: z.enum(['desc', 'asc']).default('desc'),
+  /** Case-insensitive substring of thread name/title, preview or id (so an id prefix works); scans every page. */
+  query: z.string().trim().min(1).max(256).optional(),
+  /** Only threads active within this long: 90s, 30m, 12h, 7d, 2w. */
+  activeWithin: z.string().trim().regex(/^\d+(?:\.\d+)?\s*[smhdw]$/i, 'use a duration like 30m, 12h, 7d or 2w').optional(),
+  /** Only threads updated at or after this ISO date/time or epoch seconds. */
+  since: z.string().trim().min(1).max(64).optional(),
+  /** Exact session cwd. */
+  cwd: z.string().min(1).max(4096).optional(),
+  /** Any modelProvider id; omit for all providers. Not an enum. */
+  modelProvider: z.string().min(1).max(256).optional(),
+  archived: z.boolean().optional(),
+  /** Any app-server source kind (cli, vscode, exec, appServer, subAgent...); omit for the daemon's interactive default. Not an enum. */
+  sourceKind: z.string().min(1).max(64).optional(),
+}).strict();
 export const resultSchema = z.object({
   exitCode: z.number().int().min(0).max(1),
   threadId: z.string().optional(), turnId: z.string().optional(), messageId: z.string().optional(),
@@ -86,7 +106,10 @@ export async function observeOperation(kind: 'wait' | 'watch', input: z.infer<ty
   }
 }
 export async function threadsOperation(input: z.infer<typeof threadsSchema>) {
-  try { return { ...await listCodexThreads(input), exitCode: 0 }; }
+  try {
+    const { sourceKind, ...rest } = input;
+    return { ...await listCodexThreads({ ...rest, ...(sourceKind ? { sourceKinds: [sourceKind] } : {}) }), exitCode: 0 };
+  }
   catch (error) { return outcomeFromError(error); }
 }
 export function resultText(result: Record<string, unknown>) {
@@ -96,6 +119,9 @@ export function resultText(result: Record<string, unknown>) {
   if (result.delivery === 'accepted') return `Started turn ${result.turnId} (${result.turnStatus}) on Codex thread ${result.threadId}; message ${result.messageId}`;
   if (result.delivery) return `Codex delivery ${result.delivery} on thread ${result.threadId}`;
   if (result.reason) return `Codex observation: ${result.reason}`;
-  if (Array.isArray(result.threads)) return `${result.threads.length} Codex threads`;
+  if (Array.isArray(result.threads)) {
+    const rows = result.threads.map((t) => formatCodexThread(t as never)).join('\n\n');
+    return `${result.threads.length} Codex threads (sort ${String(result.sort ?? 'updated')} ${String(result.order ?? 'desc')})${result.nextCursor ? `; more: pass cursor ${JSON.stringify(result.nextCursor)}` : ''}${rows ? `\n\n${rows}` : ''}`;
+  }
   return String(result.error ?? 'Codex observation complete');
 }
