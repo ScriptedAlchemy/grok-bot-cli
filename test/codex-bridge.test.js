@@ -27,6 +27,22 @@ test('send applies model and effort overrides supported by Codex 0.158.0', async
  } finally { await fake.close(); }
 });
 
+test('new thread with a first message works when the daemon has no rollout until the first turn', async () => {
+ const fake = await fakeAppServer({ ...baseHandlers,
+  'thread/start': (params, ok) => ok({ thread: { id: 't-fresh' }, model: params.model }),
+  'thread/resume': (params, ok, err) => err({ code: -32600, message: 'no rollout found for thread id ' + params.threadId }),
+ });
+ try {
+  const receipt = await startCodexThread({ cwd: process.cwd(), message: 'hello', env: { CODEX_HOME: fake.home } });
+  assert.equal(receipt.delivery, 'accepted');
+  assert.equal(receipt.threadId, 't-fresh');
+  assert.equal(fake.received.find(m => m.method === 'turn/start').params.threadId, 't-fresh');
+  // An ordinary send to an unknown thread still reports unknown-thread.
+  const unknown = await sendToCodexThread('t-other', 'hello', { env: { CODEX_HOME: fake.home } });
+  assert.equal(unknown.reason, 'unknown-thread');
+ } finally { await fake.close(); }
+});
+
 test('new thread uses thread/start cwd and selection before its first turn', async () => {
  const fake = await fakeAppServer({ ...baseHandlers,
   'thread/start': (params, ok) => ok({ thread: { id: 't-1' }, model: params.model }),

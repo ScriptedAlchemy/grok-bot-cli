@@ -717,7 +717,7 @@ export async function startCodexThread({ cwd, expectedCwd, model, effort, messag
     if (typeof threadId !== "string" || !ID_PATTERN.test(threadId)) throw new CodexProtocolError("thread/start", "missing `thread.id`");
   } finally { client.close(); }
   if (message === undefined) return { threadId, cwd: resolvedCwd, model: started.model ?? model, exitCode: 0 };
-  return await sendToCodexThread(threadId, message, { env, expectedCwd: resolvedCwd, model, effort, signal });
+  return await sendToCodexThread(threadId, message, { env, expectedCwd: resolvedCwd, model, effort, signal, freshThreadCwd: resolvedCwd });
 }
 
 const CODEX_VERSION_PROBE_TIMEOUT_MS = 3000;
@@ -1289,11 +1289,11 @@ export async function readCodexThread(threadId, { limit = 100, env = process.env
 /**
  * @param {string} threadId
  * @param {string} text
- * @param {{ env?: NodeJS.ProcessEnv, envelope?: object, whenBusy?: "reject"|"queue"|"steer", session?: object, expectedTurnId?: string, expectedCwd?: string, model?: string, effort?: string, signal?: AbortSignal }} [opts]
+ * @param {{ env?: NodeJS.ProcessEnv, envelope?: object, whenBusy?: "reject"|"queue"|"steer", session?: object, expectedTurnId?: string, expectedCwd?: string, model?: string, effort?: string, signal?: AbortSignal, freshThreadCwd?: string }} [opts]
  */
-export async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({ env }), whenBusy = "reject", session, expectedTurnId, expectedCwd, model, effort, signal } = {}) {
+export async function sendToCodexThread(threadId, text, { env = process.env, envelope = buildEnvelope({ env }), whenBusy = "reject", session, expectedTurnId, expectedCwd, model, effort, signal, freshThreadCwd } = {}) {
   try {
-    const receipt = await sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, model, effort, signal });
+    const receipt = await sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, model, effort, signal, freshThreadCwd });
     return outcomeFromReceipt(receipt);
   } catch (err) {
     // Every receipt names the message, including refusals that never reached the daemon.
@@ -1310,7 +1310,7 @@ function validateModelEffort(model, effort) {
   if (effort !== undefined && !["none", "minimal", "low", "medium", "high", "xhigh"].includes(effort)) throw new RangeError("--effort must be none, minimal, low, medium, high, or xhigh");
 }
 
-async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, model, effort, signal }) {
+async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy, session, expectedTurnId, expectedCwd, model, effort, signal, freshThreadCwd }) {
   validateModelEffort(model, effort);
   if (!["reject", "queue", ...(session ? ["steer"] : [])].includes(whenBusy)) throw new RangeError("--when-busy must be reject, queue, or persistent steer");
   if (whenBusy === "steer" && (typeof expectedTurnId !== "string" || !ID_PATTERN.test(expectedTurnId))) throw new RangeError("steer requires expectedTurnId");
@@ -1337,6 +1337,11 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy,
         ...(model ? { model } : {}), ...(effort ? { config: { model_reasoning_effort: effort } } : {}) });
     } catch (err) {
       assertNotCancelled();
+      // A thread this call just created via thread/start has no rollout until its first turn exists
+      // (Codex 0.160: thread/resume answers "no rollout found"), but turn/start on it works. Treat it as idle.
+      if (freshThreadCwd !== undefined && err instanceof CodexRpcError && /no rollout found/i.test(String(err.rpc && err.rpc.message))) {
+        resumed = { thread: { id: threadId, status: { type: "idle" } }, cwd: freshThreadCwd, ...(model ? { model } : {}) };
+      } else {
       if (err instanceof CodexSendError || err instanceof RemoteThreadNotLoadedError) throw err;
       const explained = explainSendError(err, threadId, env);
       if (explained instanceof RemoteThreadNotLoadedError) throw explained;
@@ -1347,6 +1352,7 @@ async function sendToCodexThreadInner(threadId, text, { env, envelope, whenBusy,
         threadId,
         ...envelope,
       });
+      }
     }
     // A shared session stays connected when this conversation is cancelled.
     // Recheck after the last awaited preflight, before any submission request.
