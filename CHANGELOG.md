@@ -1,5 +1,11 @@
 # grok-bot-cli
 
+## 0.12.5
+
+### Patch Changes
+
+- 43499fa: Update the bundled MCP server dependency to 2.3.1.
+
 ## 0.12.4
 
 ### Patch Changes
