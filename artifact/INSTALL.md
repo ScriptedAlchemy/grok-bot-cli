@@ -2,7 +2,7 @@
 
 Message Grok Bot from Codex, Claude Code, and Cursor. Codex/Claude tools use local sockets on the user's registered machines only (no remote transport); from the Grok Bot box, run gbot via Grok Bot Shell with a machineId.
 
-Version: `0.12.2`
+Version: `0.12.3`
 
 Run these commands from this bundle directory. The bundle is self-contained: every command below is
 a host command or the bundled installer, and nothing requires the `agent-bundle` CLI. Where that CLI is
