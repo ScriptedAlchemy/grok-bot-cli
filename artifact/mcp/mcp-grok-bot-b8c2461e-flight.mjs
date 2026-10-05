@@ -29499,7 +29499,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
     },
     "./package.json" (module) {
         module.exports = {
-            "rE": "0.12.3"
+            "rE": "0.12.4"
         };
     }
 };
@@ -29606,7 +29606,7 @@ globalThis.__rspack_rsc_manifest__ ??= Object.freeze({
 });
 if (node_worker_threads__rspack_import_0.parentPort === null) throw new Error('Generated Flight worker requires a parent port.');
 process.stdout.write = process.stderr.write.bind(process.stderr);
-const ARTIFACT_EPOCH = "gbot@0.12.3";
+const ARTIFACT_EPOCH = "gbot@0.12.4";
 const processLifetime = {
     hits: 0,
     instanceId: crypto.randomUUID(),
