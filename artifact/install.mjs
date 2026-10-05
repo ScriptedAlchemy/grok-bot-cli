@@ -235,7 +235,7 @@ const safeRelative = (value) => typeof value === 'string' && value.length > 0 &&
     [...segment].every((character) => character.charCodeAt(0) >= 0x20) &&
     !segment.endsWith('.') && !segment.endsWith(' '));
 
-const registrationKinds = ["amp-project-plugin","amp-system-plugin","claude-marketplace","claude-plugin","codex-marketplace","codex-plugin","cursor-local-plugin","cursor-marketplace-staging","grokbot-marketplace-staging"];
+const registrationKinds = ["amp-project-plugin","amp-system-plugin","claude-marketplace","claude-plugin","codex-marketplace","codex-plugin","cursor-local-plugin","cursor-marketplace-staging","grokbot-marketplace-staging","grokbot-sideload"];
 const isScope = (value) => value === 'local' || value === 'project' || value === 'user';
 const isRegistration = (value) => value !== null && typeof value === 'object' && !Array.isArray(value) &&
   registrationKinds.includes(value.kind) &&

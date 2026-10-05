@@ -317,11 +317,35 @@ Install the bundled host projections from the same npm package:
 gbot-install install codex
 gbot-install install claude
 gbot-install install cursor
+gbot-install install grokbot
 gbot-install doctor
 ```
 
 Add `--replace` to an install command to overwrite an existing copy. The bundle is
 registered as `gbot`.
+
+`gbot-install install grokbot` stages the Cursor projection as a marketplace
+repository under `~/.grokbot/agent-bundle/marketplaces/gbot` (`GROK_BOT_HOME`
+overrides `~/.grokbot`). On the Grok Bot computer it also sideloads gbot into Grok
+Bot's existing clone of the `scriptedalchemy/plugins` marketplace: it adds `gbot/`
+and a `marketplace.json` entry under the clone commit Grok Bot already uses, and
+writes `plugins/cache/scriptedalchemy-plugins/gbot/<commit>/` with `.cache-complete`.
+Every path it writes is recorded in the install receipt, and `uninstall grokbot`
+removes exactly those paths. `--json` reports the outcome in its `sideload` field.
+
+| Option | Environment | Default |
+| --- | --- | --- |
+| `--sideload-repo <owner/repo>` | `GROK_BOT_SIDELOAD_REPO` | `scriptedalchemy/plugins` |
+| `--sideload-slug <slug>` | `GROK_BOT_SIDELOAD_SLUG` | `<owner>-<repo>` (`scriptedalchemy-plugins`) |
+| `--no-sideload` | `GROK_BOT_SIDELOAD=0` | sideload on |
+| | `GROK_BOT_AGENT_DATA_DIR` | first of `/home/box/agent-data`, `~/.grokbot/agent-data`, `~/Library/Application Support/Grok Bot/agent-data` with a `plugins/` folder |
+
+`GROK_BOT_SIDELOAD_MARKETPLACE` from 0.12.3 is still read but must name one
+repository; prefer `GROK_BOT_SIDELOAD_REPO`. The next install or uninstall removes
+the 0.12.3 sideload record. `gbot-install doctor --host grokbot` reports the Grok Bot
+plugin id (`AB7334`) and the sideload state (`AB7335`). Grok Bot keeps the sideloaded
+cache copy only while its account plugin listing names gbot; for a durable install,
+add gbot from the `ScriptedAlchemy/plugins` marketplace in Grok Bot.
 
 `gbot_thread` returns a small receipt by default: deterministic `summary`, opaque
 `cursor`, `entryCount`, and `gapReset`.

@@ -75,6 +75,11 @@ recipient. A mismatch fails instead of selecting one destination silently.
 ## CLI automation
 
 The bundled `gbot` and `gbot-install` executables require Node.js 22.19.0 or newer.
+`gbot-install install grokbot --json` reports its sideload into Grok Bot's
+`scriptedalchemy/plugins` marketplace clone and plugin cache in the `sideload` field;
+retarget it with `--sideload-repo`/`--sideload-slug` (`GROK_BOT_SIDELOAD_REPO`,
+`GROK_BOT_SIDELOAD_SLUG`) or skip it with `--no-sideload` (`GROK_BOT_SIDELOAD=0`).
+`gbot-install doctor --host grokbot` reports its state as `AB7335`.
 For `gbot send`, `gbot codex status`, and `gbot codex send` with `--json`, read the result
 document from stdout and branch on its `exitCode`, `mode`, `reason`, and `delivery`.
 Framework argument/schema errors use stderr and exit 2. `--json` is reserved before
