@@ -57,7 +57,7 @@
   "devDependencies": {
     "@agent-bundle/runtime": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/@agent-bundle/runtime@bf98f04f4620b8ff416f040245c6b7a007b7a677",
     "@changesets/cli": "3.0.3",
-    "@modelcontextprotocol/server": "2.3.0",
+    "@modelcontextprotocol/server": "2.3.1",
     "@rstest/core": "0.12.3",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.18",
