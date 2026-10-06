@@ -117,6 +117,44 @@ test("loads a version 2 Grok Bot gateway entry", () => {
   });
 });
 
+test("loads a version 3 descriptor", () => {
+  const home = writeWrappedDescriptor({
+    version: 3,
+    entries: { primary: { encrypted: ENCRYPTED_DESCRIPTOR, savedAtMs: 1_791_320_229_049 } },
+  });
+
+  const session = loadGrokBotGatewaySession({
+    platform: "darwin",
+    home,
+    getKeychainPassword: () => "demo-password",
+  });
+
+  assert.deepEqual(session, {
+    gatewayUrl: "https://box.example",
+    gatewayToken: "gateway-token",
+    headers: { "x-anyrun-network-token": "route-token" },
+  });
+});
+
+test("rejects a version 3 descriptor with ambiguous entries", () => {
+  const home = writeWrappedDescriptor({
+    version: 3,
+    entries: {
+      first: { encrypted: ENCRYPTED_DESCRIPTOR, savedAtMs: 1 },
+      second: { encrypted: ENCRYPTED_DESCRIPTOR, savedAtMs: 2 },
+    },
+  });
+
+  assert.throws(
+    () => loadGrokBotGatewaySession({
+      platform: "darwin",
+      home,
+      getKeychainPassword: () => "demo-password",
+    }),
+    (error) => error.code === "AMBIGUOUS_ENTRIES",
+  );
+});
+
 test("rejects a version 2 descriptor with no entries", () => {
   const home = writeWrappedDescriptor({ version: 2, entries: {} });
 
@@ -182,7 +220,7 @@ test("rejects a gateway entry without an encrypted payload", () => {
 
 test("rejects an unsupported gateway descriptor version", () => {
   const home = writeWrappedDescriptor({
-    version: 3,
+    version: 4,
     encrypted: ENCRYPTED_DESCRIPTOR,
   });
 
@@ -195,7 +233,7 @@ test("rejects an unsupported gateway descriptor version", () => {
     (error) => {
       assert.equal(error.name, "GrokBotGatewaySessionError");
       assert.equal(error.code, "UNSUPPORTED_VERSION");
-      assert.match(error.message, /unsupported .*gateway descriptor version 3/i);
+      assert.match(error.message, /unsupported .*gateway descriptor version 4/i);
       return true;
     },
   );
