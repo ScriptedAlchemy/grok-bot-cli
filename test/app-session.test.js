@@ -6,6 +6,9 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 
 import {
+  hasGrokBotAppCredentials,
+  loadGrokBotAppCredentials,
+  grokBotAppVersion,
   decryptSafeStorageString,
   decryptWindowsSafeStorageString,
   grokBotGatewayDescriptorPath,
@@ -93,96 +96,103 @@ test("loads the signed-in Grok Bot gateway without manual tokens", () => {
   });
 });
 
-test("loads a version 2 Grok Bot gateway entry", () => {
-  const home = writeWrappedDescriptor({
-    version: 2,
-    entries: {
-      primary: {
-        encrypted: ENCRYPTED_DESCRIPTOR,
-        savedAtMs: 1_787_000_000_000,
+for (const version of [2, 3]) {
+  test(`loads a version ${version} Grok Bot gateway entry`, () => {
+    const home = writeWrappedDescriptor({
+      version,
+      entries: {
+        primary: {
+          encrypted: ENCRYPTED_DESCRIPTOR,
+          savedAtMs: 1_787_000_000_000,
+        },
       },
-    },
-  });
+    });
 
-  const session = loadGrokBotGatewaySession({
-    platform: "darwin",
-    home,
-    getKeychainPassword: () => "demo-password",
-  });
-
-  assert.deepEqual(session, {
-    gatewayUrl: "https://box.example",
-    gatewayToken: "gateway-token",
-    headers: { "x-anyrun-network-token": "route-token" },
-  });
-});
-
-test("rejects a version 2 descriptor with no entries", () => {
-  const home = writeWrappedDescriptor({ version: 2, entries: {} });
-
-  assert.throws(
-    () => loadGrokBotGatewaySession({
+    const session = loadGrokBotGatewaySession({
       platform: "darwin",
       home,
       getKeychainPassword: () => "demo-password",
-    }),
-    (error) => {
-      assert.equal(error.name, "GrokBotGatewaySessionError");
-      assert.equal(error.code, "EMPTY_ENTRIES");
-      assert.match(error.message, /no saved gateway entries/i);
-      return true;
-    },
-  );
-});
+    });
 
-test("rejects a version 2 descriptor with ambiguous entries", () => {
-  const home = writeWrappedDescriptor({
-    version: 2,
-    entries: {
-      first: { encrypted: ENCRYPTED_DESCRIPTOR, savedAtMs: 1 },
-      second: { encrypted: ENCRYPTED_DESCRIPTOR, savedAtMs: 2 },
-    },
-  });
-
-  assert.throws(
-    () => loadGrokBotGatewaySession({
+    assert.deepEqual(session, {
+      gatewayUrl: "https://box.example",
+      gatewayToken: "gateway-token",
+      headers: { "x-anyrun-network-token": "route-token" },
+    });
+    assert.deepEqual(inspectGrokBotGatewaySession({
       platform: "darwin",
       home,
       getKeychainPassword: () => "demo-password",
-    }),
-    (error) => {
-      assert.equal(error.name, "GrokBotGatewaySessionError");
-      assert.equal(error.code, "AMBIGUOUS_ENTRIES");
-      assert.match(error.message, /multiple saved gateway entries/i);
-      return true;
-    },
-  );
-});
-
-test("rejects a gateway entry without an encrypted payload", () => {
-  const home = writeWrappedDescriptor({
-    version: 2,
-    entries: { primary: { savedAtMs: 1 } },
+    }), { present: true, usable: true });
   });
 
-  assert.throws(
-    () => loadGrokBotGatewaySession({
-      platform: "darwin",
-      home,
-      getKeychainPassword: () => "demo-password",
-    }),
-    (error) => {
-      assert.equal(error.name, "GrokBotGatewaySessionError");
-      assert.equal(error.code, "MISSING_ENCRYPTED_PAYLOAD");
-      assert.match(error.message, /missing an encrypted payload/i);
-      return true;
-    },
-  );
-});
+  test(`rejects a version ${version} descriptor with no entries`, () => {
+    const home = writeWrappedDescriptor({ version, entries: {} });
+
+    assert.throws(
+      () => loadGrokBotGatewaySession({
+        platform: "darwin",
+        home,
+        getKeychainPassword: () => "demo-password",
+      }),
+      (error) => {
+        assert.equal(error.name, "GrokBotGatewaySessionError");
+        assert.equal(error.code, "EMPTY_ENTRIES");
+        assert.match(error.message, /no saved gateway entries/i);
+        return true;
+      },
+    );
+  });
+
+  test(`rejects a version ${version} descriptor with ambiguous entries`, () => {
+    const home = writeWrappedDescriptor({
+      version,
+      entries: {
+        first: { encrypted: ENCRYPTED_DESCRIPTOR, savedAtMs: 1 },
+        second: { encrypted: ENCRYPTED_DESCRIPTOR, savedAtMs: 2 },
+      },
+    });
+
+    assert.throws(
+      () => loadGrokBotGatewaySession({
+        platform: "darwin",
+        home,
+        getKeychainPassword: () => "demo-password",
+      }),
+      (error) => {
+        assert.equal(error.name, "GrokBotGatewaySessionError");
+        assert.equal(error.code, "AMBIGUOUS_ENTRIES");
+        assert.match(error.message, /multiple saved gateway entries/i);
+        return true;
+      },
+    );
+  });
+
+  test(`rejects a version ${version} gateway entry without an encrypted payload`, () => {
+    const home = writeWrappedDescriptor({
+      version,
+      entries: { primary: { savedAtMs: 1 } },
+    });
+
+    assert.throws(
+      () => loadGrokBotGatewaySession({
+        platform: "darwin",
+        home,
+        getKeychainPassword: () => "demo-password",
+      }),
+      (error) => {
+        assert.equal(error.name, "GrokBotGatewaySessionError");
+        assert.equal(error.code, "MISSING_ENCRYPTED_PAYLOAD");
+        assert.match(error.message, /missing an encrypted payload/i);
+        return true;
+      },
+    );
+  });
+}
 
 test("rejects an unsupported gateway descriptor version", () => {
   const home = writeWrappedDescriptor({
-    version: 3,
+    version: 4,
     encrypted: ENCRYPTED_DESCRIPTOR,
   });
 
@@ -195,7 +205,7 @@ test("rejects an unsupported gateway descriptor version", () => {
     (error) => {
       assert.equal(error.name, "GrokBotGatewaySessionError");
       assert.equal(error.code, "UNSUPPORTED_VERSION");
-      assert.match(error.message, /unsupported .*gateway descriptor version 3/i);
+      assert.match(error.message, /unsupported .*gateway descriptor version 4/i);
       return true;
     },
   );
@@ -413,4 +423,47 @@ test("reports a Windows app session without a Safe Storage key", () => {
     code: "MISSING_SAFE_STORAGE_KEY",
     error: "Grok Bot Local State has no Safe Storage key.",
   });
+});
+
+function writeActiveAccount(active = "selected", version = 1) {
+  const home = mkdtempSync(join(tmpdir(), "gbot-active-"));
+  const dir = join(home, ".config/Grok Bot");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "sand-secrets.json"), JSON.stringify({ version,
+    "cursor-accounts": JSON.stringify({ active, accounts: {
+      selected: { "cursor-access-token": encryptLinuxSafeStorage("selected-token", "v10", "peanuts"),
+        "cursor-selected-team-id": encryptLinuxSafeStorage("42", "v10", "peanuts") },
+      other: { "cursor-access-token": encryptLinuxSafeStorage("wrong-account-token", "v10", "peanuts") },
+    } }),
+  }));
+  return { home, platform: "linux", env: {}, getKeychainPassword: () => { throw new Error("must not ask keyring for basic_text"); } };
+}
+
+test("missing route reconnect credentials select only the active account and its team", () => {
+  const opts = writeActiveAccount();
+  assert.equal(hasGrokBotGatewaySession(opts), false);
+  assert.equal(hasGrokBotAppCredentials(opts), true);
+  assert.deepEqual(loadGrokBotAppCredentials(opts), { accessToken: "selected-token", teamId: "42" });
+});
+
+for (const active of [null, "missing"]) {
+  test(`does not restore inactive saved accounts when active is ${active}`, () => {
+    const opts = writeActiveAccount(active);
+    assert.equal(hasGrokBotAppCredentials(opts), false);
+    assert.equal(loadGrokBotAppCredentials(opts), null);
+  });
+}
+
+test("does not interpret unknown credential store versions", () => {
+  const opts = writeActiveAccount("selected", 99);
+  assert.equal(loadGrokBotAppCredentials(opts), null);
+});
+
+test("detects installed macOS app version instead of a fixed backend version", () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-version-"));
+  const dir = join(home, "Applications/Grok Bot.app/Contents");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "Info.plist"), `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleShortVersionString</key><string>0.68.1</string></dict></plist>`);
+  if (process.platform === "darwin") assert.equal(grokBotAppVersion({ home, platform: "darwin" }), "0.68.1");
+  assert.equal(grokBotAppVersion({ home, platform: "linux" }), null);
 });
