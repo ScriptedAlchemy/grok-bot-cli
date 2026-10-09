@@ -14,7 +14,7 @@ Manage [Grok Bot](https://cursor.com/help/grok-bot/plans) agents, groups, and me
 npm install --global grok-bot-cli
 ```
 
-Requires Node.js 22.19.0+ and the Grok Bot desktop app on macOS, Linux, or Windows. Open Grok Bot and sign in once; `gbot` automatically uses the app's encrypted session and routing credentials. No token copying is required. On Linux the app keeps its session under `~/.config/Grok Bot` (or `$XDG_CONFIG_HOME`); when it is stored in the system keyring, `gbot` reads the key with `secret-tool` (package `libsecret-tools`). On Windows the session lives under `%APPDATA%\\Grok Bot` and decrypts with the app's DPAPI-wrapped Safe Storage key.
+Requires Node.js 22.19.0+ and the Grok Bot desktop app on macOS, Linux, or Windows. Open Grok Bot and sign in once; `gbot` automatically uses the app's encrypted session and routing credentials. No token copying is required. If the app removes its cached gateway route while the cloud computer sleeps, the CLI uses the active account in `sand-secrets.json` to request a fresh route through `EnsureSandBox`. Signed-out and inactive saved accounts are never selected. On macOS, backend requests use the installed Grok Bot app version; `SAND_CLIENT_VERSION` remains an explicit override. On Linux the app keeps its session under `~/.config/Grok Bot` (or `$XDG_CONFIG_HOME`); when it is stored in the system keyring, `gbot` reads the key with `secret-tool` (package `libsecret-tools`). On Windows the session lives under `%APPDATA%\\Grok Bot` and decrypts with the app's DPAPI-wrapped Safe Storage key.
 
 ## Use
 
@@ -355,7 +355,7 @@ the short summary. Unknown cursors set `gapReset: true`; repeat that call with
 `full:true` to inspect the bounded reset snapshot.
 
 Auth resolves exactly as for `gbot`: `GROK_BOT_GATEWAY_URL` + `GROK_BOT_GATEWAY_TOKEN`,
-then the Grok Bot app session, then `CURSOR_ACCESS_TOKEN`. The MCP server therefore
+then the Grok Bot cached gateway session, then `CURSOR_ACCESS_TOKEN`, then the active Grok Bot account credentials. The MCP server therefore
 needs outbound HTTPS to the gateway host and read access to the app-session file
 (`~/.config/Grok Bot` on Linux, `~/Library/Application Support/Grok Bot` on macOS).
 A sandbox that blocks network egress or hides the home directory makes `gbot_send`

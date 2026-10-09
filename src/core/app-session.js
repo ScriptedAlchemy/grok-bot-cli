@@ -135,6 +135,65 @@ export function hasGrokBotGatewaySession({
   );
 }
 
+export function grokBotAppVersion({ home = homedir(), platform = process.platform } = {}) {
+  if (platform !== "darwin") return null;
+  for (const root of [join(home, "Applications"), "/Applications"]) {
+    const plist = join(root, "Grok Bot.app/Contents/Info.plist");
+    if (!existsSync(plist)) continue;
+    const version = execFileSync("/usr/libexec/PlistBuddy", ["-c", "Print :CFBundleShortVersionString", plist], { encoding: "utf8" }).trim();
+    if (/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(version)) return version;
+  }
+  return null;
+}
+
+// The app may delete its cached gateway route while the box sleeps. The active
+// account remains signed in; use only that account to request a fresh route.
+function activeGrokBotAccount({ home = homedir(), platform = process.platform, env = process.env } = {}) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) return null;
+  const path = join(grokBotAppDataPath(home, platform, env), "sand-secrets.json");
+  if (!existsSync(path)) return null;
+  try {
+    const stored = JSON.parse(readFileSync(path, "utf8"));
+    if (stored.version != null && stored.version !== 1) return null;
+    const accounts = JSON.parse(stored["cursor-accounts"] ?? "null");
+    if (typeof accounts?.active !== "string" || !Object.hasOwn(accounts.accounts ?? {}, accounts.active)) return null;
+    const active = accounts.accounts[accounts.active];
+    return typeof active?.["cursor-access-token"] === "string" && active["cursor-access-token"] ? active : null;
+  } catch {
+    return null;
+  }
+}
+
+export function hasGrokBotAppCredentials(options = {}) {
+  return activeGrokBotAccount(options) !== null;
+}
+
+function decryptAppSecret(encrypted, { platform, home, env, getKeychainPassword, unprotectData }) {
+  if (platform === "win32") {
+    return decryptWindowsSafeStorageString(encrypted, readWindowsSafeStorageKey(home, env, unprotectData));
+  }
+  const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
+  const password = platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10
+    ? LINUX_BASIC_TEXT_PASSWORD : getKeychainPassword(platform);
+  return decryptSafeStorageString(encrypted, password, platform);
+}
+
+export function loadGrokBotAppCredentials({
+  home = homedir(), platform = process.platform, env = process.env,
+  getKeychainPassword = readKeychainPassword, unprotectData = unprotectWithDpapi,
+} = {}) {
+  const active = activeGrokBotAccount({ home, platform, env });
+  if (!active) return null;
+  const decrypt = encrypted => decryptAppSecret(encrypted, { platform, home, env, getKeychainPassword, unprotectData });
+  const accessToken = decrypt(active["cursor-access-token"]);
+  const teamId = active["cursor-selected-team-id"] == null ? undefined : decrypt(active["cursor-selected-team-id"]);
+  if (!accessToken.trim()) throw new GrokBotGatewaySessionError("INCOMPLETE_CREDENTIALS", "Grok Bot active account has no access token.");
+  if (teamId !== undefined && (!/^[1-9][0-9]*$/.test(teamId) || !Number.isSafeInteger(Number(teamId)))) {
+    throw new GrokBotGatewaySessionError("INVALID_TEAM", "Grok Bot active account has an invalid selected team.");
+  }
+  return { accessToken, ...(teamId === undefined ? {} : { teamId }) };
+}
+
 function readKeychainPassword(platform = process.platform) {
   if (platform === "linux") {
     return execFileSync(
@@ -200,22 +259,7 @@ export function loadGrokBotGatewaySession({
 
   const wrapped = JSON.parse(readFileSync(path, "utf8"));
   const encrypted = encryptedPayload(wrapped);
-  let clear;
-  if (platform === "win32") {
-    clear = decryptWindowsSafeStorageString(
-      encrypted,
-      readWindowsSafeStorageKey(home, effectiveEnv, unprotectData),
-    );
-  } else {
-    const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
-    // Linux v10 is the keyring-less basic_text backend; no secret store to ask.
-    const needsKeychain = !(platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10);
-    clear = decryptSafeStorageString(
-      encrypted,
-      needsKeychain ? getKeychainPassword(platform) : LINUX_BASIC_TEXT_PASSWORD,
-      platform,
-    );
-  }
+  const clear = decryptAppSecret(encrypted, { platform, home, env: effectiveEnv, getKeychainPassword, unprotectData });
   const descriptor = JSON.parse(clear);
   if (!descriptor.baseUrl || !descriptor.token) {
     throw new GrokBotGatewaySessionError(

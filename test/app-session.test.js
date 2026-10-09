@@ -6,6 +6,9 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 
 import {
+  hasGrokBotAppCredentials,
+  loadGrokBotAppCredentials,
+  grokBotAppVersion,
   decryptSafeStorageString,
   decryptWindowsSafeStorageString,
   grokBotGatewayDescriptorPath,
@@ -420,4 +423,47 @@ test("reports a Windows app session without a Safe Storage key", () => {
     code: "MISSING_SAFE_STORAGE_KEY",
     error: "Grok Bot Local State has no Safe Storage key.",
   });
+});
+
+function writeActiveAccount(active = "selected", version = 1) {
+  const home = mkdtempSync(join(tmpdir(), "gbot-active-"));
+  const dir = join(home, ".config/Grok Bot");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "sand-secrets.json"), JSON.stringify({ version,
+    "cursor-accounts": JSON.stringify({ active, accounts: {
+      selected: { "cursor-access-token": encryptLinuxSafeStorage("selected-token", "v10", "peanuts"),
+        "cursor-selected-team-id": encryptLinuxSafeStorage("42", "v10", "peanuts") },
+      other: { "cursor-access-token": encryptLinuxSafeStorage("wrong-account-token", "v10", "peanuts") },
+    } }),
+  }));
+  return { home, platform: "linux", env: {}, getKeychainPassword: () => { throw new Error("must not ask keyring for basic_text"); } };
+}
+
+test("missing route reconnect credentials select only the active account and its team", () => {
+  const opts = writeActiveAccount();
+  assert.equal(hasGrokBotGatewaySession(opts), false);
+  assert.equal(hasGrokBotAppCredentials(opts), true);
+  assert.deepEqual(loadGrokBotAppCredentials(opts), { accessToken: "selected-token", teamId: "42" });
+});
+
+for (const active of [null, "missing"]) {
+  test(`does not restore inactive saved accounts when active is ${active}`, () => {
+    const opts = writeActiveAccount(active);
+    assert.equal(hasGrokBotAppCredentials(opts), false);
+    assert.equal(loadGrokBotAppCredentials(opts), null);
+  });
+}
+
+test("does not interpret unknown credential store versions", () => {
+  const opts = writeActiveAccount("selected", 99);
+  assert.equal(loadGrokBotAppCredentials(opts), null);
+});
+
+test("detects installed macOS app version instead of a fixed backend version", () => {
+  const home = mkdtempSync(join(tmpdir(), "gbot-version-"));
+  const dir = join(home, "Applications/Grok Bot.app/Contents");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "Info.plist"), `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleShortVersionString</key><string>0.68.1</string></dict></plist>`);
+  if (process.platform === "darwin") assert.equal(grokBotAppVersion({ home, platform: "darwin" }), "0.68.1");
+  assert.equal(grokBotAppVersion({ home, platform: "linux" }), null);
 });
