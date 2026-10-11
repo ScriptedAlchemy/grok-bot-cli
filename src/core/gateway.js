@@ -448,14 +448,14 @@ export async function sendPrompt(session, ref, prompt, extra = {}) {
   } catch (err) {
     // Delivery states: the server answered no (rejected) vs the request may have landed (unknown).
     // Never retry an unknown delivery blindly; read the thread first.
-    if (err && err.delivery == null) {
-      err.delivery = err instanceof GatewayError && err.status != null && err.status < 500 ? "rejected" : "unknown";
-    }
-    if (err && err.targetId == null) err.targetId = rec.id;
-    if (err && err.delivery === "unknown" && err instanceof Error && !/delivery unknown/.test(err.message)) {
-      err.message += " (delivery unknown; check the thread before resending)";
-    }
-    throw err;
+    const delivery = err?.delivery ?? (err instanceof GatewayError && err.status != null && err.status < 500 ? "rejected" : "unknown");
+    const error = delivery === "unknown" && err instanceof Error && !/delivery unknown/.test(err.message)
+      ? Object.assign(new Error(err.message, { cause: err }), err, { name: err.name })
+      : err;
+    if (error && error.delivery == null) error.delivery = delivery;
+    if (error && error.targetId == null) error.targetId = rec.id;
+    if (error !== err) error.message += " (delivery unknown; check the thread before resending)";
+    throw error;
   }
   const messageId = data && typeof data === "object" && typeof data.messageId === "string" ? data.messageId : null;
   // Only a confirmed receipt counts as accepted; anything else is unknown, never a silent accept.
