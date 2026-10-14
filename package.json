@@ -62,8 +62,8 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.18",
     "agent-bundle": "https://pkg.pr.new/ScriptedAlchemy/agent-bundle/agent-bundle@bf98f04f4620b8ff416f040245c6b7a007b7a677",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "typescript": "7.0.2",
     "zod": "4.6.5"
   }
