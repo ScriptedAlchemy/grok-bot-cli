@@ -28498,7 +28498,10 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 }
                 throw err;
             }
-            const messageId = data && typeof data === "object" && typeof data.messageId === "string" ? data.messageId : null;
+            let messageId = data && typeof data === "object" && typeof data.messageId === "string" ? data.messageId : null;
+            if (!messageId && data && typeof data === "object" && data.accepted === true) {
+                messageId = await transcriptEntryIdForNonce(session, rec.id, body.clientNonce, extra.signal);
+            }
             return {
                 target: rec,
                 result: data && typeof data === "object" ? data : {},
@@ -28507,6 +28510,21 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     messageId
                 } : {}
             };
+        }
+        async function transcriptEntryIdForNonce(session, agentId, clientNonce, signal) {
+            try {
+                const data = await gatewayCall(session, "getAgentTranscriptTail", {
+                    id: agentId,
+                    limit: 20
+                }, {
+                    signal
+                });
+                const entries = data && Array.isArray(data.entries) ? data.entries : [];
+                const hit = entries.find((e)=>e && e.clientNonce === clientNonce && typeof e.id === "string" && e.id);
+                return hit ? hit.id : null;
+            } catch  {
+                return null;
+            }
         }
         async function getTranscriptTail(session, ref, limit = 40) {
             const rec = await resolveRef(session, ref);

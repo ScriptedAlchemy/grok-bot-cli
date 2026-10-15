@@ -64,6 +64,43 @@ test("sendPrompt without a receipt is unknown, not accepted", async (t) => {
   assert.equal(out.messageId, undefined);
 });
 
+function mockAckGateway(t, transcript) {
+  let nonce;
+  t.mock.method(globalThis, "fetch", async (url, init) => {
+    const u = String(url);
+    if (u.endsWith("/api/listAgents")) return new Response(JSON.stringify(roster), { status: 200 });
+    if (u.endsWith("/api/sendPrompt")) {
+      nonce = JSON.parse(init.body).clientNonce;
+      return new Response(JSON.stringify({ accepted: true }), { status: 200 });
+    }
+    if (u.endsWith("/api/getAgentTranscriptTail")) return transcript(nonce);
+    return new Response("{}", { status: 404 });
+  });
+}
+
+test("sendPrompt confirms an { accepted: true } ack by finding its clientNonce in the transcript", async (t) => {
+  mockAckGateway(t, (nonce) => new Response(JSON.stringify({
+    entries: [{ id: "t7u", role: "user", clientNonce: "someone-else" }, { id: "t8u", role: "user", clientNonce: nonce }],
+  }), { status: 200 }));
+  const out = await sendPrompt(session, "General", "hi");
+  assert.equal(out.delivery, "accepted");
+  assert.equal(out.messageId, "t8u");
+});
+
+test("sendPrompt keeps an { accepted: true } ack unknown when its clientNonce is not in the transcript", async (t) => {
+  mockAckGateway(t, () => new Response(JSON.stringify({ entries: [{ id: "t7u", role: "user", clientNonce: "someone-else" }] }), { status: 200 }));
+  const out = await sendPrompt(session, "General", "hi");
+  assert.equal(out.delivery, "unknown");
+  assert.equal(out.messageId, undefined);
+});
+
+test("sendPrompt keeps an { accepted: true } ack unknown when the transcript read fails", async (t) => {
+  mockAckGateway(t, () => new Response("boom", { status: 500 }));
+  const out = await sendPrompt(session, "General", "hi");
+  assert.equal(out.delivery, "unknown");
+  assert.equal(out.messageId, undefined);
+});
+
 test("sendPrompt rejects on a 4xx and preserves the target id", async (t) => {
   mockGateway(t, () => new Response(JSON.stringify({ message: "nope" }), { status: 400 }));
   await assert.rejects(sendPrompt(session, "General", "hi"), (e) => {
