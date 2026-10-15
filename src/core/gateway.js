@@ -457,10 +457,27 @@ export async function sendPrompt(session, ref, prompt, extra = {}) {
     }
     throw err;
   }
-  const messageId = data && typeof data === "object" && typeof data.messageId === "string" ? data.messageId : null;
+  let messageId = data && typeof data === "object" && typeof data.messageId === "string" ? data.messageId : null;
+  // Current Grok Bot gateways answer `{ accepted: true }` without a messageId. A bare flag is not a
+  // receipt, so look for our clientNonce in the transcript tail and use that entry's id instead.
+  if (!messageId && data && typeof data === "object" && data.accepted === true) {
+    messageId = await transcriptEntryIdForNonce(session, rec.id, body.clientNonce, extra.signal);
+  }
   // Only a confirmed receipt counts as accepted; anything else is unknown, never a silent accept.
   // ponytail: full send/execution correlation envelope stays in #37.
   return { target: rec, result: data && typeof data === "object" ? data : {}, delivery: messageId ? "accepted" : "unknown", ...(messageId ? { messageId } : {}) };
+}
+
+// Best effort: any failure leaves the send `unknown` rather than throwing after the prompt left.
+async function transcriptEntryIdForNonce(session, agentId, clientNonce, signal) {
+  try {
+    const data = await gatewayCall(session, "getAgentTranscriptTail", { id: agentId, limit: 20 }, { signal });
+    const entries = data && Array.isArray(data.entries) ? data.entries : [];
+    const hit = entries.find((e) => e && e.clientNonce === clientNonce && typeof e.id === "string" && e.id);
+    return hit ? hit.id : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getTranscriptTail(session, ref, limit = 40) {
