@@ -1,3 +1,5 @@
+import { grokBotAppVersion } from "./app-session.js";
+
 export function normalizeHeaderMap(obj) {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return {};
   const out = {};
@@ -47,7 +49,7 @@ export function ensureSandboxHeaders(accessToken) {
     "connect-protocol-version": "1",
     authorization: "Bearer " + accessToken,
     "x-cursor-client-type": "sand",
-    "x-cursor-client-version": process.env.SAND_CLIENT_VERSION || "0.20.0",
+    "x-cursor-client-version": process.env.SAND_CLIENT_VERSION || grokBotAppVersion() || "0.20.0",
     "x-sand-box-namespace": process.env.SAND_BOX_NAMESPACE || "prod",
   };
 }

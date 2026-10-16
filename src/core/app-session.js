@@ -135,6 +135,61 @@ export function hasGrokBotGatewaySession({
   );
 }
 
+export function grokBotAppVersion({ home = homedir(), platform = process.platform, env = process.env } = {}) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) return null;
+  const path = join(grokBotAppDataPath(home, platform, env), "desktop-status.json");
+  if (!existsSync(path)) return null;
+  try {
+    const version = JSON.parse(readFileSync(path, "utf8")).appVersion;
+    return typeof version === "string" && /^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(version) ? version : null;
+  } catch {
+    return null;
+  }
+}
+
+// The signed-in account stays in sand-secrets.json while the box hibernates; use only the active one.
+function activeGrokBotAccount({ home = homedir(), platform = process.platform, env = process.env } = {}) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) return null;
+  const path = join(grokBotAppDataPath(home, platform, env), "sand-secrets.json");
+  if (!existsSync(path)) return null;
+  try {
+    const stored = JSON.parse(readFileSync(path, "utf8"));
+    if (stored.version != null && stored.version !== 1) return null;
+    const accounts = JSON.parse(stored["cursor-accounts"] ?? "null");
+    if (typeof accounts?.active !== "string" || !Object.hasOwn(accounts.accounts ?? {}, accounts.active)) return null;
+    const active = accounts.accounts[accounts.active];
+    return typeof active?.["cursor-access-token"] === "string" && active["cursor-access-token"] ? active : null;
+  } catch {
+    return null;
+  }
+}
+
+export function hasGrokBotAppCredentials(options = {}) {
+  return activeGrokBotAccount(options) !== null;
+}
+
+export function loadGrokBotAppCredentials({
+  home = homedir(),
+  platform = process.platform,
+  env = process.env,
+  getKeychainPassword = readKeychainPassword,
+} = {}) {
+  if (platform === "win32") return null;
+  const active = activeGrokBotAccount({ home, platform, env });
+  if (!active) return null;
+  const decrypt = (encrypted) => {
+    const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
+    const password = platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10 ? LINUX_BASIC_TEXT_PASSWORD : getKeychainPassword(platform);
+    return decryptSafeStorageString(encrypted, password, platform);
+  };
+  const accessToken = decrypt(active["cursor-access-token"]);
+  if (!accessToken.trim()) {
+    throw new GrokBotGatewaySessionError("INCOMPLETE_CREDENTIALS", "Grok Bot active account has no access token.");
+  }
+  const teamId = active["cursor-selected-team-id"] == null ? undefined : decrypt(active["cursor-selected-team-id"]);
+  return { accessToken, ...(teamId && /^[1-9][0-9]*$/.test(teamId) ? { teamId } : {}) };
+}
+
 function readKeychainPassword(platform = process.platform) {
   if (platform === "linux") {
     return execFileSync(
