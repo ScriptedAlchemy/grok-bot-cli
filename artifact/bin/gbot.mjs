@@ -6544,6 +6544,12 @@ var __webpack_modules__ = {
             members: zod__rspack_import_3.YOg(zod__rspack_import_3.YjP()).optional(),
             name: zod__rspack_import_3.YjP(),
             notifyOnAgentUpdates: zod__rspack_import_3.zMY().optional(),
+            status: zod__rspack_import_3.Ikc({
+                awaitingUserResponse: zod__rspack_import_3.zMY(),
+                newestEntryId: zod__rspack_import_3.YjP().nullable(),
+                running: zod__rspack_import_3.zMY(),
+                runningTurn: zod__rspack_import_3.zMY()
+            }).strict().optional(),
             title: zod__rspack_import_3.YjP().optional()
         }).strict();
         const skillSchema = zod__rspack_import_3.Ikc({
@@ -47692,7 +47698,10 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     hiddenFromSidebar: rec.hiddenFromSidebar
                 } : {},
                 kind: rec.isGroup ? "group" : "bot",
-                members: rec.isGroup ? rec.memberIds : undefined
+                members: rec.isGroup ? rec.memberIds : undefined,
+                ...rec.status ? {
+                    status: rec.status
+                } : {}
             };
         }
         function formatRecord(rec, all) {
@@ -48046,7 +48055,15 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     hiddenFromSidebar: Boolean(hidden)
                 } : {},
                 isGroup: agent.isGroup === true || agent.isGroup == null && Array.isArray(memberIds) && memberIds.length > 0,
-                memberIds: Array.isArray(memberIds) ? memberIds : []
+                memberIds: Array.isArray(memberIds) ? memberIds : [],
+                ...typeof agent.isRunning === "boolean" || typeof agent.isRunningTurn === "boolean" ? {
+                    status: {
+                        running: agent.isRunning === true,
+                        runningTurn: agent.isRunningTurn === true,
+                        awaitingUserResponse: agent.awaitingUserResponse != null,
+                        newestEntryId: typeof agent.newestEntryId === "string" ? agent.newestEntryId : null
+                    }
+                } : {}
             };
         }
         function assertAvatar(kind, value, allowed) {

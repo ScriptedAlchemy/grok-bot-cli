@@ -217,6 +217,16 @@ function asRecord(agent) {
     ...(hidden !== undefined ? { hiddenFromSidebar: Boolean(hidden) } : {}),
     isGroup: agent.isGroup === true || (agent.isGroup == null && Array.isArray(memberIds) && memberIds.length > 0),
     memberIds: Array.isArray(memberIds) ? memberIds : [],
+    ...(typeof agent.isRunning === "boolean" || typeof agent.isRunningTurn === "boolean"
+      ? {
+          status: {
+            running: agent.isRunning === true,
+            runningTurn: agent.isRunningTurn === true,
+            awaitingUserResponse: agent.awaitingUserResponse != null,
+            newestEntryId: typeof agent.newestEntryId === "string" ? agent.newestEntryId : null,
+          },
+        }
+      : {}),
   };
 }
 

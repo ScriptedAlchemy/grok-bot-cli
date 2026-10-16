@@ -21,6 +21,7 @@ export function summarize(rec) {
     ...(rec.hiddenFromSidebar !== undefined ? { hiddenFromSidebar: rec.hiddenFromSidebar } : {}),
     kind: rec.isGroup ? "group" : "bot",
     members: rec.isGroup ? rec.memberIds : undefined,
+    ...(rec.status ? { status: rec.status } : {}),
   };
 }
 

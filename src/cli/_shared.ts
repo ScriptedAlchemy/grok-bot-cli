@@ -58,6 +58,12 @@ export const agentSummarySchema = z.object({
   members: z.array(z.string()).optional(),
   name: z.string(),
   notifyOnAgentUpdates: z.boolean().optional(),
+  status: z.object({
+    awaitingUserResponse: z.boolean(),
+    newestEntryId: z.string().nullable(),
+    running: z.boolean(),
+    runningTurn: z.boolean(),
+  }).strict().optional(),
   title: z.string().optional(),
 }).strict();
 
