@@ -65455,8 +65455,14 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                         running: agent.isRunning === true,
                         runningTurn: agent.isRunningTurn === true,
                         awaitingUserResponse: agent.awaitingUserResponse != null,
-                        newestEntryId: typeof agent.newestEntryId === "string" ? agent.newestEntryId : null
+                        newestEntryId: typeof agent.newestEntryId === "string" ? agent.newestEntryId : null,
+                        lastMessagePreview: typeof agent.lastMessagePreview === "string" ? agent.lastMessagePreview : null,
+                        lastActivityAt: typeof agent.lastActivityAt === "number" ? agent.lastActivityAt : null,
+                        unreadCount: typeof agent.unreadCount === "number" ? agent.unreadCount : 0
                     }
+                } : {},
+                ...typeof agent.avatarDataUrl === "string" && agent.avatarDataUrl ? {
+                    avatarDataUrl: agent.avatarDataUrl
                 } : {}
             };
         }

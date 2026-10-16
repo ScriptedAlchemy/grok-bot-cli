@@ -8138,9 +8138,12 @@ var __webpack_modules__ = {
             notifyOnAgentUpdates: zod__rspack_import_3.zMY().optional(),
             status: zod__rspack_import_3.Ikc({
                 awaitingUserResponse: zod__rspack_import_3.zMY(),
+                lastActivityAt: zod__rspack_import_3.aig().nullable(),
+                lastMessagePreview: zod__rspack_import_3.YjP().nullable(),
                 newestEntryId: zod__rspack_import_3.YjP().nullable(),
                 running: zod__rspack_import_3.zMY(),
-                runningTurn: zod__rspack_import_3.zMY()
+                runningTurn: zod__rspack_import_3.zMY(),
+                unreadCount: zod__rspack_import_3.aig()
             }).strict().optional(),
             title: zod__rspack_import_3.YjP().optional()
         }).strict();
@@ -8292,6 +8295,96 @@ var __webpack_modules__ = {
             resultSchema: ()=>_core_grok_approval_routes_js__rspack_import_1.FD
         }, {
             config: config
+        });
+    },
+    "./src/cli/bots/avatars.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
+        __webpack_require__.r(__webpack_exports__);
+        var react_jsx_runtime__rspack_import_0 = __webpack_require__("./node_modules/react/jsx-runtime.react-server.js");
+        var node_fs__rspack_import_1 = __webpack_require__("node:fs");
+        var node_path__rspack_import_2 = __webpack_require__("node:path");
+        var _agent_bundle_runtime__rspack_import_5 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/506.js");
+        var zod__rspack_import_4 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
+        var _shared_js__rspack_import_3 = __webpack_require__("./src/cli/_shared.ts");
+        const EXTENSIONS = {
+            'image/gif': 'gif',
+            'image/jpeg': 'jpg',
+            'image/png': 'png',
+            'image/svg+xml': 'svg',
+            'image/webp': 'webp'
+        };
+        const config = {
+            description: 'Write custom bot and group avatars to a directory.',
+            inputJsonSchema: {
+                additionalProperties: false,
+                properties: {
+                    dir: {
+                        description: 'Agents directory for --files mode',
+                        type: 'string'
+                    },
+                    files: {
+                        description: 'Force the on-disk agents store',
+                        type: 'boolean'
+                    },
+                    gateway: {
+                        description: 'Force the live gateway',
+                        type: 'boolean'
+                    },
+                    outDir: {
+                        description: 'Directory to write <id>.<ext> avatar files into',
+                        type: 'string'
+                    }
+                },
+                required: [
+                    'outDir'
+                ],
+                type: 'object'
+            }
+        };
+        const inputSchema = _shared_js__rspack_import_3.lK.extend({
+            outDir: zod__rspack_import_4.YjP().min(1)
+        }).strict();
+        const resultSchema = zod__rspack_import_4.YOg(zod__rspack_import_4.Ikc({
+            bytes: zod__rspack_import_4.aig(),
+            file: zod__rspack_import_4.YjP(),
+            id: zod__rspack_import_4.YjP(),
+            mimeType: zod__rspack_import_4.YjP()
+        }).strict());
+        async function botsAvatars({ input }) {
+            const backend = await (0, _shared_js__rspack_import_3.FS)(input);
+            const all = await backend.list();
+            (0, node_fs__rspack_import_1.mkdirSync)(input.outDir, {
+                recursive: true
+            });
+            const written = [];
+            for (const rec of all){
+                const match = /^data:([^;,]+);base64,(.*)$/s.exec(rec.avatarDataUrl ?? '');
+                if (!match) continue;
+                const mimeType = match[1].toLowerCase();
+                const extension = EXTENSIONS[mimeType];
+                if (!extension) continue;
+                const data = Buffer.from(match[2], 'base64');
+                const file = (0, node_path__rspack_import_2.join)(input.outDir, `${rec.id}.${extension}`);
+                (0, node_fs__rspack_import_1.writeFileSync)(file, data);
+                written.push({
+                    bytes: data.length,
+                    file,
+                    id: rec.id,
+                    mimeType
+                });
+            }
+            return (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5.g.Result, {
+                value: written,
+                children: (0, react_jsx_runtime__rspack_import_0.jsx)(_agent_bundle_runtime__rspack_import_5.g.Text, {
+                    children: written.length === 0 ? 'No custom avatars.' : written.map((w)=>`${w.id} ${w.file}`).join('\n')
+                })
+            });
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            "default": ()=>botsAvatars
+        }, {
+            config: config,
+            inputSchema: inputSchema,
+            resultSchema: resultSchema
         });
     },
     "./src/cli/bots/create.tsx" (__unused_rspack_module, __webpack_exports__, __webpack_require__) {
@@ -29632,8 +29725,14 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                         running: agent.isRunning === true,
                         runningTurn: agent.isRunningTurn === true,
                         awaitingUserResponse: agent.awaitingUserResponse != null,
-                        newestEntryId: typeof agent.newestEntryId === "string" ? agent.newestEntryId : null
+                        newestEntryId: typeof agent.newestEntryId === "string" ? agent.newestEntryId : null,
+                        lastMessagePreview: typeof agent.lastMessagePreview === "string" ? agent.lastMessagePreview : null,
+                        lastActivityAt: typeof agent.lastActivityAt === "number" ? agent.lastActivityAt : null,
+                        unreadCount: typeof agent.unreadCount === "number" ? agent.unreadCount : 0
                     }
+                } : {},
+                ...typeof agent.avatarDataUrl === "string" && agent.avatarDataUrl ? {
+                    avatarDataUrl: agent.avatarDataUrl
                 } : {}
             };
         }
@@ -31103,97 +31202,99 @@ function __webpack_require__(moduleId) {
 var __webpack_exports__ = {};
 var node_worker_threads__rspack_import_0 = __webpack_require__("node:worker_threads");
 var react__rspack_import_1 = __webpack_require__("./node_modules/react/react.react-server.js");
-var _agent_bundle_runtime_flight_server__rspack_import_48 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/flight/server.js");
-var _agent_bundle_runtime__rspack_import_46 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
-var _agent_bundle_runtime__rspack_import_47 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
+var _agent_bundle_runtime_flight_server__rspack_import_49 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/flight/server.js");
+var _agent_bundle_runtime__rspack_import_47 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/49.js");
+var _agent_bundle_runtime__rspack_import_48 = __webpack_require__("./node_modules/@agent-bundle/runtime/dist/736.js");
 var node_url__rspack_import_2 = __webpack_require__("node:url");
 var _src_cli_approvals_list_tsx__rspack_import_3 = __webpack_require__("./src/cli/approvals/list.tsx");
 var _src_cli_approvals_respond_tsx__rspack_import_4 = __webpack_require__("./src/cli/approvals/respond.tsx");
-var _src_cli_bots_create_tsx__rspack_import_5 = __webpack_require__("./src/cli/bots/create.tsx");
-var _src_cli_bots_delete_tsx__rspack_import_6 = __webpack_require__("./src/cli/bots/delete.tsx");
-var _src_cli_bots_get_tsx__rspack_import_7 = __webpack_require__("./src/cli/bots/get.tsx");
-var _src_cli_bots_list_tsx__rspack_import_8 = __webpack_require__("./src/cli/bots/list.tsx");
-var _src_cli_bots_update_tsx__rspack_import_9 = __webpack_require__("./src/cli/bots/update.tsx");
-var _src_cli_chatgpt_desktop_hosts_tsx__rspack_import_10 = __webpack_require__("./src/cli/chatgpt-desktop/hosts.tsx");
-var _src_cli_chatgpt_desktop_read_tsx__rspack_import_11 = __webpack_require__("./src/cli/chatgpt-desktop/read.tsx");
-var _src_cli_chatgpt_desktop_search_tsx__rspack_import_12 = __webpack_require__("./src/cli/chatgpt-desktop/search.tsx");
-var _src_cli_chatgpt_desktop_send_tsx__rspack_import_13 = __webpack_require__("./src/cli/chatgpt-desktop/send.tsx");
-var _src_cli_chatgpt_desktop_status_tsx__rspack_import_14 = __webpack_require__("./src/cli/chatgpt-desktop/status.tsx");
-var _src_cli_chatgpt_desktop_threads_tsx__rspack_import_15 = __webpack_require__("./src/cli/chatgpt-desktop/threads.tsx");
-var _src_cli_claude_send_tsx__rspack_import_16 = __webpack_require__("./src/cli/claude/send.tsx");
-var _src_cli_codex_bridge_respond_tsx__rspack_import_17 = __webpack_require__("./src/cli/codex/bridge/respond.tsx");
-var _src_cli_codex_bridge_run_tsx__rspack_import_18 = __webpack_require__("./src/cli/codex/bridge/run.tsx");
-var _src_cli_codex_bridge_start_tsx__rspack_import_19 = __webpack_require__("./src/cli/codex/bridge/start.tsx");
-var _src_cli_codex_bridge_status_tsx__rspack_import_20 = __webpack_require__("./src/cli/codex/bridge/status.tsx");
-var _src_cli_codex_bridge_stop_tsx__rspack_import_21 = __webpack_require__("./src/cli/codex/bridge/stop.tsx");
-var _src_cli_codex_desktop_shim_tsx__rspack_import_22 = __webpack_require__("./src/cli/codex/desktop-shim.tsx");
-var _src_cli_codex_list_threads_tsx__rspack_import_23 = __webpack_require__("./src/cli/codex/list-threads.tsx");
-var _src_cli_codex_new_tsx__rspack_import_24 = __webpack_require__("./src/cli/codex/new.tsx");
-var _src_cli_codex_queue_tsx__rspack_import_25 = __webpack_require__("./src/cli/codex/queue.tsx");
-var _src_cli_codex_send_tsx__rspack_import_26 = __webpack_require__("./src/cli/codex/send.tsx");
-var _src_cli_codex_status_tsx__rspack_import_27 = __webpack_require__("./src/cli/codex/status.tsx");
-var _src_cli_codex_wait_tsx__rspack_import_28 = __webpack_require__("./src/cli/codex/wait.tsx");
-var _src_cli_codex_watch_tsx__rspack_import_29 = __webpack_require__("./src/cli/codex/watch.tsx");
-var _src_cli_doctor_tsx__rspack_import_30 = __webpack_require__("./src/cli/doctor.tsx");
-var _src_cli_groups_add_tsx__rspack_import_31 = __webpack_require__("./src/cli/groups/add.tsx");
-var _src_cli_groups_create_tsx__rspack_import_32 = __webpack_require__("./src/cli/groups/create.tsx");
-var _src_cli_groups_delete_tsx__rspack_import_33 = __webpack_require__("./src/cli/groups/delete.tsx");
-var _src_cli_groups_get_tsx__rspack_import_34 = __webpack_require__("./src/cli/groups/get.tsx");
-var _src_cli_groups_list_tsx__rspack_import_35 = __webpack_require__("./src/cli/groups/list.tsx");
-var _src_cli_groups_members_tsx__rspack_import_36 = __webpack_require__("./src/cli/groups/members.tsx");
-var _src_cli_groups_remove_tsx__rspack_import_37 = __webpack_require__("./src/cli/groups/remove.tsx");
-var _src_cli_groups_set_tsx__rspack_import_38 = __webpack_require__("./src/cli/groups/set.tsx");
-var _src_cli_groups_update_tsx__rspack_import_39 = __webpack_require__("./src/cli/groups/update.tsx");
-var _src_cli_history_tsx__rspack_import_40 = __webpack_require__("./src/cli/history.tsx");
-var _src_cli_send_tsx__rspack_import_41 = __webpack_require__("./src/cli/send.tsx");
-var _src_cli_skills_add_tsx__rspack_import_42 = __webpack_require__("./src/cli/skills/add.tsx");
-var _src_cli_skills_list_tsx__rspack_import_43 = __webpack_require__("./src/cli/skills/list.tsx");
-var _src_cli_skills_remove_tsx__rspack_import_44 = __webpack_require__("./src/cli/skills/remove.tsx");
-var _src_cli_thread_tsx__rspack_import_45 = __webpack_require__("./src/cli/thread.tsx");
+var _src_cli_bots_avatars_tsx__rspack_import_5 = __webpack_require__("./src/cli/bots/avatars.tsx");
+var _src_cli_bots_create_tsx__rspack_import_6 = __webpack_require__("./src/cli/bots/create.tsx");
+var _src_cli_bots_delete_tsx__rspack_import_7 = __webpack_require__("./src/cli/bots/delete.tsx");
+var _src_cli_bots_get_tsx__rspack_import_8 = __webpack_require__("./src/cli/bots/get.tsx");
+var _src_cli_bots_list_tsx__rspack_import_9 = __webpack_require__("./src/cli/bots/list.tsx");
+var _src_cli_bots_update_tsx__rspack_import_10 = __webpack_require__("./src/cli/bots/update.tsx");
+var _src_cli_chatgpt_desktop_hosts_tsx__rspack_import_11 = __webpack_require__("./src/cli/chatgpt-desktop/hosts.tsx");
+var _src_cli_chatgpt_desktop_read_tsx__rspack_import_12 = __webpack_require__("./src/cli/chatgpt-desktop/read.tsx");
+var _src_cli_chatgpt_desktop_search_tsx__rspack_import_13 = __webpack_require__("./src/cli/chatgpt-desktop/search.tsx");
+var _src_cli_chatgpt_desktop_send_tsx__rspack_import_14 = __webpack_require__("./src/cli/chatgpt-desktop/send.tsx");
+var _src_cli_chatgpt_desktop_status_tsx__rspack_import_15 = __webpack_require__("./src/cli/chatgpt-desktop/status.tsx");
+var _src_cli_chatgpt_desktop_threads_tsx__rspack_import_16 = __webpack_require__("./src/cli/chatgpt-desktop/threads.tsx");
+var _src_cli_claude_send_tsx__rspack_import_17 = __webpack_require__("./src/cli/claude/send.tsx");
+var _src_cli_codex_bridge_respond_tsx__rspack_import_18 = __webpack_require__("./src/cli/codex/bridge/respond.tsx");
+var _src_cli_codex_bridge_run_tsx__rspack_import_19 = __webpack_require__("./src/cli/codex/bridge/run.tsx");
+var _src_cli_codex_bridge_start_tsx__rspack_import_20 = __webpack_require__("./src/cli/codex/bridge/start.tsx");
+var _src_cli_codex_bridge_status_tsx__rspack_import_21 = __webpack_require__("./src/cli/codex/bridge/status.tsx");
+var _src_cli_codex_bridge_stop_tsx__rspack_import_22 = __webpack_require__("./src/cli/codex/bridge/stop.tsx");
+var _src_cli_codex_desktop_shim_tsx__rspack_import_23 = __webpack_require__("./src/cli/codex/desktop-shim.tsx");
+var _src_cli_codex_list_threads_tsx__rspack_import_24 = __webpack_require__("./src/cli/codex/list-threads.tsx");
+var _src_cli_codex_new_tsx__rspack_import_25 = __webpack_require__("./src/cli/codex/new.tsx");
+var _src_cli_codex_queue_tsx__rspack_import_26 = __webpack_require__("./src/cli/codex/queue.tsx");
+var _src_cli_codex_send_tsx__rspack_import_27 = __webpack_require__("./src/cli/codex/send.tsx");
+var _src_cli_codex_status_tsx__rspack_import_28 = __webpack_require__("./src/cli/codex/status.tsx");
+var _src_cli_codex_wait_tsx__rspack_import_29 = __webpack_require__("./src/cli/codex/wait.tsx");
+var _src_cli_codex_watch_tsx__rspack_import_30 = __webpack_require__("./src/cli/codex/watch.tsx");
+var _src_cli_doctor_tsx__rspack_import_31 = __webpack_require__("./src/cli/doctor.tsx");
+var _src_cli_groups_add_tsx__rspack_import_32 = __webpack_require__("./src/cli/groups/add.tsx");
+var _src_cli_groups_create_tsx__rspack_import_33 = __webpack_require__("./src/cli/groups/create.tsx");
+var _src_cli_groups_delete_tsx__rspack_import_34 = __webpack_require__("./src/cli/groups/delete.tsx");
+var _src_cli_groups_get_tsx__rspack_import_35 = __webpack_require__("./src/cli/groups/get.tsx");
+var _src_cli_groups_list_tsx__rspack_import_36 = __webpack_require__("./src/cli/groups/list.tsx");
+var _src_cli_groups_members_tsx__rspack_import_37 = __webpack_require__("./src/cli/groups/members.tsx");
+var _src_cli_groups_remove_tsx__rspack_import_38 = __webpack_require__("./src/cli/groups/remove.tsx");
+var _src_cli_groups_set_tsx__rspack_import_39 = __webpack_require__("./src/cli/groups/set.tsx");
+var _src_cli_groups_update_tsx__rspack_import_40 = __webpack_require__("./src/cli/groups/update.tsx");
+var _src_cli_history_tsx__rspack_import_41 = __webpack_require__("./src/cli/history.tsx");
+var _src_cli_send_tsx__rspack_import_42 = __webpack_require__("./src/cli/send.tsx");
+var _src_cli_skills_add_tsx__rspack_import_43 = __webpack_require__("./src/cli/skills/add.tsx");
+var _src_cli_skills_list_tsx__rspack_import_44 = __webpack_require__("./src/cli/skills/list.tsx");
+var _src_cli_skills_remove_tsx__rspack_import_45 = __webpack_require__("./src/cli/skills/remove.tsx");
+var _src_cli_thread_tsx__rspack_import_46 = __webpack_require__("./src/cli/thread.tsx");
 const route0 = Object.assign({}, Reflect.get(_src_cli_approvals_list_tsx__rspack_import_3, 'default'), _src_cli_approvals_list_tsx__rspack_import_3);
 const route1 = Object.assign({}, Reflect.get(_src_cli_approvals_respond_tsx__rspack_import_4, 'default'), _src_cli_approvals_respond_tsx__rspack_import_4);
-const route2 = Object.assign({}, Reflect.get(_src_cli_bots_create_tsx__rspack_import_5, 'default'), _src_cli_bots_create_tsx__rspack_import_5);
-const route3 = Object.assign({}, Reflect.get(_src_cli_bots_delete_tsx__rspack_import_6, 'default'), _src_cli_bots_delete_tsx__rspack_import_6);
-const route4 = Object.assign({}, Reflect.get(_src_cli_bots_get_tsx__rspack_import_7, 'default'), _src_cli_bots_get_tsx__rspack_import_7);
-const route5 = Object.assign({}, Reflect.get(_src_cli_bots_list_tsx__rspack_import_8, 'default'), _src_cli_bots_list_tsx__rspack_import_8);
-const route6 = Object.assign({}, Reflect.get(_src_cli_bots_update_tsx__rspack_import_9, 'default'), _src_cli_bots_update_tsx__rspack_import_9);
-const route7 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_hosts_tsx__rspack_import_10, 'default'), _src_cli_chatgpt_desktop_hosts_tsx__rspack_import_10);
-const route8 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_read_tsx__rspack_import_11, 'default'), _src_cli_chatgpt_desktop_read_tsx__rspack_import_11);
-const route9 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_search_tsx__rspack_import_12, 'default'), _src_cli_chatgpt_desktop_search_tsx__rspack_import_12);
-const route10 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_send_tsx__rspack_import_13, 'default'), _src_cli_chatgpt_desktop_send_tsx__rspack_import_13);
-const route11 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_status_tsx__rspack_import_14, 'default'), _src_cli_chatgpt_desktop_status_tsx__rspack_import_14);
-const route12 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_threads_tsx__rspack_import_15, 'default'), _src_cli_chatgpt_desktop_threads_tsx__rspack_import_15);
-const route13 = Object.assign({}, Reflect.get(_src_cli_claude_send_tsx__rspack_import_16, 'default'), _src_cli_claude_send_tsx__rspack_import_16);
-const route14 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_respond_tsx__rspack_import_17, 'default'), _src_cli_codex_bridge_respond_tsx__rspack_import_17);
-const route15 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_run_tsx__rspack_import_18, 'default'), _src_cli_codex_bridge_run_tsx__rspack_import_18);
-const route16 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_start_tsx__rspack_import_19, 'default'), _src_cli_codex_bridge_start_tsx__rspack_import_19);
-const route17 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_status_tsx__rspack_import_20, 'default'), _src_cli_codex_bridge_status_tsx__rspack_import_20);
-const route18 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_stop_tsx__rspack_import_21, 'default'), _src_cli_codex_bridge_stop_tsx__rspack_import_21);
-const route19 = Object.assign({}, Reflect.get(_src_cli_codex_desktop_shim_tsx__rspack_import_22, 'default'), _src_cli_codex_desktop_shim_tsx__rspack_import_22);
-const route20 = Object.assign({}, Reflect.get(_src_cli_codex_list_threads_tsx__rspack_import_23, 'default'), _src_cli_codex_list_threads_tsx__rspack_import_23);
-const route21 = Object.assign({}, Reflect.get(_src_cli_codex_new_tsx__rspack_import_24, 'default'), _src_cli_codex_new_tsx__rspack_import_24);
-const route22 = Object.assign({}, Reflect.get(_src_cli_codex_queue_tsx__rspack_import_25, 'default'), _src_cli_codex_queue_tsx__rspack_import_25);
-const route23 = Object.assign({}, Reflect.get(_src_cli_codex_send_tsx__rspack_import_26, 'default'), _src_cli_codex_send_tsx__rspack_import_26);
-const route24 = Object.assign({}, Reflect.get(_src_cli_codex_status_tsx__rspack_import_27, 'default'), _src_cli_codex_status_tsx__rspack_import_27);
-const route25 = Object.assign({}, Reflect.get(_src_cli_codex_wait_tsx__rspack_import_28, 'default'), _src_cli_codex_wait_tsx__rspack_import_28);
-const route26 = Object.assign({}, Reflect.get(_src_cli_codex_watch_tsx__rspack_import_29, 'default'), _src_cli_codex_watch_tsx__rspack_import_29);
-const route27 = Object.assign({}, Reflect.get(_src_cli_doctor_tsx__rspack_import_30, 'default'), _src_cli_doctor_tsx__rspack_import_30);
-const route28 = Object.assign({}, Reflect.get(_src_cli_groups_add_tsx__rspack_import_31, 'default'), _src_cli_groups_add_tsx__rspack_import_31);
-const route29 = Object.assign({}, Reflect.get(_src_cli_groups_create_tsx__rspack_import_32, 'default'), _src_cli_groups_create_tsx__rspack_import_32);
-const route30 = Object.assign({}, Reflect.get(_src_cli_groups_delete_tsx__rspack_import_33, 'default'), _src_cli_groups_delete_tsx__rspack_import_33);
-const route31 = Object.assign({}, Reflect.get(_src_cli_groups_get_tsx__rspack_import_34, 'default'), _src_cli_groups_get_tsx__rspack_import_34);
-const route32 = Object.assign({}, Reflect.get(_src_cli_groups_list_tsx__rspack_import_35, 'default'), _src_cli_groups_list_tsx__rspack_import_35);
-const route33 = Object.assign({}, Reflect.get(_src_cli_groups_members_tsx__rspack_import_36, 'default'), _src_cli_groups_members_tsx__rspack_import_36);
-const route34 = Object.assign({}, Reflect.get(_src_cli_groups_remove_tsx__rspack_import_37, 'default'), _src_cli_groups_remove_tsx__rspack_import_37);
-const route35 = Object.assign({}, Reflect.get(_src_cli_groups_set_tsx__rspack_import_38, 'default'), _src_cli_groups_set_tsx__rspack_import_38);
-const route36 = Object.assign({}, Reflect.get(_src_cli_groups_update_tsx__rspack_import_39, 'default'), _src_cli_groups_update_tsx__rspack_import_39);
-const route37 = Object.assign({}, Reflect.get(_src_cli_history_tsx__rspack_import_40, 'default'), _src_cli_history_tsx__rspack_import_40);
-const route38 = Object.assign({}, Reflect.get(_src_cli_send_tsx__rspack_import_41, 'default'), _src_cli_send_tsx__rspack_import_41);
-const route39 = Object.assign({}, Reflect.get(_src_cli_skills_add_tsx__rspack_import_42, 'default'), _src_cli_skills_add_tsx__rspack_import_42);
-const route40 = Object.assign({}, Reflect.get(_src_cli_skills_list_tsx__rspack_import_43, 'default'), _src_cli_skills_list_tsx__rspack_import_43);
-const route41 = Object.assign({}, Reflect.get(_src_cli_skills_remove_tsx__rspack_import_44, 'default'), _src_cli_skills_remove_tsx__rspack_import_44);
-const route42 = Object.assign({}, Reflect.get(_src_cli_thread_tsx__rspack_import_45, 'default'), _src_cli_thread_tsx__rspack_import_45);
-const pluginRoot = (0, _agent_bundle_runtime__rspack_import_46.E7)({
+const route2 = Object.assign({}, Reflect.get(_src_cli_bots_avatars_tsx__rspack_import_5, 'default'), _src_cli_bots_avatars_tsx__rspack_import_5);
+const route3 = Object.assign({}, Reflect.get(_src_cli_bots_create_tsx__rspack_import_6, 'default'), _src_cli_bots_create_tsx__rspack_import_6);
+const route4 = Object.assign({}, Reflect.get(_src_cli_bots_delete_tsx__rspack_import_7, 'default'), _src_cli_bots_delete_tsx__rspack_import_7);
+const route5 = Object.assign({}, Reflect.get(_src_cli_bots_get_tsx__rspack_import_8, 'default'), _src_cli_bots_get_tsx__rspack_import_8);
+const route6 = Object.assign({}, Reflect.get(_src_cli_bots_list_tsx__rspack_import_9, 'default'), _src_cli_bots_list_tsx__rspack_import_9);
+const route7 = Object.assign({}, Reflect.get(_src_cli_bots_update_tsx__rspack_import_10, 'default'), _src_cli_bots_update_tsx__rspack_import_10);
+const route8 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_hosts_tsx__rspack_import_11, 'default'), _src_cli_chatgpt_desktop_hosts_tsx__rspack_import_11);
+const route9 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_read_tsx__rspack_import_12, 'default'), _src_cli_chatgpt_desktop_read_tsx__rspack_import_12);
+const route10 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_search_tsx__rspack_import_13, 'default'), _src_cli_chatgpt_desktop_search_tsx__rspack_import_13);
+const route11 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_send_tsx__rspack_import_14, 'default'), _src_cli_chatgpt_desktop_send_tsx__rspack_import_14);
+const route12 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_status_tsx__rspack_import_15, 'default'), _src_cli_chatgpt_desktop_status_tsx__rspack_import_15);
+const route13 = Object.assign({}, Reflect.get(_src_cli_chatgpt_desktop_threads_tsx__rspack_import_16, 'default'), _src_cli_chatgpt_desktop_threads_tsx__rspack_import_16);
+const route14 = Object.assign({}, Reflect.get(_src_cli_claude_send_tsx__rspack_import_17, 'default'), _src_cli_claude_send_tsx__rspack_import_17);
+const route15 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_respond_tsx__rspack_import_18, 'default'), _src_cli_codex_bridge_respond_tsx__rspack_import_18);
+const route16 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_run_tsx__rspack_import_19, 'default'), _src_cli_codex_bridge_run_tsx__rspack_import_19);
+const route17 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_start_tsx__rspack_import_20, 'default'), _src_cli_codex_bridge_start_tsx__rspack_import_20);
+const route18 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_status_tsx__rspack_import_21, 'default'), _src_cli_codex_bridge_status_tsx__rspack_import_21);
+const route19 = Object.assign({}, Reflect.get(_src_cli_codex_bridge_stop_tsx__rspack_import_22, 'default'), _src_cli_codex_bridge_stop_tsx__rspack_import_22);
+const route20 = Object.assign({}, Reflect.get(_src_cli_codex_desktop_shim_tsx__rspack_import_23, 'default'), _src_cli_codex_desktop_shim_tsx__rspack_import_23);
+const route21 = Object.assign({}, Reflect.get(_src_cli_codex_list_threads_tsx__rspack_import_24, 'default'), _src_cli_codex_list_threads_tsx__rspack_import_24);
+const route22 = Object.assign({}, Reflect.get(_src_cli_codex_new_tsx__rspack_import_25, 'default'), _src_cli_codex_new_tsx__rspack_import_25);
+const route23 = Object.assign({}, Reflect.get(_src_cli_codex_queue_tsx__rspack_import_26, 'default'), _src_cli_codex_queue_tsx__rspack_import_26);
+const route24 = Object.assign({}, Reflect.get(_src_cli_codex_send_tsx__rspack_import_27, 'default'), _src_cli_codex_send_tsx__rspack_import_27);
+const route25 = Object.assign({}, Reflect.get(_src_cli_codex_status_tsx__rspack_import_28, 'default'), _src_cli_codex_status_tsx__rspack_import_28);
+const route26 = Object.assign({}, Reflect.get(_src_cli_codex_wait_tsx__rspack_import_29, 'default'), _src_cli_codex_wait_tsx__rspack_import_29);
+const route27 = Object.assign({}, Reflect.get(_src_cli_codex_watch_tsx__rspack_import_30, 'default'), _src_cli_codex_watch_tsx__rspack_import_30);
+const route28 = Object.assign({}, Reflect.get(_src_cli_doctor_tsx__rspack_import_31, 'default'), _src_cli_doctor_tsx__rspack_import_31);
+const route29 = Object.assign({}, Reflect.get(_src_cli_groups_add_tsx__rspack_import_32, 'default'), _src_cli_groups_add_tsx__rspack_import_32);
+const route30 = Object.assign({}, Reflect.get(_src_cli_groups_create_tsx__rspack_import_33, 'default'), _src_cli_groups_create_tsx__rspack_import_33);
+const route31 = Object.assign({}, Reflect.get(_src_cli_groups_delete_tsx__rspack_import_34, 'default'), _src_cli_groups_delete_tsx__rspack_import_34);
+const route32 = Object.assign({}, Reflect.get(_src_cli_groups_get_tsx__rspack_import_35, 'default'), _src_cli_groups_get_tsx__rspack_import_35);
+const route33 = Object.assign({}, Reflect.get(_src_cli_groups_list_tsx__rspack_import_36, 'default'), _src_cli_groups_list_tsx__rspack_import_36);
+const route34 = Object.assign({}, Reflect.get(_src_cli_groups_members_tsx__rspack_import_37, 'default'), _src_cli_groups_members_tsx__rspack_import_37);
+const route35 = Object.assign({}, Reflect.get(_src_cli_groups_remove_tsx__rspack_import_38, 'default'), _src_cli_groups_remove_tsx__rspack_import_38);
+const route36 = Object.assign({}, Reflect.get(_src_cli_groups_set_tsx__rspack_import_39, 'default'), _src_cli_groups_set_tsx__rspack_import_39);
+const route37 = Object.assign({}, Reflect.get(_src_cli_groups_update_tsx__rspack_import_40, 'default'), _src_cli_groups_update_tsx__rspack_import_40);
+const route38 = Object.assign({}, Reflect.get(_src_cli_history_tsx__rspack_import_41, 'default'), _src_cli_history_tsx__rspack_import_41);
+const route39 = Object.assign({}, Reflect.get(_src_cli_send_tsx__rspack_import_42, 'default'), _src_cli_send_tsx__rspack_import_42);
+const route40 = Object.assign({}, Reflect.get(_src_cli_skills_add_tsx__rspack_import_43, 'default'), _src_cli_skills_add_tsx__rspack_import_43);
+const route41 = Object.assign({}, Reflect.get(_src_cli_skills_list_tsx__rspack_import_44, 'default'), _src_cli_skills_list_tsx__rspack_import_44);
+const route42 = Object.assign({}, Reflect.get(_src_cli_skills_remove_tsx__rspack_import_45, 'default'), _src_cli_skills_remove_tsx__rspack_import_45);
+const route43 = Object.assign({}, Reflect.get(_src_cli_thread_tsx__rspack_import_46, 'default'), _src_cli_thread_tsx__rspack_import_46);
+const pluginRoot = (0, _agent_bundle_runtime__rspack_import_47.E7)({
     fallback: (0, node_url__rspack_import_2.fileURLToPath)(new URL('..', import.meta.url)),
     stateAnchor: 'user-data'
 });
@@ -31221,251 +31322,257 @@ const routes = Object.freeze({
         name: "approvals respond",
         module: route1
     }),
+    "cli:bots/avatars": Object.freeze({
+        id: "cli:bots/avatars",
+        kind: "cli",
+        name: "bots avatars",
+        module: route2
+    }),
     "cli:bots/create": Object.freeze({
         id: "cli:bots/create",
         kind: "cli",
         name: "bots create",
-        module: route2
+        module: route3
     }),
     "cli:bots/delete": Object.freeze({
         id: "cli:bots/delete",
         kind: "cli",
         name: "bots delete",
-        module: route3
+        module: route4
     }),
     "cli:bots/get": Object.freeze({
         id: "cli:bots/get",
         kind: "cli",
         name: "bots get",
-        module: route4
+        module: route5
     }),
     "cli:bots/list": Object.freeze({
         id: "cli:bots/list",
         kind: "cli",
         name: "bots list",
-        module: route5
+        module: route6
     }),
     "cli:bots/update": Object.freeze({
         id: "cli:bots/update",
         kind: "cli",
         name: "bots update",
-        module: route6
+        module: route7
     }),
     "cli:chatgpt-desktop/hosts": Object.freeze({
         id: "cli:chatgpt-desktop/hosts",
         kind: "cli",
         name: "chatgpt-desktop hosts",
-        module: route7
+        module: route8
     }),
     "cli:chatgpt-desktop/read": Object.freeze({
         id: "cli:chatgpt-desktop/read",
         kind: "cli",
         name: "chatgpt-desktop read",
-        module: route8
+        module: route9
     }),
     "cli:chatgpt-desktop/search": Object.freeze({
         id: "cli:chatgpt-desktop/search",
         kind: "cli",
         name: "chatgpt-desktop search",
-        module: route9
+        module: route10
     }),
     "cli:chatgpt-desktop/send": Object.freeze({
         id: "cli:chatgpt-desktop/send",
         kind: "cli",
         name: "chatgpt-desktop send",
-        module: route10
+        module: route11
     }),
     "cli:chatgpt-desktop/status": Object.freeze({
         id: "cli:chatgpt-desktop/status",
         kind: "cli",
         name: "chatgpt-desktop status",
-        module: route11
+        module: route12
     }),
     "cli:chatgpt-desktop/threads": Object.freeze({
         id: "cli:chatgpt-desktop/threads",
         kind: "cli",
         name: "chatgpt-desktop threads",
-        module: route12
+        module: route13
     }),
     "cli:claude/send": Object.freeze({
         id: "cli:claude/send",
         kind: "cli",
         name: "claude send",
-        module: route13
+        module: route14
     }),
     "cli:codex/bridge/respond": Object.freeze({
         id: "cli:codex/bridge/respond",
         kind: "cli",
         name: "codex bridge respond",
-        module: route14
+        module: route15
     }),
     "cli:codex/bridge/run": Object.freeze({
         id: "cli:codex/bridge/run",
         kind: "cli",
         name: "codex bridge run",
-        module: route15
+        module: route16
     }),
     "cli:codex/bridge/start": Object.freeze({
         id: "cli:codex/bridge/start",
         kind: "cli",
         name: "codex bridge start",
-        module: route16
+        module: route17
     }),
     "cli:codex/bridge/status": Object.freeze({
         id: "cli:codex/bridge/status",
         kind: "cli",
         name: "codex bridge status",
-        module: route17
+        module: route18
     }),
     "cli:codex/bridge/stop": Object.freeze({
         id: "cli:codex/bridge/stop",
         kind: "cli",
         name: "codex bridge stop",
-        module: route18
+        module: route19
     }),
     "cli:codex/desktop-shim": Object.freeze({
         id: "cli:codex/desktop-shim",
         kind: "cli",
         name: "codex desktop-shim",
-        module: route19
+        module: route20
     }),
     "cli:codex/list-threads": Object.freeze({
         id: "cli:codex/list-threads",
         kind: "cli",
         name: "codex list-threads",
-        module: route20
+        module: route21
     }),
     "cli:codex/new": Object.freeze({
         id: "cli:codex/new",
         kind: "cli",
         name: "codex new",
-        module: route21
+        module: route22
     }),
     "cli:codex/queue": Object.freeze({
         id: "cli:codex/queue",
         kind: "cli",
         name: "codex queue",
-        module: route22
+        module: route23
     }),
     "cli:codex/send": Object.freeze({
         id: "cli:codex/send",
         kind: "cli",
         name: "codex send",
-        module: route23
+        module: route24
     }),
     "cli:codex/status": Object.freeze({
         id: "cli:codex/status",
         kind: "cli",
         name: "codex status",
-        module: route24
+        module: route25
     }),
     "cli:codex/wait": Object.freeze({
         id: "cli:codex/wait",
         kind: "cli",
         name: "codex wait",
-        module: route25
+        module: route26
     }),
     "cli:codex/watch": Object.freeze({
         id: "cli:codex/watch",
         kind: "cli",
         name: "codex watch",
-        module: route26
+        module: route27
     }),
     "cli:doctor": Object.freeze({
         id: "cli:doctor",
         kind: "cli",
         name: "doctor",
-        module: route27
+        module: route28
     }),
     "cli:groups/add": Object.freeze({
         id: "cli:groups/add",
         kind: "cli",
         name: "groups add",
-        module: route28
+        module: route29
     }),
     "cli:groups/create": Object.freeze({
         id: "cli:groups/create",
         kind: "cli",
         name: "groups create",
-        module: route29
+        module: route30
     }),
     "cli:groups/delete": Object.freeze({
         id: "cli:groups/delete",
         kind: "cli",
         name: "groups delete",
-        module: route30
+        module: route31
     }),
     "cli:groups/get": Object.freeze({
         id: "cli:groups/get",
         kind: "cli",
         name: "groups get",
-        module: route31
+        module: route32
     }),
     "cli:groups/list": Object.freeze({
         id: "cli:groups/list",
         kind: "cli",
         name: "groups list",
-        module: route32
+        module: route33
     }),
     "cli:groups/members": Object.freeze({
         id: "cli:groups/members",
         kind: "cli",
         name: "groups members",
-        module: route33
+        module: route34
     }),
     "cli:groups/remove": Object.freeze({
         id: "cli:groups/remove",
         kind: "cli",
         name: "groups remove",
-        module: route34
+        module: route35
     }),
     "cli:groups/set": Object.freeze({
         id: "cli:groups/set",
         kind: "cli",
         name: "groups set",
-        module: route35
+        module: route36
     }),
     "cli:groups/update": Object.freeze({
         id: "cli:groups/update",
         kind: "cli",
         name: "groups update",
-        module: route36
+        module: route37
     }),
     "cli:history": Object.freeze({
         id: "cli:history",
         kind: "cli",
         name: "history",
-        module: route37
+        module: route38
     }),
     "cli:send": Object.freeze({
         id: "cli:send",
         kind: "cli",
         name: "send",
-        module: route38
+        module: route39
     }),
     "cli:skills/add": Object.freeze({
         id: "cli:skills/add",
         kind: "cli",
         name: "skills add",
-        module: route39
+        module: route40
     }),
     "cli:skills/list": Object.freeze({
         id: "cli:skills/list",
         kind: "cli",
         name: "skills list",
-        module: route40
+        module: route41
     }),
     "cli:skills/remove": Object.freeze({
         id: "cli:skills/remove",
         kind: "cli",
         name: "skills remove",
-        module: route41
+        module: route42
     }),
     "cli:thread": Object.freeze({
         id: "cli:thread",
         kind: "cli",
         name: "thread",
-        module: route42
+        module: route43
     })
 });
 const requests = new Map();
@@ -31500,18 +31607,18 @@ const render = async (message)=>{
     };
     try {
         const cwd = process.cwd();
-        await (0, _agent_bundle_runtime__rspack_import_47.iC)({
+        await (0, _agent_bundle_runtime__rspack_import_48.iC)({
             capabilities: {
-                command: (0, _agent_bundle_runtime__rspack_import_47.hU)(),
-                filesystem: (0, _agent_bundle_runtime__rspack_import_47.hU)(),
-                network: (0, _agent_bundle_runtime__rspack_import_47.hU)(),
-                projectRoot: (0, _agent_bundle_runtime__rspack_import_47.qC)({
+                command: (0, _agent_bundle_runtime__rspack_import_48.hU)(),
+                filesystem: (0, _agent_bundle_runtime__rspack_import_48.hU)(),
+                network: (0, _agent_bundle_runtime__rspack_import_48.hU)(),
+                projectRoot: (0, _agent_bundle_runtime__rspack_import_48.qC)({
                     root: cwd
                 }, 'derived')
             },
-            host: (0, _agent_bundle_runtime__rspack_import_47.hU)('unsupported-surface'),
+            host: (0, _agent_bundle_runtime__rspack_import_48.hU)('unsupported-surface'),
             invocation: message.request,
-            lineage: (0, _agent_bundle_runtime__rspack_import_47.hU)('unsupported-surface'),
+            lineage: (0, _agent_bundle_runtime__rspack_import_48.hU)('unsupported-surface'),
             plugin: pluginRoot.identity,
             progress: {
                 report: async (update)=>{
@@ -31524,8 +31631,8 @@ const render = async (message)=>{
             },
             process: processHit,
             signal: controller.signal,
-            terminal: message.terminal === undefined ? (0, _agent_bundle_runtime__rspack_import_47.hU)('not-provided') : (0, _agent_bundle_runtime__rspack_import_47.qC)(message.terminal, 'native'),
-            workspace: (0, _agent_bundle_runtime__rspack_import_47.qC)({
+            terminal: message.terminal === undefined ? (0, _agent_bundle_runtime__rspack_import_48.hU)('not-provided') : (0, _agent_bundle_runtime__rspack_import_48.qC)(message.terminal, 'native'),
+            workspace: (0, _agent_bundle_runtime__rspack_import_48.qC)({
                 root: cwd
             }, 'derived')
         }, async ()=>{
@@ -31534,7 +31641,7 @@ const render = async (message)=>{
                 type: 'observed-render-start'
             });
             const renderStartedAt = performance.now();
-            const flight = (0, _agent_bundle_runtime_flight_server__rspack_import_48.y)(composeLayouts(observedRoute, {
+            const flight = (0, _agent_bundle_runtime_flight_server__rspack_import_49.y)(composeLayouts(observedRoute, {
                 ...message.props,
                 signal: controller.signal
             }, controller.signal), {

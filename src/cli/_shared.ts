@@ -60,9 +60,12 @@ export const agentSummarySchema = z.object({
   notifyOnAgentUpdates: z.boolean().optional(),
   status: z.object({
     awaitingUserResponse: z.boolean(),
+    lastActivityAt: z.number().nullable(),
+    lastMessagePreview: z.string().nullable(),
     newestEntryId: z.string().nullable(),
     running: z.boolean(),
     runningTurn: z.boolean(),
+    unreadCount: z.number(),
   }).strict().optional(),
   title: z.string().optional(),
 }).strict();
