@@ -22,14 +22,14 @@ class GrokBotGatewaySessionError extends Error {
 }
 
 function encryptedPayload(wrapped) {
-  if (wrapped.version != null && wrapped.version !== 1 && wrapped.version !== 2) {
+  if (wrapped.version != null && wrapped.version !== 1 && wrapped.version !== 2 && wrapped.version !== 3) {
     throw new GrokBotGatewaySessionError(
       "UNSUPPORTED_VERSION",
       `Unsupported Grok Bot gateway descriptor version ${wrapped.version}.`,
     );
   }
   let encrypted;
-  if (wrapped.version === 2) {
+  if (wrapped.version === 2 || wrapped.version === 3) {
     const entries = Object.values(wrapped.entries ?? {});
     if (entries.length === 0) {
       throw new GrokBotGatewaySessionError(

@@ -44254,11 +44254,11 @@ var __webpack_modules__ = {
             }
         }
         function encryptedPayload(wrapped) {
-            if (wrapped.version != null && wrapped.version !== 1 && wrapped.version !== 2) {
+            if (wrapped.version != null && wrapped.version !== 1 && wrapped.version !== 2 && wrapped.version !== 3) {
                 throw new GrokBotGatewaySessionError("UNSUPPORTED_VERSION", `Unsupported Grok Bot gateway descriptor version ${wrapped.version}.`);
             }
             let encrypted;
-            if (wrapped.version === 2) {
+            if (wrapped.version === 2 || wrapped.version === 3) {
                 const entries = Object.values(wrapped.entries ?? {});
                 if (entries.length === 0) {
                     throw new GrokBotGatewaySessionError("EMPTY_ENTRIES", "Grok Bot gateway descriptor has no saved gateway entries.");
@@ -47837,6 +47837,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         }
         const GATEWAY_TIMEOUT_MS = 30000;
         const GATEWAY_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+        const GATEWAY_LIST_MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
         function assertGatewayActive(signal) {
             if (signal?.aborted) {
                 const error = new GatewayError("Gateway submission cancelled before transmission");
@@ -47920,8 +47921,8 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             }
             return Buffer.concat(chunks.map((c)=>Buffer.from(c.buffer ?? c, c.byteOffset ?? 0, c.byteLength ?? c.length))).toString("utf8");
         }
-        async function readJson(res) {
-            const text = await readTextCapped(res, GATEWAY_MAX_RESPONSE_BYTES);
+        async function readJson(res, maxBytes = GATEWAY_MAX_RESPONSE_BYTES) {
+            const text = await readTextCapped(res, maxBytes);
             if (!text) return {};
             try {
                 return JSON.parse(text);
@@ -48010,7 +48011,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             let res, data;
             try {
                 res = await fetch(url, options);
-                data = await readJson(res);
+                data = await readJson(res, method === "listAgents" ? GATEWAY_LIST_MAX_RESPONSE_BYTES : GATEWAY_MAX_RESPONSE_BYTES);
             } catch (error) {
                 if (!prompt) assertGatewayActive(signal);
                 throw error;

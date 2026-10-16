@@ -17,6 +17,8 @@ class GatewayError extends Error {
 // ponytail: fixed 30 s deadline and buffered byte cap; upgrade path is per-method budgets plus streaming reads.
 const GATEWAY_TIMEOUT_MS = 30000;
 export const GATEWAY_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+// listAgents inlines custom avatars as data URLs, so a few bots exceed the default cap.
+const GATEWAY_LIST_MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
 
 function assertGatewayActive(signal) {
   if (signal?.aborted) {
@@ -106,8 +108,8 @@ async function readTextCapped(res, maxBytes) {
   return Buffer.concat(chunks.map((c) => Buffer.from(c.buffer ?? c, c.byteOffset ?? 0, c.byteLength ?? c.length))).toString("utf8");
 }
 
-async function readJson(res) {
-  const text = await readTextCapped(res, GATEWAY_MAX_RESPONSE_BYTES);
+async function readJson(res, maxBytes = GATEWAY_MAX_RESPONSE_BYTES) {
+  const text = await readTextCapped(res, maxBytes);
   if (!text) return {};
   try {
     return JSON.parse(text);
@@ -185,7 +187,7 @@ async function gatewayCall(session, method, body = {}, { signal } = {}) {
   let res, data;
   try {
     res = await fetch(url, options);
-    data = await readJson(res);
+    data = await readJson(res, method === "listAgents" ? GATEWAY_LIST_MAX_RESPONSE_BYTES : GATEWAY_MAX_RESPONSE_BYTES);
   } catch (error) {
     if (!prompt) assertGatewayActive(signal);
     throw error;
