@@ -28520,8 +28520,16 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 } : {}
             };
         }
+        const AGENT_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        function transcriptTarget(session, ref) {
+            const trimmed = String(ref).trim();
+            if (AGENT_ID_RE.test(trimmed)) return Promise.resolve(asRecord({
+                id: trimmed.toLowerCase()
+            }));
+            return resolveRef(session, ref);
+        }
         async function getTranscriptTail(session, ref, limit = 40) {
-            const rec = await resolveRef(session, ref);
+            const rec = await transcriptTarget(session, ref);
             const bounded = Math.min(Math.max(Math.trunc(limit) || 40, 1), 200);
             const data = await gatewayCall(session, "getAgentTranscriptTail", {
                 id: rec.id,

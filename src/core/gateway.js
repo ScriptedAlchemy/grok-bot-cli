@@ -475,8 +475,17 @@ export async function sendPrompt(session, ref, prompt, extra = {}) {
   return { target: rec, result: data && typeof data === "object" ? data : {}, delivery: messageId ? "accepted" : "unknown", ...(messageId ? { messageId } : {}) };
 }
 
+const AGENT_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Transcript reads only need the id; skip the avatar-heavy listAgents round trip when given one.
+function transcriptTarget(session, ref) {
+  const trimmed = String(ref).trim();
+  if (AGENT_ID_RE.test(trimmed)) return Promise.resolve(asRecord({ id: trimmed.toLowerCase() }));
+  return resolveRef(session, ref);
+}
+
 export async function getTranscriptTail(session, ref, limit = 40) {
-  const rec = await resolveRef(session, ref);
+  const rec = await transcriptTarget(session, ref);
   const bounded = Math.min(Math.max(Math.trunc(limit) || 40, 1), 200);
   const data = await gatewayCall(session, "getAgentTranscriptTail", { id: rec.id, limit: bounded });
   return { target: rec, transcript: data };
