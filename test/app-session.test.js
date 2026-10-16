@@ -39,12 +39,13 @@ function writeWrappedDescriptor(wrapped) {
 function writeWindowsAppData(
   localState,
   appData = mkdtempSync(join(tmpdir(), "gbot-appdata-")),
+  wrapped = { version: 2, entries: { primary: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR } } },
 ) {
   const dir = join(appData, "Grok Bot");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "gateway-descriptor.json"),
-    JSON.stringify({ version: 2, entries: { primary: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR } } }),
+    JSON.stringify(wrapped),
   );
   writeFileSync(join(dir, "Local State"), JSON.stringify(localState));
   return appData;
@@ -419,6 +420,87 @@ test("loads the signed-in Grok Bot gateway on Windows", () => {
     gatewayToken: "gateway-token",
     headers: { "x-anyrun-network-token": "route-token" },
   });
+});
+
+test("loads a version 3 Windows descriptor through the DPAPI key provider", () => {
+  const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE, undefined, {
+    version: 3,
+    entries: {
+      primary: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 1_791_320_229_049 },
+    },
+  });
+  let keyReads = 0;
+
+  const session = loadGrokBotGatewaySession({
+    platform: "win32",
+    home: "/tmp/unused",
+    appData,
+    unprotectData: (blob) => {
+      keyReads += 1;
+      return unprotectDemoKey(blob);
+    },
+  });
+
+  assert.equal(keyReads, 1);
+  assert.deepEqual(session, {
+    gatewayUrl: "https://box.example",
+    gatewayToken: "gateway-token",
+    headers: { "x-anyrun-network-token": "route-token" },
+  });
+});
+
+test("reports a version 3 Windows app session as usable", () => {
+  const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE, undefined, {
+    version: 3,
+    entries: { primary: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 1 } },
+  });
+
+  assert.deepEqual(inspectGrokBotGatewaySession({
+    platform: "win32",
+    home: "/tmp/unused",
+    appData,
+    unprotectData: unprotectDemoKey,
+  }), { present: true, usable: true });
+});
+
+for (const [label, entries, code] of [
+  ["empty entries", {}, "EMPTY_ENTRIES"],
+  ["ambiguous entries", {
+    first: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 1 },
+    second: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 2 },
+  }, "AMBIGUOUS_ENTRIES"],
+  ["missing encrypted payload", { primary: { savedAtMs: 1 } }, "MISSING_ENCRYPTED_PAYLOAD"],
+]) {
+  test(`rejects version 3 Windows ${label} before unprotecting the key`, () => {
+    const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE, undefined, { version: 3, entries });
+
+    assert.throws(() => loadGrokBotGatewaySession({
+      platform: "win32",
+      home: "/tmp/unused",
+      appData,
+      unprotectData: () => assert.fail("Invalid entries must not access the DPAPI key"),
+    }), (error) => error.code === code);
+  });
+}
+
+test("rejects a version 3 Windows descriptor with a tampered authentication tag", () => {
+  const tampered = Buffer.from(WINDOWS_ENCRYPTED_DESCRIPTOR, "base64");
+  tampered[tampered.length - 1] ^= 1;
+  const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE, undefined, {
+    version: 3,
+    entries: { primary: { encrypted: tampered.toString("base64"), savedAtMs: 1 } },
+  });
+
+  const status = inspectGrokBotGatewaySession({
+    platform: "win32",
+    home: "/tmp/unused",
+    appData,
+    unprotectData: unprotectDemoKey,
+  });
+
+  assert.equal(status.present, true);
+  assert.equal(status.usable, false);
+  assert.equal(status.code, "UNUSABLE_SESSION");
 });
 
 test("falls back to AppData/Roaming under home when APPDATA is unset", () => {
