@@ -65463,7 +65463,8 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             });
         }
         function isHibernated(res) {
-            return res.status === 417 && /pod_hibernated/.test(res.headers.get("x-anyrun-failure-reason") || res.headers.get("proxy-status") || "");
+            const reason = res.headers.get("x-anyrun-failure-reason") || res.headers.get("proxy-status") || "";
+            return res.status === 417 && /pod_hibernated/.test(reason) || res.status === 404 && /pod_not_found/.test(reason);
         }
         async function wakeSession(session, { signal } = {}) {
             session.woke = true;
@@ -65472,7 +65473,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 accessToken: token
             } : (0, _app_session_js__rspack_import_2.gF)();
             if (!credentials) {
-                throw new GatewayError("The Grok Bot computer is hibernating and no signed-in account is available to wake it. Open the Grok Bot app.");
+                throw new GatewayError("The Grok Bot computer is hibernating or has moved, and no signed-in account is available to wake it. Open the Grok Bot app.");
             }
             const fresh = await ensureSandbox(credentials.accessToken, {
                 signal,
