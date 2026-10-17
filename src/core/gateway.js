@@ -171,9 +171,11 @@ export async function connectGateway({ signal } = {}) {
   return ensureSandbox(token, { signal });
 }
 
-// A hibernated pod rejects at the proxy before anything is delivered, so waking and retrying is safe.
+// A hibernated or rerouted pod rejects at the proxy before anything is delivered, so
+// asking EnsureSandBox for a fresh route and retrying is safe.
 function isHibernated(res) {
-  return res.status === 417 && /pod_hibernated/.test(res.headers.get("x-anyrun-failure-reason") || res.headers.get("proxy-status") || "");
+  const reason = res.headers.get("x-anyrun-failure-reason") || res.headers.get("proxy-status") || "";
+  return (res.status === 417 && /pod_hibernated/.test(reason)) || (res.status === 404 && /pod_not_found/.test(reason));
 }
 
 async function wakeSession(session, { signal } = {}) {
@@ -181,7 +183,7 @@ async function wakeSession(session, { signal } = {}) {
   const token = accessTokenFromEnv();
   const credentials = token ? { accessToken: token } : loadGrokBotAppCredentials();
   if (!credentials) {
-    throw new GatewayError("The Grok Bot computer is hibernating and no signed-in account is available to wake it. Open the Grok Bot app.");
+    throw new GatewayError("The Grok Bot computer is hibernating or has moved, and no signed-in account is available to wake it. Open the Grok Bot app.");
   }
   const fresh = await ensureSandbox(credentials.accessToken, { signal, teamId: credentials.teamId });
   session.gatewayUrl = fresh.gatewayUrl;
