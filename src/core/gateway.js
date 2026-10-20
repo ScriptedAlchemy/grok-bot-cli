@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { ensureSandboxHeaders, headersFromEnsureSandbox, headersFromEnv, mergeGatewayHeaders, normalizeHeaderMap, requestHeaders } from "./headers.js";
-import { hasGrokBotGatewaySession, loadGrokBotGatewaySession } from "./app-session.js";
+import { grokBotActiveAccountKey, hasGrokBotGatewaySession, loadGrokBotAppCredentials, loadGrokBotGatewaySession } from "./app-session.js";
 import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS } from "./store.js";
 import { assertAllowedCredentialUrl, redactSecrets } from "./url-policy.js";
 import { grokApproval, grokApprovalResponseSchema } from "./grok-approvals.js";
@@ -17,6 +17,8 @@ class GatewayError extends Error {
 // ponytail: fixed 30 s deadline and buffered byte cap; upgrade path is per-method budgets plus streaming reads.
 const GATEWAY_TIMEOUT_MS = 30000;
 export const GATEWAY_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+const READ_ONLY_METHODS = new Set(["listAgents", "getAgentWorkflows", "getAgentTranscriptTail", "getAgentThread"]);
+const reconnectStates = new WeakMap();
 
 function assertGatewayActive(signal) {
   if (signal?.aborted) {
@@ -60,10 +62,10 @@ function gatewayOverride() {
   return null;
 }
 
-function sessionFromApp() {
+function sessionFromApp(options) {
   let loaded;
   try {
-    loaded = loadGrokBotGatewaySession();
+    loaded = loadGrokBotGatewaySession(options);
   } catch (error) {
     // Descriptor present but unusable (e.g. Windows Local State missing). Fall
     // through to CURSOR_ACCESS_TOKEN → EnsureSandBox when that token is set.
@@ -124,7 +126,7 @@ function pick(obj, ...keys) {
   return undefined;
 }
 
-async function ensureSandbox(accessToken, { signal } = {}) {
+async function ensureSandbox(accessToken, { signal, teamId } = {}) {
   assertGatewayActive(signal);
   const url = assertAllowedCredentialUrl(backendBase(), { kind: "backend" }) + "/aiserver.v1.GrokBotService/EnsureSandBox";
   let res, body;
@@ -133,7 +135,7 @@ async function ensureSandbox(accessToken, { signal } = {}) {
       method: "POST",
       redirect: "error",
       signal: gatewayDeadline(signal),
-      headers: ensureSandboxHeaders(accessToken),
+      headers: { ...ensureSandboxHeaders(accessToken), ...(teamId === undefined ? {} : { "x-cursor-team-id": teamId }) },
       body: "{}",
     });
     body = await readJson(res);
@@ -154,26 +156,61 @@ async function ensureSandbox(accessToken, { signal } = {}) {
   return { gatewayUrl: assertAllowedCredentialUrl(String(gatewayUrl).replace(/\/$/, ""), { kind: "gateway" }), gatewayToken: String(gatewayToken), gatewayHeaders: mergeGatewayHeaders(headersFromEnsureSandbox(body), headersFromEnv()) };
 }
 
-export async function connectGateway({ signal } = {}) {
+export async function connectGateway({ signal, appSessionOptions } = {}) {
   assertGatewayActive(signal);
   const override = gatewayOverride();
   if (override) return override;
-  const fromApp = sessionFromApp();
-  if (fromApp) return fromApp;
+  const fromApp = sessionFromApp(appSessionOptions);
+  if (fromApp) {
+    // Malformed account metadata disables reconnect, not the cached session.
+    let accountKey = null;
+    try { accountKey = grokBotActiveAccountKey(appSessionOptions); } catch { /* no safe reconnect identity */ }
+    if (accountKey) reconnectStates.set(fromApp, { accountKey, appSessionOptions, generation: 0, pending: null });
+    return fromApp;
+  }
   const token = accessTokenFromEnv();
   if (!token) {
     throw new GatewayError("Set CURSOR_ACCESS_TOKEN, or GROK_BOT_GATEWAY_URL + GROK_BOT_GATEWAY_TOKEN. Do not use a Cursor dashboard API key.");
   }
-  return ensureSandbox(token, { signal });
+  const session = await ensureSandbox(token, { signal });
+  reconnectStates.set(session, { accessToken: token, generation: 0, pending: null });
+  return session;
 }
 
-async function gatewayCall(session, method, body = {}, { signal } = {}) {
+async function refreshGateway(session, state, failedGeneration, signal) {
+  assertGatewayActive(signal);
+  if (state.generation !== failedGeneration) return;
+  if (!state.pending) {
+    const refresh = async () => {
+      const credentials = state.accountKey
+        ? loadGrokBotAppCredentials({ ...state.appSessionOptions, expectedAccountKey: state.accountKey })
+        : { accessToken: state.accessToken };
+      if (!credentials?.accessToken) {
+        throw new GatewayError("No matching credentials available to reconnect the hibernated gateway.");
+      }
+      const fresh = await ensureSandbox(credentials.accessToken, { signal, teamId: credentials.teamId });
+      if (state.accountKey && grokBotActiveAccountKey(state.appSessionOptions) !== state.accountKey) {
+        throw new GatewayError("Grok Bot active account changed during reconnect; refreshed route discarded.");
+      }
+      assertGatewayActive(signal);
+      Object.assign(session, fresh);
+      state.generation++;
+    };
+    state.pending = refresh().finally(() => { state.pending = null; });
+  }
+  await state.pending;
+  assertGatewayActive(signal);
+}
+
+async function gatewayCall(session, method, body = {}, { signal, reconnected = false } = {}) {
   assertGatewayActive(signal);
   const base = assertAllowedCredentialUrl(session.gatewayUrl, { kind: "gateway" });
   const url = base + "/api/" + method;
   // Cancellation can abort read/auth preflights. Once a prompt request starts,
   // observe its actual receipt (or timeout) instead of losing certainty on stop.
   const prompt = method === "sendPrompt";
+  const reconnectState = reconnectStates.get(session);
+  const generation = reconnectState?.generation;
   const options = {
     method: "POST",
     redirect: "error",
@@ -192,6 +229,15 @@ async function gatewayCall(session, method, body = {}, { signal } = {}) {
   }
   if (!prompt) assertGatewayActive(signal);
   if (!res.ok) {
+    if (
+      !reconnected && READ_ONLY_METHODS.has(method) && reconnectState &&
+      res.status === 417 &&
+      res.headers.get("x-anyrun-error-source") === "anyrun-proxy" &&
+      res.headers.get("x-anyrun-failure-reason") === "pod_hibernated"
+    ) {
+      await refreshGateway(session, reconnectState, generation, signal);
+      return gatewayCall(session, method, body, { signal, reconnected: true });
+    }
     const detail = data.message || data.error || data.raw || res.statusText;
     throw new GatewayError(method + " failed: " + res.status + " " + redactSecrets(String(detail).slice(0, 300)), { status: res.status, method });
   }
