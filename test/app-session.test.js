@@ -180,9 +180,33 @@ test("rejects a gateway entry without an encrypted payload", () => {
   );
 });
 
-test("rejects an unsupported gateway descriptor version", () => {
+test("loads a version 3 Grok Bot gateway entry", () => {
   const home = writeWrappedDescriptor({
     version: 3,
+    entries: {
+      primary: {
+        encrypted: ENCRYPTED_DESCRIPTOR,
+        savedAtMs: 1_790_000_000_000,
+      },
+    },
+  });
+
+  const session = loadGrokBotGatewaySession({
+    platform: "darwin",
+    home,
+    getKeychainPassword: () => "demo-password",
+  });
+
+  assert.deepEqual(session, {
+    gatewayUrl: "https://box.example",
+    gatewayToken: "gateway-token",
+    headers: { "x-anyrun-network-token": "route-token" },
+  });
+});
+
+test("rejects an unsupported gateway descriptor version", () => {
+  const home = writeWrappedDescriptor({
+    version: 4,
     encrypted: ENCRYPTED_DESCRIPTOR,
   });
 
@@ -195,7 +219,7 @@ test("rejects an unsupported gateway descriptor version", () => {
     (error) => {
       assert.equal(error.name, "GrokBotGatewaySessionError");
       assert.equal(error.code, "UNSUPPORTED_VERSION");
-      assert.match(error.message, /unsupported .*gateway descriptor version 3/i);
+      assert.match(error.message, /unsupported .*gateway descriptor version 4/i);
       return true;
     },
   );
