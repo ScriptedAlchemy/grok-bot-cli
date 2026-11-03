@@ -29,7 +29,6 @@ function encryptedPayload(wrapped) {
     );
   }
   let encrypted;
-  // v3 keeps the v2 `entries` layout (adds `savedAtMs`; the payload adds `vncProxy`, unused here).
   if (wrapped.version === 2 || wrapped.version === 3) {
     const entries = Object.values(wrapped.entries ?? {});
     if (entries.length === 0) {
@@ -136,22 +135,48 @@ export function hasGrokBotGatewaySession({
   );
 }
 
-export function grokBotAppVersion({ home = homedir(), platform = process.platform } = {}) {
-  if (platform !== "darwin") return null;
+const APP_VERSION_PATTERN = /^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/;
+
+function validAppVersion(version) {
+  return typeof version === "string" && APP_VERSION_PATTERN.test(version) ? version : null;
+}
+
+// The running app records its own version here on every platform.
+function desktopStatusAppVersion(home, platform, env) {
+  const path = join(grokBotAppDataPath(home, platform, env), "desktop-status.json");
+  if (!existsSync(path)) return null;
+  try {
+    return validAppVersion(JSON.parse(readFileSync(path, "utf8")).appVersion);
+  } catch {
+    return null;
+  }
+}
+
+function macAppBundleVersion(home) {
   for (const root of [join(home, "Applications"), "/Applications"]) {
     const plist = join(root, "Grok Bot.app/Contents/Info.plist");
     if (!existsSync(plist)) continue;
     const version = execFileSync("/usr/libexec/PlistBuddy", ["-c", "Print :CFBundleShortVersionString", plist], { encoding: "utf8" }).trim();
-    if (/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(version)) return version;
+    if (validAppVersion(version)) return version;
   }
   return null;
 }
 
+// EnsureSandBox rejects client versions the backend considers outdated, so
+// report the installed app's version rather than a fixed one.
+export function grokBotAppVersion({ home = homedir(), platform = process.platform, env = process.env, appData } = {}) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) return null;
+  return (
+    desktopStatusAppVersion(home, platform, sessionEnv({ env, appData })) ??
+    (platform === "darwin" ? macAppBundleVersion(home) : null)
+  );
+}
+
 // The app may delete its cached gateway route while the box sleeps. The active
 // account remains signed in; use only that account to request a fresh route.
-function activeGrokBotAccount({ home = homedir(), platform = process.platform, env = process.env } = {}) {
+function activeGrokBotAccount({ home = homedir(), platform = process.platform, env = process.env, appData } = {}) {
   if (!SUPPORTED_PLATFORMS.has(platform)) return null;
-  const path = join(grokBotAppDataPath(home, platform, env), "sand-secrets.json");
+  const path = join(grokBotAppDataPath(home, platform, sessionEnv({ env, appData })), "sand-secrets.json");
   if (!existsSync(path)) return null;
   try {
     const stored = JSON.parse(readFileSync(path, "utf8"));
@@ -180,12 +205,13 @@ function decryptAppSecret(encrypted, { platform, home, env, getKeychainPassword,
 }
 
 export function loadGrokBotAppCredentials({
-  home = homedir(), platform = process.platform, env = process.env,
+  home = homedir(), platform = process.platform, env = process.env, appData,
   getKeychainPassword = readKeychainPassword, unprotectData = unprotectWithDpapi,
 } = {}) {
-  const active = activeGrokBotAccount({ home, platform, env });
+  const effectiveEnv = sessionEnv({ env, appData });
+  const active = activeGrokBotAccount({ home, platform, env: effectiveEnv });
   if (!active) return null;
-  const decrypt = encrypted => decryptAppSecret(encrypted, { platform, home, env, getKeychainPassword, unprotectData });
+  const decrypt = encrypted => decryptAppSecret(encrypted, { platform, home, env: effectiveEnv, getKeychainPassword, unprotectData });
   const accessToken = decrypt(active["cursor-access-token"]);
   const teamId = active["cursor-selected-team-id"] == null ? undefined : decrypt(active["cursor-selected-team-id"]);
   if (!accessToken.trim()) throw new GrokBotGatewaySessionError("INCOMPLETE_CREDENTIALS", "Grok Bot active account has no access token.");

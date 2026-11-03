@@ -454,9 +454,68 @@ for (const active of [null, "missing"]) {
   });
 }
 
+function encryptWindowsSafeStorage(clear, key = WINDOWS_KEY) {
+  const nonce = Buffer.from("demo-nonce12");
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, nonce);
+  const body = Buffer.concat([cipher.update(clear, "utf8"), cipher.final()]);
+  return Buffer.concat([Buffer.from("v10"), nonce, body, cipher.getAuthTag()]).toString("base64");
+}
+
+// Mirrors Grok Bot 0.70.x on Windows: no gateway-descriptor.json, and the
+// active account record carries no selected team.
+function writeWindowsActiveAccount(localState = WINDOWS_LOCAL_STATE) {
+  const appData = mkdtempSync(join(tmpdir(), "gbot-win-active-"));
+  const dir = join(appData, "Grok Bot");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "Local State"), JSON.stringify(localState));
+  writeFileSync(join(dir, "sand-secrets.json"), JSON.stringify({
+    version: 1,
+    "cursor-machine-id": encryptWindowsSafeStorage("machine"),
+    "cursor-accounts": JSON.stringify({ active: "selected", accounts: {
+      selected: {
+        "cursor-access-token": encryptWindowsSafeStorage("selected-token"),
+        "cursor-account-profile": encryptWindowsSafeStorage("{}"),
+        "cursor-refresh-token": encryptWindowsSafeStorage("refresh"),
+      },
+      other: { "cursor-access-token": encryptWindowsSafeStorage("wrong-account-token") },
+    } }),
+  }));
+  return { platform: "win32", home: "/tmp/unused", appData, unprotectData: unprotectDemoKey };
+}
+
+test("Windows: reconnect credentials come from the active account via the DPAPI Safe Storage key", () => {
+  const opts = writeWindowsActiveAccount();
+  assert.equal(hasGrokBotGatewaySession(opts), false);
+  assert.equal(hasGrokBotAppCredentials(opts), true);
+  assert.deepEqual(loadGrokBotAppCredentials(opts), { accessToken: "selected-token" });
+});
+
+test("Windows: reconnect credentials need the Safe Storage key", () => {
+  const opts = writeWindowsActiveAccount({ os_crypt: {} });
+  assert.equal(hasGrokBotAppCredentials(opts), true);
+  assert.throws(() => loadGrokBotAppCredentials(opts), (error) => {
+    assert.equal(error.code, "MISSING_SAFE_STORAGE_KEY");
+    return true;
+  });
+});
+
 test("does not interpret unknown credential store versions", () => {
   const opts = writeActiveAccount("selected", 99);
   assert.equal(loadGrokBotAppCredentials(opts), null);
+});
+
+test("reports the running app version from desktop-status.json on every platform", () => {
+  const appData = mkdtempSync(join(tmpdir(), "gbot-status-"));
+  const dir = join(appData, "Grok Bot");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "desktop-status.json"), JSON.stringify({ version: 1, pid: 1, appVersion: "0.70.2", signedIn: true }));
+  assert.equal(grokBotAppVersion({ platform: "win32", home: "/tmp/unused", appData }), "0.70.2");
+
+  const home = mkdtempSync(join(tmpdir(), "gbot-status-home-"));
+  const linuxDir = join(home, ".config/Grok Bot");
+  mkdirSync(linuxDir, { recursive: true });
+  writeFileSync(join(linuxDir, "desktop-status.json"), JSON.stringify({ appVersion: "not a version" }));
+  assert.equal(grokBotAppVersion({ platform: "linux", home, env: {} }), null);
 });
 
 test("detects installed macOS app version instead of a fixed backend version", () => {
