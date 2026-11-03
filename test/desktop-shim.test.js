@@ -34,6 +34,20 @@ test("shouldBridge only rewrites bare app-server spawns", () => {
   assert.equal(shouldBridge(["app-server", "generate-ts"]), false);
 });
 
+test("shouldBridge preserves Desktop one-shot startup and CLI help/version requests", () => {
+  const clientInfo = JSON.stringify({ name: "ChatGPT", version: "1.0" });
+  const interactive = ["app-server", "--analytics-default-enabled", "--startup-client-info", clientInfo];
+  assert.equal(shouldBridge(interactive), true);
+  for (const flag of ["--print-startup-config", "--startup-sign-out", "--help", "-h", "--version", "-V"]) {
+    assert.equal(shouldBridge([...interactive, flag]), false, flag);
+    assert.equal(shouldBridge([flag, ...interactive]), false, `leading ${flag}`);
+  }
+  assert.equal(shouldBridge([...interactive, "--print-startup-config", "--startup-sign-out"]), false);
+  assert.equal(shouldBridge(["help", "app-server"]), false);
+  assert.equal(shouldBridge(["app-server", "help"]), false);
+  assert.equal(shouldBridge(["app-server", "--startup-client-info", JSON.stringify({ name: "--help" })]), true);
+});
+
 test("default paths live under the Codex home, never the package checkout", () => {
   const paths = defaultPaths({ env: { CODEX_HOME: "/tmp/shim-home", HOME: "/tmp/shim-user" }, home: "/tmp/shim-user" });
   assert.equal(paths.codexHome, "/tmp/shim-home");
@@ -550,6 +564,51 @@ const writeBridge = (dir) => {
   writeFileSync(bridgePath, BRIDGE_SOURCE);
   return bridgePath;
 };
+
+test("bridge permits fallback only when EOF leaves both streams pristine", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async (t) => {
+  for (const [input, expectedStatus] of [["", 1], ["{\"id\":1}\n", 0]]) {
+    await t.test(input ? "consumed input remains served" : "empty EOF permits fallback", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "gbot-shim-eof-"));
+      const daemon = await fakeWsDaemon(dir, "eof.sock", { quiet: true });
+      try {
+        const out = await runBridge(writeBridge(dir), dir,
+          { CODEX_APP_SERVER_SOCK: daemon.socketPath }, input);
+        assert.equal(out.status, expectedStatus, out.stderr);
+        assert.equal(out.stdout, "");
+      } finally {
+        await closeDaemon(daemon);
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  }
+});
+
+test("wrapper falls back for an unrecognized one-shot after pristine bridge EOF", {
+  skip: !canRunShellBridge && "needs bash + python3",
+}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gbot-shim-future-"));
+  const daemon = await fakeWsDaemon(dir, "future.sock", { quiet: true });
+  try {
+    const { wrapperPath } = stageWrapper(dir, { bridgePath: writeBridge(dir) });
+    const child = spawn("bash", [wrapperPath, "app-server", "--print-future-config"], {
+      env: { ...process.env, CODEX_APP_SERVER_SOCK: daemon.socketPath },
+      timeout: 10000,
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.stdin.end();
+    const [status] = await once(child, "close");
+    assert.equal(status, 0, stderr);
+    assert.equal(stdout.trim(), "FAKE-REAL argv: app-server --print-future-config");
+  } finally {
+    await closeDaemon(daemon);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test("bridge keeps frames coalesced with the upgrade and assembles continuations", {
   skip: !canRunShellBridge && "needs bash + python3",

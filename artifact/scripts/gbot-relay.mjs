@@ -24638,19 +24638,30 @@ var __webpack_modules__ = {
             let daemon = false;
             let proxy = false;
             let generate = false;
+            let oneShot = false;
             for (const arg of argv ?? []){
+                if ([
+                    "--print-startup-config",
+                    "--startup-sign-out",
+                    "help",
+                    "--help",
+                    "-h",
+                    "--version",
+                    "-V"
+                ].includes(arg)) oneShot = true;
                 if (arg === "app-server") appServer = true;
                 else if (arg === "daemon") daemon = true;
                 else if (arg === "proxy") proxy = true;
                 else if (arg === "generate-ts" || arg === "generate-json-schema") generate = true;
             }
-            return appServer && !daemon && !proxy && !generate;
+            return appServer && !daemon && !proxy && !generate && !oneShot;
         }
         function renderWrapperScript({ realPath, bridgePath, wrapperLogPath, codexHome, bridgeLogPath }) {
             return `#!/bin/bash
 # Installed by \`gbot codex desktop-shim install\`. Rewrites ChatGPT Desktop's
 # \`codex ... app-server\` spawn into a stdio<->WebSocket bridge onto the managed
 # daemon's control socket. Reversible: \`gbot codex desktop-shim uninstall\`.
+# Startup configuration, sign-out, help and version requests use the real CLI.
 # The daemon is kept up by the LaunchAgent login script, not here: this hot path
 # never starts the daemon itself, so a wedged daemon lock cannot hang
 # Desktop. Fail-open runs ONLY while stdio is still pristine (no stdin
@@ -24683,9 +24694,10 @@ if [[ ! -x "$REAL" ]]; then
   fi
 fi
 
-has_app_server=0; has_daemon=0; has_proxy=0; has_generate=0
+has_app_server=0; has_daemon=0; has_proxy=0; has_generate=0; has_one_shot=0
 for a in "$@"; do
   case "$a" in
+    --print-startup-config|--startup-sign-out|help|--help|-h|--version|-V) has_one_shot=1 ;;
     app-server) has_app_server=1 ;;
     daemon) has_daemon=1 ;;
     proxy) has_proxy=1 ;;
@@ -24699,7 +24711,7 @@ preflight() {
   python3 -c 'import os,socket,sys; s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); s.settimeout(float(os.environ.get("CODEX_DESKTOP_PREFLIGHT_TIMEOUT","3"))); s.connect(sys.argv[1]); s.close()' "$SOCK" 2>/dev/null
 }
 
-if [[ "$has_app_server" -eq 1 && "$has_daemon" -eq 0 && "$has_proxy" -eq 0 && "$has_generate" -eq 0 ]]; then
+if [[ "$has_app_server" -eq 1 && "$has_daemon" -eq 0 && "$has_proxy" -eq 0 && "$has_generate" -eq 0 && "$has_one_shot" -eq 0 ]]; then
   if [[ -f "$BRIDGE" ]] && command -v python3 >/dev/null 2>&1; then
     if preflight; then
       echo "$(ts) rewrite -> stdio-ws bridge" >>"$LOG" 2>/dev/null || true
