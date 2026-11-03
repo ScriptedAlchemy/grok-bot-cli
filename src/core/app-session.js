@@ -172,26 +172,13 @@ export function grokBotAppVersion({ home = homedir(), platform = process.platfor
   );
 }
 
-// The app may delete its cached gateway route while the box sleeps. The active
-// account remains signed in; use only that account to request a fresh route.
-function activeGrokBotAccount({ home = homedir(), platform = process.platform, env = process.env, appData } = {}) {
-  if (!SUPPORTED_PLATFORMS.has(platform)) return null;
-  const path = join(grokBotAppDataPath(home, platform, sessionEnv({ env, appData })), "sand-secrets.json");
-  if (!existsSync(path)) return null;
-  try {
-    const stored = JSON.parse(readFileSync(path, "utf8"));
-    if (stored.version != null && stored.version !== 1) return null;
-    const accounts = JSON.parse(stored["cursor-accounts"] ?? "null");
-    if (typeof accounts?.active !== "string" || !Object.hasOwn(accounts.accounts ?? {}, accounts.active)) return null;
-    const active = accounts.accounts[accounts.active];
-    return typeof active?.["cursor-access-token"] === "string" && active["cursor-access-token"] ? active : null;
-  } catch {
-    return null;
-  }
-}
-
 export function hasGrokBotAppCredentials(options = {}) {
-  return activeGrokBotAccount(options) !== null;
+  try {
+    const active = activeAppAccount(options)?.account;
+    return typeof active?.["cursor-access-token"] === "string" && Boolean(active["cursor-access-token"]);
+  } catch {
+    return false;
+  }
 }
 
 function decryptAppSecret(encrypted, { platform, home, env, getKeychainPassword, unprotectData }) {
@@ -204,22 +191,6 @@ function decryptAppSecret(encrypted, { platform, home, env, getKeychainPassword,
   return decryptSafeStorageString(encrypted, password, platform);
 }
 
-export function loadGrokBotAppCredentials({
-  home = homedir(), platform = process.platform, env = process.env, appData,
-  getKeychainPassword = readKeychainPassword, unprotectData = unprotectWithDpapi,
-} = {}) {
-  const effectiveEnv = sessionEnv({ env, appData });
-  const active = activeGrokBotAccount({ home, platform, env: effectiveEnv });
-  if (!active) return null;
-  const decrypt = encrypted => decryptAppSecret(encrypted, { platform, home, env: effectiveEnv, getKeychainPassword, unprotectData });
-  const accessToken = decrypt(active["cursor-access-token"]);
-  const teamId = active["cursor-selected-team-id"] == null ? undefined : decrypt(active["cursor-selected-team-id"]);
-  if (!accessToken.trim()) throw new GrokBotGatewaySessionError("INCOMPLETE_CREDENTIALS", "Grok Bot active account has no access token.");
-  if (teamId !== undefined && (!/^[1-9][0-9]*$/.test(teamId) || !Number.isSafeInteger(Number(teamId)))) {
-    throw new GrokBotGatewaySessionError("INVALID_TEAM", "Grok Bot active account has an invalid selected team.");
-  }
-  return { accessToken, ...(teamId === undefined ? {} : { teamId }) };
-}
 
 function readKeychainPassword(platform = process.platform) {
   if (platform === "linux") {
@@ -268,6 +239,59 @@ function readWindowsSafeStorageKey(home, env, unprotectData) {
     );
   }
   return unprotectData(blob.subarray(5));
+}
+
+// Read only the explicitly selected account; never guess from the account roster.
+function activeAppAccount({ home = homedir(), platform = process.platform, env = process.env, appData } = {}) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) return null;
+  const path = join(grokBotAppDataPath(home, platform, sessionEnv({ env, appData })), "sand-secrets.json");
+  if (!existsSync(path)) return null;
+  const stored = JSON.parse(readFileSync(path, "utf8"));
+  if (stored.version != null && stored.version !== 1) {
+    throw new GrokBotGatewaySessionError("UNSUPPORTED_CREDENTIALS", "Unsupported Grok Bot account storage version.");
+  }
+  const accounts = JSON.parse(stored["cursor-accounts"] ?? "null");
+  if (typeof accounts?.active !== "string" || !Object.hasOwn(accounts.accounts ?? {}, accounts.active)) return null;
+  return { key: accounts.active, account: accounts.accounts[accounts.active] };
+}
+
+export function grokBotActiveAccountKey(options = {}) {
+  return activeAppAccount(options)?.key ?? null;
+}
+
+export function loadGrokBotAppCredentials({
+  home = homedir(), platform = process.platform, env = process.env, appData,
+  expectedAccountKey,
+  getKeychainPassword = readKeychainPassword, unprotectData = unprotectWithDpapi,
+} = {}) {
+  const effectiveEnv = sessionEnv({ env, appData });
+  const selected = activeAppAccount({ home, platform, env: effectiveEnv });
+  if (!selected) return null;
+  if (expectedAccountKey !== undefined && selected.key !== expectedAccountKey) {
+    throw new GrokBotGatewaySessionError("ACCOUNT_CHANGED", "Grok Bot active account changed; reconnect refused.");
+  }
+  const encryptedToken = selected.account?.["cursor-access-token"];
+  if (typeof encryptedToken !== "string" || !encryptedToken) {
+    throw new GrokBotGatewaySessionError("INCOMPLETE_CREDENTIALS", "Grok Bot active account has no access token.");
+  }
+  const windowsKey = platform === "win32" ? readWindowsSafeStorageKey(home, effectiveEnv, unprotectData) : null;
+  const decrypt = (encrypted) => {
+    if (windowsKey) return decryptWindowsSafeStorageString(encrypted, windowsKey);
+    const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
+    const password = platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10
+      ? LINUX_BASIC_TEXT_PASSWORD : getKeychainPassword(platform);
+    return decryptSafeStorageString(encrypted, password, platform);
+  };
+  const accessToken = decrypt(encryptedToken).trim();
+  const encryptedTeam = selected.account["cursor-selected-team-id"];
+  const teamId = encryptedTeam == null ? undefined : decrypt(encryptedTeam);
+  if (!accessToken) {
+    throw new GrokBotGatewaySessionError("INCOMPLETE_CREDENTIALS", "Grok Bot active account has no access token.");
+  }
+  if (teamId !== undefined && (!/^[1-9][0-9]*$/.test(teamId) || !Number.isSafeInteger(Number(teamId)))) {
+    throw new GrokBotGatewaySessionError("INVALID_TEAM", "Grok Bot active account has an invalid selected team.");
+  }
+  return { accessToken, accountKey: selected.key, ...(teamId === undefined ? {} : { teamId }) };
 }
 
 export function loadGrokBotGatewaySession({
