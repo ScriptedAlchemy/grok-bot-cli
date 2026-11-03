@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -16,6 +16,7 @@ function encrypt(value) {
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), "gbot-reconnect-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
   const dir = join(root, "Grok Bot");
   mkdirSync(dir);
   const descriptor = join(dir, "gateway-descriptor.json");
@@ -113,6 +114,35 @@ test("a second hibernation response ends the read instead of looping", async (t)
   await assert.rejects(listAgents(await connectGateway(f)), { status: 417 });
   assert.equal(ensures, 1);
   assert.equal(reads, 2);
+});
+
+test("a missing-descriptor reconnect remains bound to the selected account", async (t) => {
+  const f = fixture(t);
+  rmSync(f.descriptor);
+  let ensures = 0, reads = 0;
+  t.mock.method(globalThis, "fetch", async (url) => {
+    if (url.endsWith("/EnsureSandBox")) { ensures++; return fresh(); }
+    reads++;
+    return reads === 1 ? sleeping() : Response.json(roster);
+  });
+  const session = await connectGateway(f);
+  assert.equal((await listAgents(session)).length, 1);
+  assert.equal(ensures, 2);
+  f.store.active = "other";
+  f.save();
+  t.mock.method(globalThis, "fetch", async () => sleeping());
+  await assert.rejects(listAgents(session), { code: "ACCOUNT_CHANGED" });
+});
+
+test("an account switch during initial reconnect discards the new route", async (t) => {
+  const f = fixture(t);
+  rmSync(f.descriptor);
+  t.mock.method(globalThis, "fetch", async () => {
+    f.store.active = "other";
+    f.save();
+    return fresh();
+  });
+  await assert.rejects(connectGateway(f), /active account changed during reconnect/);
 });
 
 test("concurrent hibernated reads share one refresh", async (t) => {

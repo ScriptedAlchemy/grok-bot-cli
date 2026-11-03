@@ -525,7 +525,7 @@ test("missing route reconnect credentials select only the active account and its
   const opts = writeActiveAccount();
   assert.equal(hasGrokBotGatewaySession(opts), false);
   assert.equal(hasGrokBotAppCredentials(opts), true);
-  assert.deepEqual(loadGrokBotAppCredentials(opts), { accessToken: "selected-token", teamId: "42" });
+  assert.deepEqual(loadGrokBotAppCredentials(opts), { accessToken: "selected-token", accountKey: "selected", teamId: "42" });
 });
 
 for (const active of [null, "missing"]) {
@@ -569,7 +569,7 @@ test("Windows: reconnect credentials come from the active account via the DPAPI 
   const opts = writeWindowsActiveAccount();
   assert.equal(hasGrokBotGatewaySession(opts), false);
   assert.equal(hasGrokBotAppCredentials(opts), true);
-  assert.deepEqual(loadGrokBotAppCredentials(opts), { accessToken: "selected-token" });
+  assert.deepEqual(loadGrokBotAppCredentials(opts), { accessToken: "selected-token", accountKey: "selected" });
 });
 
 test("Windows: reconnect credentials need the Safe Storage key", () => {
@@ -583,7 +583,8 @@ test("Windows: reconnect credentials need the Safe Storage key", () => {
 
 test("does not interpret unknown credential store versions", () => {
   const opts = writeActiveAccount("selected", 99);
-  assert.equal(loadGrokBotAppCredentials(opts), null);
+  assert.equal(hasGrokBotAppCredentials(opts), false);
+  assert.throws(() => loadGrokBotAppCredentials(opts), { code: "UNSUPPORTED_CREDENTIALS" });
 });
 
 test("reports the running app version from desktop-status.json on every platform", () => {

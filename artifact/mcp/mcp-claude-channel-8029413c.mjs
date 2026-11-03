@@ -1583,10 +1583,10 @@ var __webpack_modules__ = {
             zol: ()=>_auth_CUe6YdwF_mjs__rspack_import_0.N
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/ajvProvider-CEoC__sr.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _chunk_Br0eD_fh_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/chunk-Br0eD_fh.mjs");
-        var _dialects_DoSzNhcb_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/dialects-DoSzNhcb.mjs");
-        var require_code$1 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+    "./node_modules/@modelcontextprotocol/server/dist/ajvProvider-DyjnscPj.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _chunk_vYduTEsO_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/chunk-vYduTEsO.mjs");
+        var _dialects_CDpMbily_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/dialects-CDpMbily.mjs");
+        var require_code$1 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -1730,7 +1730,7 @@ var __webpack_modules__ = {
             }
             exports.regexpCode = regexpCode;
         });
-        var require_scope = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_scope = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -1867,7 +1867,7 @@ var __webpack_modules__ = {
             };
             exports.ValueScope = ValueScope;
         });
-        var require_codegen = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_codegen = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -2549,7 +2549,7 @@ var __webpack_modules__ = {
                 return x instanceof code_1.Name ? x : (0, code_1._)`(${x})`;
             }
         });
-        var require_util = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_util = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -2690,7 +2690,7 @@ var __webpack_modules__ = {
             }
             exports.checkStrictMode = checkStrictMode;
         });
-        var require_names = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_names = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -2715,7 +2715,7 @@ var __webpack_modules__ = {
             };
             exports.default = names;
         });
-        var require_errors = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_errors = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -2844,7 +2844,7 @@ var __webpack_modules__ = {
                 ]);
             }
         });
-        var require_boolSchema = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_boolSchema = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -2888,7 +2888,7 @@ var __webpack_modules__ = {
                 (0, errors_1.reportError)(cxt, boolError, void 0, overrideAllErrors);
             }
         });
-        var require_rules = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_rules = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -2950,7 +2950,7 @@ var __webpack_modules__ = {
             }
             exports.getRules = getRules;
         });
-        var require_applicability = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_applicability = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -2970,7 +2970,7 @@ var __webpack_modules__ = {
             }
             exports.shouldUseRule = shouldUseRule;
         });
-        var require_dataType = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_dataType = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -3139,7 +3139,7 @@ var __webpack_modules__ = {
                 };
             }
         });
-        var require_defaults = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_defaults = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -3165,7 +3165,7 @@ var __webpack_modules__ = {
                 gen.if(condition, (0, codegen_1._)`${childData} = ${(0, codegen_1.stringify)(defaultValue)}`);
             }
         });
-        var require_code = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_code = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -3307,7 +3307,7 @@ var __webpack_modules__ = {
             }
             exports.validateUnion = validateUnion;
         });
-        var require_keyword = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_keyword = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -3414,7 +3414,7 @@ var __webpack_modules__ = {
             }
             exports.validateKeywordUsage = validateKeywordUsage;
         });
-        var require_subschema = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_subschema = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -3487,7 +3487,7 @@ var __webpack_modules__ = {
             }
             exports.extendSubschemaMode = extendSubschemaMode;
         });
-        var require_fast_deep_equal = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_fast_deep_equal = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = function equal(a, b) {
                 if (a === b) return true;
                 if (a && b && typeof a == "object" && typeof b == "object") {
@@ -3515,7 +3515,7 @@ var __webpack_modules__ = {
                 return a !== a && b !== b;
             };
         });
-        var require_json_schema_traverse = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_json_schema_traverse = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             var traverse = module.exports = function(schema, opts, cb) {
                 if (typeof opts == "function") {
                     cb = opts;
@@ -3588,7 +3588,7 @@ var __webpack_modules__ = {
                 return str.replace(/~/g, "~0").replace(/\//g, "~1");
             }
         });
-        var require_resolve = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_resolve = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -3719,7 +3719,7 @@ var __webpack_modules__ = {
             }
             exports.getSchemaRefs = getSchemaRefs;
         });
-        var require_validate = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_validate = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -4143,7 +4143,7 @@ var __webpack_modules__ = {
             }
             exports.getData = getData;
         });
-        var require_validation_error = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_validation_error = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -4156,7 +4156,7 @@ var __webpack_modules__ = {
             };
             exports.default = ValidationError;
         });
-        var require_ref_error = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_ref_error = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -4170,7 +4170,7 @@ var __webpack_modules__ = {
             };
             exports.default = MissingRefError;
         });
-        var require_compile = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_compile = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -4392,7 +4392,7 @@ var __webpack_modules__ = {
                 if (env.schema !== env.root.schema) return env;
             }
         });
-        var require_data = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_data = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$id": "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#",
                 "description": "Meta-schema for $data reference (JSON AnySchema extension proposal)",
@@ -4416,9 +4416,25 @@ var __webpack_modules__ = {
                 "additionalProperties": false
             };
         });
-        var require_utils = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_utils = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             const isUUID = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu);
             const isIPv4 = RegExp.prototype.test.bind(/^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u);
+            const isPort = RegExp.prototype.test.bind(/^\d*$/u);
+            const isHexPair = RegExp.prototype.test.bind(/^[\da-f]{2}$/iu);
+            const isUnreserved = RegExp.prototype.test.bind(/^[\da-z\-._~]$/iu);
+            const isPathCharacter = RegExp.prototype.test.bind(/^[A-Za-z0-9\-._~!$&'()*+,;=:@/]$/u);
+            const isQueryFragmentCharacter = RegExp.prototype.test.bind(/^[A-Za-z0-9\-._~!$&'()*+,;=:@/?]$/u);
+            const isUserinfoCharacter = RegExp.prototype.test.bind(/^[A-Za-z0-9\-._~!$&'()*+,;=:]$/u);
+            const BYTE_HEX = new Array(256);
+            {
+                const HEX_DIGITS = "0123456789ABCDEF";
+                for(let i = 0; i < 256; i++)BYTE_HEX[i] = "%" + HEX_DIGITS[i >> 4] + HEX_DIGITS[i & 15];
+            }
+            function percentEncodeNonAscii(cp) {
+                if (cp < 2048) return BYTE_HEX[192 | cp >> 6] + BYTE_HEX[128 | cp & 63];
+                if (cp < 65536) return BYTE_HEX[224 | cp >> 12] + BYTE_HEX[128 | cp >> 6 & 63] + BYTE_HEX[128 | cp & 63];
+                return BYTE_HEX[240 | cp >> 18] + BYTE_HEX[128 | cp >> 12 & 63] + BYTE_HEX[128 | cp >> 6 & 63] + BYTE_HEX[128 | cp & 63];
+            }
             function stringArrayToHexStripped(input) {
                 let acc = "";
                 let code = 0;
@@ -4437,83 +4453,120 @@ var __webpack_modules__ = {
                 }
                 return acc;
             }
+            const isHextet = RegExp.prototype.test.bind(/^[\dA-Fa-f]{1,4}$/);
+            const isIPvFuture = RegExp.prototype.test.bind(/^[vV][\dA-Fa-f]+\.[A-Za-z\d\-._~!$&'()*+,;=:]+$/);
+            const isZoneCharacter = RegExp.prototype.test.bind(/^[A-Za-z\d\-._~]$/);
             const nonSimpleDomain = RegExp.prototype.test.bind(/[^!"$&'()*+,\-.;=_`a-z{}~]/u);
-            function consumeIsZone(buffer) {
-                buffer.length = 0;
-                return true;
-            }
-            function consumeHextets(buffer, address, output) {
-                if (buffer.length) {
-                    const hex = stringArrayToHexStripped(buffer);
-                    if (hex !== "") address.push(hex);
-                    else {
-                        output.error = true;
-                        return false;
+            function isZoneIdentifier(zone) {
+                if (zone.length === 0) return false;
+                for(let i = 0; i < zone.length; i++){
+                    if (isZoneCharacter(zone[i])) continue;
+                    if (zone[i] === "%" && i + 2 < zone.length && isHexPair(zone.slice(i + 1, i + 3))) {
+                        i += 2;
+                        continue;
                     }
-                    buffer.length = 0;
+                    return false;
                 }
                 return true;
             }
-            function getIPV6(input) {
-                let tokenCount = 0;
-                const output = {
-                    error: false,
-                    address: "",
-                    zone: ""
-                };
-                const address = [];
-                const buffer = [];
-                let endipv6Encountered = false;
-                let endIpv6 = false;
-                let consume = consumeHextets;
-                for(let i = 0; i < input.length; i++){
-                    const cursor = input[i];
-                    if (cursor === "[" || cursor === "]") continue;
-                    if (cursor === ":") {
-                        if (endipv6Encountered === true) endIpv6 = true;
-                        if (!consume(buffer, address, output)) break;
-                        if (++tokenCount > 7) {
-                            output.error = true;
-                            break;
-                        }
-                        if (i > 0 && input[i - 1] === ":") endipv6Encountered = true;
-                        address.push(":");
-                        continue;
-                    } else if (cursor === "%") {
-                        if (!consume(buffer, address, output)) break;
-                        consume = consumeIsZone;
-                    } else {
-                        buffer.push(cursor);
+            function compressIPv6ZeroRun(hextets) {
+                let bestStart = -1;
+                let bestLength = 0;
+                let runStart = -1;
+                let runLength = 0;
+                for(let i = 0; i < hextets.length; i++)if (hextets[i] === "0") {
+                    if (runStart === -1) runStart = i;
+                    runLength++;
+                    if (runLength > bestLength) {
+                        bestLength = runLength;
+                        bestStart = runStart;
+                    }
+                } else {
+                    runStart = -1;
+                    runLength = 0;
+                }
+                if (bestLength < 2) return hextets.join(":");
+                const head = hextets.slice(0, bestStart).join(":");
+                const tail = hextets.slice(bestStart + bestLength).join(":");
+                return head + "::" + tail;
+            }
+            function normalizeIPv6Address(input) {
+                const compression = input.indexOf("::");
+                if (compression !== -1 && input.indexOf("::", compression + 1) !== -1) return void 0;
+                const left = compression === -1 ? input.split(":") : input.slice(0, compression).split(":");
+                const right = compression === -1 ? [] : input.slice(compression + 2).split(":");
+                if (compression !== -1) {
+                    if (left.length === 1 && left[0] === "") left.length = 0;
+                    if (right.length === 1 && right[0] === "") right.length = 0;
+                }
+                const parts = left.concat(right);
+                let hextetCount = 0;
+                for(let i = 0; i < parts.length; i++){
+                    const part = parts[i];
+                    if (part === "") return void 0;
+                    if (part.indexOf(".") !== -1) {
+                        if (i !== parts.length - 1 || compression !== -1 && right.length === 0 || !isIPv4(part)) return void 0;
+                        hextetCount += 2;
                         continue;
                     }
+                    if (!isHextet(part)) return void 0;
+                    parts[i] = parseInt(part, 16).toString(16);
+                    hextetCount++;
                 }
-                if (buffer.length) if (consume === consumeIsZone) output.zone = buffer.join("");
-                else if (endIpv6) address.push(buffer.join(""));
-                else address.push(stringArrayToHexStripped(buffer));
-                output.address = address.join("");
-                return output;
+                if (compression === -1) {
+                    if (hextetCount !== 8) return void 0;
+                    return compressIPv6ZeroRun(parts);
+                }
+                if (hextetCount >= 8) return void 0;
+                const expanded = parts.slice(0, left.length);
+                for(let i = hextetCount; i < 8; i++)expanded.push("0");
+                for(let i = left.length; i < parts.length; i++)expanded.push(parts[i]);
+                return compressIPv6ZeroRun(expanded);
             }
             function normalizeIPv6(host) {
-                if (findToken(host, ":") < 2) return {
+                const bracketed = host[0] === "[" && host[host.length - 1] === "]";
+                if ((host[0] === "[" || host[host.length - 1] === "]") && !bracketed) return {
                     host,
-                    isIPV6: false
+                    isIPV6: false,
+                    error: true
                 };
-                const ipv6 = getIPV6(host);
-                if (!ipv6.error) {
-                    let newHost = ipv6.address;
-                    let escapedHost = ipv6.address;
-                    if (ipv6.zone) {
-                        newHost += "%" + ipv6.zone;
-                        escapedHost += "%25" + ipv6.zone;
-                    }
+                let input = bracketed ? host.slice(1, -1) : host;
+                if (bracketed && isIPvFuture(input)) {
+                    input = input.toLowerCase();
                     return {
-                        host: newHost,
-                        isIPV6: true,
-                        escapedHost
+                        host: `[${input}]`,
+                        escapedHost: input,
+                        isIPV6: false,
+                        isIPVFuture: true
                     };
-                } else return {
+                }
+                if (findToken(input, ":") < 2) return {
                     host,
-                    isIPV6: false
+                    isIPV6: false,
+                    error: bracketed
+                };
+                let zoneIdentifier = "";
+                const zoneSeparator = input.indexOf("%");
+                if (zoneSeparator !== -1) {
+                    const separatorLength = input.slice(zoneSeparator, zoneSeparator + 3).toLowerCase() === "%25" ? 3 : 1;
+                    zoneIdentifier = input.slice(zoneSeparator + separatorLength);
+                    if (!isZoneIdentifier(zoneIdentifier)) return {
+                        host,
+                        isIPV6: false,
+                        error: true
+                    };
+                    input = input.slice(0, zoneSeparator);
+                }
+                const address = normalizeIPv6Address(input);
+                if (address === void 0) return {
+                    host,
+                    isIPV6: false,
+                    error: true
+                };
+                return {
+                    host: address + (zoneIdentifier ? "%" + zoneIdentifier : ""),
+                    escapedHost: address + (zoneIdentifier ? "%25" + zoneIdentifier : ""),
+                    isIPV6: true
                 };
             }
             function findToken(str, token) {
@@ -4589,41 +4642,225 @@ var __webpack_modules__ = {
                 }
                 return output.join("");
             }
-            function normalizeComponentEncoding(component, esc) {
-                const func = esc !== true ? escape : unescape;
-                if (component.scheme !== void 0) component.scheme = func(component.scheme);
-                if (component.userinfo !== void 0) component.userinfo = func(component.userinfo);
-                if (component.host !== void 0) component.host = func(component.host);
-                if (component.path !== void 0) component.path = func(component.path);
-                if (component.query !== void 0) component.query = func(component.query);
-                if (component.fragment !== void 0) component.fragment = func(component.fragment);
-                return component;
+            const HOST_DELIMS = {
+                "@": "%40",
+                "/": "%2F",
+                "?": "%3F",
+                "#": "%23",
+                ":": "%3A"
+            };
+            const HOST_DELIM_RE = /[@/?#:]/g;
+            const HOST_DELIM_NO_COLON_RE = /[@/?#]/g;
+            function reescapeHostDelimiters(host, isIP) {
+                const re = isIP ? HOST_DELIM_NO_COLON_RE : HOST_DELIM_RE;
+                re.lastIndex = 0;
+                return host.replace(re, (ch)=>HOST_DELIMS[ch]);
+            }
+            function normalizePercentEncoding(input, decodeUnreserved = false) {
+                if (input.indexOf("%") === -1) return input;
+                let output = "";
+                for(let i = 0; i < input.length; i++){
+                    if (input[i] === "%" && i + 2 < input.length) {
+                        const hex = input.slice(i + 1, i + 3);
+                        if (isHexPair(hex)) {
+                            const normalizedHex = hex.toUpperCase();
+                            const decoded = String.fromCharCode(parseInt(normalizedHex, 16));
+                            if (decodeUnreserved && isUnreserved(decoded)) output += decoded;
+                            else output += "%" + normalizedHex;
+                            i += 2;
+                            continue;
+                        }
+                    }
+                    output += input[i];
+                }
+                return output;
+            }
+            function normalizePathEncoding(input) {
+                let output = "";
+                for(let i = 0; i < input.length; i++){
+                    const ch = input[i];
+                    if (ch === "%" && i + 2 < input.length) {
+                        const hex = input.slice(i + 1, i + 3);
+                        if (isHexPair(hex)) {
+                            const normalizedHex = hex.toUpperCase();
+                            const decoded = String.fromCharCode(parseInt(normalizedHex, 16));
+                            if (decoded !== "." && isUnreserved(decoded)) output += decoded;
+                            else output += "%" + normalizedHex;
+                            i += 2;
+                            continue;
+                        }
+                    }
+                    if (isPathCharacter(ch)) output += ch;
+                    else {
+                        const code = input.charCodeAt(i);
+                        if (code < 128) output += isEscapeSafe(code) ? ch : BYTE_HEX[code];
+                        else if (code < 55296 || code > 57343) output += percentEncodeNonAscii(code);
+                        else if (code <= 56319 && i + 1 < input.length) {
+                            const low = input.charCodeAt(i + 1);
+                            if (low >= 56320 && low <= 57343) {
+                                output += percentEncodeNonAscii(65536 + (code - 55296 << 10) + (low - 56320));
+                                i++;
+                            } else output += percentEncodeNonAscii(65533);
+                        } else output += percentEncodeNonAscii(65533);
+                    }
+                }
+                return output;
+            }
+            function serializePathEncoding(input, pathNoScheme = false) {
+                let output = "";
+                let firstSegment = pathNoScheme && input[0] !== "/";
+                for(let i = 0; i < input.length; i++){
+                    const ch = input[i];
+                    if (ch === "%" && i + 2 < input.length) {
+                        const hex = input.slice(i + 1, i + 3);
+                        if (isHexPair(hex)) {
+                            output += "%" + hex.toUpperCase();
+                            i += 2;
+                            continue;
+                        }
+                    }
+                    if (ch === "/") firstSegment = false;
+                    if (isPathCharacter(ch) && (ch !== ":" || !firstSegment)) output += ch;
+                    else {
+                        const code = input.charCodeAt(i);
+                        if (code < 128) output += BYTE_HEX[code];
+                        else if (code < 55296 || code > 57343) output += percentEncodeNonAscii(code);
+                        else if (code <= 56319 && i + 1 < input.length) {
+                            const low = input.charCodeAt(i + 1);
+                            if (low >= 56320 && low <= 57343) {
+                                output += percentEncodeNonAscii(65536 + (code - 55296 << 10) + (low - 56320));
+                                i++;
+                            } else output += percentEncodeNonAscii(65533);
+                        } else output += percentEncodeNonAscii(65533);
+                    }
+                }
+                return output;
+            }
+            function encodeComponent(input, isAllowed) {
+                let output = "";
+                for(let i = 0; i < input.length; i++){
+                    const ch = input[i];
+                    if (ch === "%" && i + 2 < input.length) {
+                        const hex = input.slice(i + 1, i + 3);
+                        if (isHexPair(hex)) {
+                            output += "%" + hex.toUpperCase();
+                            i += 2;
+                            continue;
+                        }
+                    }
+                    if (isAllowed(ch)) output += ch;
+                    else {
+                        const code = input.charCodeAt(i);
+                        if (code < 128) output += BYTE_HEX[code];
+                        else if (code < 55296 || code > 57343) output += percentEncodeNonAscii(code);
+                        else if (code <= 56319 && i + 1 < input.length) {
+                            const low = input.charCodeAt(i + 1);
+                            if (low >= 56320 && low <= 57343) {
+                                output += percentEncodeNonAscii(65536 + (code - 55296 << 10) + (low - 56320));
+                                i++;
+                            } else output += percentEncodeNonAscii(65533);
+                        } else output += percentEncodeNonAscii(65533);
+                    }
+                }
+                return output;
+            }
+            function encodeUserinfo(input) {
+                return encodeComponent(input, isUserinfoCharacter);
+            }
+            function encodeQuery(input) {
+                return encodeComponent(input, isQueryFragmentCharacter);
+            }
+            function encodeFragment(input) {
+                return encodeComponent(input, isQueryFragmentCharacter);
+            }
+            function isEscapeSafe(cp) {
+                return cp >= 48 && cp <= 57 || cp >= 65 && cp <= 90 || cp >= 97 && cp <= 122 || cp === 42 || cp === 43 || cp === 45 || cp === 46 || cp === 47 || cp === 64 || cp === 95;
+            }
+            function normalizeQueryFragmentEncoding(input) {
+                let output = "";
+                for(let i = 0; i < input.length; i++){
+                    const ch = input[i];
+                    if (ch === "%" && i + 2 < input.length) {
+                        const hex = input.slice(i + 1, i + 3);
+                        if (isHexPair(hex)) {
+                            const normalizedHex = hex.toUpperCase();
+                            const decoded = String.fromCharCode(parseInt(normalizedHex, 16));
+                            if (isUnreserved(decoded)) output += decoded;
+                            else output += "%" + normalizedHex;
+                            i += 2;
+                            continue;
+                        }
+                    }
+                    if (isQueryFragmentCharacter(ch)) output += ch;
+                    else {
+                        const code = input.charCodeAt(i);
+                        if (code < 128) output += isEscapeSafe(code) ? ch : BYTE_HEX[code];
+                        else if (code < 55296 || code > 57343) output += percentEncodeNonAscii(code);
+                        else if (code <= 56319 && i + 1 < input.length) {
+                            const low = input.charCodeAt(i + 1);
+                            if (low >= 56320 && low <= 57343) {
+                                output += percentEncodeNonAscii(65536 + (code - 55296 << 10) + (low - 56320));
+                                i++;
+                            } else output += percentEncodeNonAscii(65533);
+                        } else output += percentEncodeNonAscii(65533);
+                    }
+                }
+                return output;
+            }
+            function escapePreservingEscapes(input) {
+                let output = "";
+                for(let i = 0; i < input.length; i++){
+                    if (input[i] === "%" && i + 2 < input.length) {
+                        const hex = input.slice(i + 1, i + 3);
+                        if (isHexPair(hex)) {
+                            output += "%" + hex.toUpperCase();
+                            i += 2;
+                            continue;
+                        }
+                    }
+                    output += escape(input[i]);
+                }
+                return output;
             }
             function recomposeAuthority(component) {
                 const uriTokens = [];
                 if (component.userinfo !== void 0) {
-                    uriTokens.push(component.userinfo);
+                    uriTokens.push(encodeUserinfo(component.userinfo));
                     uriTokens.push("@");
                 }
                 if (component.host !== void 0) {
-                    let host = unescape(component.host);
+                    let host = component.host;
                     if (!isIPv4(host)) {
-                        const ipV6res = normalizeIPv6(host);
-                        if (ipV6res.isIPV6 === true) host = `[${ipV6res.escapedHost}]`;
-                        else host = component.host;
+                        let ipV6res = normalizeIPv6(host);
+                        if (ipV6res.isIPV6 !== true && ipV6res.isIPVFuture !== true) {
+                            host = normalizePercentEncoding(host, true);
+                            ipV6res = normalizeIPv6(host);
+                        }
+                        if (ipV6res.isIPV6 === true || ipV6res.isIPVFuture === true) host = `[${ipV6res.escapedHost}]`;
+                        else host = reescapeHostDelimiters(host, false);
                     }
                     uriTokens.push(host);
                 }
                 if (typeof component.port === "number" || typeof component.port === "string") {
+                    const port = String(component.port);
+                    if (!isPort(port)) throw new TypeError("URI port is malformed.");
                     uriTokens.push(":");
-                    uriTokens.push(String(component.port));
+                    uriTokens.push(port);
                 }
                 return uriTokens.length ? uriTokens.join("") : void 0;
             }
             module.exports = {
                 nonSimpleDomain,
                 recomposeAuthority,
-                normalizeComponentEncoding,
+                reescapeHostDelimiters,
+                normalizePercentEncoding,
+                normalizePathEncoding,
+                serializePathEncoding,
+                normalizeQueryFragmentEncoding,
+                encodeUserinfo,
+                encodeQuery,
+                encodeFragment,
+                escapePreservingEscapes,
                 removeDotSegments,
                 isIPv4,
                 isUUID,
@@ -4631,9 +4868,9 @@ var __webpack_modules__ = {
                 stringArrayToHexStripped
             };
         });
-        var require_schemes = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_schemes = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             const { isUUID } = require_utils();
-            const URN_REG = /([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-.:;=@]|%[\da-f]{2})+)/iu;
+            const URN_REG = /^([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-./:;=@]|%[\da-f]{2})+)$/iu;
             const supportedSchemeNames = [
                 "http",
                 "https",
@@ -4675,9 +4912,10 @@ var __webpack_modules__ = {
                     wsComponent.secure = void 0;
                 }
                 if (wsComponent.resourceName) {
-                    const [path, query] = wsComponent.resourceName.split("?");
+                    const queryIndex = wsComponent.resourceName.indexOf("?");
+                    const path = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
                     wsComponent.path = path && path !== "/" ? path : void 0;
-                    wsComponent.query = query;
+                    wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
                     wsComponent.resourceName = void 0;
                 }
                 wsComponent.fragment = void 0;
@@ -4689,7 +4927,7 @@ var __webpack_modules__ = {
                     return urnComponent;
                 }
                 const matches = urnComponent.path.match(URN_REG);
-                if (matches) {
+                if (matches && matches[0] === urnComponent.path) {
                     const scheme = options.scheme || urnComponent.scheme || "urn";
                     urnComponent.nid = matches[1].toLowerCase();
                     urnComponent.nss = matches[2];
@@ -4778,11 +5016,18 @@ var __webpack_modules__ = {
                 getSchemeHandler
             };
         });
-        var require_fast_uri = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
-            const { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizeComponentEncoding, isIPv4, nonSimpleDomain } = require_utils();
+        var require_fast_uri = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
+            const { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, serializePathEncoding, normalizeQueryFragmentEncoding, encodeQuery, encodeFragment, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
             const { SCHEMES, getSchemeHandler } = require_schemes();
+            const VALID_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*$/u;
+            const MALFORMED_SCHEME_ERROR = "URI scheme is malformed.";
+            function decodeValidScheme(scheme) {
+                const decodedScheme = unescape(String(scheme));
+                if (!VALID_SCHEME.test(decodedScheme)) throw new TypeError(MALFORMED_SCHEME_ERROR);
+                return decodedScheme;
+            }
             function normalize(uri, options) {
-                if (typeof uri === "string") uri = serialize(parse1(uri, options), options);
+                if (typeof uri === "string") uri = normalizeString(uri, options);
                 else if (typeof uri === "object") uri = parse1(serialize(uri, options), options);
                 return uri;
             }
@@ -4792,7 +5037,16 @@ var __webpack_modules__ = {
                 }, options) : {
                     scheme: "null"
                 };
-                const resolved = resolveComponent(parse1(baseURI, schemelessOptions), parse1(relativeURI, schemelessOptions), schemelessOptions, true);
+                const { parsed: baseParsed, malformedAuthorityOrPort: baseMalformed, malformedPercentEncoding: baseMalformedPercentEncoding, malformedSchemeSpecific: baseMalformedSchemeSpecific, malformedHost: baseMalformedHost, malformedScheme: baseMalformedScheme } = parseWithStatus(baseURI, schemelessOptions);
+                const { parsed: relativeParsed, malformedAuthorityOrPort: relativeMalformed, malformedPercentEncoding: relativeMalformedPercentEncoding, malformedSchemeSpecific: relativeMalformedSchemeSpecific, malformedHost: relativeMalformedHost, malformedScheme: relativeMalformedScheme } = parseWithStatus(relativeURI, schemelessOptions);
+                if (baseMalformed || relativeMalformed || baseMalformedPercentEncoding || relativeMalformedPercentEncoding || baseMalformedSchemeSpecific || relativeMalformedSchemeSpecific || baseMalformedHost || relativeMalformedHost || baseMalformedScheme || relativeMalformedScheme) throw new Error(baseParsed.error || relativeParsed.error || "URI is malformed.");
+                const resolved = resolveComponent(baseParsed, relativeParsed, schemelessOptions, true);
+                const resolvedSchemeHandler = getSchemeHandler(options && options.scheme || resolved.scheme);
+                const resolvedHost = resolved.host;
+                const resolvedHostIsIP = resolvedHost !== void 0 && resolvedHost !== "" && (isIPv4(resolvedHost) || normalizeIPv6(resolvedHost).isIPV6);
+                canonicalizeHost(resolved, options || {}, resolvedSchemeHandler, resolvedHostIsIP);
+                const encodedASCIIHost = resolvedHost && resolvedHost.indexOf("%") !== -1 && !/\P{ASCII}/u.test(resolvedHost);
+                if (resolved.error && !encodedASCIIHost) throw new Error(resolved.error);
                 schemelessOptions.skipEscape = true;
                 return serialize(resolved, schemelessOptions);
             }
@@ -4842,27 +5096,9 @@ var __webpack_modules__ = {
                 return target;
             }
             function equal(uriA, uriB, options) {
-                if (typeof uriA === "string") {
-                    uriA = unescape(uriA);
-                    uriA = serialize(normalizeComponentEncoding(parse1(uriA, options), true), {
-                        ...options,
-                        skipEscape: true
-                    });
-                } else if (typeof uriA === "object") uriA = serialize(normalizeComponentEncoding(uriA, true), {
-                    ...options,
-                    skipEscape: true
-                });
-                if (typeof uriB === "string") {
-                    uriB = unescape(uriB);
-                    uriB = serialize(normalizeComponentEncoding(parse1(uriB, options), true), {
-                        ...options,
-                        skipEscape: true
-                    });
-                } else if (typeof uriB === "object") uriB = serialize(normalizeComponentEncoding(uriB, true), {
-                    ...options,
-                    skipEscape: true
-                });
-                return uriA.toLowerCase() === uriB.toLowerCase();
+                const normalizedA = normalizeComparableURI(uriA, options);
+                const normalizedB = normalizeComparableURI(uriB, options);
+                return normalizedA !== void 0 && normalizedB !== void 0 && normalizedA === normalizedB;
             }
             function serialize(cmpts, opts) {
                 const component = {
@@ -4883,13 +5119,17 @@ var __webpack_modules__ = {
                 };
                 const options = Object.assign({}, opts);
                 const uriTokens = [];
+                if (component.scheme) component.scheme = decodeValidScheme(component.scheme);
                 const schemeHandler = getSchemeHandler(options.scheme || component.scheme);
                 if (schemeHandler && schemeHandler.serialize) schemeHandler.serialize(component, options);
-                if (component.path !== void 0) if (!options.skipEscape) {
-                    component.path = escape(component.path);
-                    if (component.scheme !== void 0) component.path = component.path.split("%3A").join(":");
-                } else component.path = unescape(component.path);
-                if (options.reference !== "suffix" && component.scheme) uriTokens.push(component.scheme, ":");
+                const hasAuthority = component.userinfo !== void 0 || component.host !== void 0 || component.port !== void 0;
+                const pathNoScheme = !options.skipEscape && component.scheme === void 0 && !hasAuthority;
+                if (component.path !== void 0) if (!options.skipEscape) component.path = serializePathEncoding(component.path, pathNoScheme);
+                else component.path = normalizePercentEncoding(component.path);
+                if (options.reference !== "suffix" && component.scheme) {
+                    component.scheme = decodeValidScheme(component.scheme);
+                    uriTokens.push(component.scheme, ":");
+                }
                 const authority = recomposeAuthority(component);
                 if (authority !== void 0) {
                     if (options.reference !== "suffix") uriTokens.push("//");
@@ -4899,15 +5139,47 @@ var __webpack_modules__ = {
                 if (component.path !== void 0) {
                     let s = component.path;
                     if (!options.absolutePath && (!schemeHandler || !schemeHandler.absolutePath)) s = removeDotSegments(s);
+                    if (pathNoScheme) s = serializePathEncoding(s, true);
                     if (authority === void 0 && s[0] === "/" && s[1] === "/") s = "/%2F" + s.slice(2);
                     uriTokens.push(s);
                 }
-                if (component.query !== void 0) uriTokens.push("?", component.query);
-                if (component.fragment !== void 0) uriTokens.push("#", component.fragment);
+                if (component.query !== void 0) uriTokens.push("?", encodeQuery(component.query));
+                if (component.fragment !== void 0) uriTokens.push("#", encodeFragment(component.fragment));
                 return uriTokens.join("");
             }
             const URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u;
-            function parse1(uri, opts) {
+            const AUTHORITY_PREFIX = /^(?:[^#/:?]+:)?\/\/([^/?#]*)/;
+            const AUTHORITY_INTRODUCER_REGION = /^(?:[^#/:?]+:)?([/\\\t\n\r]*)/;
+            function getParseError(parsed, matches) {
+                if (matches[2] !== void 0 && parsed.path && parsed.path[0] !== "/") return "URI path must start with \"/\" when authority is present.";
+                if (typeof parsed.port === "number" && (parsed.port < 0 || parsed.port > 65535)) return "URI port is malformed.";
+            }
+            function hasMalformedPercentEncoding(component) {
+                if (component === void 0) return false;
+                let percent = component.indexOf("%");
+                while(percent !== -1){
+                    if (percent + 2 >= component.length || !/^[\da-f]{2}$/iu.test(component.slice(percent + 1, percent + 3))) return true;
+                    percent = component.indexOf("%", percent + 3);
+                }
+                return false;
+            }
+            function isIPLiteral(host) {
+                return host[0] === "[" && host[host.length - 1] === "]";
+            }
+            function hasMalformedComponentPercentEncoding(matches) {
+                const host = matches[4];
+                return hasMalformedPercentEncoding(matches[3]) || host !== void 0 && !isIPLiteral(host) && hasMalformedPercentEncoding(host) || hasMalformedPercentEncoding(matches[6]) || hasMalformedPercentEncoding(matches[7]) || hasMalformedPercentEncoding(matches[8]);
+            }
+            function canonicalizeHost(parsed, options, schemeHandler, isIP) {
+                if (!options.unicodeSupport && (!schemeHandler || !schemeHandler.unicodeSupport) && parsed.host && !isIPLiteral(parsed.host) && (options.domainHost || schemeHandler && schemeHandler.domainHost) && isIP === false && nonSimpleDomain(parsed.host)) try {
+                    parsed.host = new URL("http://" + parsed.host).hostname;
+                } catch (e) {
+                    parsed.error = parsed.error || "Host's domain name can not be converted to ASCII: " + e;
+                    return true;
+                }
+                return false;
+            }
+            function parseWithStatus(uri, opts) {
                 const options = Object.assign({}, opts);
                 const parsed = {
                     scheme: void 0,
@@ -4918,9 +5190,34 @@ var __webpack_modules__ = {
                     query: void 0,
                     fragment: void 0
                 };
+                let malformedAuthorityOrPort = false;
+                let malformedPercentEncoding = false;
+                let malformedSchemeSpecific = false;
+                let malformedHost = false;
+                let malformedIPLiteral = false;
+                let malformedScheme = false;
                 let isIP = false;
                 if (options.reference === "suffix") if (options.scheme) uri = options.scheme + ":" + uri;
                 else uri = "//" + uri;
+                const authorityMatch = uri.match(AUTHORITY_PREFIX);
+                if (authorityMatch !== null && authorityMatch[1].indexOf("\\") !== -1) {
+                    parsed.error = "URI authority must not contain a literal backslash.";
+                    malformedAuthorityOrPort = true;
+                }
+                const introducerMatch = uri.match(AUTHORITY_INTRODUCER_REGION);
+                if (introducerMatch !== null) {
+                    const region = introducerMatch[1];
+                    const normalizedRegion = region.replace(/[\t\n\r]/g, "");
+                    if (normalizedRegion.length >= 2) {
+                        if (normalizedRegion.slice(0, 2) !== "//") {
+                            parsed.error = parsed.error || "URI authority must not contain a literal backslash.";
+                            malformedAuthorityOrPort = true;
+                        } else if (region.length !== normalizedRegion.length) {
+                            parsed.error = parsed.error || "URI authority introducer must not contain whitespace.";
+                            malformedAuthorityOrPort = true;
+                        }
+                    }
+                }
                 const matches = uri.match(URI_PARSE);
                 if (matches) {
                     parsed.scheme = matches[1];
@@ -4930,11 +5227,33 @@ var __webpack_modules__ = {
                     parsed.path = matches[6] || "";
                     parsed.query = matches[7];
                     parsed.fragment = matches[8];
+                    if (parsed.scheme !== void 0) {
+                        const decodedScheme = unescape(parsed.scheme);
+                        if (VALID_SCHEME.test(decodedScheme)) parsed.scheme = decodedScheme.toLowerCase();
+                        else {
+                            parsed.error = parsed.error || MALFORMED_SCHEME_ERROR;
+                            malformedScheme = true;
+                        }
+                    }
+                    malformedPercentEncoding = hasMalformedComponentPercentEncoding(matches);
+                    if (malformedPercentEncoding) parsed.error = parsed.error || "URI contains malformed percent-encoding.";
                     if (isNaN(parsed.port)) parsed.port = matches[5];
+                    const parseError = getParseError(parsed, matches);
+                    if (parseError !== void 0) {
+                        parsed.error = parsed.error || parseError;
+                        malformedAuthorityOrPort = true;
+                    }
                     if (parsed.host) if (isIPv4(parsed.host) === false) {
+                        const bracketedIPLiteral = isIPLiteral(parsed.host);
+                        const hasIPLiteralBracket = parsed.host.indexOf("[") !== -1 || parsed.host.indexOf("]") !== -1;
                         const ipv6result = normalizeIPv6(parsed.host);
-                        parsed.host = ipv6result.host.toLowerCase();
-                        isIP = ipv6result.isIPV6;
+                        isIP = ipv6result.isIPV6 || ipv6result.isIPVFuture === true;
+                        malformedIPLiteral = hasIPLiteralBracket && (!bracketedIPLiteral || ipv6result.error === true);
+                        parsed.host = isIP ? ipv6result.host : ipv6result.host.toLowerCase();
+                        if (malformedIPLiteral) {
+                            parsed.error = parsed.error || "URI host is malformed.";
+                            malformedAuthorityOrPort = true;
+                        }
                     } else isIP = true;
                     if (parsed.scheme === void 0 && parsed.userinfo === void 0 && parsed.host === void 0 && parsed.port === void 0 && parsed.query === void 0 && !parsed.path) parsed.reference = "same-document";
                     else if (parsed.scheme === void 0) parsed.reference = "relative";
@@ -4942,24 +5261,58 @@ var __webpack_modules__ = {
                     else parsed.reference = "uri";
                     if (options.reference && options.reference !== "suffix" && options.reference !== parsed.reference) parsed.error = parsed.error || "URI is not a " + options.reference + " reference.";
                     const schemeHandler = getSchemeHandler(options.scheme || parsed.scheme);
-                    if (!options.unicodeSupport && (!schemeHandler || !schemeHandler.unicodeSupport)) {
-                        if (parsed.host && (options.domainHost || schemeHandler && schemeHandler.domainHost) && isIP === false && nonSimpleDomain(parsed.host)) try {
-                            parsed.host = URL.domainToASCII(parsed.host.toLowerCase());
-                        } catch (e) {
-                            parsed.error = parsed.error || "Host's domain name can not be converted to ASCII: " + e;
-                        }
+                    if (!malformedIPLiteral) malformedHost = canonicalizeHost(parsed, options, schemeHandler, isIP);
+                    if (uri.indexOf("%") !== -1 && parsed.host !== void 0 && !malformedIPLiteral) {
+                        let host = isIP ? parsed.host : normalizePercentEncoding(parsed.host, true);
+                        if (!isIP) host = normalizePercentEncoding(host.toLowerCase());
+                        parsed.host = reescapeHostDelimiters(host, isIP);
                     }
                     if (!schemeHandler || schemeHandler && !schemeHandler.skipNormalize) {
-                        if (uri.indexOf("%") !== -1) {
-                            if (parsed.scheme !== void 0) parsed.scheme = unescape(parsed.scheme);
-                            if (parsed.host !== void 0) parsed.host = unescape(parsed.host);
-                        }
-                        if (parsed.path) parsed.path = escape(unescape(parsed.path));
-                        if (parsed.fragment) parsed.fragment = encodeURI(decodeURIComponent(parsed.fragment));
+                        if (parsed.path) parsed.path = normalizePathEncoding(parsed.path);
+                        if (parsed.query) parsed.query = normalizeQueryFragmentEncoding(parsed.query);
+                        if (parsed.fragment) parsed.fragment = normalizeQueryFragmentEncoding(parsed.fragment);
                     }
-                    if (schemeHandler && schemeHandler.parse) schemeHandler.parse(parsed, options);
+                    if (schemeHandler && schemeHandler.parse) {
+                        schemeHandler.parse(parsed, options);
+                        if (schemeHandler === SCHEMES.urn && parsed.nid === void 0) malformedSchemeSpecific = true;
+                    }
                 } else parsed.error = parsed.error || "URI can not be parsed.";
-                return parsed;
+                return {
+                    parsed,
+                    malformedAuthorityOrPort,
+                    malformedPercentEncoding,
+                    malformedSchemeSpecific,
+                    malformedHost,
+                    malformedScheme
+                };
+            }
+            function parse1(uri, opts) {
+                return parseWithStatus(uri, opts).parsed;
+            }
+            function normalizeString(uri, opts) {
+                return normalizeStringWithStatus(uri, opts).normalized;
+            }
+            function normalizeStringWithStatus(uri, opts) {
+                const { parsed, malformedAuthorityOrPort, malformedPercentEncoding, malformedSchemeSpecific, malformedHost, malformedScheme } = parseWithStatus(uri, opts);
+                return {
+                    normalized: malformedAuthorityOrPort || malformedPercentEncoding || malformedSchemeSpecific || malformedHost || malformedScheme ? uri : serialize(parsed, opts),
+                    malformedAuthorityOrPort,
+                    malformedPercentEncoding,
+                    malformedSchemeSpecific,
+                    malformedHost,
+                    malformedScheme
+                };
+            }
+            function normalizeComparableURI(uri, opts) {
+                if (typeof uri !== "string" && typeof uri !== "object") return;
+                let value;
+                try {
+                    value = typeof uri === "string" ? uri : serialize(uri, opts);
+                } catch  {
+                    return;
+                }
+                const { normalized, malformedAuthorityOrPort, malformedPercentEncoding, malformedSchemeSpecific, malformedHost, malformedScheme } = normalizeStringWithStatus(value, opts);
+                return malformedAuthorityOrPort || malformedPercentEncoding || malformedSchemeSpecific || malformedHost || malformedScheme ? void 0 : normalized;
             }
             const fastUri = {
                 SCHEMES,
@@ -4974,7 +5327,7 @@ var __webpack_modules__ = {
             module.exports.default = fastUri;
             module.exports.fastUri = fastUri;
         });
-        var require_uri = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_uri = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -4982,7 +5335,7 @@ var __webpack_modules__ = {
             uri.code = "require(\"ajv/dist/runtime/uri\").default";
             exports.default = uri;
         });
-        var require_core$3 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_core$3 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5566,7 +5919,7 @@ var __webpack_modules__ = {
                 };
             }
         });
-        var require_id = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_id = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5578,7 +5931,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_ref = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_ref = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5689,7 +6042,7 @@ var __webpack_modules__ = {
             exports.callRef = callRef;
             exports.default = def;
         });
-        var require_core$2 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_core$2 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5709,7 +6062,7 @@ var __webpack_modules__ = {
             ];
             exports.default = core1;
         });
-        var require_limitNumber = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_limitNumber = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5753,7 +6106,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_multipleOf = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_multipleOf = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5777,7 +6130,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_ucs2length = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_ucs2length = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5799,7 +6152,7 @@ var __webpack_modules__ = {
             exports.default = ucs2length;
             ucs2length.code = "require(\"ajv/dist/runtime/ucs2length\").default";
         });
-        var require_limitLength = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_limitLength = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5830,7 +6183,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_pattern = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_pattern = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5863,7 +6216,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_limitProperties = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_limitProperties = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5891,7 +6244,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_required = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_required = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5962,7 +6315,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_limitItems = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_limitItems = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5990,7 +6343,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_equal = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_equal = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -5998,7 +6351,7 @@ var __webpack_modules__ = {
             equal.code = "require(\"ajv/dist/runtime/equal\").default";
             exports.default = equal;
         });
-        var require_uniqueItems = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_uniqueItems = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6062,7 +6415,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_const = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_const = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6084,7 +6437,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_enum = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_enum = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6127,7 +6480,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_validation$2 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_validation$2 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6166,7 +6519,7 @@ var __webpack_modules__ = {
             ];
             exports.default = validation;
         });
-        var require_additionalItems = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_additionalItems = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6223,7 +6576,7 @@ var __webpack_modules__ = {
             exports.validateAdditionalItems = validateAdditionalItems;
             exports.default = def;
         });
-        var require_items = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_items = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6276,7 +6629,7 @@ var __webpack_modules__ = {
             exports.validateTuple = validateTuple;
             exports.default = def;
         });
-        var require_prefixItems = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_prefixItems = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6292,7 +6645,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_items2020 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_items2020 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6323,7 +6676,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_contains = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_contains = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6411,7 +6764,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_dependencies = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_dependencies = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6495,7 +6848,7 @@ var __webpack_modules__ = {
             exports.validateSchemaDeps = validateSchemaDeps;
             exports.default = def;
         });
-        var require_propertyNames = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_propertyNames = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6539,7 +6892,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_additionalProperties = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_additionalProperties = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6635,7 +6988,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_properties = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_properties = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6681,7 +7034,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_patternProperties = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_patternProperties = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6737,7 +7090,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_not = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_not = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6770,7 +7123,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_anyOf = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_anyOf = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6785,7 +7138,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_oneOf = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_oneOf = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6833,7 +7186,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_allOf = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_allOf = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6858,7 +7211,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_if = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_if = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6924,7 +7277,7 @@ var __webpack_modules__ = {
             }
             exports.default = def;
         });
-        var require_thenElse = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_thenElse = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6944,7 +7297,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_applicator$2 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_applicator$2 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -6985,7 +7338,7 @@ var __webpack_modules__ = {
             }
             exports.default = getApplicator;
         });
-        var require_format$2 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_format$2 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7077,7 +7430,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_format$1 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_format$1 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7086,7 +7439,7 @@ var __webpack_modules__ = {
             ];
             exports.default = format;
         });
-        var require_metadata = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_metadata = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7106,7 +7459,7 @@ var __webpack_modules__ = {
                 "contentSchema"
             ];
         });
-        var require_draft7 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_draft7 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7125,7 +7478,7 @@ var __webpack_modules__ = {
             ];
             exports.default = draft7Vocabularies;
         });
-        var require_types = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_types = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7136,7 +7489,7 @@ var __webpack_modules__ = {
                 DiscrError["Mapping"] = "mapping";
             })(DiscrError || (exports.DiscrError = DiscrError = {}));
         });
-        var require_discriminator = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_discriminator = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7230,7 +7583,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_json_schema_draft_07 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_json_schema_draft_07 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "http://json-schema.org/draft-07/schema#",
                 "$id": "http://json-schema.org/draft-07/schema#",
@@ -7473,7 +7826,7 @@ var __webpack_modules__ = {
                 "default": true
             };
         });
-        var require_ajv = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_ajv = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7569,7 +7922,7 @@ var __webpack_modules__ = {
                 }
             });
         });
-        var require_dynamicAnchor = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_dynamicAnchor = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7608,7 +7961,7 @@ var __webpack_modules__ = {
             }
             exports.default = def;
         });
-        var require_dynamicRef = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_dynamicRef = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7647,7 +8000,7 @@ var __webpack_modules__ = {
             exports.dynamicRef = dynamicRef;
             exports.default = def;
         });
-        var require_recursiveAnchor = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_recursiveAnchor = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7663,7 +8016,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_recursiveRef = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_recursiveRef = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7675,7 +8028,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_dynamic = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_dynamic = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7691,7 +8044,7 @@ var __webpack_modules__ = {
             ];
             exports.default = dynamic;
         });
-        var require_dependentRequired = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_dependentRequired = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7705,7 +8058,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_dependentSchemas = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_dependentSchemas = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7718,7 +8071,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_limitContains = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_limitContains = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7736,7 +8089,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_next = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_next = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7750,7 +8103,7 @@ var __webpack_modules__ = {
             ];
             exports.default = next;
         });
-        var require_unevaluatedProperties = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_unevaluatedProperties = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7808,7 +8161,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_unevaluatedItems = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_unevaluatedItems = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7855,7 +8208,7 @@ var __webpack_modules__ = {
             };
             exports.default = def;
         });
-        var require_unevaluated$1 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_unevaluated$1 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -7867,7 +8220,7 @@ var __webpack_modules__ = {
             ];
             exports.default = unevaluated;
         });
-        var require_schema$1 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_schema$1 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2019-09/schema",
                 "$id": "https://json-schema.org/draft/2019-09/schema",
@@ -7931,7 +8284,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_applicator$1 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_applicator$1 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2019-09/schema",
                 "$id": "https://json-schema.org/draft/2019-09/meta/applicator",
@@ -8029,7 +8382,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_content$1 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_content$1 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2019-09/schema",
                 "$id": "https://json-schema.org/draft/2019-09/meta/content",
@@ -8055,7 +8408,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_core$1 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_core$1 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2019-09/schema",
                 "$id": "https://json-schema.org/draft/2019-09/meta/core",
@@ -8118,7 +8471,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_format = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_format = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2019-09/schema",
                 "$id": "https://json-schema.org/draft/2019-09/meta/format",
@@ -8138,7 +8491,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_meta_data$1 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_meta_data$1 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2019-09/schema",
                 "$id": "https://json-schema.org/draft/2019-09/meta/meta-data",
@@ -8178,7 +8531,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_validation$1 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_validation$1 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2019-09/schema",
                 "$id": "https://json-schema.org/draft/2019-09/meta/validation",
@@ -8302,7 +8655,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_json_schema_2019_09 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_json_schema_2019_09 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -8333,7 +8686,7 @@ var __webpack_modules__ = {
             }
             exports.default = addMetaSchema2019;
         });
-        var require__2019 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require__2019 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -8440,7 +8793,7 @@ var __webpack_modules__ = {
                 }
             });
         });
-        var require_draft2020 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_draft2020 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -8465,7 +8818,7 @@ var __webpack_modules__ = {
             ];
             exports.default = draft2020Vocabularies;
         });
-        var require_schema = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_schema = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "$id": "https://json-schema.org/draft/2020-12/schema",
@@ -8547,7 +8900,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_applicator = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_applicator = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "$id": "https://json-schema.org/draft/2020-12/meta/applicator",
@@ -8633,7 +8986,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_unevaluated = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_unevaluated = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "$id": "https://json-schema.org/draft/2020-12/meta/unevaluated",
@@ -8656,7 +9009,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_content = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_content = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "$id": "https://json-schema.org/draft/2020-12/meta/content",
@@ -8682,7 +9035,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_core = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_core = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "$id": "https://json-schema.org/draft/2020-12/meta/core",
@@ -8751,7 +9104,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_format_annotation = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_format_annotation = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "$id": "https://json-schema.org/draft/2020-12/meta/format-annotation",
@@ -8771,7 +9124,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_meta_data = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_meta_data = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "$id": "https://json-schema.org/draft/2020-12/meta/meta-data",
@@ -8811,7 +9164,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_validation = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_validation = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             module.exports = {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "$id": "https://json-schema.org/draft/2020-12/meta/validation",
@@ -8935,7 +9288,7 @@ var __webpack_modules__ = {
                 }
             };
         });
-        var require_json_schema_2020_12 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_json_schema_2020_12 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -8968,7 +9321,7 @@ var __webpack_modules__ = {
             }
             exports.default = addMetaSchema2020;
         });
-        var require__2020 = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require__2020 = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -9069,7 +9422,7 @@ var __webpack_modules__ = {
                 }
             });
         });
-        var require_formats = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_formats = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -9257,7 +9610,7 @@ var __webpack_modules__ = {
                 }
             }
         });
-        var require_limit = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+        var require_limit = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -9338,7 +9691,7 @@ var __webpack_modules__ = {
             };
             exports.default = formatLimitPlugin;
         });
-        var require_dist = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports, module)=>{
+        var require_dist = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports, module)=>{
             Object.defineProperty(exports, "__esModule", {
                 value: true
             });
@@ -9385,7 +9738,7 @@ var __webpack_modules__ = {
         var import_ajv = require_ajv();
         var import__2019 = require__2019();
         var import__2020 = require__2020();
-        var import_dist = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.r)(require_dist(), 1);
+        var import_dist = (0, _chunk_vYduTEsO_mjs__rspack_import_0.r)(require_dist(), 1);
         const addFormats = import_dist.default;
         function createDefaultAjvInstance(engineClass) {
             const ajv = new engineClass({
@@ -9411,7 +9764,7 @@ var __webpack_modules__ = {
             }
             _engineFor(schema) {
                 if (this._userAjv) return this.ajv;
-                const dialect = (0, _dialects_DoSzNhcb_mjs__rspack_import_1.t)(schema, "pass a pre-configured Ajv instance to AjvJsonSchemaValidator(ajv) to validate other dialects.");
+                const dialect = (0, _dialects_CDpMbily_mjs__rspack_import_1.t)(schema, "pass a pre-configured Ajv instance to AjvJsonSchemaValidator(ajv) to validate other dialects.");
                 if (dialect === "2020-12") return this.ajv;
                 if (dialect === "2019-09") return this._ajv2019 ??= createDefaultAjvInstance(import__2019.Ajv2019);
                 return this._ajvDraft7 ??= createDefaultAjvInstance(import_ajv.Ajv);
@@ -9437,7 +9790,7 @@ var __webpack_modules__ = {
             n: ()=>AjvJsonSchemaValidator
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/chunk-Br0eD_fh.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+    "./node_modules/@modelcontextprotocol/server/dist/chunk-vYduTEsO.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         var __create = Object.create;
         var __defProp = Object.defineProperty;
         var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -9486,7 +9839,7 @@ var __webpack_modules__ = {
             t: ()=>__commonJSMin
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/dialects-DoSzNhcb.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+    "./node_modules/@modelcontextprotocol/server/dist/dialects-CDpMbily.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         const DRAFT_2020_12_URIS = new Set([
             "https://json-schema.org/draft/2020-12/schema",
             "http://json-schema.org/draft/2020-12/schema"
@@ -9520,206 +9873,10 @@ var __webpack_modules__ = {
         });
     },
     "./node_modules/@modelcontextprotocol/server/dist/index.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _mcp_DIH4cS6P_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/mcp-DIH4cS6P.mjs");
-        var _src_Cqbh3MYc_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-Cqbh3MYc.mjs");
-        var _modelcontextprotocol_server_shims__rspack_import_2 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
-        var PerRequestHTTPServerTransport = class {
-            onclose;
-            onerror;
-            onmessage;
-            _classification;
-            _responseMode;
-            _started = false;
-            _used = false;
-            _closed = false;
-            _terminalDelivered = false;
-            _dispatchWindowOpen = false;
-            _requestId;
-            _deferredResponse;
-            _sse;
-            _abortCleanup;
-            _keepAliveMs;
-            constructor(options){
-                this._classification = options.classification;
-                this._responseMode = options.responseMode ?? "auto";
-                this._keepAliveMs = options.keepAliveMs ?? DEFAULT_SSE_KEEP_ALIVE_MS;
-            }
-            async start() {
-                if (this._started) throw new Error("PerRequestHTTPServerTransport is already started");
-                this._started = true;
-            }
-            async handleMessage(message, extra) {
-                if (this._used) throw new Error("PerRequestHTTPServerTransport serves exactly one exchange; construct a new transport per request");
-                if (!this._started || this.onmessage === void 0) throw new Error("PerRequestHTTPServerTransport is not connected: connect a server to this transport before handling a message");
-                if (this._closed) throw new Error("PerRequestHTTPServerTransport is closed");
-                this._used = true;
-                const signal = extra?.request?.signal;
-                if (signal?.aborted) {
-                    await this.close();
-                    throw new SdkError(SdkErrorCode.ConnectionClosed, "The request was aborted before it could be handled");
-                }
-                const messageExtra = {
-                    classification: this._classification,
-                    ...extra?.request !== void 0 && {
-                        request: extra.request
-                    },
-                    ...extra?.authInfo !== void 0 && {
-                        authInfo: extra.authInfo
-                    }
-                };
-                if (isJSONRPCRequest(message)) {
-                    this._requestId = message.id;
-                    let resolve;
-                    let reject;
-                    const promise = new Promise((promiseResolve, promiseReject)=>{
-                        resolve = promiseResolve;
-                        reject = promiseReject;
-                    });
-                    this._deferredResponse = {
-                        promise,
-                        resolve,
-                        reject,
-                        settled: false
-                    };
-                    if (signal !== void 0) {
-                        const onAbort = ()=>void this.close();
-                        signal.addEventListener("abort", onAbort, {
-                            once: true
-                        });
-                        this._abortCleanup = ()=>signal.removeEventListener("abort", onAbort);
-                    }
-                    this._dispatchWindowOpen = true;
-                    try {
-                        this.onmessage(message, messageExtra);
-                    } finally{
-                        this._dispatchWindowOpen = false;
-                    }
-                    if (this._responseMode === "sse" && !this._closed && !this._deferredResponse.settled) this.upgradeToSse();
-                    return promise;
-                }
-                this.onmessage(message, messageExtra);
-                return new Response(null, {
-                    status: 202
-                });
-            }
-            async send(message, options) {
-                if (this._closed) return;
-                const isResponse = isJSONRPCResultResponse(message) || isJSONRPCErrorResponse(message);
-                const relatedId = isResponse ? message.id : options?.relatedRequestId;
-                if (this._requestId === void 0 || relatedId === void 0 || relatedId !== this._requestId) {
-                    if (isResponse) this.onerror?.(new Error(`Received a response for an unknown request id: ${String(message.id)}`));
-                    return;
-                }
-                if (isResponse) {
-                    if (this._terminalDelivered) return;
-                    this._terminalDelivered = true;
-                    const errorCode = isJSONRPCErrorResponse(message) ? message.error.code : void 0;
-                    const ladderStatus = errorCode !== void 0 && (this._dispatchWindowOpen || errorCode === ProtocolErrorCode.MissingRequiredClientCapability) ? LADDER_ERROR_HTTP_STATUS[errorCode] : void 0;
-                    if (ladderStatus !== void 0 && this._sse === void 0) {
-                        this.settleResponse(Response.json(message, {
-                            status: ladderStatus,
-                            headers: {
-                                "Content-Type": "application/json"
-                            }
-                        }));
-                        queueMicrotask(()=>void this.close());
-                        return;
-                    }
-                    if (this._sse !== void 0 || this._responseMode === "sse") {
-                        if (this._sse === void 0) this.upgradeToSse();
-                        this.writeMessageFrame(message);
-                        this.finalizeStream();
-                        return;
-                    }
-                    this.settleResponse(Response.json(message, {
-                        status: 200,
-                        headers: {
-                            "Content-Type": "application/json"
-                        }
-                    }));
-                    queueMicrotask(()=>void this.close());
-                    return;
-                }
-                if (this._responseMode === "json") return;
-                if (this._sse === void 0) this.upgradeToSse();
-                this.writeMessageFrame(message);
-            }
-            writeCommentFrame(comment) {
-                if (this._closed || this._sse === void 0 || this._sse.closed) return;
-                const frame = comment.split("\n").map((line)=>`: ${line}`).join("\n");
-                this.writeFrame(`${frame}\n\n`);
-            }
-            async close() {
-                if (this._closed) return;
-                this._closed = true;
-                this._abortCleanup?.();
-                this._abortCleanup = void 0;
-                if (this._sse?.keepAliveTimer !== void 0) clearInterval(this._sse.keepAliveTimer);
-                if (this._sse !== void 0 && !this._sse.closed) {
-                    this._sse.closed = true;
-                    try {
-                        this._sse.controller.close();
-                    } catch  {}
-                }
-                if (this._deferredResponse !== void 0 && !this._deferredResponse.settled) {
-                    this._deferredResponse.settled = true;
-                    this._deferredResponse.reject(new SdkError(SdkErrorCode.ConnectionClosed, "Connection closed before a response was produced"));
-                }
-                this.onclose?.();
-            }
-            settleResponse(response) {
-                if (this._deferredResponse === void 0 || this._deferredResponse.settled) return;
-                this._deferredResponse.settled = true;
-                this._deferredResponse.resolve(response);
-            }
-            upgradeToSse() {
-                let controller;
-                const readable = new ReadableStream({
-                    start: (streamController)=>{
-                        controller = streamController;
-                    },
-                    cancel: ()=>{
-                        this.close();
-                    }
-                });
-                this._sse = {
-                    controller,
-                    encoder: new TextEncoder(),
-                    closed: false
-                };
-                this._sse.keepAliveTimer = armSseKeepAlive(this._keepAliveMs, ()=>this.writeCommentFrame("keepalive"));
-                this.settleResponse(new Response(readable, {
-                    status: 200,
-                    headers: {
-                        "Content-Type": "text/event-stream",
-                        "Cache-Control": "no-cache, no-transform",
-                        Connection: "keep-alive",
-                        "X-Accel-Buffering": "no"
-                    }
-                }));
-            }
-            finalizeStream() {
-                if (this._sse?.keepAliveTimer !== void 0) clearInterval(this._sse.keepAliveTimer);
-                if (this._sse !== void 0 && !this._sse.closed) {
-                    this._sse.closed = true;
-                    try {
-                        this._sse.controller.close();
-                    } catch  {}
-                }
-                queueMicrotask(()=>void this.close());
-            }
-            writeMessageFrame(message) {
-                this.writeFrame(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
-            }
-            writeFrame(frame) {
-                if (this._sse === void 0 || this._sse.closed) return;
-                try {
-                    this._sse.controller.enqueue(this._sse.encoder.encode(frame));
-                } catch (error) {
-                    this.onerror?.(new Error(`Failed to write to the response stream: ${error}`));
-                }
-            }
-        };
+        var _mcp_oHn3ureC_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/mcp-oHn3ureC.mjs");
+        var _src_DdvbAHrR_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-DdvbAHrR.mjs");
+        var _listenRouter_Bartj63y_mjs__rspack_import_2 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/listenRouter-Bartj63y.mjs");
+        var _modelcontextprotocol_server_shims__rspack_import_3 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
         async function invoke(server, message, ctx) {
             const transport = new PerRequestHTTPServerTransport({
                 classification: ctx.classification,
@@ -10382,7 +10539,12 @@ var __webpack_modules__ = {
                 },
                 id
             }, {
-                status: httpStatus
+                status: httpStatus,
+                ...httpStatus === 405 && {
+                    headers: {
+                        Allow: "POST"
+                    }
+                }
             });
         }
         function rejectionResponse(rejection, id = null) {
@@ -10617,7 +10779,7 @@ var __webpack_modules__ = {
                     const inputSchema = toolName === void 0 ? void 0 : product.toolInputSchemaJson(toolName);
                     if (inputSchema !== void 0) {
                         const scan = scanXMcpHeaderDeclarations(inputSchema);
-                        if (scan.valid && scan.declarations.length > 0) {
+                        if (scan.declarations !== void 0 && scan.declarations.length > 0) {
                             const rejection = validateMcpParamHeaders(scan.declarations, callParams?.arguments, request.headers);
                             if (rejection !== void 0) {
                                 product.close().catch(reportError);
@@ -10954,38 +11116,12 @@ var __webpack_modules__ = {
             return fromJsonSchema$1(schema, validator ?? (_defaultValidator ??= new DefaultJsonSchemaValidator()));
         }
         __webpack_require__.d(__webpack_exports__, {
-            _k: ()=>_mcp_DIH4cS6P_mjs__rspack_import_0.t
+            _k: ()=>_mcp_oHn3ureC_mjs__rspack_import_0.t
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/mcp-DIH4cS6P.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _src_Cqbh3MYc_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-Cqbh3MYc.mjs");
-        var _modelcontextprotocol_server_shims__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
-        const COMPLETABLE_SYMBOL = Symbol.for("mcp.completable");
-        function completable(schema, complete) {
-            Object.defineProperty(schema, COMPLETABLE_SYMBOL, {
-                value: {
-                    complete
-                },
-                enumerable: false,
-                writable: false,
-                configurable: false
-            });
-            return schema;
-        }
-        function isCompletable(schema) {
-            return !!schema && typeof schema === "object" && COMPLETABLE_SYMBOL in schema;
-        }
-        function getCompleter(schema) {
-            return schema[COMPLETABLE_SYMBOL]?.complete;
-        }
-        const DEFAULT_SSE_KEEP_ALIVE_MS1 = 15e3;
-        const MAX_TIMER_DELAY_MS = null && 2 ** 31 - 1;
-        function armSseKeepAlive1(intervalMs, onTick) {
-            if (!Number.isFinite(intervalMs) || intervalMs < 1) return;
-            const timer = setInterval(onTick, Math.min(intervalMs, MAX_TIMER_DELAY_MS));
-            timer.unref?.();
-            return timer;
-        }
+    "./node_modules/@modelcontextprotocol/server/dist/listenRouter-Bartj63y.mjs" (__unused_rspack___webpack_module__, __unused_rspack___webpack_exports__, __webpack_require__) {
+        var _mcp_oHn3ureC_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/mcp-oHn3ureC.mjs");
+        var _src_DdvbAHrR_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-DdvbAHrR.mjs");
         var InMemoryServerEventBus1 = class {
             _listeners = new Set();
             constructor(onerror){
@@ -11055,20 +11191,30 @@ var __webpack_modules__ = {
             switch(event.kind){
                 case "tools_list_changed":
                     return {
-                        method: "notifications/tools/list_changed"
+                        method: "notifications/tools/list_changed",
+                        ...event.params !== void 0 && {
+                            params: event.params
+                        }
                     };
                 case "prompts_list_changed":
                     return {
-                        method: "notifications/prompts/list_changed"
+                        method: "notifications/prompts/list_changed",
+                        ...event.params !== void 0 && {
+                            params: event.params
+                        }
                     };
                 case "resources_list_changed":
                     return {
-                        method: "notifications/resources/list_changed"
+                        method: "notifications/resources/list_changed",
+                        ...event.params !== void 0 && {
+                            params: event.params
+                        }
                     };
                 case "resource_updated":
                     return {
                         method: "notifications/resources/updated",
                         params: {
+                            ...event.params,
                             uri: event.uri
                         }
                     };
@@ -11106,7 +11252,7 @@ var __webpack_modules__ = {
         function createListenRouter1(options) {
             const { bus, onerror } = options;
             const maxSubscriptions = options.maxSubscriptions ?? DEFAULT_MAX_SUBSCRIPTIONS1;
-            const keepAliveMs = options.keepAliveMs ?? DEFAULT_SSE_KEEP_ALIVE_MS1;
+            const keepAliveMs = options.keepAliveMs ?? DEFAULT_SSE_KEEP_ALIVE_MS;
             const open = new Set();
             function serve(message, signal, capabilities, serverInfo) {
                 if (open.size >= maxSubscriptions) {
@@ -11183,7 +11329,7 @@ var __webpack_modules__ = {
                             const note = stampSubscriptionId(serverEventToNotification(event), subscriptionId);
                             writeNotification(note.method, note.params);
                         });
-                        keepAliveTimer = armSseKeepAlive1(keepAliveMs, ()=>writeFrame(": keepalive\n\n"));
+                        keepAliveTimer = armSseKeepAlive(keepAliveMs, ()=>writeFrame(": keepalive\n\n"));
                         open.add(teardown);
                     },
                     cancel () {
@@ -11322,6 +11468,240 @@ var __webpack_modules__ = {
                         uri: uri ?? ""
                     };
             }
+        }
+    },
+    "./node_modules/@modelcontextprotocol/server/dist/mcp-oHn3ureC.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _src_DdvbAHrR_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/src-DdvbAHrR.mjs");
+        var _modelcontextprotocol_server_shims__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs");
+        const COMPLETABLE_SYMBOL = Symbol.for("mcp.completable");
+        function completable(schema, complete) {
+            Object.defineProperty(schema, COMPLETABLE_SYMBOL, {
+                value: {
+                    complete
+                },
+                enumerable: false,
+                writable: false,
+                configurable: false
+            });
+            return schema;
+        }
+        function isCompletable(schema) {
+            return !!schema && typeof schema === "object" && COMPLETABLE_SYMBOL in schema;
+        }
+        function getCompleter(schema) {
+            return schema[COMPLETABLE_SYMBOL]?.complete;
+        }
+        const DEFAULT_SSE_KEEP_ALIVE_MS1 = 15e3;
+        const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
+        function armSseKeepAlive1(intervalMs, onTick) {
+            if (!Number.isFinite(intervalMs) || intervalMs < 1) return;
+            const timer = setInterval(onTick, Math.min(intervalMs, MAX_TIMER_DELAY_MS));
+            timer.unref?.();
+            return timer;
+        }
+        let readClassification;
+        var PerRequestHTTPServerTransport1 = class {
+            static{
+                readClassification = (transport)=>transport._classification;
+            }
+            onclose;
+            onerror;
+            onmessage;
+            _classification;
+            _responseMode;
+            _started = false;
+            _used = false;
+            _closed = false;
+            _terminalDelivered = false;
+            _dispatchWindowOpen = false;
+            _requestId;
+            _deferredResponse;
+            _sse;
+            _abortCleanup;
+            _keepAliveMs;
+            constructor(options){
+                this._classification = options.classification;
+                this._responseMode = options.responseMode ?? "auto";
+                this._keepAliveMs = options.keepAliveMs ?? DEFAULT_SSE_KEEP_ALIVE_MS1;
+            }
+            async start() {
+                if (this._started) throw new Error("PerRequestHTTPServerTransport is already started");
+                this._started = true;
+            }
+            async handleMessage(message, extra) {
+                if (this._used) throw new Error("PerRequestHTTPServerTransport serves exactly one exchange; construct a new transport per request");
+                if (!this._started || this.onmessage === void 0) throw new Error("PerRequestHTTPServerTransport is not connected: connect a server to this transport before handling a message");
+                if (this._closed) throw new Error("PerRequestHTTPServerTransport is closed");
+                this._used = true;
+                const signal = extra?.request?.signal;
+                if (signal?.aborted) {
+                    await this.close();
+                    throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.ConnectionClosed, "The request was aborted before it could be handled");
+                }
+                const messageExtra = {
+                    classification: this._classification,
+                    ...extra?.request !== void 0 && {
+                        request: extra.request
+                    },
+                    ...extra?.authInfo !== void 0 && {
+                        authInfo: extra.authInfo
+                    }
+                };
+                if ((0, _src_DdvbAHrR_mjs__rspack_import_0.X)(message)) {
+                    this._requestId = message.id;
+                    let resolve;
+                    let reject;
+                    const promise = new Promise((promiseResolve, promiseReject)=>{
+                        resolve = promiseResolve;
+                        reject = promiseReject;
+                    });
+                    this._deferredResponse = {
+                        promise,
+                        resolve,
+                        reject,
+                        settled: false
+                    };
+                    if (signal !== void 0) {
+                        const onAbort = ()=>void this.close();
+                        signal.addEventListener("abort", onAbort, {
+                            once: true
+                        });
+                        this._abortCleanup = ()=>signal.removeEventListener("abort", onAbort);
+                    }
+                    this._dispatchWindowOpen = true;
+                    try {
+                        this.onmessage(message, messageExtra);
+                    } finally{
+                        this._dispatchWindowOpen = false;
+                    }
+                    if (this._responseMode === "sse" && !this._closed && !this._deferredResponse.settled) this.upgradeToSse();
+                    return promise;
+                }
+                this.onmessage(message, messageExtra);
+                return new Response(null, {
+                    status: 202
+                });
+            }
+            async send(message, options) {
+                if (this._closed) return;
+                const isResponse = (0, _src_DdvbAHrR_mjs__rspack_import_0.Q)(message) || (0, _src_DdvbAHrR_mjs__rspack_import_0.J)(message);
+                const relatedId = isResponse ? message.id : options?.relatedRequestId;
+                if (this._requestId === void 0 || relatedId === void 0 || relatedId !== this._requestId) {
+                    if (isResponse) this.onerror?.(new Error(`Received a response for an unknown request id: ${String(message.id)}`));
+                    return;
+                }
+                if (isResponse) {
+                    if (this._terminalDelivered) return;
+                    this._terminalDelivered = true;
+                    const errorCode = (0, _src_DdvbAHrR_mjs__rspack_import_0.J)(message) ? message.error.code : void 0;
+                    const ladderStatus = errorCode !== void 0 && (this._dispatchWindowOpen || errorCode === _src_DdvbAHrR_mjs__rspack_import_0.mt.MissingRequiredClientCapability) ? _src_DdvbAHrR_mjs__rspack_import_0.P[errorCode] : void 0;
+                    if (ladderStatus !== void 0 && this._sse === void 0) {
+                        this.settleResponse(Response.json(message, {
+                            status: ladderStatus,
+                            headers: {
+                                "Content-Type": "application/json"
+                            }
+                        }));
+                        queueMicrotask(()=>void this.close());
+                        return;
+                    }
+                    if (this._sse !== void 0 || this._responseMode === "sse") {
+                        if (this._sse === void 0) this.upgradeToSse();
+                        this.writeMessageFrame(message);
+                        this.finalizeStream();
+                        return;
+                    }
+                    this.settleResponse(Response.json(message, {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "application/json"
+                        }
+                    }));
+                    queueMicrotask(()=>void this.close());
+                    return;
+                }
+                if (this._responseMode === "json") return;
+                if (this._sse === void 0) this.upgradeToSse();
+                this.writeMessageFrame(message);
+            }
+            writeCommentFrame(comment) {
+                if (this._closed || this._sse === void 0 || this._sse.closed) return;
+                const frame = comment.split("\n").map((line)=>`: ${line}`).join("\n");
+                this.writeFrame(`${frame}\n\n`);
+            }
+            async close() {
+                if (this._closed) return;
+                this._closed = true;
+                this._abortCleanup?.();
+                this._abortCleanup = void 0;
+                if (this._sse?.keepAliveTimer !== void 0) clearInterval(this._sse.keepAliveTimer);
+                if (this._sse !== void 0 && !this._sse.closed) {
+                    this._sse.closed = true;
+                    try {
+                        this._sse.controller.close();
+                    } catch  {}
+                }
+                if (this._deferredResponse !== void 0 && !this._deferredResponse.settled) {
+                    this._deferredResponse.settled = true;
+                    this._deferredResponse.reject(new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.ConnectionClosed, "Connection closed before a response was produced"));
+                }
+                this.onclose?.();
+            }
+            settleResponse(response) {
+                if (this._deferredResponse === void 0 || this._deferredResponse.settled) return;
+                this._deferredResponse.settled = true;
+                this._deferredResponse.resolve(response);
+            }
+            upgradeToSse() {
+                let controller;
+                const readable = new ReadableStream({
+                    start: (streamController)=>{
+                        controller = streamController;
+                    },
+                    cancel: ()=>{
+                        this.close();
+                    }
+                });
+                this._sse = {
+                    controller,
+                    encoder: new TextEncoder(),
+                    closed: false
+                };
+                this._sse.keepAliveTimer = armSseKeepAlive1(this._keepAliveMs, ()=>this.writeCommentFrame("keepalive"));
+                this.settleResponse(new Response(readable, {
+                    status: 200,
+                    headers: {
+                        "Content-Type": "text/event-stream",
+                        "Cache-Control": "no-cache, no-transform",
+                        Connection: "keep-alive",
+                        "X-Accel-Buffering": "no"
+                    }
+                }));
+            }
+            finalizeStream() {
+                if (this._sse?.keepAliveTimer !== void 0) clearInterval(this._sse.keepAliveTimer);
+                if (this._sse !== void 0 && !this._sse.closed) {
+                    this._sse.closed = true;
+                    try {
+                        this._sse.controller.close();
+                    } catch  {}
+                }
+                queueMicrotask(()=>void this.close());
+            }
+            writeMessageFrame(message) {
+                this.writeFrame(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
+            }
+            writeFrame(frame) {
+                if (this._sse === void 0 || this._sse.closed) return;
+                try {
+                    this._sse.controller.enqueue(this._sse.encoder.encode(frame));
+                } catch (error) {
+                    this.onerror?.(new Error(`Failed to write to the response stream: ${error}`));
+                }
+            }
+        };
+        function perRequestClassificationOf(transport) {
+            return transport instanceof PerRequestHTTPServerTransport1 ? readClassification(transport) : void 0;
         }
         function comparableResource(value) {
             const text = String(value);
@@ -11552,10 +11932,10 @@ var __webpack_modules__ = {
             };
         }
         function coerceEmbeddedInputRequest(method, key, entry) {
-            if (entry === null || typeof entry !== "object" || typeof entry.method !== "string") throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an invalid input request '${key}': each inputRequests entry must be an embedded elicitation/create, sampling/createMessage, or roots/list request`);
+            if (entry === null || typeof entry !== "object" || typeof entry.method !== "string") throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an invalid input request '${key}': each inputRequests entry must be an embedded elicitation/create, sampling/createMessage, or roots/list request`);
             const embedded = entry;
-            const required = (0, _src_Cqbh3MYc_mjs__rspack_import_0.Ht)(embedded);
-            if (required === void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input request '${key}' of kind '${embedded.method}', which is not an embedded request the 2026-07-28 revision defines`);
+            const required = (0, _src_DdvbAHrR_mjs__rspack_import_0.Ht)(embedded);
+            if (required === void 0) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input request '${key}' of kind '${embedded.method}', which is not an embedded request the 2026-07-28 revision defines`);
             return {
                 embedded,
                 required
@@ -11583,7 +11963,7 @@ var __webpack_modules__ = {
                 ],
                 isError: true
             };
-            throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, message);
+            throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError, message);
         }
         var LegacyInputRequiredShim = class {
             constructor(_host){
@@ -11596,25 +11976,25 @@ var __webpack_modules__ = {
                 let round = 0;
                 while(true){
                     round += 1;
-                    if (round > maxRounds) return legacyShimFailure(method, (0, _src_Cqbh3MYc_mjs__rspack_import_0.w)(method, maxRounds));
+                    if (round > maxRounds) return legacyShimFailure(method, (0, _src_DdvbAHrR_mjs__rspack_import_0.w)(method, maxRounds));
                     const inputRequests = current.inputRequests;
                     const hasInputRequests = inputRequests != null && Object.keys(inputRequests).length > 0;
                     const requestState = typeof current.requestState === "string" ? current.requestState : void 0;
-                    if (!hasInputRequests && requestState === void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result with neither inputRequests nor requestState (every InputRequiredResult must include at least one of the two)`);
+                    if (!hasInputRequests && requestState === void 0) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result with neither inputRequests nor requestState (every InputRequiredResult must include at least one of the two)`);
                     let responses;
                     if (hasInputRequests) {
                         const declared = this._host.resolvedClientCapabilities(ctx);
                         const coerced = [];
                         for (const [key, entry] of Object.entries(inputRequests)){
                             const { embedded, required } = coerceEmbeddedInputRequest(method, key, entry);
-                            if (embedded.method !== "roots/list" && embedded.params === void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input request '${key}' of kind '${embedded.method}' without params`);
-                            if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.Vt)(required, declared) !== void 0) return legacyShimFailure(method, `Cannot request input '${key}' (${embedded.method}): the client on this 2025-era connection did not declare the required capability${declared === void 0 ? " (no client capabilities are available on this connection — per-request legacy serving cannot receive server-to-client requests)" : ""}`);
+                            if (embedded.method !== "roots/list" && embedded.params === void 0) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input request '${key}' of kind '${embedded.method}' without params`);
+                            if ((0, _src_DdvbAHrR_mjs__rspack_import_0.Vt)(required, declared) !== void 0) return legacyShimFailure(method, `Cannot request input '${key}' (${embedded.method}): the client on this 2025-era connection did not declare the required capability${declared === void 0 ? " (no client capabilities are available on this connection — per-request legacy serving cannot receive server-to-client requests)" : ""}`);
                             coerced.push([
                                 key,
                                 embedded
                             ]);
                         }
-                        const roundAbort = (0, _src_Cqbh3MYc_mjs__rspack_import_0.T)(outerSignal);
+                        const roundAbort = (0, _src_DdvbAHrR_mjs__rspack_import_0.T)(outerSignal);
                         try {
                             const legOptions = {
                                 relatedRequestId: ctx.mcpReq.id,
@@ -11641,22 +12021,22 @@ var __webpack_modules__ = {
                         } finally{
                             roundAbort.dispose();
                         }
-                    } else await (0, _src_Cqbh3MYc_mjs__rspack_import_0.E)(250, outerSignal);
+                    } else await (0, _src_DdvbAHrR_mjs__rspack_import_0.E)(250, outerSignal);
                     let ctxNext = {
                         ...ctx,
                         mcpReq: {
                             ...ctx.mcpReq,
                             inputResponses: responses,
                             droppedInputResponseKeys: void 0,
-                            requestState: (0, _src_Cqbh3MYc_mjs__rspack_import_0.v)(requestState)
+                            requestState: (0, _src_DdvbAHrR_mjs__rspack_import_0.v)(requestState)
                         }
                     };
                     if (requestState !== void 0) {
                         const decoded = await this._host.verifyRequestState(requestState, ctxNext, method);
-                        if (decoded !== void 0) ctxNext = (0, _src_Cqbh3MYc_mjs__rspack_import_0.b)(ctxNext, decoded);
+                        if (decoded !== void 0) ctxNext = (0, _src_DdvbAHrR_mjs__rspack_import_0.b)(ctxNext, decoded);
                     }
                     const next = await handler(request, ctxNext);
-                    if (!(0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(next)) return next;
+                    if (!(0, _src_DdvbAHrR_mjs__rspack_import_0.q)(next)) return next;
                     current = next;
                 }
             }
@@ -11695,7 +12075,7 @@ var __webpack_modules__ = {
         function serverIdentityOf1(server) {
             return readServerIdentity(server);
         }
-        var Server = class extends _src_Cqbh3MYc_mjs__rspack_import_0.g {
+        var Server = class extends _src_DdvbAHrR_mjs__rspack_import_0.g {
             _clientCapabilities;
             _clientVersion;
             static{
@@ -11720,6 +12100,7 @@ var __webpack_modules__ = {
             _requestStateVerify;
             _inputRequiredServing;
             _legacyShim;
+            _boundFromTransport = false;
             _legacyInputRequiredShim() {
                 return this._legacyShim ??= new LegacyInputRequiredShim({
                     maxRounds: this._inputRequiredServing.maxRounds,
@@ -11745,23 +12126,32 @@ var __webpack_modules__ = {
                 this._requestStateVerify = options?.requestState?.verify;
                 this._inputRequiredServing = resolveLegacyShimOptions(options?.inputRequired);
                 if (options?.cacheHints !== void 0) {
-                    for (const [operation, hint] of Object.entries(options.cacheHints))if (hint !== void 0) (0, _src_Cqbh3MYc_mjs__rspack_import_0.ht)(hint, `cacheHints['${operation}']`);
+                    for (const [operation, hint] of Object.entries(options.cacheHints))if (hint !== void 0) (0, _src_DdvbAHrR_mjs__rspack_import_0.ht)(hint, `cacheHints['${operation}']`);
                     this._cacheHints = options.cacheHints;
                 }
                 this.setRequestHandler("initialize", (request)=>this._oninitialize(request));
                 this.setNotificationHandler("notifications/initialized", ()=>this.oninitialized?.());
-                if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.xt)(this._supportedProtocolVersions).length > 0) this.setRequestHandler("server/discover", ()=>this._ondiscover());
+                if ((0, _src_DdvbAHrR_mjs__rspack_import_0.xt)(this._supportedProtocolVersions).length > 0) this.setRequestHandler("server/discover", ()=>this._ondiscover());
                 if (this._capabilities.logging) this._registerLoggingHandler();
             }
             async connect(transport) {
-                if (this.transport !== void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.AlreadyConnected, "Use a separate Server instance per connection: this instance is already connected to a transport. To connect it to a new transport, call close() first.");
+                if (this.transport !== void 0) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.AlreadyConnected, "Use a separate Server instance per connection: this instance is already connected to a transport. To connect it to a new transport, call close() first.");
+                if (this._boundFromTransport) {
+                    this._boundFromTransport = false;
+                    this._negotiatedProtocolVersion = void 0;
+                }
+                const revision = perRequestClassificationOf(transport)?.revision;
+                if (revision !== void 0 && !this._servedModernEra() && _src_DdvbAHrR_mjs__rspack_import_0.vt.includes(revision) && (0, _src_DdvbAHrR_mjs__rspack_import_0.xt)(this._supportedProtocolVersions).includes(revision)) {
+                    this._negotiatedProtocolVersion = revision;
+                    this._boundFromTransport = true;
+                }
                 await super.connect(transport);
             }
             _registerLoggingHandler() {
                 this.setRequestHandler("logging/setLevel", async (request, ctx)=>{
                     const transportSessionId = ctx.sessionId || ctx.http?.req?.headers.get("mcp-session-id") || void 0;
                     const { level } = request.params;
-                    const parseResult = (0, _src_Cqbh3MYc_mjs__rspack_import_0.N)(_src_Cqbh3MYc_mjs__rspack_import_0.nt, level);
+                    const parseResult = (0, _src_DdvbAHrR_mjs__rspack_import_0.N)(_src_DdvbAHrR_mjs__rspack_import_0.nt, level);
                     if (parseResult.success) this._loggingLevels.set(transportSessionId, parseResult.data);
                     return {};
                 });
@@ -11776,7 +12166,7 @@ var __webpack_modules__ = {
                             if (!this._capabilities.logging) return Promise.resolve();
                             let threshold;
                             if (this._servedModernEra()) {
-                                threshold = ctx.mcpReq.envelope?.[_src_Cqbh3MYc_mjs__rspack_import_0.jt];
+                                threshold = ctx.mcpReq.envelope?.[_src_DdvbAHrR_mjs__rspack_import_0.jt];
                                 if (threshold === void 0) return Promise.resolve();
                             } else threshold = this._loggingLevels.get(ctx.sessionId) ?? this._loggingLevels.get(void 0);
                             if (threshold !== void 0 && this.LOG_LEVEL_SEVERITY.get(level) < this.LOG_LEVEL_SEVERITY.get(threshold)) return Promise.resolve();
@@ -11801,7 +12191,7 @@ var __webpack_modules__ = {
                 };
             }
             _loggingLevels = new Map();
-            LOG_LEVEL_SEVERITY = new Map(_src_Cqbh3MYc_mjs__rspack_import_0.nt.options.map((level, index)=>[
+            LOG_LEVEL_SEVERITY = new Map(_src_DdvbAHrR_mjs__rspack_import_0.nt.options.map((level, index)=>[
                     level,
                     index
                 ]));
@@ -11810,9 +12200,9 @@ var __webpack_modules__ = {
                 return currentLevel ? this.LOG_LEVEL_SEVERITY.get(level) < this.LOG_LEVEL_SEVERITY.get(currentLevel) : false;
             };
             registerCapabilities(capabilities) {
-                if (this.transport) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.AlreadyConnected, "Cannot register capabilities after connecting to transport");
+                if (this.transport) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.AlreadyConnected, "Cannot register capabilities after connecting to transport");
                 const hadLogging = !!this._capabilities.logging;
-                this._capabilities = (0, _src_Cqbh3MYc_mjs__rspack_import_0._)(this._capabilities, capabilities);
+                this._capabilities = (0, _src_DdvbAHrR_mjs__rspack_import_0._)(this._capabilities, capabilities);
                 if (!hadLogging && this._capabilities.logging) this._registerLoggingHandler();
             }
             _wrapHandler(method, handler) {
@@ -11821,69 +12211,69 @@ var __webpack_modules__ = {
                     const isInputRequiredCapable = INPUT_REQUIRED_CAPABLE_METHODS.has(method);
                     if (cacheHint === void 0 && !isInputRequiredCapable) return async (request, ctx)=>{
                         const result = await handler(request, ctx);
-                        if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but only tools/call, prompts/get and resources/read support input_required (protocol revision 2026-07-28)`);
+                        if ((0, _src_DdvbAHrR_mjs__rspack_import_0.q)(result)) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but only tools/call, prompts/get and resources/read support input_required (protocol revision 2026-07-28)`);
                         return result;
                     };
                     return async (request, ctx)=>{
                         const result = isInputRequiredCapable ? await this._invokeInputRequiredCapableHandler(method, handler, request, ctx) : await handler(request, ctx);
-                        if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) {
-                            if (!isInputRequiredCapable) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but only tools/call, prompts/get and resources/read support input_required (protocol revision 2026-07-28)`);
+                        if ((0, _src_DdvbAHrR_mjs__rspack_import_0.q)(result)) {
+                            if (!isInputRequiredCapable) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but only tools/call, prompts/get and resources/read support input_required (protocol revision 2026-07-28)`);
                             return result;
                         }
-                        return cacheHint === void 0 ? result : (0, _src_Cqbh3MYc_mjs__rspack_import_0.gt)(result, cacheHint);
+                        return cacheHint === void 0 ? result : (0, _src_DdvbAHrR_mjs__rspack_import_0.gt)(result, cacheHint);
                     };
                 }
                 return async (request, ctx)=>{
-                    const codec = (0, _src_Cqbh3MYc_mjs__rspack_import_0.ct)(this._negotiatedProtocolVersion);
+                    const codec = (0, _src_DdvbAHrR_mjs__rspack_import_0.ct)(this._negotiatedProtocolVersion);
                     const validatedRequest = codec.validateRequest("tools/call", request);
-                    if (!validatedRequest.ok) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(validatedRequest.reason === "not-in-era" ? _src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError : _src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, validatedRequest.reason === "not-in-era" ? "No wire schema for tools/call in the resolved era" : `Invalid tools/call request: ${validatedRequest.message}`);
+                    if (!validatedRequest.ok) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(validatedRequest.reason === "not-in-era" ? _src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError : _src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, validatedRequest.reason === "not-in-era" ? "No wire schema for tools/call in the resolved era" : `Invalid tools/call request: ${validatedRequest.message}`);
                     const result = await this._invokeInputRequiredCapableHandler("tools/call", handler, request, ctx);
-                    if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) return result;
-                    const normalizedResult = (0, _src_Cqbh3MYc_mjs__rspack_import_0._t)(result);
+                    if ((0, _src_DdvbAHrR_mjs__rspack_import_0.q)(result)) return result;
+                    const normalizedResult = (0, _src_DdvbAHrR_mjs__rspack_import_0._t)(result);
                     const validationResult = codec.validateResult("tools/call", normalizedResult);
-                    if (!validationResult.ok) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(validationResult.reason === "not-in-era" ? _src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError : _src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, validationResult.reason === "not-in-era" ? "No wire schema for tools/call in the resolved era" : `Invalid tools/call result: ${validationResult.message}`);
+                    if (!validationResult.ok) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(validationResult.reason === "not-in-era" ? _src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError : _src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, validationResult.reason === "not-in-era" ? "No wire schema for tools/call in the resolved era" : `Invalid tools/call result: ${validationResult.message}`);
                     return validationResult.value;
                 };
             }
             _servedModernEra() {
-                return this._negotiatedProtocolVersion !== void 0 && (0, _src_Cqbh3MYc_mjs__rspack_import_0.yt)(this._negotiatedProtocolVersion);
+                return this._negotiatedProtocolVersion !== void 0 && (0, _src_DdvbAHrR_mjs__rspack_import_0.yt)(this._negotiatedProtocolVersion);
             }
             async _invokeInputRequiredCapableHandler(method, handler, request, ctx) {
                 const servedModern = this._servedModernEra();
                 const rawRequestState = ctx.mcpReq.requestState();
-                if (rawRequestState !== void 0 && typeof rawRequestState !== "string") throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, "Invalid or expired requestState", {
+                if (rawRequestState !== void 0 && typeof rawRequestState !== "string") throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, "Invalid or expired requestState", {
                     reason: "invalid_request_state"
                 });
                 let ctxForHandler = ctx;
                 if (typeof rawRequestState === "string") {
                     const decoded = await this._verifyRequestState(rawRequestState, ctx, method);
-                    if (decoded !== void 0) ctxForHandler = (0, _src_Cqbh3MYc_mjs__rspack_import_0.b)(ctx, decoded);
+                    if (decoded !== void 0) ctxForHandler = (0, _src_DdvbAHrR_mjs__rspack_import_0.b)(ctx, decoded);
                 }
                 let result;
                 try {
                     result = await handler(request, ctxForHandler);
                 } catch (error) {
-                    if (error instanceof _src_Cqbh3MYc_mjs__rspack_import_0.ut && error.code === _src_Cqbh3MYc_mjs__rspack_import_0.mt.UrlElicitationRequired) {
+                    if (error instanceof _src_DdvbAHrR_mjs__rspack_import_0.ut && error.code === _src_DdvbAHrR_mjs__rspack_import_0.mt.UrlElicitationRequired) {
                         if (!servedModern) throw error;
-                        throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `URL elicitation cannot be signalled by throwing UrlElicitationRequiredError on protocol revision ${this._negotiatedProtocolVersion}: return inputRequired({ inputRequests: { …: inputRequired.elicitUrl(...) } }) from the handler instead. The urlElicitationRequired error (-32042) of earlier revisions is not available on this revision.`);
+                        throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError, `URL elicitation cannot be signalled by throwing UrlElicitationRequiredError on protocol revision ${this._negotiatedProtocolVersion}: return inputRequired({ inputRequests: { …: inputRequired.elicitUrl(...) } }) from the handler instead. The urlElicitationRequired error (-32042) of earlier revisions is not available on this revision.`);
                     }
                     throw error;
                 }
-                if (!(0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) return result;
+                if (!(0, _src_DdvbAHrR_mjs__rspack_import_0.q)(result)) return result;
                 if (!servedModern) {
-                    if (!this._inputRequiredServing.legacyShim) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but this request is served on protocol revision ${this._negotiatedProtocolVersion ?? _src_Cqbh3MYc_mjs__rspack_import_0.At}, which has no input_required vocabulary`);
+                    if (!this._inputRequiredServing.legacyShim) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result, but this request is served on protocol revision ${this._negotiatedProtocolVersion ?? _src_DdvbAHrR_mjs__rspack_import_0.At}, which has no input_required vocabulary`);
                     return await this._legacyInputRequiredShim().fulfill(method, handler, request, ctxForHandler, result);
                 }
                 const inputRequests = result.inputRequests;
                 const hasInputRequests = inputRequests != null && Object.keys(inputRequests).length > 0;
                 const hasRequestState = typeof result.requestState === "string";
-                if (!hasInputRequests && !hasRequestState) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result with neither inputRequests nor requestState (every InputRequiredResult must include at least one of the two)`);
+                if (!hasInputRequests && !hasRequestState) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError, `Handler for ${method} returned an input-required result with neither inputRequests nor requestState (every InputRequiredResult must include at least one of the two)`);
                 if (hasInputRequests) {
                     const declared = this._inputRequestCapabilityView(ctx);
                     for (const [key, entry] of Object.entries(inputRequests)){
                         const { embedded, required } = coerceEmbeddedInputRequest(method, key, entry);
-                        const missing = (0, _src_Cqbh3MYc_mjs__rspack_import_0.Vt)(required, declared);
-                        if (missing !== void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.lt({
+                        const missing = (0, _src_DdvbAHrR_mjs__rspack_import_0.Vt)(required, declared);
+                        if (missing !== void 0) throw new _src_DdvbAHrR_mjs__rspack_import_0.lt({
                             requiredCapabilities: missing
                         }, `Cannot request input '${key}' (${embedded.method}): the request's client capabilities do not declare the required capability`);
                     }
@@ -11896,16 +12286,16 @@ var __webpack_modules__ = {
                     return await this._requestStateVerify(state, ctx);
                 } catch (error) {
                     this.onerror?.(new Error(`requestState verification rejected ${method}: ${error instanceof Error ? error.message : String(error)}`));
-                    throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, "Invalid or expired requestState", {
+                    throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, "Invalid or expired requestState", {
                         reason: "invalid_request_state"
                     });
                 }
             }
             _inputRequestCapabilityView(ctx) {
-                return this._servedModernEra() ? ctx.mcpReq.envelope?.[_src_Cqbh3MYc_mjs__rspack_import_0.Ct] : this._clientCapabilities;
+                return this._servedModernEra() ? ctx.mcpReq.envelope?.[_src_DdvbAHrR_mjs__rspack_import_0.Ct] : this._clientCapabilities;
             }
             _assertPushApiInServedEra(method) {
-                if (this._servedModernEra()) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.MethodNotSupportedByProtocolVersion, `Server-to-client requests are not available on protocol revision ${this._negotiatedProtocolVersion}: '${method}' cannot be sent while serving a request on that revision. Return inputRequired({ ... }) from the handler instead — the client fulfils the embedded requests and retries the original request (multi round-trip requests).`, {
+                if (this._servedModernEra()) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.MethodNotSupportedByProtocolVersion, `Server-to-client requests are not available on protocol revision ${this._negotiatedProtocolVersion}: '${method}' cannot be sent while serving a request on that revision. Return inputRequired({ ... }) from the handler instead — the client fulfils the embedded requests and retries the original request (multi round-trip requests).`, {
                     method,
                     era: "2026-07-28"
                 });
@@ -11913,13 +12303,13 @@ var __webpack_modules__ = {
             assertCapabilityForMethod(method) {
                 switch(method){
                     case "sampling/createMessage":
-                        if (!this._clientCapabilities?.sampling) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support sampling (required for ${method})`);
+                        if (!this._clientCapabilities?.sampling) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support sampling (required for ${method})`);
                         break;
                     case "elicitation/create":
-                        if (!this._clientCapabilities?.elicitation) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support elicitation (required for ${method})`);
+                        if (!this._clientCapabilities?.elicitation) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support elicitation (required for ${method})`);
                         break;
                     case "roots/list":
-                        if (!this._clientCapabilities?.roots) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support listing roots (required for ${method})`);
+                        if (!this._clientCapabilities?.roots) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support listing roots (required for ${method})`);
                         break;
                     case "ping":
                         break;
@@ -11928,20 +12318,20 @@ var __webpack_modules__ = {
             assertNotificationCapability(method) {
                 switch(method){
                     case "notifications/message":
-                        if (!this._capabilities.logging) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support logging (required for ${method})`);
+                        if (!this._capabilities.logging) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support logging (required for ${method})`);
                         break;
                     case "notifications/resources/updated":
                     case "notifications/resources/list_changed":
-                        if (!this._capabilities.resources) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying about resources (required for ${method})`);
+                        if (!this._capabilities.resources) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying about resources (required for ${method})`);
                         break;
                     case "notifications/tools/list_changed":
-                        if (!this._capabilities.tools) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying of tool list changes (required for ${method})`);
+                        if (!this._capabilities.tools) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying of tool list changes (required for ${method})`);
                         break;
                     case "notifications/prompts/list_changed":
-                        if (!this._capabilities.prompts) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying of prompt list changes (required for ${method})`);
+                        if (!this._capabilities.prompts) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support notifying of prompt list changes (required for ${method})`);
                         break;
                     case "notifications/elicitation/complete":
-                        if (!this._clientCapabilities?.elicitation?.url) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support URL elicitation (required for ${method})`);
+                        if (!this._clientCapabilities?.elicitation?.url) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Client does not support URL elicitation (required for ${method})`);
                         break;
                     case "notifications/cancelled":
                         break;
@@ -11952,23 +12342,23 @@ var __webpack_modules__ = {
             assertRequestHandlerCapability(method) {
                 switch(method){
                     case "completion/complete":
-                        if (!this._capabilities.completions) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support completions (required for ${method})`);
+                        if (!this._capabilities.completions) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support completions (required for ${method})`);
                         break;
                     case "logging/setLevel":
-                        if (!this._capabilities.logging) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support logging (required for ${method})`);
+                        if (!this._capabilities.logging) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support logging (required for ${method})`);
                         break;
                     case "prompts/get":
                     case "prompts/list":
-                        if (!this._capabilities.prompts) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support prompts (required for ${method})`);
+                        if (!this._capabilities.prompts) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support prompts (required for ${method})`);
                         break;
                     case "resources/list":
                     case "resources/templates/list":
                     case "resources/read":
-                        if (!this._capabilities.resources) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support resources (required for ${method})`);
+                        if (!this._capabilities.resources) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support resources (required for ${method})`);
                         break;
                     case "tools/call":
                     case "tools/list":
-                        if (!this._capabilities.tools) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support tools (required for ${method})`);
+                        if (!this._capabilities.tools) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, `Server does not support tools (required for ${method})`);
                         break;
                     case "ping":
                     case "initialize":
@@ -11979,8 +12369,8 @@ var __webpack_modules__ = {
                 const requestedVersion = request.params.protocolVersion;
                 this._clientCapabilities = request.params.capabilities;
                 this._clientVersion = request.params.clientInfo;
-                const legacyVersions = (0, _src_Cqbh3MYc_mjs__rspack_import_0.bt)(this._supportedProtocolVersions);
-                const protocolVersion = legacyVersions.includes(requestedVersion) ? requestedVersion : legacyVersions[0] ?? _src_Cqbh3MYc_mjs__rspack_import_0.At;
+                const legacyVersions = (0, _src_DdvbAHrR_mjs__rspack_import_0.bt)(this._supportedProtocolVersions);
+                const protocolVersion = legacyVersions.includes(requestedVersion) ? requestedVersion : legacyVersions[0] ?? _src_DdvbAHrR_mjs__rspack_import_0.At;
                 this._negotiatedProtocolVersion = protocolVersion;
                 this.transport?.setProtocolVersion?.(protocolVersion);
                 return {
@@ -11994,7 +12384,7 @@ var __webpack_modules__ = {
             }
             _ondiscover() {
                 return {
-                    supportedVersions: (0, _src_Cqbh3MYc_mjs__rspack_import_0.xt)(this._supportedProtocolVersions),
+                    supportedVersions: (0, _src_DdvbAHrR_mjs__rspack_import_0.xt)(this._supportedProtocolVersions),
                     capabilities: discoverAdvertisedCapabilities(this.getCapabilities()),
                     ...this._instructions && {
                         instructions: this._instructions
@@ -12027,7 +12417,7 @@ var __webpack_modules__ = {
             }
             async createMessage(params, options) {
                 this._assertPushApiInServedEra("sampling/createMessage");
-                if ((params.tools || params.toolChoice) && !this._clientCapabilities?.sampling?.tools) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support sampling tools capability.");
+                if ((params.tools || params.toolChoice) && !this._clientCapabilities?.sampling?.tools) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support sampling tools capability.");
                 if (params.messages.length > 0) {
                     const lastMessage = params.messages.at(-1);
                     const lastContent = Array.isArray(lastMessage.content) ? lastMessage.content : [
@@ -12040,15 +12430,15 @@ var __webpack_modules__ = {
                     ] : [];
                     const hasPreviousToolUse = previousContent.some((c)=>c.type === "tool_use");
                     if (hasToolResults) {
-                        if (lastContent.some((c)=>c.type !== "tool_result")) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, "The last message must contain only tool_result content if any is present");
-                        if (!hasPreviousToolUse) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, "tool_result blocks are not matching any tool_use from the previous message");
+                        if (lastContent.some((c)=>c.type !== "tool_result")) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, "The last message must contain only tool_result content if any is present");
+                        if (!hasPreviousToolUse) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, "tool_result blocks are not matching any tool_use from the previous message");
                     }
                     if (hasPreviousToolUse) {
                         const toolUseIds = new Set(previousContent.filter((c)=>c.type === "tool_use").map((c)=>c.id));
                         const toolResultIds = new Set(lastContent.filter((c)=>c.type === "tool_result").map((c)=>c.toolUseId));
                         if (toolUseIds.size !== toolResultIds.size || ![
                             ...toolUseIds
-                        ].every((id)=>toolResultIds.has(id))) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, "ids of tool_result blocks and tool_use blocks from previous message do not match");
+                        ].every((id)=>toolResultIds.has(id))) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, "ids of tool_result blocks and tool_use blocks from previous message do not match");
                     }
                 }
                 const hasTools = Boolean(params.tools || params.toolChoice);
@@ -12057,17 +12447,17 @@ var __webpack_modules__ = {
                     params
                 }, options);
                 const outcome = this._wireCodec().samplingResultVariant(hasTools, wide);
-                if (!outcome.ok) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.InvalidResult, `Invalid sampling/createMessage result: ${outcome.reason === "invalid" ? outcome.message : outcome.reason}`);
+                if (!outcome.ok) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.InvalidResult, `Invalid sampling/createMessage result: ${outcome.reason === "invalid" ? outcome.message : outcome.reason}`);
                 return outcome.value;
             }
             async elicitInput(params, options) {
                 this._assertPushApiInServedEra("elicitation/create");
                 switch(params.mode ?? "form"){
                     case "url":
-                        if (!this._clientCapabilities?.elicitation?.url) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support url elicitation.");
+                        if (!this._clientCapabilities?.elicitation?.url) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support url elicitation.");
                         break;
                     case "form":
-                        if (!this._clientCapabilities?.elicitation?.form) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support form elicitation.");
+                        if (!this._clientCapabilities?.elicitation?.form) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support form elicitation.");
                         break;
                 }
                 return this._sendElicitationLeg(params, options);
@@ -12096,17 +12486,17 @@ var __webpack_modules__ = {
                             }, options);
                             if (validateAcceptedContent && result.action === "accept" && result.content && formParams.requestedSchema) try {
                                 const validationResult = this._jsonSchemaValidator.getValidator(formParams.requestedSchema)(result.content);
-                                if (!validationResult.valid) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Elicitation response content does not match requested schema: ${validationResult.errorMessage}`);
+                                if (!validationResult.valid) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Elicitation response content does not match requested schema: ${validationResult.errorMessage}`);
                             } catch (error) {
-                                if (error instanceof _src_Cqbh3MYc_mjs__rspack_import_0.ut) throw error;
-                                throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InternalError, `Error validating elicitation response: ${error instanceof Error ? error.message : String(error)}`);
+                                if (error instanceof _src_DdvbAHrR_mjs__rspack_import_0.ut) throw error;
+                                throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InternalError, `Error validating elicitation response: ${error instanceof Error ? error.message : String(error)}`);
                             }
                             return result;
                         }
                 }
             }
             createElicitationCompletionNotifier(elicitationId, options) {
-                if (!this._clientCapabilities?.elicitation?.url) throw new _src_Cqbh3MYc_mjs__rspack_import_0.Kt(_src_Cqbh3MYc_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support URL elicitation (required for notifications/elicitation/complete)");
+                if (!this._clientCapabilities?.elicitation?.url) throw new _src_DdvbAHrR_mjs__rspack_import_0.Kt(_src_DdvbAHrR_mjs__rspack_import_0.qt.CapabilityNotSupported, "Client does not support URL elicitation (required for notifications/elicitation/complete)");
                 return ()=>this.notification({
                         method: "notifications/elicitation/complete",
                         params: {
@@ -12194,7 +12584,7 @@ var __webpack_modules__ = {
                 if (Object.hasOwn(this._toolInputSchemaJson, name)) return this._toolInputSchemaJson[name];
                 if (tool.inputSchema === void 0) return EMPTY_OBJECT_JSON_SCHEMA;
                 try {
-                    const json = (0, _src_Cqbh3MYc_mjs__rspack_import_0.j)(tool.inputSchema, "input");
+                    const json = (0, _src_DdvbAHrR_mjs__rspack_import_0.j)(tool.inputSchema, "input");
                     this._toolInputSchemaJson[name] = json;
                     return json;
                 } catch  {
@@ -12274,22 +12664,22 @@ var __webpack_modules__ = {
                                 execution: tool.execution,
                                 _meta: tool._meta
                             };
-                            if (tool.outputSchema) toolDefinition.outputSchema = (0, _src_Cqbh3MYc_mjs__rspack_import_0.j)(tool.outputSchema, "output");
+                            if (tool.outputSchema) toolDefinition.outputSchema = (0, _src_DdvbAHrR_mjs__rspack_import_0.j)(tool.outputSchema, "output");
                             return toolDefinition;
                         })
                     }));
                 this.server.setRequestHandler("tools/call", async (request, ctx)=>{
                     const tool = this._registeredTools[request.params.name];
-                    if (!tool) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Tool ${request.params.name} not found`);
-                    if (!tool.enabled) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Tool ${request.params.name} disabled`);
+                    if (!tool) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Tool ${request.params.name} not found`);
+                    if (!tool.enabled) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Tool ${request.params.name} disabled`);
                     try {
                         const args = await this.validateToolInput(tool, request.params.arguments, request.params.name);
                         const result = await this.executeToolHandler(tool, args, ctx);
                         await this.validateToolOutput(tool, result, request.params.name);
-                        if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) return result;
+                        if ((0, _src_DdvbAHrR_mjs__rspack_import_0.q)(result)) return result;
                         return this.server.projectCallToolResult(result, tool.outputSchemaJson);
                     } catch (error) {
-                        if (error instanceof _src_Cqbh3MYc_mjs__rspack_import_0.ut && error.code === _src_Cqbh3MYc_mjs__rspack_import_0.mt.UrlElicitationRequired) throw error;
+                        if (error instanceof _src_DdvbAHrR_mjs__rspack_import_0.ut && error.code === _src_DdvbAHrR_mjs__rspack_import_0.mt.UrlElicitationRequired) throw error;
                         return this.createToolError(error instanceof Error ? error.message : String(error));
                     }
                 });
@@ -12307,19 +12697,19 @@ var __webpack_modules__ = {
                 };
             }
             async validateToolInput(tool, args, toolName) {
-                if (this._maxToolInputElements !== void 0 && toolInputElementCount(args, this._maxToolInputElements) > this._maxToolInputElements) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Invalid arguments for tool ${toolName}: arguments contain more than the maximum of ${this._maxToolInputElements} elements`);
+                if (this._maxToolInputElements !== void 0 && toolInputElementCount(args, this._maxToolInputElements) > this._maxToolInputElements) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Invalid arguments for tool ${toolName}: arguments contain more than the maximum of ${this._maxToolInputElements} elements`);
                 if (!tool.inputSchema) return;
-                const parseResult = await (0, _src_Cqbh3MYc_mjs__rspack_import_0.M)(tool.inputSchema, args ?? {});
-                if (!parseResult.success) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Input validation error: Invalid arguments for tool ${toolName}: ${parseResult.error}`);
+                const parseResult = await (0, _src_DdvbAHrR_mjs__rspack_import_0.M)(tool.inputSchema, args ?? {});
+                if (!parseResult.success) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Input validation error: Invalid arguments for tool ${toolName}: ${parseResult.error}`);
                 return parseResult.data;
             }
             async validateToolOutput(tool, result, toolName) {
                 if (!tool.outputSchema) return;
-                if ((0, _src_Cqbh3MYc_mjs__rspack_import_0.q)(result)) return;
+                if ((0, _src_DdvbAHrR_mjs__rspack_import_0.q)(result)) return;
                 if (result.isError) return;
-                if (result.structuredContent === void 0) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Output validation error: Tool ${toolName} has an output schema but no structured content was provided`);
-                const parseResult = await (0, _src_Cqbh3MYc_mjs__rspack_import_0.M)(tool.outputSchema, result.structuredContent);
-                if (!parseResult.success) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Output validation error: Invalid structured content for tool ${toolName}: ${parseResult.error}`);
+                if (result.structuredContent === void 0) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Output validation error: Tool ${toolName} has an output schema but no structured content was provided`);
+                const parseResult = await (0, _src_DdvbAHrR_mjs__rspack_import_0.M)(tool.outputSchema, result.structuredContent);
+                if (!parseResult.success) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Output validation error: Invalid structured content for tool ${toolName}: ${parseResult.error}`);
             }
             async executeToolHandler(tool, args, ctx) {
                 return tool.executor(args, ctx);
@@ -12334,21 +12724,21 @@ var __webpack_modules__ = {
                 this.server.setRequestHandler("completion/complete", async (request)=>{
                     switch(request.params.ref.type){
                         case "ref/prompt":
-                            (0, _src_Cqbh3MYc_mjs__rspack_import_0.H)(request);
+                            (0, _src_DdvbAHrR_mjs__rspack_import_0.H)(request);
                             return this.handlePromptCompletion(request, request.params.ref);
                         case "ref/resource":
-                            (0, _src_Cqbh3MYc_mjs__rspack_import_0.U)(request);
+                            (0, _src_DdvbAHrR_mjs__rspack_import_0.U)(request);
                             return this.handleResourceCompletion(request, request.params.ref);
                         default:
-                            throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Invalid completion reference: ${request.params.ref}`);
+                            throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Invalid completion reference: ${request.params.ref}`);
                     }
                 });
                 this._completionHandlerInitialized = true;
             }
             async handlePromptCompletion(request, ref) {
                 const prompt = this._registeredPrompts[ref.name];
-                if (!prompt) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${ref.name} not found`);
-                if (!prompt.enabled) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${ref.name} disabled`);
+                if (!prompt) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${ref.name} not found`);
+                if (!prompt.enabled) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${ref.name} disabled`);
                 if (!prompt.argsSchema) return EMPTY_COMPLETION_RESULT;
                 const field = unwrapOptionalSchema(getSchemaShape(prompt.argsSchema)?.[request.params.argument.name]);
                 if (!isCompletable(field)) return EMPTY_COMPLETION_RESULT;
@@ -12360,7 +12750,7 @@ var __webpack_modules__ = {
                 const template = Object.values(this._registeredResourceTemplates).find((t)=>t.resourceTemplate.uriTemplate.toString() === ref.uri);
                 if (!template) {
                     if (this._registeredResources[ref.uri]) return EMPTY_COMPLETION_RESULT;
-                    throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Resource template ${request.params.ref.uri} not found`);
+                    throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Resource template ${request.params.ref.uri} not found`);
                 }
                 const completer = template.resourceTemplate.completeCallback(request.params.argument.name);
                 if (!completer) return EMPTY_COMPLETION_RESULT;
@@ -12413,24 +12803,24 @@ var __webpack_modules__ = {
                     try {
                         uri = new URL(request.params.uri);
                     } catch  {
-                        throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Resource URI ${request.params.uri} is invalid`, {
+                        throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Resource URI ${request.params.uri} is invalid`, {
                             uri: request.params.uri,
                             reason: "invalid_uri"
                         });
                     }
                     const resource = this._registeredResources[uri.toString()];
                     if (resource) {
-                        if (!resource.enabled) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Resource ${uri} disabled`);
-                        return (0, _src_Cqbh3MYc_mjs__rspack_import_0.gt)(await resource.readCallback(uri, ctx), resource.cacheHint);
+                        if (!resource.enabled) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Resource ${uri} disabled`);
+                        return (0, _src_DdvbAHrR_mjs__rspack_import_0.gt)(await resource.readCallback(uri, ctx), resource.cacheHint);
                     }
                     for (const template of Object.values(this._registeredResourceTemplates)){
                         const variables = template.resourceTemplate.uriTemplate.match(uri.toString());
                         if (variables) {
-                            if (!template.enabled) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Resource template ${template.resourceTemplate.uriTemplate} disabled`);
-                            return (0, _src_Cqbh3MYc_mjs__rspack_import_0.gt)(await template.readCallback(uri, variables, ctx), template.cacheHint);
+                            if (!template.enabled) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Resource template ${template.resourceTemplate.uriTemplate} disabled`);
+                            return (0, _src_DdvbAHrR_mjs__rspack_import_0.gt)(await template.readCallback(uri, variables, ctx), template.cacheHint);
                         }
                     }
-                    throw new _src_Cqbh3MYc_mjs__rspack_import_0.dt(request.params.uri);
+                    throw new _src_DdvbAHrR_mjs__rspack_import_0.dt(request.params.uri);
                 });
                 this._resourceHandlersInitialized = true;
             }
@@ -12450,7 +12840,7 @@ var __webpack_modules__ = {
                                 name,
                                 title: prompt.title,
                                 description: prompt.description,
-                                arguments: prompt.argsSchema ? (0, _src_Cqbh3MYc_mjs__rspack_import_0.A)(prompt.argsSchema) : void 0,
+                                arguments: prompt.argsSchema ? (0, _src_DdvbAHrR_mjs__rspack_import_0.A)(prompt.argsSchema) : void 0,
                                 icons: prompt.icons,
                                 _meta: prompt._meta
                             };
@@ -12458,8 +12848,8 @@ var __webpack_modules__ = {
                     }));
                 this.server.setRequestHandler("prompts/get", async (request, ctx)=>{
                     const prompt = this._registeredPrompts[request.params.name];
-                    if (!prompt) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${request.params.name} not found`);
-                    if (!prompt.enabled) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${request.params.name} disabled`);
+                    if (!prompt) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${request.params.name} not found`);
+                    if (!prompt.enabled) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Prompt ${request.params.name} disabled`);
                     return prompt.handler(request.params.arguments, ctx);
                 });
                 this._promptHandlersInitialized = true;
@@ -12467,7 +12857,7 @@ var __webpack_modules__ = {
             registerResource(name, uriOrTemplate, config, readCallback) {
                 const { cacheHint, scopeChallenge, ...resourceMetadata } = config;
                 const metadata = resourceMetadata;
-                if (cacheHint !== void 0) (0, _src_Cqbh3MYc_mjs__rspack_import_0.ht)(cacheHint, `resource ${name}`);
+                if (cacheHint !== void 0) (0, _src_DdvbAHrR_mjs__rspack_import_0.ht)(cacheHint, `resource ${name}`);
                 if (typeof uriOrTemplate === "string") {
                     if (this._registeredResources[uriOrTemplate]) throw new Error(`Resource ${uriOrTemplate} is already registered`);
                     const registeredResource = this._createRegisteredResource(name, config.title, uriOrTemplate, metadata, scopeChallenge, readCallback);
@@ -12507,8 +12897,14 @@ var __webpack_modules__ = {
                             if (updates.uri) this._registeredResources[updates.uri] = registeredResource;
                         }
                         if (updates.name !== void 0) registeredResource.name = updates.name;
-                        if (updates.title !== void 0) registeredResource.title = updates.title;
                         if (updates.metadata !== void 0) registeredResource.metadata = updates.metadata;
+                        if (updates.title !== void 0) {
+                            registeredResource.title = updates.title;
+                            registeredResource.metadata = {
+                                ...registeredResource.metadata,
+                                title: updates.title
+                            };
+                        }
                         if (updates.callback !== void 0) registeredResource.readCallback = updates.callback;
                         if (updates.scopeChallenge !== void 0) registeredResource.scopeChallenge = updates.scopeChallenge === null ? void 0 : updates.scopeChallenge;
                         if (updates.enabled !== void 0) registeredResource.enabled = updates.enabled;
@@ -12540,9 +12936,15 @@ var __webpack_modules__ = {
                             delete this._registeredResourceTemplates[name];
                             if (updates.name) this._registeredResourceTemplates[updates.name] = registeredResourceTemplate;
                         }
-                        if (updates.title !== void 0) registeredResourceTemplate.title = updates.title;
                         if (updates.template !== void 0) registeredResourceTemplate.resourceTemplate = updates.template;
                         if (updates.metadata !== void 0) registeredResourceTemplate.metadata = updates.metadata;
+                        if (updates.title !== void 0) {
+                            registeredResourceTemplate.title = updates.title;
+                            registeredResourceTemplate.metadata = {
+                                ...registeredResourceTemplate.metadata,
+                                title: updates.title
+                            };
+                        }
                         if (updates.callback !== void 0) registeredResourceTemplate.readCallback = updates.callback;
                         if (updates.scopeChallenge !== void 0) registeredResourceTemplate.scopeChallenge = updates.scopeChallenge === null ? void 0 : updates.scopeChallenge;
                         if (updates.enabled !== void 0) registeredResourceTemplate.enabled = updates.enabled;
@@ -12612,7 +13014,7 @@ var __webpack_modules__ = {
                 return registeredPrompt;
             }
             _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, icons, execution, scopeChallenge, _meta, handler) {
-                (0, _src_Cqbh3MYc_mjs__rspack_import_0.s)(name);
+                (0, _src_DdvbAHrR_mjs__rspack_import_0.s)(name);
                 let currentHandler = handler;
                 let outputSchemaJson;
                 const registeredTool = {
@@ -12645,7 +13047,7 @@ var __webpack_modules__ = {
                         }),
                     update: (updates)=>{
                         if (updates.name !== void 0 && updates.name !== name) {
-                            if (typeof updates.name === "string") (0, _src_Cqbh3MYc_mjs__rspack_import_0.s)(updates.name);
+                            if (typeof updates.name === "string") (0, _src_DdvbAHrR_mjs__rspack_import_0.s)(updates.name);
                             delete this._registeredTools[name];
                             delete this._toolInputSchemaJson[name];
                             if (updates.name) {
@@ -12688,12 +13090,12 @@ var __webpack_modules__ = {
             registerTool(name, config, cb) {
                 if (this._registeredTools[name]) throw new Error(`Tool ${name} is already registered`);
                 const { title, description, inputSchema, outputSchema, annotations, icons, scopeChallenge, _meta } = config;
-                return this._createRegisteredTool(name, title, description, (0, _src_Cqbh3MYc_mjs__rspack_import_0.r)(inputSchema), (0, _src_Cqbh3MYc_mjs__rspack_import_0.r)(outputSchema), annotations, icons, void 0, scopeChallenge, _meta, cb);
+                return this._createRegisteredTool(name, title, description, (0, _src_DdvbAHrR_mjs__rspack_import_0.r)(inputSchema), (0, _src_DdvbAHrR_mjs__rspack_import_0.r)(outputSchema), annotations, icons, void 0, scopeChallenge, _meta, cb);
             }
             registerPrompt(name, config, cb) {
                 if (this._registeredPrompts[name]) throw new Error(`Prompt ${name} is already registered`);
                 const { title, description, argsSchema, icons, scopeChallenge, _meta } = config;
-                const registeredPrompt = this._createRegisteredPrompt(name, title, description, (0, _src_Cqbh3MYc_mjs__rspack_import_0.r)(argsSchema), cb, icons, scopeChallenge, _meta);
+                const registeredPrompt = this._createRegisteredPrompt(name, title, description, (0, _src_DdvbAHrR_mjs__rspack_import_0.r)(argsSchema), cb, icons, scopeChallenge, _meta);
                 this.setPromptRequestHandlers();
                 this.sendPromptListChanged();
                 return registeredPrompt;
@@ -12743,15 +13145,15 @@ var __webpack_modules__ = {
             properties: {}
         };
         function convertListedInputSchema(name, inputSchema) {
-            const json = (0, _src_Cqbh3MYc_mjs__rspack_import_0.j)(inputSchema, "input");
-            const scan = (0, _src_Cqbh3MYc_mjs__rspack_import_0.B)(json);
+            const json = (0, _src_DdvbAHrR_mjs__rspack_import_0.j)(inputSchema, "input");
+            const scan = (0, _src_DdvbAHrR_mjs__rspack_import_0.B)(json);
             if (!scan.valid) console.warn(`[mcp-sdk] tool '${name}' carries an invalid x-mcp-header declaration and will be excluded by conforming Streamable HTTP clients: ${scan.reason}`);
             return json;
         }
         function convertOutputSchemaJson(outputSchema) {
             if (outputSchema === void 0) return void 0;
             try {
-                return (0, _src_Cqbh3MYc_mjs__rspack_import_0.j)(outputSchema, "output");
+                return (0, _src_DdvbAHrR_mjs__rspack_import_0.j)(outputSchema, "output");
             } catch  {
                 return;
             }
@@ -12760,8 +13162,8 @@ var __webpack_modules__ = {
             if (argsSchema) {
                 const typedCallback = callback;
                 return async (args, ctx)=>{
-                    const parseResult = await (0, _src_Cqbh3MYc_mjs__rspack_import_0.M)(argsSchema, args ?? {});
-                    if (!parseResult.success) throw new _src_Cqbh3MYc_mjs__rspack_import_0.ut(_src_Cqbh3MYc_mjs__rspack_import_0.mt.InvalidParams, `Invalid arguments for prompt ${name}: ${parseResult.error}`);
+                    const parseResult = await (0, _src_DdvbAHrR_mjs__rspack_import_0.M)(argsSchema, args ?? {});
+                    if (!parseResult.success) throw new _src_DdvbAHrR_mjs__rspack_import_0.ut(_src_DdvbAHrR_mjs__rspack_import_0.mt.InvalidParams, `Invalid arguments for prompt ${name}: ${parseResult.error}`);
                     return typedCallback(parseResult.data, ctx);
                 };
             } else {
@@ -12802,15 +13204,15 @@ var __webpack_modules__ = {
         });
     },
     "./node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _ajvProvider_CEoC_sr_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/ajvProvider-CEoC__sr.mjs");
+        var _ajvProvider_DyjnscPj_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/ajvProvider-DyjnscPj.mjs");
         var node_process__rspack_import_1 = __webpack_require__("node:process");
         __webpack_require__.d(__webpack_exports__, {
-            f: ()=>_ajvProvider_CEoC_sr_mjs__rspack_import_0.n
+            f: ()=>_ajvProvider_DyjnscPj_mjs__rspack_import_0.n
         });
     },
-    "./node_modules/@modelcontextprotocol/server/dist/src-Cqbh3MYc.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _chunk_Br0eD_fh_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/chunk-Br0eD_fh.mjs");
-        var _dialects_DoSzNhcb_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/dialects-DoSzNhcb.mjs");
+    "./node_modules/@modelcontextprotocol/server/dist/src-DdvbAHrR.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _chunk_vYduTEsO_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/chunk-vYduTEsO.mjs");
+        var _dialects_CDpMbily_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/dist/dialects-CDpMbily.mjs");
         var _modelcontextprotocol_core_internal__rspack_import_2 = __webpack_require__("./node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/internal.mjs");
         var zod_v4__rspack_import_3 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
         var zod_v4__rspack_import_4 = __webpack_require__("./node_modules/zod/v4/classic/iso.js");
@@ -13031,7 +13433,7 @@ var __webpack_modules__ = {
             return Object.keys(missing).length > 0 ? missing : void 0;
         }
         const FIRST_MODERN_PROTOCOL_VERSION = "2026-07-28";
-        const SUPPORTED_MODERN_PROTOCOL_VERSIONS1 = null && [
+        const SUPPORTED_MODERN_PROTOCOL_VERSIONS1 = [
             FIRST_MODERN_PROTOCOL_VERSION
         ];
         function isModernProtocolVersion(version) {
@@ -14125,7 +14527,7 @@ var __webpack_modules__ = {
                     "result"
                 ]
             };
-            const convertRecursiveRefs = (0, _dialects_DoSzNhcb_mjs__rspack_import_1.n)(natural["$schema"]) && natural["$recursiveAnchor"] !== true;
+            const convertRecursiveRefs = (0, _dialects_CDpMbily_mjs__rspack_import_1.n)(natural["$schema"]) && natural["$recursiveAnchor"] !== true;
             const rewriteRefs = (node, parentIsNameMap)=>{
                 if (Array.isArray(node)) return node.map((item)=>rewriteRefs(item, false));
                 if (node === null || typeof node !== "object") return node;
@@ -15980,7 +16382,7 @@ var __webpack_modules__ = {
         function validateEnvelopeMeta1(meta) {
             return codecForVersion1(MODERN_WIRE_REVISION1).validateEnvelopeMeta(meta);
         }
-        var schemas_exports = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.n)({
+        var schemas_exports = (0, _chunk_vYduTEsO_mjs__rspack_import_0.n)({
             AnnotationsSchema: ()=>_modelcontextprotocol_core_internal__rspack_import_2.yD$,
             AudioContentSchema: ()=>_modelcontextprotocol_core_internal__rspack_import_2.vrk,
             BaseMetadataSchema: ()=>_modelcontextprotocol_core_internal__rspack_import_2.Uk2,
@@ -16176,12 +16578,12 @@ var __webpack_modules__ = {
         const PERMITTED_X_MCP_HEADER_TYPES = new Set([
             "string",
             "integer",
-            "boolean",
-            "number"
+            "boolean"
         ]);
         function scanXMcpHeaderDeclarations1(inputSchema) {
             const declarations = [];
             const seenLower = new Map();
+            let numberFault;
             const visit = (node, path, reachable)=>{
                 if (node === null || typeof node !== "object") return void 0;
                 const schema = node;
@@ -16191,7 +16593,11 @@ var __webpack_modules__ = {
                     if (typeof raw !== "string" || raw.length === 0) return `${pathName(path)}: x-mcp-header MUST be a non-empty string`;
                     if (!RFC9110_TOKEN.test(raw)) return `${pathName(path)}: x-mcp-header '${raw}' is not a valid RFC 9110 token (no spaces, control characters or HTTP delimiters)`;
                     const type = typeof schema.type === "string" ? schema.type : void 0;
-                    if (type === void 0 || !PERMITTED_X_MCP_HEADER_TYPES.has(type)) return `${pathName(path)}: x-mcp-header is only permitted on primitive-typed properties (string, integer, boolean); got ${type ?? "<none>"}`;
+                    if (type === void 0 || !PERMITTED_X_MCP_HEADER_TYPES.has(type)) {
+                        const fault$1 = `${pathName(path)}: x-mcp-header is only permitted on primitive-typed properties (string, integer, boolean); got ${type ?? "<none>"}`;
+                        if (type !== "number") return fault$1;
+                        numberFault ??= fault$1;
+                    }
                     const lower = raw.toLowerCase();
                     const prior = seenLower.get(lower);
                     if (prior !== void 0) return `x-mcp-header '${raw}' is not case-insensitively unique (also declared as '${prior}')`;
@@ -16226,12 +16632,17 @@ var __webpack_modules__ = {
                 }
             };
             const fault = visit(inputSchema, [], true);
-            return fault === void 0 ? {
+            if (fault !== void 0) return {
+                valid: false,
+                reason: numberFault ?? fault
+            };
+            return numberFault === void 0 ? {
                 valid: true,
                 declarations
             } : {
                 valid: false,
-                reason: fault
+                reason: numberFault,
+                declarations
             };
         }
         const NON_REACHABLE_SUBSCHEMA_KEYWORDS = [
@@ -16443,7 +16854,7 @@ var __webpack_modules__ = {
                 rationale: "SEP-2243 `Mcp-Param-*` headers are validated against the named tool’s `x-mcp-header` declarations and the body `arguments` after the tool registry is known and before dispatch reaches the handler; a missing/disagreeing/malformed header is rejected 400 / -32020 with the same shape as the standard-header cross-checks. The documented order (after method resolution and params validation) is preserved observably only when the body `arguments` would otherwise validate: the check runs pre-dispatch, so a `tools/call` that fails BOTH this rung and a dispatch-time rung (e.g. order-6 `request-params`, -32602) is answered by this gate first with 400 / -32020, not by the earlier-ordered rung."
             }
         ];
-        const LADDER_ERROR_HTTP_STATUS1 = {
+        const LADDER_ERROR_HTTP_STATUS = {
             [ProtocolErrorCode1.ParseError]: 400,
             [ProtocolErrorCode1.InvalidRequest]: 400,
             [ProtocolErrorCode1.MethodNotFound]: 404,
@@ -16453,7 +16864,7 @@ var __webpack_modules__ = {
         };
         function httpStatusForErrorCode1(code, origin) {
             if (origin === "in-band") return code === ProtocolErrorCode1.MissingRequiredClientCapability ? 400 : 200;
-            return LADDER_ERROR_HTTP_STATUS1[code] ?? 400;
+            return LADDER_ERROR_HTTP_STATUS[code] ?? 400;
         }
         function rejection(rung, cell, httpStatus, error, settled) {
             return {
@@ -16759,15 +17170,18 @@ var __webpack_modules__ = {
                 ...result
             };
         }
-        function isProvablyObjectShapedRoot(schema) {
+        const LOCAL_DEFINITION_REF = /^#\/(\$defs|definitions)\/([^/~%]+)$/;
+        function isProvablyObjectShapedRoot(schema, root = schema) {
             if ("properties" in schema || "patternProperties" in schema || "additionalProperties" in schema || "required" in schema) return true;
+            const ref = typeof schema.$ref === "string" && LOCAL_DEFINITION_REF.exec(schema.$ref);
+            if (ref && root[ref[1]]?.[ref[2]]?.type === "object") return true;
             for (const key of [
                 "oneOf",
                 "anyOf",
                 "allOf"
             ]){
                 const members = schema[key];
-                if (Array.isArray(members) && members.length > 0) return members.every((m)=>m !== null && typeof m === "object" && (m.type === "object" || isProvablyObjectShapedRoot(m)));
+                if (Array.isArray(members) && members.length > 0) return members.every((m)=>m !== null && typeof m === "object" && (m.type === "object" || isProvablyObjectShapedRoot(m, "$id" in m ? {} : root)));
             }
             return false;
         }
@@ -18007,7 +18421,7 @@ var __webpack_modules__ = {
 * content-type
 * Copyright(c) 2015 Douglas Christopher Wilson
 * MIT Licensed
-*/ var require_content_type = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.t)((exports)=>{
+*/ var require_content_type = (0, _chunk_vYduTEsO_mjs__rspack_import_0.t)((exports)=>{
             var PARAM_REGEXP = /; *([!#$%&'*+.^_`|~0-9A-Za-z-]+) *= *("(?:[\u000b\u0020\u0021\u0023-\u005b\u005d-\u007e\u0080-\u00ff]|\\[\u000b\u0020-\u00ff])*"|[!#$%&'*+.^_`|~0-9A-Za-z-]+) */g;
             var QESC_REGEXP = /\\([\u000b\u0020-\u00ff])/g;
             var TYPE_REGEXP = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+\/[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
@@ -18052,7 +18466,7 @@ var __webpack_modules__ = {
                 this.type = type;
             }
         });
-        var import_content_type = (0, _chunk_Br0eD_fh_mjs__rspack_import_0.r)(require_content_type(), 1);
+        var import_content_type = (0, _chunk_vYduTEsO_mjs__rspack_import_0.r)(require_content_type(), 1);
         function mediaTypeEssence1(header) {
             if (!header) return;
             try {
@@ -18519,15 +18933,384 @@ var __webpack_modules__ = {
             xt: ()=>modernProtocolVersions,
             yt: ()=>isModernProtocolVersion
         }, {
-            q: isInputRequiredResult1
+            J: isJSONRPCErrorResponse1,
+            P: LADDER_ERROR_HTTP_STATUS,
+            Q: isJSONRPCResultResponse1,
+            X: isJSONRPCRequest1,
+            q: isInputRequiredResult1,
+            vt: SUPPORTED_MODERN_PROTOCOL_VERSIONS1
         });
     },
-    "./node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/auth-BNDyLTqp.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+    "./node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/auth-UMQCo-ad.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var zod_v4__rspack_import_0 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
+        var zod_v4__rspack_import_1 = __webpack_require__("./node_modules/zod/v4/classic/compat.js");
+        var zod_v4__rspack_import_2 = __webpack_require__("./node_modules/zod/v4/core/core.js");
+        var zod_v4__rspack_import_3 = __webpack_require__("./node_modules/zod/v4/classic/coerce.js");
+        const SafeUrlSchema = zod_v4__rspack_import_0.OZ5().superRefine((val, ctx)=>{
+            if (!URL.canParse(val)) {
+                ctx.addIssue({
+                    code: zod_v4__rspack_import_1.eq.custom,
+                    message: "URL must be parseable",
+                    fatal: true
+                });
+                return zod_v4__rspack_import_2.tm;
+            }
+        }).refine((url)=>{
+            const u = new URL(url);
+            return u.protocol !== "javascript:" && u.protocol !== "data:" && u.protocol !== "vbscript:";
+        }, {
+            message: "URL cannot use javascript:, data:, or vbscript: scheme"
+        });
+        const OAuthProtectedResourceMetadataSchema = zod_v4__rspack_import_0._H3({
+            resource: zod_v4__rspack_import_0.YjP().url(),
+            authorization_servers: zod_v4__rspack_import_0.YOg(SafeUrlSchema).optional(),
+            jwks_uri: zod_v4__rspack_import_0.YjP().url().optional(),
+            scopes_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            bearer_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            resource_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            resource_name: zod_v4__rspack_import_0.YjP().optional(),
+            resource_documentation: zod_v4__rspack_import_0.YjP().optional(),
+            resource_policy_uri: zod_v4__rspack_import_0.YjP().url().optional(),
+            resource_tos_uri: zod_v4__rspack_import_0.YjP().url().optional(),
+            tls_client_certificate_bound_access_tokens: zod_v4__rspack_import_0.zMY().optional(),
+            authorization_details_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            dpop_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            dpop_bound_access_tokens_required: zod_v4__rspack_import_0.zMY().optional()
+        });
+        const OAuthMetadataSchema = zod_v4__rspack_import_0._H3({
+            issuer: zod_v4__rspack_import_0.YjP(),
+            authorization_endpoint: SafeUrlSchema,
+            token_endpoint: SafeUrlSchema,
+            registration_endpoint: SafeUrlSchema.optional(),
+            scopes_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            response_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()),
+            response_modes_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            grant_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            token_endpoint_auth_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            token_endpoint_auth_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            service_documentation: SafeUrlSchema.optional(),
+            revocation_endpoint: SafeUrlSchema.optional(),
+            revocation_endpoint_auth_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            revocation_endpoint_auth_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            introspection_endpoint: zod_v4__rspack_import_0.YjP().optional(),
+            introspection_endpoint_auth_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            introspection_endpoint_auth_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            code_challenge_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            client_id_metadata_document_supported: zod_v4__rspack_import_0.zMY().optional(),
+            authorization_response_iss_parameter_supported: zod_v4__rspack_import_0.zMY().optional().catch(void 0),
+            dpop_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional()
+        });
+        const OpenIdProviderMetadataSchema = zod_v4__rspack_import_0._H3({
+            issuer: zod_v4__rspack_import_0.YjP(),
+            authorization_endpoint: SafeUrlSchema,
+            token_endpoint: SafeUrlSchema,
+            userinfo_endpoint: SafeUrlSchema.optional(),
+            jwks_uri: SafeUrlSchema,
+            registration_endpoint: SafeUrlSchema.optional(),
+            scopes_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            response_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()),
+            response_modes_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            grant_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            acr_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            subject_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()),
+            id_token_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()),
+            id_token_encryption_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            id_token_encryption_enc_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            userinfo_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            userinfo_encryption_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            userinfo_encryption_enc_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            request_object_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            request_object_encryption_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            request_object_encryption_enc_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            token_endpoint_auth_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            token_endpoint_auth_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            display_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            claim_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            claims_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            service_documentation: zod_v4__rspack_import_0.YjP().optional(),
+            claims_locales_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            ui_locales_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            claims_parameter_supported: zod_v4__rspack_import_0.zMY().optional(),
+            request_parameter_supported: zod_v4__rspack_import_0.zMY().optional(),
+            request_uri_parameter_supported: zod_v4__rspack_import_0.zMY().optional(),
+            require_request_uri_registration: zod_v4__rspack_import_0.zMY().optional(),
+            op_policy_uri: SafeUrlSchema.optional(),
+            op_tos_uri: SafeUrlSchema.optional(),
+            client_id_metadata_document_supported: zod_v4__rspack_import_0.zMY().optional(),
+            authorization_response_iss_parameter_supported: zod_v4__rspack_import_0.zMY().optional().catch(void 0)
+        });
+        const OpenIdProviderDiscoveryMetadataSchema = zod_v4__rspack_import_0.Ikc({
+            ...OpenIdProviderMetadataSchema.shape,
+            ...OAuthMetadataSchema.pick({
+                code_challenge_methods_supported: true
+            }).shape
+        });
+        const OAuthTokensSchema = zod_v4__rspack_import_0.Ikc({
+            access_token: zod_v4__rspack_import_0.YjP(),
+            id_token: zod_v4__rspack_import_0.YjP().optional(),
+            token_type: zod_v4__rspack_import_0.YjP(),
+            expires_in: zod_v4__rspack_import_3.ai().optional(),
+            scope: zod_v4__rspack_import_0.YjP().optional(),
+            refresh_token: zod_v4__rspack_import_0.YjP().optional(),
+            issuer: zod_v4__rspack_import_0.YjP().optional().catch(void 0)
+        }).strip();
+        const IdJagTokenExchangeResponseSchema = zod_v4__rspack_import_0.Ikc({
+            issued_token_type: zod_v4__rspack_import_0.euz("urn:ietf:params:oauth:token-type:id-jag"),
+            access_token: zod_v4__rspack_import_0.YjP(),
+            token_type: zod_v4__rspack_import_0.YjP().optional(),
+            expires_in: zod_v4__rspack_import_0.aig().optional(),
+            scope: zod_v4__rspack_import_0.YjP().optional()
+        }).strip();
+        const OAuthErrorResponseSchema = zod_v4__rspack_import_0.Ikc({
+            error: zod_v4__rspack_import_0.YjP(),
+            error_description: zod_v4__rspack_import_0.YjP().optional(),
+            error_uri: zod_v4__rspack_import_0.YjP().optional()
+        });
+        const OptionalSafeUrlSchema = SafeUrlSchema.optional().or(zod_v4__rspack_import_0.euz("").transform(()=>void 0));
+        const OAuthClientMetadataSchema = zod_v4__rspack_import_0.Ikc({
+            redirect_uris: zod_v4__rspack_import_0.YOg(SafeUrlSchema),
+            token_endpoint_auth_method: zod_v4__rspack_import_0.YjP().optional(),
+            grant_types: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            response_types: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            application_type: zod_v4__rspack_import_0.YjP().optional(),
+            client_name: zod_v4__rspack_import_0.YjP().optional(),
+            client_uri: SafeUrlSchema.optional(),
+            logo_uri: OptionalSafeUrlSchema,
+            scope: zod_v4__rspack_import_0.YjP().optional(),
+            contacts: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
+            tos_uri: OptionalSafeUrlSchema,
+            policy_uri: zod_v4__rspack_import_0.YjP().optional(),
+            jwks_uri: SafeUrlSchema.optional(),
+            jwks: zod_v4__rspack_import_0.bzn().optional(),
+            software_id: zod_v4__rspack_import_0.YjP().optional(),
+            software_version: zod_v4__rspack_import_0.YjP().optional(),
+            software_statement: zod_v4__rspack_import_0.YjP().optional()
+        }).strip();
+        const OAuthClientInformationSchema = zod_v4__rspack_import_0.Ikc({
+            client_id: zod_v4__rspack_import_0.YjP(),
+            client_secret: zod_v4__rspack_import_0.YjP().optional(),
+            client_id_issued_at: zod_v4__rspack_import_0.aig().optional(),
+            client_secret_expires_at: zod_v4__rspack_import_0.aig().optional(),
+            issuer: zod_v4__rspack_import_0.YjP().optional().catch(void 0)
+        }).strip();
+        const OAuthClientInformationFullSchema = OAuthClientMetadataSchema.merge(OAuthClientInformationSchema);
+        const OAuthClientRegistrationErrorSchema = zod_v4__rspack_import_0.Ikc({
+            error: zod_v4__rspack_import_0.YjP(),
+            error_description: zod_v4__rspack_import_0.YjP().optional()
+        }).strip();
+        const OAuthTokenRevocationRequestSchema = zod_v4__rspack_import_0.Ikc({
+            token: zod_v4__rspack_import_0.YjP(),
+            token_type_hint: zod_v4__rspack_import_0.YjP().optional()
+        }).strip();
+        __webpack_require__.d(__webpack_exports__, {}, {
+            a: OAuthClientRegistrationErrorSchema,
+            c: OAuthProtectedResourceMetadataSchema,
+            d: OpenIdProviderDiscoveryMetadataSchema,
+            f: OpenIdProviderMetadataSchema,
+            i: OAuthClientMetadataSchema,
+            l: OAuthTokenRevocationRequestSchema,
+            n: OAuthClientInformationFullSchema,
+            o: OAuthErrorResponseSchema,
+            r: OAuthClientInformationSchema,
+            s: OAuthMetadataSchema,
+            t: IdJagTokenExchangeResponseSchema,
+            u: OAuthTokensSchema
+        });
+    },
+    "./node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/internal.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _schemas_DscsoNZN_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/schemas-DscsoNZN.mjs");
+        var _auth_UMQCo_ad_mjs__rspack_import_1 = __webpack_require__("./node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/auth-UMQCo-ad.mjs");
+        __webpack_require__.d(__webpack_exports__, {
+            $9m: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.P,
+            $DQ: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.yr,
+            $Lf: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Ht,
+            $pR: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.U,
+            A9M: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.c,
+            ARQ: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.A,
+            AUX: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.f,
+            Anw: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.En,
+            Ap1: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.mr,
+            Ayw: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.ln,
+            BaN: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Ot,
+            Bh9: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.jt,
+            CKj: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Pt,
+            CXx: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.F,
+            Cst: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.xt,
+            DxC: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.sr,
+            EZD: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.k,
+            F0P: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.tn,
+            FP_: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Et,
+            FTn: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.c,
+            Fp: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.At,
+            FxY: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.it,
+            G6l: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.g,
+            G8S: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Jn,
+            GUV: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.S,
+            H5R: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.n,
+            HML: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.W,
+            Ikg: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.hn,
+            Iuy: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.xr,
+            JH1: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Ct,
+            JHP: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.L,
+            Jh3: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.fn,
+            K1v: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.E,
+            Kly: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.It,
+            MgK: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.O,
+            N4g: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.ft,
+            NGV: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Fn,
+            NvG: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.jn,
+            O$H: ()=>_schemas_DscsoNZN_mjs__rspack_import_0._t,
+            OIr: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.vt,
+            ORH: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.ot,
+            Oxd: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.on,
+            PSS: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.qt,
+            Pks: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.or,
+            QSp: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.mn,
+            Qks: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.qn,
+            QlH: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.q,
+            Qqh: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.mt,
+            Qyb: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Nt,
+            R6d: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Xt,
+            RHZ: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Y,
+            RLJ: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Wt,
+            Rkh: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.tt,
+            RzH: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.sn,
+            S38: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.tr,
+            SKA: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Pn,
+            ScL: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.J,
+            Sq9: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.p,
+            Swr: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.xn,
+            T2M: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.an,
+            TFo: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.l,
+            TGf: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.zt,
+            TIB: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.D,
+            U17: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.w,
+            UJr: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.$t,
+            UPB: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Vn,
+            Uk2: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.r,
+            Uk9: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.K,
+            Uwj: ()=>_schemas_DscsoNZN_mjs__rspack_import_0._r,
+            Uzp: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Jt,
+            VEW: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.u,
+            Vbc: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.yn,
+            WKL: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.C,
+            WKi: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.$n,
+            WQ7: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Rn,
+            WQ9: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.bt,
+            WTx: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Tt,
+            WeT: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.j,
+            WjK: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Nn,
+            XmX: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.H,
+            YFX: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.nn,
+            YuR: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.ht,
+            Z5p: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.a,
+            ZCk: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.nt,
+            ZOI: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.M,
+            Zoq: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Kt,
+            _4o: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Sn,
+            _6w: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Qn,
+            _Ur: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.r,
+            _mu: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.ct,
+            _r9: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Vt,
+            _yU: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Bt,
+            a8d: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Q,
+            aEG: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.pr,
+            aZY: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.o,
+            adV: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.h,
+            ans: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.pn,
+            auo: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Ft,
+            b3o: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.v,
+            b_8: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Tn,
+            br5: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Gt,
+            c3d: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Ut,
+            cLR: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.un,
+            cgh: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Ln,
+            clA: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.nr,
+            cvA: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.yt,
+            dC0: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.dn,
+            e2m: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.vn,
+            f$Q: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.wn,
+            f8C: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Dt,
+            fHZ: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Zn,
+            g6: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.gn,
+            gH_: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.d,
+            gW6: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.wt,
+            gX1: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Z,
+            gds: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.u,
+            hH2: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.ut,
+            hYv: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.An,
+            hhu: ()=>_schemas_DscsoNZN_mjs__rspack_import_0["in"],
+            hwb: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.i,
+            i10: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.lt,
+            i17: ()=>_schemas_DscsoNZN_mjs__rspack_import_0._n,
+            iD6: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.bn,
+            iKy: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.x,
+            iOT: ()=>_schemas_DscsoNZN_mjs__rspack_import_0._,
+            ibt: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Lt,
+            is7: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.rr,
+            jAG: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.f,
+            k0b: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.st,
+            k_2: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.X,
+            ki5: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Hn,
+            l8H: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Un,
+            lPV: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Yt,
+            lcP: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.l,
+            loP: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.R,
+            lsM: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Cn,
+            mfg: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.b,
+            nG2: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.d,
+            nH5: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Mt,
+            nMK: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.dt,
+            n_8: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.I,
+            oQf: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.G,
+            ol4: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.i,
+            pPz: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.N,
+            pj6: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Bn,
+            q49: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.In,
+            qYb: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Dn,
+            qjw: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.s,
+            r1o: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.ir,
+            rXB: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.s,
+            rd9: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Mn,
+            rkk: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.et,
+            rzo: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.$,
+            sDV: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.en,
+            sa6: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.gt,
+            t$u: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Yn,
+            tBr: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.kn,
+            tCX: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Rt,
+            tLl: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.m,
+            u$i: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.rn,
+            u9F: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.T,
+            ugS: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.kt,
+            v6F: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.o,
+            veg: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Zt,
+            vfe: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Kn,
+            vrk: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.n,
+            w9H: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.cn,
+            w9m: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.z,
+            wFm: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Xn,
+            wIH: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.t,
+            wRX: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.B,
+            wVP: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.er,
+            weA: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.zn,
+            x1o: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Gn,
+            x7o: ()=>_auth_UMQCo_ad_mjs__rspack_import_1.a,
+            xIG: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.pt,
+            xmJ: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.On,
+            xtj: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.rt,
+            yAh: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.V,
+            yD$: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.t,
+            yic: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.at,
+            yu4: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Wn,
+            zRT: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.St,
+            zic: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.Qt,
+            zol: ()=>_schemas_DscsoNZN_mjs__rspack_import_0.y
+        });
+    },
+    "./node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/schemas-DscsoNZN.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         var zod_v4__rspack_import_0 = __webpack_require__("./node_modules/zod/v4/classic/schemas.js");
         var zod_v4__rspack_import_1 = __webpack_require__("./node_modules/zod/v4/classic/iso.js");
-        var zod_v4__rspack_import_2 = __webpack_require__("./node_modules/zod/v4/classic/compat.js");
-        var zod_v4__rspack_import_3 = __webpack_require__("./node_modules/zod/v4/core/core.js");
-        var zod_v4__rspack_import_4 = __webpack_require__("./node_modules/zod/v4/classic/coerce.js");
         const LATEST_PROTOCOL_VERSION = "2025-11-25";
         const DEFAULT_NEGOTIATED_PROTOCOL_VERSION1 = "2025-03-26";
         const SUPPORTED_PROTOCOL_VERSIONS1 = [
@@ -19483,538 +20266,180 @@ var __webpack_modules__ = {
             ListToolsResultSchema,
             SubscriptionsListenResultSchema
         ]);
-        const SafeUrlSchema = zod_v4__rspack_import_0.OZ5().superRefine((val, ctx)=>{
-            if (!URL.canParse(val)) {
-                ctx.addIssue({
-                    code: zod_v4__rspack_import_2.eq.custom,
-                    message: "URL must be parseable",
-                    fatal: true
-                });
-                return zod_v4__rspack_import_3.tm;
-            }
-        }).refine((url)=>{
-            const u = new URL(url);
-            return u.protocol !== "javascript:" && u.protocol !== "data:" && u.protocol !== "vbscript:";
-        }, {
-            message: "URL cannot use javascript:, data:, or vbscript: scheme"
-        });
-        const OAuthProtectedResourceMetadataSchema = zod_v4__rspack_import_0._H3({
-            resource: zod_v4__rspack_import_0.YjP().url(),
-            authorization_servers: zod_v4__rspack_import_0.YOg(SafeUrlSchema).optional(),
-            jwks_uri: zod_v4__rspack_import_0.YjP().url().optional(),
-            scopes_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            bearer_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            resource_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            resource_name: zod_v4__rspack_import_0.YjP().optional(),
-            resource_documentation: zod_v4__rspack_import_0.YjP().optional(),
-            resource_policy_uri: zod_v4__rspack_import_0.YjP().url().optional(),
-            resource_tos_uri: zod_v4__rspack_import_0.YjP().url().optional(),
-            tls_client_certificate_bound_access_tokens: zod_v4__rspack_import_0.zMY().optional(),
-            authorization_details_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            dpop_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            dpop_bound_access_tokens_required: zod_v4__rspack_import_0.zMY().optional()
-        });
-        const OAuthMetadataSchema = zod_v4__rspack_import_0._H3({
-            issuer: zod_v4__rspack_import_0.YjP(),
-            authorization_endpoint: SafeUrlSchema,
-            token_endpoint: SafeUrlSchema,
-            registration_endpoint: SafeUrlSchema.optional(),
-            scopes_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            response_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()),
-            response_modes_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            grant_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            token_endpoint_auth_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            token_endpoint_auth_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            service_documentation: SafeUrlSchema.optional(),
-            revocation_endpoint: SafeUrlSchema.optional(),
-            revocation_endpoint_auth_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            revocation_endpoint_auth_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            introspection_endpoint: zod_v4__rspack_import_0.YjP().optional(),
-            introspection_endpoint_auth_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            introspection_endpoint_auth_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            code_challenge_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            client_id_metadata_document_supported: zod_v4__rspack_import_0.zMY().optional(),
-            authorization_response_iss_parameter_supported: zod_v4__rspack_import_0.zMY().optional().catch(void 0),
-            dpop_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional()
-        });
-        const OpenIdProviderMetadataSchema = zod_v4__rspack_import_0._H3({
-            issuer: zod_v4__rspack_import_0.YjP(),
-            authorization_endpoint: SafeUrlSchema,
-            token_endpoint: SafeUrlSchema,
-            userinfo_endpoint: SafeUrlSchema.optional(),
-            jwks_uri: SafeUrlSchema,
-            registration_endpoint: SafeUrlSchema.optional(),
-            scopes_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            response_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()),
-            response_modes_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            grant_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            acr_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            subject_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()),
-            id_token_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()),
-            id_token_encryption_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            id_token_encryption_enc_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            userinfo_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            userinfo_encryption_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            userinfo_encryption_enc_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            request_object_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            request_object_encryption_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            request_object_encryption_enc_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            token_endpoint_auth_methods_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            token_endpoint_auth_signing_alg_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            display_values_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            claim_types_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            claims_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            service_documentation: zod_v4__rspack_import_0.YjP().optional(),
-            claims_locales_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            ui_locales_supported: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            claims_parameter_supported: zod_v4__rspack_import_0.zMY().optional(),
-            request_parameter_supported: zod_v4__rspack_import_0.zMY().optional(),
-            request_uri_parameter_supported: zod_v4__rspack_import_0.zMY().optional(),
-            require_request_uri_registration: zod_v4__rspack_import_0.zMY().optional(),
-            op_policy_uri: SafeUrlSchema.optional(),
-            op_tos_uri: SafeUrlSchema.optional(),
-            client_id_metadata_document_supported: zod_v4__rspack_import_0.zMY().optional(),
-            authorization_response_iss_parameter_supported: zod_v4__rspack_import_0.zMY().optional().catch(void 0)
-        });
-        const OpenIdProviderDiscoveryMetadataSchema = zod_v4__rspack_import_0.Ikc({
-            ...OpenIdProviderMetadataSchema.shape,
-            ...OAuthMetadataSchema.pick({
-                code_challenge_methods_supported: true
-            }).shape
-        });
-        const OAuthTokensSchema = zod_v4__rspack_import_0.Ikc({
-            access_token: zod_v4__rspack_import_0.YjP(),
-            id_token: zod_v4__rspack_import_0.YjP().optional(),
-            token_type: zod_v4__rspack_import_0.YjP(),
-            expires_in: zod_v4__rspack_import_4.ai().optional(),
-            scope: zod_v4__rspack_import_0.YjP().optional(),
-            refresh_token: zod_v4__rspack_import_0.YjP().optional(),
-            issuer: zod_v4__rspack_import_0.YjP().optional().catch(void 0)
-        }).strip();
-        const IdJagTokenExchangeResponseSchema = zod_v4__rspack_import_0.Ikc({
-            issued_token_type: zod_v4__rspack_import_0.euz("urn:ietf:params:oauth:token-type:id-jag"),
-            access_token: zod_v4__rspack_import_0.YjP(),
-            token_type: zod_v4__rspack_import_0.YjP().optional(),
-            expires_in: zod_v4__rspack_import_0.aig().optional(),
-            scope: zod_v4__rspack_import_0.YjP().optional()
-        }).strip();
-        const OAuthErrorResponseSchema = zod_v4__rspack_import_0.Ikc({
-            error: zod_v4__rspack_import_0.YjP(),
-            error_description: zod_v4__rspack_import_0.YjP().optional(),
-            error_uri: zod_v4__rspack_import_0.YjP().optional()
-        });
-        const OptionalSafeUrlSchema = SafeUrlSchema.optional().or(zod_v4__rspack_import_0.euz("").transform(()=>void 0));
-        const OAuthClientMetadataSchema = zod_v4__rspack_import_0.Ikc({
-            redirect_uris: zod_v4__rspack_import_0.YOg(SafeUrlSchema),
-            token_endpoint_auth_method: zod_v4__rspack_import_0.YjP().optional(),
-            grant_types: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            response_types: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            application_type: zod_v4__rspack_import_0.YjP().optional(),
-            client_name: zod_v4__rspack_import_0.YjP().optional(),
-            client_uri: SafeUrlSchema.optional(),
-            logo_uri: OptionalSafeUrlSchema,
-            scope: zod_v4__rspack_import_0.YjP().optional(),
-            contacts: zod_v4__rspack_import_0.YOg(zod_v4__rspack_import_0.YjP()).optional(),
-            tos_uri: OptionalSafeUrlSchema,
-            policy_uri: zod_v4__rspack_import_0.YjP().optional(),
-            jwks_uri: SafeUrlSchema.optional(),
-            jwks: zod_v4__rspack_import_0.bzn().optional(),
-            software_id: zod_v4__rspack_import_0.YjP().optional(),
-            software_version: zod_v4__rspack_import_0.YjP().optional(),
-            software_statement: zod_v4__rspack_import_0.YjP().optional()
-        }).strip();
-        const OAuthClientInformationSchema = zod_v4__rspack_import_0.Ikc({
-            client_id: zod_v4__rspack_import_0.YjP(),
-            client_secret: zod_v4__rspack_import_0.YjP().optional(),
-            client_id_issued_at: zod_v4__rspack_import_0.aig().optional(),
-            client_secret_expires_at: zod_v4__rspack_import_0.aig().optional(),
-            issuer: zod_v4__rspack_import_0.YjP().optional().catch(void 0)
-        }).strip();
-        const OAuthClientInformationFullSchema = OAuthClientMetadataSchema.merge(OAuthClientInformationSchema);
-        const OAuthClientRegistrationErrorSchema = zod_v4__rspack_import_0.Ikc({
-            error: zod_v4__rspack_import_0.YjP(),
-            error_description: zod_v4__rspack_import_0.YjP().optional()
-        }).strip();
-        const OAuthTokenRevocationRequestSchema = zod_v4__rspack_import_0.Ikc({
-            token: zod_v4__rspack_import_0.YjP(),
-            token_type_hint: zod_v4__rspack_import_0.YjP().optional()
-        }).strip();
         __webpack_require__.d(__webpack_exports__, {}, {
-            $: EmbeddedResourceSchema,
-            $n: TaskMetadataSchema,
-            $t: PrimitiveSchemaDefinitionSchema,
-            A: ClientRequestSchema,
-            An: SamplingContentSchema,
-            At: ListResourceTemplatesRequestSchema,
-            B: CreateMessageResultSchema,
-            Bn: SingleSelectEnumSchemaSchema,
-            Bt: LoggingLevelSchema,
-            C: CallToolResultSchema1,
-            Cn: ResourceUpdatedNotificationParamsSchema,
-            Ct: JSONRPCResponseSchema1,
-            D: CancelledNotificationSchema,
-            Dn: RoleSchema,
-            Dr: LATEST_PROTOCOL_VERSION,
-            Dt: ListChangedOptionsBaseSchema,
-            E: CancelledNotificationParamsSchema,
-            En: ResultSchema,
-            Et: LegacyTitledEnumSchemaSchema,
-            F: CompleteRequestSchema,
-            Fn: ServerRequestSchema,
-            Fr: SUPPORTED_PROTOCOL_VERSIONS1,
-            Ft: ListRootsResultSchema,
-            G: DiscoverResultSchema,
-            Gn: SubscriptionsAcknowledgedNotificationParamsSchema,
-            Gt: MultiSelectEnumSchemaSchema,
-            H: CreateTaskResultSchema,
-            Hn: SubscribeRequestParamsSchema,
-            Ht: LoggingMessageNotificationSchema,
-            I: CompleteResultSchema,
-            In: ServerResultSchema,
-            It: ListTasksRequestSchema,
-            J: ElicitRequestSchema,
-            Jn: SubscriptionsListenRequestSchema,
-            Jt: NumberSchemaSchema,
-            K: ElicitRequestFormParamsSchema,
-            Kn: SubscriptionsAcknowledgedNotificationSchema,
-            Kt: NotificationSchema,
-            L: ContentBlockSchema,
-            Ln: ServerTasksCapabilitySchema,
-            Lt: ListTasksResultSchema,
-            M: ClientTasksCapabilitySchema,
-            Mn: SamplingMessageSchema,
-            Mt: ListResourcesRequestSchema,
-            N: CompatibilityCallToolResultSchema,
-            Nn: ServerCapabilitiesSchema,
-            Nr: SERVER_INFO_META_KEY1,
-            Nt: ListResourcesResultSchema,
-            O: ClientCapabilitiesSchema,
-            On: RootSchema,
-            Or: LOG_LEVEL_META_KEY,
-            Ot: ListPromptsRequestSchema,
-            P: CompleteRequestParamsSchema,
-            Pn: ServerNotificationSchema,
-            Pt: ListRootsRequestSchema,
-            Q: ElicitationCompleteNotificationSchema,
-            Qn: TaskCreationParamsSchema,
-            Qt: PingRequestSchema,
-            R: CreateMessageRequestParamsSchema,
-            Rn: SetLevelRequestParamsSchema,
-            Rt: ListToolsRequestSchema,
-            S: CallToolRequestSchema,
-            Sn: ResourceTemplateSchema,
-            St: JSONRPCRequestSchema,
-            T: CancelTaskResultSchema,
-            Tn: ResultMetaObjectSchema,
-            Tt: JSONValueSchema,
-            U: CursorSchema,
-            Un: SubscribeRequestSchema,
-            Ut: ModelHintSchema,
-            V: CreateMessageResultWithToolsSchema,
-            Vn: StringSchemaSchema,
-            Vt: LoggingMessageNotificationParamsSchema,
-            W: DiscoverRequestSchema,
-            Wn: SubscriptionFilterSchema,
-            Wt: ModelPreferencesSchema,
-            X: ElicitResultSchema,
-            Xn: SubscriptionsListenResultSchema,
-            Xt: PaginatedRequestSchema,
-            Y: ElicitRequestURLParamsSchema,
-            Yn: SubscriptionsListenResultMetaSchema,
-            Yt: PaginatedRequestParamsSchema,
-            Z: ElicitationCompleteNotificationParamsSchema,
-            Zn: TaskAugmentedRequestParamsSchema1,
-            Zt: PaginatedResultSchema,
-            _: BaseMetadataSchema,
-            _n: ResourceLinkSchema,
-            _r: UntitledMultiSelectEnumSchemaSchema,
-            _t: JSONArraySchema,
-            a: OAuthClientRegistrationErrorSchema,
-            an: PromptListChangedNotificationSchema,
-            ar: TextResourceContentsSchema,
-            at: GetTaskPayloadRequestSchema,
-            b: BooleanSchemaSchema,
-            bn: ResourceSchema,
-            br: CLIENT_CAPABILITIES_META_KEY1,
-            bt: JSONRPCMessageSchema1,
-            c: OAuthProtectedResourceMetadataSchema,
-            cn: PromptSchema,
-            cr: ToolAnnotationsSchema,
-            ct: GetTaskResultSchema,
-            d: OpenIdProviderDiscoveryMetadataSchema,
-            dn: ReadResourceResultSchema,
-            dr: ToolListChangedNotificationSchema,
-            dt: ImageContentSchema,
-            en: ProgressNotificationParamsSchema,
-            er: TaskSchema,
-            et: EmptyResultSchema,
-            f: OpenIdProviderMetadataSchema,
-            fn: RelatedTaskMetadataSchema,
-            fr: ToolResultContentSchema,
-            ft: ImplementationSchema,
-            g: AudioContentSchema,
-            gn: ResourceContentsSchema,
-            gr: UnsubscribeRequestSchema,
-            gt: InitializedNotificationSchema1,
-            h: AnnotationsSchema,
-            hn: RequestSchema,
-            hr: UnsubscribeRequestParamsSchema,
-            ht: InitializeResultSchema,
-            i: OAuthClientMetadataSchema,
-            "in": PromptArgumentSchema,
-            ir: TextContentSchema,
-            it: GetPromptResultSchema,
-            j: ClientResultSchema,
-            jn: SamplingMessageContentBlockSchema,
-            jr: PROTOCOL_VERSION_META_KEY1,
-            jt: ListResourceTemplatesResultSchema,
-            k: ClientNotificationSchema,
-            kn: RootsListChangedNotificationSchema,
-            kt: ListPromptsResultSchema,
-            l: OAuthTokenRevocationRequestSchema,
-            ln: ReadResourceRequestParamsSchema,
-            lr: ToolChoiceSchema,
-            lt: IconSchema,
-            mn: RequestMetaSchema,
-            mr: ToolUseContentSchema,
-            mt: InitializeRequestSchema1,
-            n: OAuthClientInformationFullSchema,
-            nn: ProgressSchema,
-            nr: TaskStatusNotificationSchema,
-            nt: GetPromptRequestParamsSchema,
-            o: OAuthErrorResponseSchema,
-            on: PromptMessageSchema,
-            or: TitledMultiSelectEnumSchemaSchema,
-            ot: GetTaskPayloadResultSchema,
-            pn: RequestIdSchema,
-            pr: ToolSchema,
-            pt: InitializeRequestParamsSchema,
-            q: ElicitRequestParamsSchema,
-            qn: SubscriptionsListenRequestParamsSchema,
-            qt: NotificationsParamsSchema,
-            r: OAuthClientInformationSchema,
-            rn: ProgressTokenSchema,
-            rr: TaskStatusSchema,
-            rt: GetPromptRequestSchema,
-            s: OAuthMetadataSchema,
-            sn: PromptReferenceSchema,
-            sr: TitledSingleSelectEnumSchemaSchema,
-            st: GetTaskRequestSchema,
-            t: IdJagTokenExchangeResponseSchema,
-            tn: ProgressNotificationSchema,
-            tr: TaskStatusNotificationParamsSchema,
-            tt: EnumSchemaSchema,
-            u: OAuthTokensSchema,
-            un: ReadResourceRequestSchema,
-            ur: ToolExecutionSchema,
-            ut: IconsSchema,
-            v: BaseRequestParamsSchema,
-            vn: ResourceListChangedNotificationSchema,
-            vr: UntitledSingleSelectEnumSchemaSchema,
-            vt: JSONObjectSchema,
-            w: CancelTaskRequestSchema,
-            wn: ResourceUpdatedNotificationSchema,
-            wt: JSONRPCResultResponseSchema,
-            x: CallToolRequestParamsSchema,
-            xn: ResourceTemplateReferenceSchema,
-            xr: CLIENT_INFO_META_KEY1,
-            xt: JSONRPCNotificationSchema,
-            y: BlobResourceContentsSchema,
-            yn: ResourceRequestParamsSchema,
-            yt: JSONRPCErrorResponseSchema,
-            z: CreateMessageRequestSchema,
-            zn: SetLevelRequestSchema,
-            zt: ListToolsResultSchema
-        });
-    },
-    "./node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/internal.mjs" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        var _auth_BNDyLTqp_mjs__rspack_import_0 = __webpack_require__("./node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/auth-BNDyLTqp.mjs");
-        __webpack_require__.d(__webpack_exports__, {
-            $9m: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.J,
-            $DQ: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Nr,
-            $Lf: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.nn,
-            $pR: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.rt,
-            A9M: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.c,
-            ARQ: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.W,
-            AUX: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.E,
-            Anw: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Bn,
-            Ap1: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Or,
-            Ayw: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Cn,
-            BaN: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Ht,
-            Bh9: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Gt,
-            CKj: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Jt,
-            CXx: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Y,
-            Cst: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Ft,
-            DxC: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.xr,
-            EZD: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.U,
-            F0P: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.hn,
-            FP_: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Bt,
-            FTn: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.S,
-            Fp: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Wt,
-            FxY: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.vt,
-            G6l: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.A,
-            G8S: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.cr,
-            GUV: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.I,
-            H5R: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.n,
-            HML: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.it,
-            Ikg: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.kn,
-            Iuy: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Fr,
-            JH1: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Lt,
-            JHP: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Z,
-            Jh3: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.En,
-            K1v: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.B,
-            Kly: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Xt,
-            MgK: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.H,
-            N4g: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Et,
-            NGV: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Yn,
-            NvG: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Gn,
-            O$H: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.jt,
-            OIr: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Mt,
-            ORH: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.bt,
-            Oxd: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.bn,
-            PSS: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.sn,
-            Pks: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.br,
-            QSp: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.On,
-            Qks: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.sr,
-            QlH: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.st,
-            Qqh: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Ot,
-            Qyb: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.qt,
-            R6d: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.un,
-            RHZ: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.lt,
-            RLJ: ()=>_auth_BNDyLTqp_mjs__rspack_import_0["in"],
-            Rkh: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.ht,
-            RzH: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.xn,
-            S38: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.hr,
-            SKA: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Jn,
-            ScL: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.ct,
-            Sq9: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.D,
-            Swr: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Fn,
-            T2M: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.yn,
-            TFo: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.C,
-            TGf: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.$t,
-            TIB: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.V,
-            U17: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.R,
-            UJr: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.pn,
-            UPB: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.tr,
-            Uk2: ()=>_auth_BNDyLTqp_mjs__rspack_import_0._,
-            Uk9: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.ot,
-            Uwj: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.jr,
-            Uzp: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.cn,
-            VEW: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.u,
-            Vbc: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Nn,
-            WKL: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.L,
-            WKi: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.pr,
-            WQ7: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Qn,
-            WQ9: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Pt,
-            WTx: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.zt,
-            WeT: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.G,
-            WjK: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.qn,
-            XmX: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.nt,
-            YFX: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.gn,
-            YuR: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.kt,
-            Z5p: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.y,
-            ZCk: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.gt,
-            ZOI: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.K,
-            Zoq: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.on,
-            _4o: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.In,
-            _6w: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.fr,
-            _Ur: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.r,
-            _mu: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.St,
-            _r9: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.tn,
-            _yU: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.en,
-            a8d: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.ft,
-            aEG: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Dr,
-            aZY: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.o,
-            adV: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.k,
-            ans: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Dn,
-            auo: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Yt,
-            b3o: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.M,
-            b_8: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.zn,
-            br5: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.an,
-            c3d: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.rn,
-            cLR: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.wn,
-            cgh: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Zn,
-            clA: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.gr,
-            cvA: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Nt,
-            dC0: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Tn,
-            e2m: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Mn,
-            f$Q: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Rn,
-            f8C: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Vt,
-            fHZ: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.dr,
-            g6: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.An,
-            gH_: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.T,
-            gW6: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Rt,
-            gX1: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.dt,
-            gds: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.w,
-            hH2: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.wt,
-            hYv: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Wn,
-            hhu: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.vn,
-            hwb: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.i,
-            i10: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Ct,
-            i17: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.jn,
-            iD6: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Pn,
-            iKy: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.F,
-            iOT: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.j,
-            ibt: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Zt,
-            is7: ()=>_auth_BNDyLTqp_mjs__rspack_import_0._r,
-            jAG: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.f,
-            k0b: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.xt,
-            k_2: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.ut,
-            ki5: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.nr,
-            l8H: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.rr,
-            lPV: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.ln,
-            lcP: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.l,
-            loP: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Q,
-            lsM: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Ln,
-            mfg: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.P,
-            nG2: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.d,
-            nH5: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Kt,
-            nMK: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Tt,
-            n_8: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.X,
-            oQf: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.at,
-            ol4: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.v,
-            pPz: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.q,
-            pj6: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.er,
-            q49: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Xn,
-            qYb: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Vn,
-            qjw: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.s,
-            r1o: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.vr,
-            rXB: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.x,
-            rd9: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Kn,
-            rkk: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.mt,
-            rzo: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.pt,
-            sDV: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.mn,
-            sa6: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.At,
-            t$u: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.lr,
-            tBr: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Un,
-            tCX: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Qt,
-            tLl: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.O,
-            u$i: ()=>_auth_BNDyLTqp_mjs__rspack_import_0._n,
-            u9F: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.z,
-            ugS: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Ut,
-            v6F: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.b,
-            veg: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.dn,
-            vfe: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.or,
-            vrk: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.g,
-            w9H: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Sn,
-            w9m: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.$,
-            wFm: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.ur,
-            wIH: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.t,
-            wRX: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.et,
-            wVP: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.mr,
-            weA: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.$n,
-            x1o: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.ar,
-            x7o: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.a,
-            xIG: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Dt,
-            xmJ: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.Hn,
-            xtj: ()=>_auth_BNDyLTqp_mjs__rspack_import_0._t,
-            yAh: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.tt,
-            yD$: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.h,
-            yic: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.yt,
-            yu4: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.ir,
-            zRT: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.It,
-            zic: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.fn,
-            zol: ()=>_auth_BNDyLTqp_mjs__rspack_import_0.N
+            $: InitializeRequestParamsSchema,
+            $n: ToolSchema,
+            $t: RequestIdSchema,
+            A: DiscoverRequestSchema,
+            An: SubscriptionFilterSchema,
+            At: ModelPreferencesSchema,
+            B: EmptyResultSchema,
+            Bn: TaskSchema,
+            Bt: ProgressNotificationParamsSchema,
+            C: ContentBlockSchema,
+            Cn: ServerTasksCapabilitySchema,
+            Ct: ListTasksResultSchema,
+            D: CreateMessageResultWithToolsSchema,
+            Dn: StringSchemaSchema,
+            Dt: LoggingMessageNotificationParamsSchema,
+            E: CreateMessageResultSchema,
+            En: SingleSelectEnumSchemaSchema,
+            Et: LoggingLevelSchema,
+            F: ElicitRequestURLParamsSchema,
+            Fn: SubscriptionsListenResultMetaSchema,
+            Ft: PaginatedRequestParamsSchema,
+            G: GetTaskPayloadRequestSchema,
+            Gn: TextResourceContentsSchema,
+            Gt: PromptListChangedNotificationSchema,
+            H: GetPromptRequestParamsSchema,
+            Hn: TaskStatusNotificationSchema,
+            Ht: ProgressSchema,
+            I: ElicitResultSchema,
+            In: SubscriptionsListenResultSchema,
+            It: PaginatedRequestSchema,
+            J: GetTaskResultSchema,
+            Jn: ToolAnnotationsSchema,
+            Jt: PromptSchema,
+            K: GetTaskPayloadResultSchema,
+            Kn: TitledMultiSelectEnumSchemaSchema,
+            Kt: PromptMessageSchema,
+            L: ElicitationCompleteNotificationParamsSchema,
+            Ln: TaskAugmentedRequestParamsSchema1,
+            Lt: PaginatedResultSchema,
+            M: ElicitRequestFormParamsSchema,
+            Mn: SubscriptionsAcknowledgedNotificationSchema,
+            Mt: NotificationSchema,
+            N: ElicitRequestParamsSchema,
+            Nn: SubscriptionsListenRequestParamsSchema,
+            Nt: NotificationsParamsSchema,
+            O: CreateTaskResultSchema,
+            On: SubscribeRequestParamsSchema,
+            Ot: LoggingMessageNotificationSchema,
+            P: ElicitRequestSchema,
+            Pn: SubscriptionsListenRequestSchema,
+            Pt: NumberSchemaSchema,
+            Q: ImplementationSchema,
+            Qn: ToolResultContentSchema,
+            Qt: RelatedTaskMetadataSchema,
+            R: ElicitationCompleteNotificationSchema,
+            Rn: TaskCreationParamsSchema,
+            Rt: PingRequestSchema,
+            S: CompleteResultSchema,
+            Sn: ServerResultSchema,
+            St: ListTasksRequestSchema,
+            T: CreateMessageRequestSchema,
+            Tn: SetLevelRequestSchema,
+            Tt: ListToolsResultSchema,
+            U: GetPromptRequestSchema,
+            Un: TaskStatusSchema,
+            Ut: ProgressTokenSchema,
+            V: EnumSchemaSchema,
+            Vn: TaskStatusNotificationParamsSchema,
+            Vt: ProgressNotificationSchema,
+            W: GetPromptResultSchema,
+            Wn: TextContentSchema,
+            Wt: PromptArgumentSchema,
+            X: IconsSchema,
+            Xn: ToolExecutionSchema,
+            Xt: ReadResourceRequestSchema,
+            Y: IconSchema,
+            Yn: ToolChoiceSchema,
+            Yt: ReadResourceRequestParamsSchema,
+            Z: ImageContentSchema,
+            Zn: ToolListChangedNotificationSchema,
+            Zt: ReadResourceResultSchema,
+            _: ClientResultSchema,
+            _n: SamplingMessageContentBlockSchema,
+            _r: PROTOCOL_VERSION_META_KEY1,
+            _t: ListResourceTemplatesResultSchema,
+            a: BlobResourceContentsSchema,
+            an: ResourceRequestParamsSchema,
+            at: JSONRPCErrorResponseSchema,
+            b: CompleteRequestParamsSchema,
+            bn: ServerNotificationSchema,
+            bt: ListRootsRequestSchema,
+            c: CallToolRequestSchema,
+            cn: ResourceTemplateSchema,
+            ct: JSONRPCRequestSchema,
+            d: CancelTaskResultSchema,
+            dn: ResultMetaObjectSchema,
+            dt: JSONValueSchema,
+            en: RequestMetaSchema,
+            er: ToolUseContentSchema,
+            et: InitializeRequestSchema1,
+            f: CancelledNotificationParamsSchema,
+            fn: ResultSchema,
+            ft: LegacyTitledEnumSchemaSchema,
+            g: ClientRequestSchema,
+            gn: SamplingContentSchema,
+            gt: ListResourceTemplatesRequestSchema,
+            h: ClientNotificationSchema,
+            hn: RootsListChangedNotificationSchema,
+            ht: ListPromptsResultSchema,
+            i: BaseRequestParamsSchema,
+            "in": ResourceListChangedNotificationSchema,
+            ir: UntitledSingleSelectEnumSchemaSchema,
+            it: JSONObjectSchema,
+            j: DiscoverResultSchema,
+            jn: SubscriptionsAcknowledgedNotificationParamsSchema,
+            jt: MultiSelectEnumSchemaSchema,
+            k: CursorSchema,
+            kn: SubscribeRequestSchema,
+            kt: ModelHintSchema,
+            l: CallToolResultSchema1,
+            ln: ResourceUpdatedNotificationParamsSchema,
+            lt: JSONRPCResponseSchema1,
+            m: ClientCapabilitiesSchema,
+            mn: RootSchema,
+            mr: LOG_LEVEL_META_KEY,
+            mt: ListPromptsRequestSchema,
+            n: AudioContentSchema,
+            nn: ResourceContentsSchema,
+            nr: UnsubscribeRequestSchema,
+            nt: InitializedNotificationSchema1,
+            o: BooleanSchemaSchema,
+            on: ResourceSchema,
+            or: CLIENT_CAPABILITIES_META_KEY1,
+            ot: JSONRPCMessageSchema1,
+            p: CancelledNotificationSchema,
+            pn: RoleSchema,
+            pr: LATEST_PROTOCOL_VERSION,
+            pt: ListChangedOptionsBaseSchema,
+            q: GetTaskRequestSchema,
+            qn: TitledSingleSelectEnumSchemaSchema,
+            qt: PromptReferenceSchema,
+            r: BaseMetadataSchema,
+            rn: ResourceLinkSchema,
+            rr: UntitledMultiSelectEnumSchemaSchema,
+            rt: JSONArraySchema,
+            s: CallToolRequestParamsSchema,
+            sn: ResourceTemplateReferenceSchema,
+            sr: CLIENT_INFO_META_KEY1,
+            st: JSONRPCNotificationSchema,
+            t: AnnotationsSchema,
+            tn: RequestSchema,
+            tr: UnsubscribeRequestParamsSchema,
+            tt: InitializeResultSchema,
+            u: CancelTaskRequestSchema,
+            un: ResourceUpdatedNotificationSchema,
+            ut: JSONRPCResultResponseSchema,
+            v: ClientTasksCapabilitySchema,
+            vn: SamplingMessageSchema,
+            vt: ListResourcesRequestSchema,
+            w: CreateMessageRequestParamsSchema,
+            wn: SetLevelRequestParamsSchema,
+            wt: ListToolsRequestSchema,
+            x: CompleteRequestSchema,
+            xn: ServerRequestSchema,
+            xr: SUPPORTED_PROTOCOL_VERSIONS1,
+            xt: ListRootsResultSchema,
+            y: CompatibilityCallToolResultSchema,
+            yn: ServerCapabilitiesSchema,
+            yr: SERVER_INFO_META_KEY1,
+            yt: ListResourcesResultSchema,
+            z: EmbeddedResourceSchema,
+            zn: TaskMetadataSchema,
+            zt: PrimitiveSchemaDefinitionSchema
         });
     },
     "./node_modules/agent-bundle/dist/launch-env.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
@@ -33391,7 +33816,7 @@ var __webpack_modules__ = {
                 rationale: "SEP-2243 `Mcp-Param-*` headers are validated against the named tool’s `x-mcp-header` declarations and the body `arguments` after the tool registry is known and before dispatch reaches the handler; a missing/disagreeing/malformed header is rejected 400 / -32020 with the same shape as the standard-header cross-checks. The documented order (after method resolution and params validation) is preserved observably only when the body `arguments` would otherwise validate: the check runs pre-dispatch, so a `tools/call` that fails BOTH this rung and a dispatch-time rung (e.g. order-6 `request-params`, -32602) is answered by this gate first with 400 / -32020, not by the earlier-ordered rung."
             }
         ];
-        const LADDER_ERROR_HTTP_STATUS1 = {
+        const LADDER_ERROR_HTTP_STATUS = {
             [ProtocolErrorCode1.ParseError]: 400,
             [ProtocolErrorCode1.InvalidRequest]: 400,
             [ProtocolErrorCode1.MethodNotFound]: 404,
@@ -33401,7 +33826,7 @@ var __webpack_modules__ = {
         };
         function httpStatusForErrorCode1(code, origin) {
             if (origin === "in-band") return code === ProtocolErrorCode1.MissingRequiredClientCapability ? 400 : 200;
-            return LADDER_ERROR_HTTP_STATUS1[code] ?? 400;
+            return LADDER_ERROR_HTTP_STATUS[code] ?? 400;
         }
         function rejection(rung, cell, httpStatus, error, settled) {
             return {
@@ -41920,6 +42345,30 @@ var __webpack_modules__ = {
                 return payload;
             };
         });
+        function capSize(inst, size) {
+            const caps = _util_js__rspack_import_2.hi(inst._zod.def.checks);
+            if (!caps.length) return;
+            const cap = Math.min(...caps.map((c)=>c[0]));
+            const parse1 = inst._zod.parse;
+            inst._zod.parse = (payload, ctx)=>{
+                const n = size(payload.value);
+                if (n > cap && !ctx?.skipChecks && ctx?.direction !== "backward") {
+                    for (const [max, ch] of _util_js__rspack_import_2.hi(inst._zod.def.checks)){
+                        if (n > max && ch._zod.def.when(payload)) {
+                            const start = payload.issues.length;
+                            ch._zod.check(payload);
+                            payload.issues[start].continue = false;
+                            _util_js__rspack_import_2.d3(payload.issues, start, inst);
+                            return payload;
+                        }
+                    }
+                }
+                return parse1(payload, ctx);
+            };
+        }
+        const arraySize = (input)=>Array.isArray(input) ? input.length : -1;
+        const mapSize = (input)=>input instanceof Map ? input.size : -1;
+        const setSize = (input)=>input instanceof Set ? input.size : -1;
         function handleArrayResult(result, final, index) {
             if (result.issues.length) {
                 final.issues.push(..._util_js__rspack_import_2.lQ(index, result.issues));
@@ -41962,6 +42411,7 @@ var __webpack_modules__ = {
                 }
                 return payload;
             };
+            capSize(inst, arraySize);
         });
         function handlePropertyResult(result, final, key, input, optin, optout) {
             const isPresent = key in input;
@@ -42979,6 +43429,7 @@ var __webpack_modules__ = {
                 if (proms.length) return Promise.all(proms).then(()=>payload);
                 return payload;
             };
+            capSize(inst, mapSize);
         });
         function handleMapResult(keyResult, valueResult, final, key, input, inst, ctx) {
             if (keyResult.issues.length) {
@@ -43045,6 +43496,7 @@ var __webpack_modules__ = {
                 if (proms.length) return Promise.all(proms).then(()=>payload);
                 return payload;
             };
+            capSize(inst, setSize);
         });
         function handleSetResult(result, final) {
             if (result.issues.length) {
@@ -44301,6 +44753,7 @@ var __webpack_modules__ = {
             gx: ()=>captureStackTrace,
             h1: ()=>merge,
             hI: ()=>allowsEval,
+            hi: ()=>sizeCaps,
             iR: ()=>finalizeIssue,
             jD: ()=>hide,
             jw: ()=>joinValues,
@@ -44854,6 +45307,19 @@ var __webpack_modules__ = {
         function unwrapMessage(message) {
             return typeof message === "string" ? message : message?.message;
         }
+        function sizeCaps(defChecks) {
+            const caps = [];
+            for (const ch of defChecks ?? []){
+                const d = ch._zod.def;
+                if (!/_(length|size)$|_equals$/.test(d.check)) break;
+                const max = d.maximum ?? d.length ?? d.size;
+                if (max >= 0) caps.push([
+                    max,
+                    ch
+                ]);
+            }
+            return caps;
+        }
         function attachSchema(issues, start, inst) {
             var _a;
             for(let i = start; i < issues.length; i++){
@@ -45125,7 +45591,7 @@ var __webpack_modules__ = {
         const version = {
             major: 4,
             minor: 6,
-            patch: 5
+            patch: 7
         };
         __webpack_require__.d(__webpack_exports__, {}, {
             r: version
