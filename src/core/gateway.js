@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { ensureSandboxHeaders, headersFromEnsureSandbox, headersFromEnv, mergeGatewayHeaders, normalizeHeaderMap, requestHeaders } from "./headers.js";
-import { hasGrokBotGatewaySession, loadGrokBotGatewaySession } from "./app-session.js";
+import { hasGrokBotAppCredentials, loadGrokBotAppCredentials, hasGrokBotGatewaySession, loadGrokBotGatewaySession } from "./app-session.js";
 import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS } from "./store.js";
 import { assertAllowedCredentialUrl, redactSecrets } from "./url-policy.js";
 import { grokApproval, grokApprovalResponseSchema } from "./grok-approvals.js";
@@ -79,7 +79,7 @@ function sessionFromApp() {
 }
 
 export function hasGatewayAuth() {
-  return Boolean(gatewayOverride() || accessTokenFromEnv() || hasGrokBotGatewaySession());
+  return Boolean(gatewayOverride() || accessTokenFromEnv() || hasGrokBotGatewaySession() || hasGrokBotAppCredentials());
 }
 
 async function readTextCapped(res, maxBytes) {
@@ -124,7 +124,7 @@ function pick(obj, ...keys) {
   return undefined;
 }
 
-async function ensureSandbox(accessToken, { signal } = {}) {
+async function ensureSandbox(accessToken, { signal, teamId } = {}) {
   assertGatewayActive(signal);
   const url = assertAllowedCredentialUrl(backendBase(), { kind: "backend" }) + "/aiserver.v1.GrokBotService/EnsureSandBox";
   let res, body;
@@ -133,7 +133,7 @@ async function ensureSandbox(accessToken, { signal } = {}) {
       method: "POST",
       redirect: "error",
       signal: gatewayDeadline(signal),
-      headers: ensureSandboxHeaders(accessToken),
+      headers: { ...ensureSandboxHeaders(accessToken), ...(teamId === undefined ? {} : { "x-cursor-team-id": teamId }) },
       body: "{}",
     });
     body = await readJson(res);
@@ -162,6 +162,8 @@ export async function connectGateway({ signal } = {}) {
   if (fromApp) return fromApp;
   const token = accessTokenFromEnv();
   if (!token) {
+    const credentials = loadGrokBotAppCredentials();
+    if (credentials) return ensureSandbox(credentials.accessToken, { signal, teamId: credentials.teamId });
     throw new GatewayError("Set CURSOR_ACCESS_TOKEN, or GROK_BOT_GATEWAY_URL + GROK_BOT_GATEWAY_TOKEN. Do not use a Cursor dashboard API key.");
   }
   return ensureSandbox(token, { signal });
