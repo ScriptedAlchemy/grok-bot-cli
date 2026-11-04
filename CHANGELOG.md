@@ -1,5 +1,21 @@
 # grok-bot-cli
 
+## 0.12.5
+
+### Patch Changes
+
+- 0f29266: Reconnect from the active encrypted Grok Bot account when the cached gateway descriptor is absent, and use the installed desktop app version for backend requests.
+- d344c45: Read version 3 Grok Bot gateway descriptors (Grok Bot 0.77), which keep the version 2 entries layout.
+- a86461d: Pass Desktop startup configuration, sign-out, and CLI help/version requests through to the real Codex CLI instead of the interactive daemon bridge.
+
+  Allow fallback when the bridge reaches EOF without consuming input or committing output. Existing shim users must re-run `gbot codex desktop-shim install` after upgrading, then fully quit and relaunch ChatGPT.
+- e533e32: Read Grok Bot gateway descriptor version 3 (same `entries` layout as version 2), which current Grok Bot desktop builds write. The multiple-entries safety check is unchanged.
+- e76b5a0: Reconnect allowlisted read-only gateway calls once when the AnyRun proxy explicitly reports a hibernated pod. Use the selected desktop account's Safe Storage credentials and installed app version to obtain fresh routing credentials, coalesce concurrent refreshes, and retain the new route in memory without rewriting desktop-owned files. Refuse account changes, preserve explicit gateway overrides and credential host checks, and never automatically replay mutations or generic transport failures.
+- 43499fa: Update the bundled MCP server dependency to 2.3.1.
+- 3cf043b: Update bundled MCP server, React and Zod dependencies and refresh the development tooling and generated distribution.
+- 842e98c: Preserve unknown delivery and the target when a prompt send times out with a DOMException. Keep the original exception as the annotated error's cause.
+- 92bdd62: Confirm `{ accepted: true }` send acknowledgements by finding the request's clientNonce in the transcript tail, so delivered messages report `delivery: "accepted"` with a messageId instead of `unknown`.
+
 ## 0.12.4
 
 ### Patch Changes
