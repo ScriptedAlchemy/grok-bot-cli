@@ -64,6 +64,43 @@ test("sendPrompt without a receipt is unknown, not accepted", async (t) => {
   assert.equal(out.messageId, undefined);
 });
 
+function mockAckGateway(t, transcript) {
+  let nonce;
+  t.mock.method(globalThis, "fetch", async (url, init) => {
+    const u = String(url);
+    if (u.endsWith("/api/listAgents")) return new Response(JSON.stringify(roster), { status: 200 });
+    if (u.endsWith("/api/sendPrompt")) {
+      nonce = JSON.parse(init.body).clientNonce;
+      return new Response(JSON.stringify({ accepted: true }), { status: 200 });
+    }
+    if (u.endsWith("/api/getAgentTranscriptTail")) return transcript(nonce);
+    return new Response("{}", { status: 404 });
+  });
+}
+
+test("sendPrompt confirms an { accepted: true } ack by finding its clientNonce in the transcript", async (t) => {
+  mockAckGateway(t, (nonce) => new Response(JSON.stringify({
+    entries: [{ id: "t7u", role: "user", clientNonce: "someone-else" }, { id: "t8u", role: "user", clientNonce: nonce }],
+  }), { status: 200 }));
+  const out = await sendPrompt(session, "General", "hi");
+  assert.equal(out.delivery, "accepted");
+  assert.equal(out.messageId, "t8u");
+});
+
+test("sendPrompt keeps an { accepted: true } ack unknown when its clientNonce is not in the transcript", async (t) => {
+  mockAckGateway(t, () => new Response(JSON.stringify({ entries: [{ id: "t7u", role: "user", clientNonce: "someone-else" }] }), { status: 200 }));
+  const out = await sendPrompt(session, "General", "hi");
+  assert.equal(out.delivery, "unknown");
+  assert.equal(out.messageId, undefined);
+});
+
+test("sendPrompt keeps an { accepted: true } ack unknown when the transcript read fails", async (t) => {
+  mockAckGateway(t, () => new Response("boom", { status: 500 }));
+  const out = await sendPrompt(session, "General", "hi");
+  assert.equal(out.delivery, "unknown");
+  assert.equal(out.messageId, undefined);
+});
+
 test("sendPrompt rejects on a 4xx and preserves the target id", async (t) => {
   mockGateway(t, () => new Response(JSON.stringify({ message: "nope" }), { status: 400 }));
   await assert.rejects(sendPrompt(session, "General", "hi"), (e) => {
@@ -71,6 +108,38 @@ test("sendPrompt rejects on a 4xx and preserves the target id", async (t) => {
     assert.equal(e.targetId, "bot-1");
     return true;
   });
+});
+
+test("sendPrompt rejects a cancelled preflight without fetching", async (t) => {
+  const controller = new AbortController();
+  controller.abort();
+  let received = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    received++;
+    throw new Error("Unexpected request after cancellation");
+  });
+  await assert.rejects(sendPrompt(session, "General", "hi", { signal: controller.signal }), (error) => {
+    assert.equal(error.delivery, "rejected");
+    assert.equal(error.reason, "cancelled");
+    return true;
+  });
+  assert.equal(received, 0);
+});
+
+test("sendPrompt preserves a resolution error before prompt transmission", async (t) => {
+  const failure = new DOMException("The operation was aborted due to timeout", "TimeoutError");
+  const original = Object.getOwnPropertyDescriptors(failure);
+  const received = [];
+  t.mock.method(globalThis, "fetch", async (url) => {
+    received.push(new URL(url).pathname);
+    throw failure;
+  });
+  await assert.rejects(sendPrompt(session, "General", "hi"), (error) => {
+    assert.equal(error, failure);
+    return true;
+  });
+  assert.deepEqual(received, ["/api/listAgents"]);
+  assert.deepEqual(Object.getOwnPropertyDescriptors(failure), original);
 });
 
 test("sendPrompt marks transport loss unknown with a no-retry hint", async (t) => {
@@ -83,6 +152,29 @@ test("sendPrompt marks transport loss unknown with a no-retry hint", async (t) =
     assert.match(e.message, /delivery unknown; check the thread before resending/);
     return true;
   });
+});
+
+test("sendPrompt preserves an unknown timeout without mutating its DOMException", async (t) => {
+  const failure = new DOMException("The operation was aborted due to timeout", "TimeoutError");
+  const original = Object.getOwnPropertyDescriptors(failure);
+  const received = [];
+  t.mock.method(globalThis, "fetch", async (url) => {
+    received.push(new URL(url).pathname);
+    if (String(url).endsWith("/api/listAgents")) return new Response(JSON.stringify(roster), { status: 200 });
+    throw failure;
+  });
+
+  await assert.rejects(sendPrompt(session, "General", "hi"), (error) => {
+    assert.equal(error.delivery, "unknown");
+    assert.equal(error.targetId, "bot-1");
+    assert.equal(error.name, "TimeoutError");
+    assert.equal(error.cause, failure);
+    assert.match(error.message, /delivery unknown; check the thread before resending/);
+    return true;
+  });
+  assert.deepEqual(received, ["/api/listAgents", "/api/sendPrompt"]);
+  assert.equal(failure.message, "The operation was aborted due to timeout");
+  assert.deepEqual(Object.getOwnPropertyDescriptors(failure), original);
 });
 
 test("oversized gateway responses abort mid-stream instead of buffering", async (t) => {

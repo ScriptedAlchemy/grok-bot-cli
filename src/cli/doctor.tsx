@@ -2,7 +2,7 @@ import { Agent } from '@agent-bundle/runtime';
 import type { CliRouteConfig, CliRouteProps } from 'agent-bundle';
 import { z } from 'zod';
 
-import { inspectGrokBotGatewaySession } from '../core/app-session.js';
+import { hasGrokBotAppCredentials, inspectGrokBotGatewaySession } from '../core/app-session.js';
 import { hasGatewayAuth } from '../core/gateway.js';
 import {
   defaultCandidateRoots,
@@ -44,7 +44,7 @@ export default async function doctor({ input }: CliRouteProps<typeof inputSchema
   } catch (err) {
     if (!(err instanceof StoreError)) throw err;
   }
-  const note = 'Live roster is on the box. Prefer CURSOR_ACCESS_TOKEN then EnsureSandBox then POST gateway /api/*.';
+  const note = 'Live roster is on the box. A missing cached route can reconnect through the active Grok Bot account.';
   const gatewayAuthPresent = hasGatewayAuth();
   const grokBotAppSession = inspectGrokBotGatewaySession();
   const sessionJson = {
@@ -65,6 +65,7 @@ export default async function doctor({ input }: CliRouteProps<typeof inputSchema
     `resolved: ${resolved ?? '(none)'}`,
     `gateway auth: ${gatewayAuthPresent ? 'present' : 'no'}`,
     sessionLine,
+    `Grok Bot active account credentials: ${hasGrokBotAppCredentials() ? 'present' : 'not found'}`,
     'found:',
     found.length ? found.map((p) => `  ${p}`).join('\n') : '  (none)',
     'candidates:',

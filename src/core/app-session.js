@@ -22,14 +22,14 @@ class GrokBotGatewaySessionError extends Error {
 }
 
 function encryptedPayload(wrapped) {
-  if (wrapped.version != null && wrapped.version !== 1 && wrapped.version !== 2) {
+  if (wrapped.version != null && wrapped.version !== 1 && wrapped.version !== 2 && wrapped.version !== 3) {
     throw new GrokBotGatewaySessionError(
       "UNSUPPORTED_VERSION",
       `Unsupported Grok Bot gateway descriptor version ${wrapped.version}.`,
     );
   }
   let encrypted;
-  if (wrapped.version === 2) {
+  if (wrapped.version === 2 || wrapped.version === 3) {
     const entries = Object.values(wrapped.entries ?? {});
     if (entries.length === 0) {
       throw new GrokBotGatewaySessionError(
@@ -135,6 +135,63 @@ export function hasGrokBotGatewaySession({
   );
 }
 
+const APP_VERSION_PATTERN = /^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/;
+
+function validAppVersion(version) {
+  return typeof version === "string" && APP_VERSION_PATTERN.test(version) ? version : null;
+}
+
+// The running app records its own version here on every platform.
+function desktopStatusAppVersion(home, platform, env) {
+  const path = join(grokBotAppDataPath(home, platform, env), "desktop-status.json");
+  if (!existsSync(path)) return null;
+  try {
+    return validAppVersion(JSON.parse(readFileSync(path, "utf8")).appVersion);
+  } catch {
+    return null;
+  }
+}
+
+function macAppBundleVersion(home) {
+  for (const root of [join(home, "Applications"), "/Applications"]) {
+    const plist = join(root, "Grok Bot.app/Contents/Info.plist");
+    if (!existsSync(plist)) continue;
+    const version = execFileSync("/usr/libexec/PlistBuddy", ["-c", "Print :CFBundleShortVersionString", plist], { encoding: "utf8" }).trim();
+    if (validAppVersion(version)) return version;
+  }
+  return null;
+}
+
+// EnsureSandBox rejects client versions the backend considers outdated, so
+// report the installed app's version rather than a fixed one.
+export function grokBotAppVersion({ home = homedir(), platform = process.platform, env = process.env, appData } = {}) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) return null;
+  return (
+    desktopStatusAppVersion(home, platform, sessionEnv({ env, appData })) ??
+    (platform === "darwin" ? macAppBundleVersion(home) : null)
+  );
+}
+
+export function hasGrokBotAppCredentials(options = {}) {
+  try {
+    const active = activeAppAccount(options)?.account;
+    return typeof active?.["cursor-access-token"] === "string" && Boolean(active["cursor-access-token"]);
+  } catch {
+    return false;
+  }
+}
+
+function decryptAppSecret(encrypted, { platform, home, env, getKeychainPassword, unprotectData }) {
+  if (platform === "win32") {
+    return decryptWindowsSafeStorageString(encrypted, readWindowsSafeStorageKey(home, env, unprotectData));
+  }
+  const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
+  const password = platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10
+    ? LINUX_BASIC_TEXT_PASSWORD : getKeychainPassword(platform);
+  return decryptSafeStorageString(encrypted, password, platform);
+}
+
+
 function readKeychainPassword(platform = process.platform) {
   if (platform === "linux") {
     return execFileSync(
@@ -184,6 +241,59 @@ function readWindowsSafeStorageKey(home, env, unprotectData) {
   return unprotectData(blob.subarray(5));
 }
 
+// Read only the explicitly selected account; never guess from the account roster.
+function activeAppAccount({ home = homedir(), platform = process.platform, env = process.env, appData } = {}) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) return null;
+  const path = join(grokBotAppDataPath(home, platform, sessionEnv({ env, appData })), "sand-secrets.json");
+  if (!existsSync(path)) return null;
+  const stored = JSON.parse(readFileSync(path, "utf8"));
+  if (stored.version != null && stored.version !== 1) {
+    throw new GrokBotGatewaySessionError("UNSUPPORTED_CREDENTIALS", "Unsupported Grok Bot account storage version.");
+  }
+  const accounts = JSON.parse(stored["cursor-accounts"] ?? "null");
+  if (typeof accounts?.active !== "string" || !Object.hasOwn(accounts.accounts ?? {}, accounts.active)) return null;
+  return { key: accounts.active, account: accounts.accounts[accounts.active] };
+}
+
+export function grokBotActiveAccountKey(options = {}) {
+  return activeAppAccount(options)?.key ?? null;
+}
+
+export function loadGrokBotAppCredentials({
+  home = homedir(), platform = process.platform, env = process.env, appData,
+  expectedAccountKey,
+  getKeychainPassword = readKeychainPassword, unprotectData = unprotectWithDpapi,
+} = {}) {
+  const effectiveEnv = sessionEnv({ env, appData });
+  const selected = activeAppAccount({ home, platform, env: effectiveEnv });
+  if (!selected) return null;
+  if (expectedAccountKey !== undefined && selected.key !== expectedAccountKey) {
+    throw new GrokBotGatewaySessionError("ACCOUNT_CHANGED", "Grok Bot active account changed; reconnect refused.");
+  }
+  const encryptedToken = selected.account?.["cursor-access-token"];
+  if (typeof encryptedToken !== "string" || !encryptedToken) {
+    throw new GrokBotGatewaySessionError("INCOMPLETE_CREDENTIALS", "Grok Bot active account has no access token.");
+  }
+  const windowsKey = platform === "win32" ? readWindowsSafeStorageKey(home, effectiveEnv, unprotectData) : null;
+  const decrypt = (encrypted) => {
+    if (windowsKey) return decryptWindowsSafeStorageString(encrypted, windowsKey);
+    const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
+    const password = platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10
+      ? LINUX_BASIC_TEXT_PASSWORD : getKeychainPassword(platform);
+    return decryptSafeStorageString(encrypted, password, platform);
+  };
+  const accessToken = decrypt(encryptedToken).trim();
+  const encryptedTeam = selected.account["cursor-selected-team-id"];
+  const teamId = encryptedTeam == null ? undefined : decrypt(encryptedTeam);
+  if (!accessToken) {
+    throw new GrokBotGatewaySessionError("INCOMPLETE_CREDENTIALS", "Grok Bot active account has no access token.");
+  }
+  if (teamId !== undefined && (!/^[1-9][0-9]*$/.test(teamId) || !Number.isSafeInteger(Number(teamId)))) {
+    throw new GrokBotGatewaySessionError("INVALID_TEAM", "Grok Bot active account has an invalid selected team.");
+  }
+  return { accessToken, accountKey: selected.key, ...(teamId === undefined ? {} : { teamId }) };
+}
+
 export function loadGrokBotGatewaySession({
   platform = process.platform,
   home = homedir(),
@@ -200,22 +310,7 @@ export function loadGrokBotGatewaySession({
 
   const wrapped = JSON.parse(readFileSync(path, "utf8"));
   const encrypted = encryptedPayload(wrapped);
-  let clear;
-  if (platform === "win32") {
-    clear = decryptWindowsSafeStorageString(
-      encrypted,
-      readWindowsSafeStorageKey(home, effectiveEnv, unprotectData),
-    );
-  } else {
-    const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
-    // Linux v10 is the keyring-less basic_text backend; no secret store to ask.
-    const needsKeychain = !(platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10);
-    clear = decryptSafeStorageString(
-      encrypted,
-      needsKeychain ? getKeychainPassword(platform) : LINUX_BASIC_TEXT_PASSWORD,
-      platform,
-    );
-  }
+  const clear = decryptAppSecret(encrypted, { platform, home, env: effectiveEnv, getKeychainPassword, unprotectData });
   const descriptor = JSON.parse(clear);
   if (!descriptor.baseUrl || !descriptor.token) {
     throw new GrokBotGatewaySessionError(

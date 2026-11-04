@@ -199,7 +199,7 @@ var __webpack_modules__ = {
             exports.useFormStatus = function() {
                 return resolveDispatcher().useHostTransitionStatus();
             };
-            exports.version = "19.3.0";
+            exports.version = "19.3.1";
             "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop(Error());
         }();
     },
@@ -348,7 +348,7 @@ var __webpack_modules__ = {
         exports.useFormStatus = function() {
             return ReactSharedInternals.H.useHostTransitionStatus();
         };
-        exports.version = "19.3.0";
+        exports.version = "19.3.1";
     },
     "./node_modules/react-dom/index.js" (module, __unused_rspack_exports, __webpack_require__) {
         function checkDCE() {
@@ -6096,7 +6096,7 @@ var __webpack_modules__ = {
             exports.useTransition = function() {
                 return resolveDispatcher().useTransition();
             };
-            exports.version = "19.3.0";
+            exports.version = "19.3.1";
             "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop(Error());
         }();
     },
@@ -6477,7 +6477,7 @@ var __webpack_modules__ = {
         exports.useTransition = function() {
             return ReactSharedInternals.H.useTransition();
         };
-        exports.version = "19.3.0";
+        exports.version = "19.3.1";
     },
     "./node_modules/react/index.js" (module, __unused_rspack_exports, __webpack_require__) {
         if (process.env.NODE_ENV === 'production') {
@@ -8602,7 +8602,7 @@ var __webpack_modules__ = {
             } catch (err) {
                 if (!(err instanceof _core_store_js__rspack_import_3.AD)) throw err;
             }
-            const note = 'Live roster is on the box. Prefer CURSOR_ACCESS_TOKEN then EnsureSandBox then POST gateway /api/*.';
+            const note = 'Live roster is on the box. A missing cached route can reconnect through the active Grok Bot account.';
             const gatewayAuthPresent = (0, _core_gateway_js__rspack_import_2.nF)();
             const grokBotAppSession = (0, _core_app_session_js__rspack_import_1.hd)();
             const sessionJson = {
@@ -8628,6 +8628,7 @@ var __webpack_modules__ = {
                 `resolved: ${resolved ?? '(none)'}`,
                 `gateway auth: ${gatewayAuthPresent ? 'present' : 'no'}`,
                 sessionLine,
+                `Grok Bot active account credentials: ${(0, _core_app_session_js__rspack_import_1._T)() ? 'present' : 'not found'}`,
                 'found:',
                 found.length ? found.map((p)=>`  ${p}`).join('\n') : '  (none)',
                 'candidates:',
@@ -38029,6 +38030,30 @@ var __webpack_modules__ = {
                 return payload;
             };
         });
+        function capSize(inst, size) {
+            const caps = _util_js__rspack_import_2.hi(inst._zod.def.checks);
+            if (!caps.length) return;
+            const cap = Math.min(...caps.map((c)=>c[0]));
+            const parse1 = inst._zod.parse;
+            inst._zod.parse = (payload, ctx)=>{
+                const n = size(payload.value);
+                if (n > cap && !ctx?.skipChecks && ctx?.direction !== "backward") {
+                    for (const [max, ch] of _util_js__rspack_import_2.hi(inst._zod.def.checks)){
+                        if (n > max && ch._zod.def.when(payload)) {
+                            const start = payload.issues.length;
+                            ch._zod.check(payload);
+                            payload.issues[start].continue = false;
+                            _util_js__rspack_import_2.d3(payload.issues, start, inst);
+                            return payload;
+                        }
+                    }
+                }
+                return parse1(payload, ctx);
+            };
+        }
+        const arraySize = (input)=>Array.isArray(input) ? input.length : -1;
+        const mapSize = (input)=>input instanceof Map ? input.size : -1;
+        const setSize = (input)=>input instanceof Set ? input.size : -1;
         function handleArrayResult(result, final, index) {
             if (result.issues.length) {
                 final.issues.push(..._util_js__rspack_import_2.lQ(index, result.issues));
@@ -38071,6 +38096,7 @@ var __webpack_modules__ = {
                 }
                 return payload;
             };
+            capSize(inst, arraySize);
         });
         function handlePropertyResult(result, final, key, input, optin, optout) {
             const isPresent = key in input;
@@ -39088,6 +39114,7 @@ var __webpack_modules__ = {
                 if (proms.length) return Promise.all(proms).then(()=>payload);
                 return payload;
             };
+            capSize(inst, mapSize);
         });
         function handleMapResult(keyResult, valueResult, final, key, input, inst, ctx) {
             if (keyResult.issues.length) {
@@ -39154,6 +39181,7 @@ var __webpack_modules__ = {
                 if (proms.length) return Promise.all(proms).then(()=>payload);
                 return payload;
             };
+            capSize(inst, setSize);
         });
         function handleSetResult(result, final) {
             if (result.issues.length) {
@@ -40404,6 +40432,7 @@ var __webpack_modules__ = {
             gx: ()=>captureStackTrace,
             h1: ()=>merge,
             hI: ()=>allowsEval,
+            hi: ()=>sizeCaps,
             iR: ()=>finalizeIssue,
             jD: ()=>hide,
             jw: ()=>joinValues,
@@ -40957,6 +40986,19 @@ var __webpack_modules__ = {
         function unwrapMessage(message) {
             return typeof message === "string" ? message : message?.message;
         }
+        function sizeCaps(defChecks) {
+            const caps = [];
+            for (const ch of defChecks ?? []){
+                const d = ch._zod.def;
+                if (!/_(length|size)$|_equals$/.test(d.check)) break;
+                const max = d.maximum ?? d.length ?? d.size;
+                if (max >= 0) caps.push([
+                    max,
+                    ch
+                ]);
+            }
+            return caps;
+        }
         function attachSchema(issues, start, inst) {
             var _a;
             for(let i = start; i < issues.length; i++){
@@ -41228,7 +41270,7 @@ var __webpack_modules__ = {
         const version = {
             major: 4,
             minor: 6,
-            patch: 5
+            patch: 7
         };
         __webpack_require__.d(__webpack_exports__, {}, {
             r: version
@@ -44254,11 +44296,11 @@ var __webpack_modules__ = {
             }
         }
         function encryptedPayload(wrapped) {
-            if (wrapped.version != null && wrapped.version !== 1 && wrapped.version !== 2) {
+            if (wrapped.version != null && wrapped.version !== 1 && wrapped.version !== 2 && wrapped.version !== 3) {
                 throw new GrokBotGatewaySessionError("UNSUPPORTED_VERSION", `Unsupported Grok Bot gateway descriptor version ${wrapped.version}.`);
             }
             let encrypted;
-            if (wrapped.version === 2) {
+            if (wrapped.version === 2 || wrapped.version === 3) {
                 const entries = Object.values(wrapped.entries ?? {});
                 if (entries.length === 0) {
                     throw new GrokBotGatewaySessionError("EMPTY_ENTRIES", "Grok Bot gateway descriptor has no saved gateway entries.");
@@ -44333,6 +44375,60 @@ var __webpack_modules__ = {
                 appData
             })));
         }
+        const APP_VERSION_PATTERN = /^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/;
+        function validAppVersion(version) {
+            return typeof version === "string" && APP_VERSION_PATTERN.test(version) ? version : null;
+        }
+        function desktopStatusAppVersion(home, platform, env) {
+            const path = (0, node_path__rspack_import_4.join)(grokBotAppDataPath(home, platform, env), "desktop-status.json");
+            if (!(0, node_fs__rspack_import_2.existsSync)(path)) return null;
+            try {
+                return validAppVersion(JSON.parse((0, node_fs__rspack_import_2.readFileSync)(path, "utf8")).appVersion);
+            } catch  {
+                return null;
+            }
+        }
+        function macAppBundleVersion(home) {
+            for (const root of [
+                (0, node_path__rspack_import_4.join)(home, "Applications"),
+                "/Applications"
+            ]){
+                const plist = (0, node_path__rspack_import_4.join)(root, "Grok Bot.app/Contents/Info.plist");
+                if (!(0, node_fs__rspack_import_2.existsSync)(plist)) continue;
+                const version = (0, node_child_process__rspack_import_1.execFileSync)("/usr/libexec/PlistBuddy", [
+                    "-c",
+                    "Print :CFBundleShortVersionString",
+                    plist
+                ], {
+                    encoding: "utf8"
+                }).trim();
+                if (validAppVersion(version)) return version;
+            }
+            return null;
+        }
+        function grokBotAppVersion({ home = (0, node_os__rspack_import_3.homedir)(), platform = process.platform, env = process.env, appData } = {}) {
+            if (!SUPPORTED_PLATFORMS.has(platform)) return null;
+            return desktopStatusAppVersion(home, platform, sessionEnv({
+                env,
+                appData
+            })) ?? (platform === "darwin" ? macAppBundleVersion(home) : null);
+        }
+        function hasGrokBotAppCredentials(options = {}) {
+            try {
+                const active = activeAppAccount(options)?.account;
+                return typeof active?.["cursor-access-token"] === "string" && Boolean(active["cursor-access-token"]);
+            } catch  {
+                return false;
+            }
+        }
+        function decryptAppSecret(encrypted, { platform, home, env, getKeychainPassword, unprotectData }) {
+            if (platform === "win32") {
+                return decryptWindowsSafeStorageString(encrypted, readWindowsSafeStorageKey(home, env, unprotectData));
+            }
+            const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
+            const password = platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10 ? LINUX_BASIC_TEXT_PASSWORD : getKeychainPassword(platform);
+            return decryptSafeStorageString(encrypted, password, platform);
+        }
         function readKeychainPassword(platform = process.platform) {
             if (platform === "linux") {
                 return (0, node_child_process__rspack_import_1.execFileSync)("secret-tool", [
@@ -44376,6 +44472,69 @@ var __webpack_modules__ = {
             }
             return unprotectData(blob.subarray(5));
         }
+        function activeAppAccount({ home = (0, node_os__rspack_import_3.homedir)(), platform = process.platform, env = process.env, appData } = {}) {
+            if (!SUPPORTED_PLATFORMS.has(platform)) return null;
+            const path = (0, node_path__rspack_import_4.join)(grokBotAppDataPath(home, platform, sessionEnv({
+                env,
+                appData
+            })), "sand-secrets.json");
+            if (!(0, node_fs__rspack_import_2.existsSync)(path)) return null;
+            const stored = JSON.parse((0, node_fs__rspack_import_2.readFileSync)(path, "utf8"));
+            if (stored.version != null && stored.version !== 1) {
+                throw new GrokBotGatewaySessionError("UNSUPPORTED_CREDENTIALS", "Unsupported Grok Bot account storage version.");
+            }
+            const accounts = JSON.parse(stored["cursor-accounts"] ?? "null");
+            if (typeof accounts?.active !== "string" || !Object.hasOwn(accounts.accounts ?? {}, accounts.active)) return null;
+            return {
+                key: accounts.active,
+                account: accounts.accounts[accounts.active]
+            };
+        }
+        function grokBotActiveAccountKey(options = {}) {
+            return activeAppAccount(options)?.key ?? null;
+        }
+        function loadGrokBotAppCredentials({ home = (0, node_os__rspack_import_3.homedir)(), platform = process.platform, env = process.env, appData, expectedAccountKey, getKeychainPassword = readKeychainPassword, unprotectData = unprotectWithDpapi } = {}) {
+            const effectiveEnv = sessionEnv({
+                env,
+                appData
+            });
+            const selected = activeAppAccount({
+                home,
+                platform,
+                env: effectiveEnv
+            });
+            if (!selected) return null;
+            if (expectedAccountKey !== undefined && selected.key !== expectedAccountKey) {
+                throw new GrokBotGatewaySessionError("ACCOUNT_CHANGED", "Grok Bot active account changed; reconnect refused.");
+            }
+            const encryptedToken = selected.account?.["cursor-access-token"];
+            if (typeof encryptedToken !== "string" || !encryptedToken) {
+                throw new GrokBotGatewaySessionError("INCOMPLETE_CREDENTIALS", "Grok Bot active account has no access token.");
+            }
+            const windowsKey = platform === "win32" ? readWindowsSafeStorageKey(home, effectiveEnv, unprotectData) : null;
+            const decrypt = (encrypted)=>{
+                if (windowsKey) return decryptWindowsSafeStorageString(encrypted, windowsKey);
+                const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
+                const password = platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10 ? LINUX_BASIC_TEXT_PASSWORD : getKeychainPassword(platform);
+                return decryptSafeStorageString(encrypted, password, platform);
+            };
+            const accessToken = decrypt(encryptedToken).trim();
+            const encryptedTeam = selected.account["cursor-selected-team-id"];
+            const teamId = encryptedTeam == null ? undefined : decrypt(encryptedTeam);
+            if (!accessToken) {
+                throw new GrokBotGatewaySessionError("INCOMPLETE_CREDENTIALS", "Grok Bot active account has no access token.");
+            }
+            if (teamId !== undefined && (!/^[1-9][0-9]*$/.test(teamId) || !Number.isSafeInteger(Number(teamId)))) {
+                throw new GrokBotGatewaySessionError("INVALID_TEAM", "Grok Bot active account has an invalid selected team.");
+            }
+            return {
+                accessToken,
+                accountKey: selected.key,
+                ...teamId === undefined ? {} : {
+                    teamId
+                }
+            };
+        }
         function loadGrokBotGatewaySession({ platform = process.platform, home = (0, node_os__rspack_import_3.homedir)(), env = process.env, appData, getKeychainPassword = readKeychainPassword, unprotectData = unprotectWithDpapi } = {}) {
             if (!SUPPORTED_PLATFORMS.has(platform)) return null;
             const effectiveEnv = sessionEnv({
@@ -44386,14 +44545,13 @@ var __webpack_modules__ = {
             if (!(0, node_fs__rspack_import_2.existsSync)(path)) return null;
             const wrapped = JSON.parse((0, node_fs__rspack_import_2.readFileSync)(path, "utf8"));
             const encrypted = encryptedPayload(wrapped);
-            let clear;
-            if (platform === "win32") {
-                clear = decryptWindowsSafeStorageString(encrypted, readWindowsSafeStorageKey(home, effectiveEnv, unprotectData));
-            } else {
-                const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
-                const needsKeychain = !(platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10);
-                clear = decryptSafeStorageString(encrypted, needsKeychain ? getKeychainPassword(platform) : LINUX_BASIC_TEXT_PASSWORD, platform);
-            }
+            const clear = decryptAppSecret(encrypted, {
+                platform,
+                home,
+                env: effectiveEnv,
+                getKeychainPassword,
+                unprotectData
+            });
             const descriptor = JSON.parse(clear);
             if (!descriptor.baseUrl || !descriptor.token) {
                 throw new GrokBotGatewaySessionError("INCOMPLETE_DESCRIPTOR", "Decrypted Grok Bot gateway descriptor is incomplete.");
@@ -44427,9 +44585,13 @@ var __webpack_modules__ = {
             }
         }
         __webpack_require__.d(__webpack_exports__, {
+            AO: ()=>grokBotAppVersion,
+            B3: ()=>grokBotActiveAccountKey,
             Z2: ()=>loadGrokBotGatewaySession,
             ZN: ()=>hasGrokBotGatewaySession,
+            _T: ()=>hasGrokBotAppCredentials,
             dQ: ()=>grokBotGatewayDescriptorPath,
+            gF: ()=>loadGrokBotAppCredentials,
             hd: ()=>inspectGrokBotGatewaySession
         });
     },
@@ -47205,7 +47367,7 @@ var __webpack_modules__ = {
         });
     },
     "./src/core/desktop-shim-bridge.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
-        const BRIDGE_SOURCE = "#!/usr/bin/env python3\n\"\"\"Stdio JSONL (Desktop) <-> WebSocket-over-unix (managed app-server daemon).\nReversible: remove CODEX_CLI_PATH wrapper. Does not read Desktop private pipes.\n\"\"\"\nfrom __future__ import annotations\nimport base64, hashlib, json, os, select, socket, struct, sys, threading, time\n\nSOCK = os.environ.get(\n    \"CODEX_APP_SERVER_SOCK\",\n    os.path.expanduser(\"~/.codex/app-server-control/app-server-control.sock\"),\n)\nLOG = os.environ.get(\"CODEX_STDIO_BRIDGE_LOG\", os.path.expanduser(\"~/.codex/bin/codex-stdio-to-daemon-ws.log\"))\nWS_GUID = \"258EAFA5-E914-47DA-95CA-C5AB0DC85B11\"\n\n# Wrapper contract: 0 served the session, 1 failed while stdio was still\n# pristine -- no stdin byte consumed and no stdout frame committed (wrapper\n# falls back to real Codex), 2 failed mid-session (wrapper exits promptly so\n# Desktop reconnects; the fallback must never run on half-consumed stdin or\n# dirty stdout).\nEXIT_SERVED = 0\nEXIT_PRE_STDIO = 1\nEXIT_MID_SESSION = 2\n\nCONNECT_TIMEOUT_S = float(os.environ.get(\"CODEX_BRIDGE_CONNECT_TIMEOUT\", \"10\"))\n# Bound from connect to the matching first daemon response: a daemon that\n# completes the upgrade but never answers the first RPC must not hold Desktop\n# past this. Only the matching initialize response/error (or the deadline\n# itself) clears it; notifications never do.\nFIRST_MESSAGE_TIMEOUT_S = float(os.environ.get(\"CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT\", \"30\"))\n# Bound on every mid-session socket send and stdout write: a wedged or\n# non-reading peer must not hang Desktop past this. Reads after a successful\n# init block with no timeout so healthy idle sessions survive silence.\nIO_TIMEOUT_S = float(os.environ.get(\"CODEX_BRIDGE_IO_TIMEOUT\", \"30\"))\n\ndef log(msg: str) -> None:\n    try:\n        with open(LOG, \"a\") as f:\n            f.write(time.strftime(\"%Y-%m-%dT%H:%M:%SZ\", time.gmtime()) + \" \" + msg + \"\\n\")\n    except OSError:\n        pass\n\ndef ws_connect(path: str, timeout: float = CONNECT_TIMEOUT_S):\n    \"\"\"Connect + HTTP upgrade under one absolute monotonic deadline.\n\n    Returns (socket, trailing) where trailing holds bytes coalesced after the\n    upgrade headers (TCP may deliver the 101 and the first WS frame together;\n    discarding them would lose the first message). Requires HTTP/1.1 101 plus\n    a matching Sec-WebSocket-Accept so a 200 (or any non-101) fails fast even\n    when the accept hash happens to be valid.\n    \"\"\"\n    deadline = time.monotonic() + timeout\n    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)\n    s.settimeout(timeout)\n    try:\n        s.connect(path)\n        key = base64.b64encode(os.urandom(16)).decode()\n        expected = base64.b64encode(hashlib.sha1((key + WS_GUID).encode()).digest()).decode()\n        req = (\n            f\"GET /rpc HTTP/1.1\\r\\nHost: localhost\\r\\nUpgrade: websocket\\r\\n\"\n            f\"Connection: Upgrade\\r\\nSec-WebSocket-Key: {key}\\r\\nSec-WebSocket-Version: 13\\r\\n\\r\\n\"\n        ).encode()\n        s.settimeout(max(0.0, deadline - time.monotonic()))\n        s.sendall(req)\n        buf = b\"\"\n        while True:\n            if b\"\\r\\n\\r\\n\" in buf:\n                break\n            remaining = deadline - time.monotonic()\n            if remaining <= 0:\n                raise TimeoutError(\"WebSocket upgrade timed out\")\n            if len(buf) > 65536:\n                raise ConnectionError(\"WS upgrade headers too large\")\n            s.settimeout(remaining)\n            chunk = s.recv(4096)\n            if not chunk:\n                raise ConnectionError(\"daemon closed during WS upgrade\")\n            buf += chunk\n        head, _, trailing = buf.partition(b\"\\r\\n\\r\\n\")\n        lines = head.split(b\"\\r\\n\")\n        if not lines or lines[0].split(b\" \", 2)[:2] != [b\"HTTP/1.1\", b\"101\"]:\n            raise ConnectionError(f\"WS upgrade failed: {head[:200]!r}\")\n        accept = None\n        for line in lines[1:]:\n            name, sep, value = line.partition(b\":\")\n            if sep and name.strip().lower() == b\"sec-websocket-accept\":\n                accept = value.strip().decode(\"latin-1\")\n        if accept != expected:\n            raise ConnectionError(\"WS upgrade accept mismatch\")\n    except Exception:\n        try:\n            s.close()\n        except OSError:\n            pass\n        raise\n    # Keep one socket mode across reader and writer threads. Reads wait\n    # indefinitely in select; sends use their own absolute deadline.\n    s.setblocking(False)\n    return s, trailing\n\ndef mask_send(sock: socket.socket, payload: bytes, opcode: int = 1, deadline=None) -> None:\n    mask = os.urandom(4)\n    ln = len(payload)\n    if ln < 126:\n        hdr = bytes([0x80 | opcode, 0x80 | ln])\n    elif ln < 65536:\n        hdr = bytes([0x80 | opcode, 0x80 | 126]) + struct.pack(\"!H\", ln)\n    else:\n        hdr = bytes([0x80 | opcode, 0x80 | 127]) + struct.pack(\"!Q\", ln)\n    view = memoryview(hdr + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))\n    while view:\n        remaining = deadline - time.monotonic()\n        if remaining <= 0:\n            raise TimeoutError(\"socket write timed out\")\n        _, writable, _ = select.select([], [sock], [], remaining)\n        if not writable:\n            raise TimeoutError(\"socket write timed out\")\n        try:\n            n = sock.send(view)\n        except BlockingIOError:\n            continue\n        if not n:\n            raise ConnectionError(\"socket closed during write\")\n        view = view[n:]\n\ndef locked_send(sock: socket.socket, lock: threading.Lock, payload: bytes, opcode: int = 1, timeout: float = CONNECT_TIMEOUT_S) -> None:\n    \"\"\"Serialized send sharing one monotonic budget across lock wait + send.\n\n    A non-reading peer must never wedge pong writes or timeout cleanup: on\n    expiry raise TimeoutError so the caller closes and exits without hanging.\n    \"\"\"\n    if timeout is None:\n        timeout = CONNECT_TIMEOUT_S\n    deadline = time.monotonic() + timeout\n    if timeout <= 0:\n        raise TimeoutError(\"send budget expired\")\n    if not lock.acquire(timeout=timeout):\n        raise TimeoutError(\"send lock timed out\")\n    try:\n        remaining = deadline - time.monotonic()\n        if remaining <= 0:\n            raise TimeoutError(\"send budget expired\")\n        mask_send(sock, payload, opcode=opcode, deadline=deadline)\n    finally:\n        lock.release()\n\ndef _buffered_reader(sock: socket.socket, initial: bytes = b\"\"):\n    buf = bytearray(initial)\n    def recv(n):\n        while len(buf) < n:\n            select.select([sock], [], [])\n            try:\n                chunk = sock.recv(n - len(buf))\n            except BlockingIOError:\n                continue\n            if not chunk:\n                raise ConnectionError(\"eof\")\n            buf.extend(chunk)\n        out = bytes(buf[:n])\n        del buf[:n]\n        return out\n    return recv\n\ndef read_frame(recv):\n    hdr = recv(2)\n    fin = bool(hdr[0] & 0x80)\n    opcode = hdr[0] & 0x0F\n    masked = bool(hdr[1] & 0x80)\n    ln = hdr[1] & 0x7F\n    if ln == 126:\n        ln = struct.unpack(\"!H\", recv(2))[0]\n    elif ln == 127:\n        ln = struct.unpack(\"!Q\", recv(8))[0]\n    mask = recv(4) if masked else b\"\"\n    payload = recv(ln)\n    if masked:\n        payload = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))\n    return fin, opcode, payload\n\ndef read_message(recv, send_pong):\n    \"\"\"Next complete data message, assembling continuation frames.\n\n    Control frames are handled inline (pong answered, close reported) so a\n    fragmented message split around a ping still reassembles.\n    \"\"\"\n    opcode = None\n    parts = []\n    while True:\n        fin, op, payload = read_frame(recv)\n        if op == 0x8:\n            return (\"close\", None, b\"\")\n        if op == 0x9:\n            send_pong(payload)\n            continue\n        if op == 0xA:\n            continue\n        if op in (0x1, 0x2):\n            if opcode is not None:\n                raise ConnectionError(\"data frame inside fragmented message\")\n            if fin:\n                return (\"data\", op, payload)\n            opcode = op\n            parts.append(payload)\n            continue\n        if op == 0x0:\n            if opcode is None:\n                raise ConnectionError(\"stray continuation frame\")\n            parts.append(payload)\n            if fin:\n                return (\"data\", opcode, b\"\".join(parts))\n            continue\n        raise ConnectionError(f\"unsupported opcode {op}\")\n\ndef _is_daemon_response(payload: bytes, expect_id=None, known_ids=None) -> bool:\n    \"\"\"True only for the matching JSON-RPC response/error, never a notification.\n\n    The first-RPC timer must survive unrelated daemon notifications and foreign\n    responses: only the response/error whose id matches the client's initialize\n    (or, before it is known, any id the client already sent) proves the first\n    RPC got an answer. Timeouts clear it via the deadline, never via data.\n    \"\"\"\n    try:\n        text = payload.decode(\"utf-8\").strip()\n        msg = json.loads(text)\n    except Exception:\n        return False\n    if not isinstance(msg, dict):\n        return False\n    rid = msg.get(\"id\")\n    if rid is None or \"method\" in msg or (\"result\" not in msg and \"error\" not in msg):\n        return False\n    if expect_id is not None:\n        return rid == expect_id\n    if known_ids:\n        return rid in known_ids\n    return False\n\ndef _bounded_stdout_write(data: bytes, timeout: float = IO_TIMEOUT_S) -> None:\n    \"\"\"Write one daemon frame to stdout without hanging on a non-reading peer.\n\n    Waits for writability under the mid-session write budget and writes via\n    os.write in a loop, so a Desktop that stopped reading cannot hang the\n    bridge and then exit 1 on dirty stdout.\n    \"\"\"\n    if timeout is None:\n        timeout = IO_TIMEOUT_S\n    if timeout <= 0:\n        raise TimeoutError(\"stdout budget expired\")\n    fd = sys.stdout.fileno()\n    deadline = time.monotonic() + timeout\n    was_blocking = os.get_blocking(fd)\n    os.set_blocking(fd, False)\n    try:\n        view = memoryview(data)\n        while view:\n            remaining = deadline - time.monotonic()\n            if remaining <= 0:\n                raise TimeoutError(\"stdout write timed out\")\n            _, writable, _ = select.select([], [fd], [], remaining)\n            if not writable:\n                raise TimeoutError(\"stdout write timed out\")\n            try:\n                n = os.write(fd, view)\n            except BlockingIOError:\n                continue\n            view = view[n:]\n    finally:\n        os.set_blocking(fd, was_blocking)\n\ndef stdout_writer(sock: socket.socket, recv, send_pong, done: threading.Event, first_msg: threading.Event, output_forwarded: threading.Event, client_ids=None, init_state=None) -> None:\n    try:\n        while True:\n            kind, opcode, payload = read_message(recv, send_pong)\n            if kind == \"close\":\n                log(\"daemon WS close\")\n                return\n            if opcode == 0x1:\n                # Desktop StdioConnection expects newline-delimited JSON text\n                if not payload.endswith(b\"\\n\"):\n                    payload += b\"\\n\"\n            # Commit BEFORE writing: once a daemon byte is about to hit\n            # stdout, the session is dirty and the fallback must never run,\n            # even if the write itself blocks or fails.\n            output_forwarded.set()\n            _bounded_stdout_write(payload)\n            if opcode == 0x1:\n                expect = (init_state or {}).get(\"initialize_id\") if isinstance(init_state, dict) else None\n                if _is_daemon_response(payload, expect, client_ids or ()):\n                    first_msg.set()\n    except Exception as e:\n        log(f\"stdout_writer exit: {e}\")\n    finally:\n        done.set()\n\ndef main() -> int:\n    log(f\"start sock={SOCK}\")\n    try:\n        sock, pending = ws_connect(SOCK)\n    except Exception as e:\n        log(f\"connect failed: {e}\")\n        sys.stderr.write(f\"codex-stdio-to-daemon-ws: {e}\\n\")\n        return EXIT_PRE_STDIO\n    log(\"connected\")\n    connected_at = time.monotonic()\n    first_deadline = connected_at + FIRST_MESSAGE_TIMEOUT_S\n    send_lock = threading.Lock()\n    done = threading.Event()\n    first_msg = threading.Event()\n    output_forwarded = threading.Event()\n    client_ids = set()\n    init_state = {\"initialize_id\": None}\n\n    def _send_timeout() -> float:\n        # Before the first matching daemon response the remaining first-RPC\n        # budget bounds every send; after it each send gets the mid-session\n        # write budget. Idle reads are never timed out.\n        if not first_msg.is_set():\n            return max(0.0, first_deadline - time.monotonic())\n        return IO_TIMEOUT_S\n\n    def _cleanup_timeout() -> float:\n        # Timeout cleanup stays within the expired session budget: once the\n        # first-RPC deadline has passed, close directly instead of opening\n        # fresh windows that let a short budget take several timeout periods.\n        if not first_msg.is_set():\n            return max(0.0, first_deadline - time.monotonic())\n        return CONNECT_TIMEOUT_S\n\n    def send_pong(payload: bytes) -> None:\n        locked_send(sock, send_lock, payload, opcode=0xA, timeout=_send_timeout())\n    recv = _buffered_reader(sock, pending)\n    t = threading.Thread(target=stdout_writer, args=(sock, recv, send_pong, done, first_msg, output_forwarded, client_ids, init_state), daemon=True)\n    t.start()\n    # Byte-precise commit point: the fallback may run only while zero stdin\n    # bytes have left the pipe and no daemon payload was committed to stdout.\n    # Reads use os.read into a userspace line buffer (buffered readline could\n    # readahead past the commit point), and every byte read counts -- even a\n    # blank line. first_msg tracks the matching daemon response/error, never\n    # a notification.\n    stdin_bytes = 0\n    pending_in = b\"\"\n    clean_eof = False\n    try:\n        fd = sys.stdin.fileno()\n        while not done.is_set():\n            if not first_msg.is_set() and time.monotonic() >= first_deadline:\n                log(\"first daemon message timed out\")\n                break\n            ready, _, _ = select.select([fd], [], [], 0.5)\n            if not ready:\n                continue\n            chunk = os.read(fd, 65536)\n            if not chunk:\n                clean_eof = True\n                break\n            stdin_bytes += len(chunk)\n            pending_in += chunk\n            while b\"\\n\" in pending_in:\n                line, _, pending_in = pending_in.partition(b\"\\n\")\n                line = line.strip()\n                if not line:\n                    continue\n                try:\n                    try:\n                        obj = json.loads(line.decode(\"utf-8\"))\n                    except Exception:\n                        obj = None\n                    if isinstance(obj, dict) and obj.get(\"id\") is not None:\n                        client_ids.add(obj.get(\"id\"))\n                        if obj.get(\"method\") == \"initialize\" and init_state[\"initialize_id\"] is None:\n                            init_state[\"initialize_id\"] = obj.get(\"id\")\n                except Exception:\n                    pass\n                try:\n                    locked_send(sock, send_lock, line, timeout=_send_timeout())\n                except TimeoutError as e:\n                    log(f\"stdin forward timed out: {e}\")\n                    break\n                except Exception as e:\n                    log(f\"stdin forward failed: {e}\")\n                    break\n            else:\n                continue\n            break\n    except Exception as e:\n        log(f\"stdin loop exit: {e}\")\n    # Flush any buffered EOF-tail data BEFORE the WS Close: sending Close\n    # first would let the daemon discard the tail.\n    if clean_eof:\n        tail = pending_in.strip()\n        if tail and not done.is_set():\n            try:\n                locked_send(sock, send_lock, tail, timeout=_cleanup_timeout())\n            except Exception as e:\n                log(f\"eof flush failed: {e}\")\n    try:\n        locked_send(sock, send_lock, b\"\", opcode=0x8, timeout=_cleanup_timeout())\n    except Exception as e:\n        log(f\"close send failed: {e}\")\n    try:\n        try:\n            sock.shutdown(socket.SHUT_RDWR)\n        except OSError:\n            pass\n        sock.close()\n    except OSError:\n        pass\n    # Bound termination: wake the reader so no thread is left hung on recv.\n    t.join(timeout=0.5)\n    # A reader still exiting could commit output after this check. In that\n    # case pristine stdio cannot be proven, so never permit fallback.\n    if t.is_alive():\n        output_forwarded.set()\n    if clean_eof:\n        log(\"exit\")\n        return EXIT_SERVED\n    # Reader died, first RPC timed out, post-upgrade I/O timed out, or stdin\n    # broke: fail open only while stdio is still pristine -- no stdin byte\n    # ever consumed AND no daemon payload ever committed to stdout. Committed\n    # output forces a mid-session exit so Desktop reconnects instead of\n    # falling back to stock Codex on a corrupted stream.\n    rc = EXIT_MID_SESSION if (stdin_bytes or output_forwarded.is_set()) else EXIT_PRE_STDIO\n    log(f\"exit rc={rc}\")\n    return rc\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n";
+        const BRIDGE_SOURCE = "#!/usr/bin/env python3\n\"\"\"Stdio JSONL (Desktop) <-> WebSocket-over-unix (managed app-server daemon).\nReversible: remove CODEX_CLI_PATH wrapper. Does not read Desktop private pipes.\n\"\"\"\nfrom __future__ import annotations\nimport base64, hashlib, json, os, select, socket, struct, sys, threading, time\n\nSOCK = os.environ.get(\n    \"CODEX_APP_SERVER_SOCK\",\n    os.path.expanduser(\"~/.codex/app-server-control/app-server-control.sock\"),\n)\nLOG = os.environ.get(\"CODEX_STDIO_BRIDGE_LOG\", os.path.expanduser(\"~/.codex/bin/codex-stdio-to-daemon-ws.log\"))\nWS_GUID = \"258EAFA5-E914-47DA-95CA-C5AB0DC85B11\"\n\n# Wrapper contract: 0 served the session, 1 failed while stdio was still\n# pristine -- no stdin byte consumed and no stdout frame committed (wrapper\n# falls back to real Codex), 2 failed mid-session (wrapper exits promptly so\n# Desktop reconnects; the fallback must never run on half-consumed stdin or\n# dirty stdout).\nEXIT_SERVED = 0\nEXIT_PRE_STDIO = 1\nEXIT_MID_SESSION = 2\n\nCONNECT_TIMEOUT_S = float(os.environ.get(\"CODEX_BRIDGE_CONNECT_TIMEOUT\", \"10\"))\n# Bound from connect to the matching first daemon response: a daemon that\n# completes the upgrade but never answers the first RPC must not hold Desktop\n# past this. Only the matching initialize response/error (or the deadline\n# itself) clears it; notifications never do.\nFIRST_MESSAGE_TIMEOUT_S = float(os.environ.get(\"CODEX_BRIDGE_FIRST_MESSAGE_TIMEOUT\", \"30\"))\n# Bound on every mid-session socket send and stdout write: a wedged or\n# non-reading peer must not hang Desktop past this. Reads after a successful\n# init block with no timeout so healthy idle sessions survive silence.\nIO_TIMEOUT_S = float(os.environ.get(\"CODEX_BRIDGE_IO_TIMEOUT\", \"30\"))\n\ndef log(msg: str) -> None:\n    try:\n        with open(LOG, \"a\") as f:\n            f.write(time.strftime(\"%Y-%m-%dT%H:%M:%SZ\", time.gmtime()) + \" \" + msg + \"\\n\")\n    except OSError:\n        pass\n\ndef ws_connect(path: str, timeout: float = CONNECT_TIMEOUT_S):\n    \"\"\"Connect + HTTP upgrade under one absolute monotonic deadline.\n\n    Returns (socket, trailing) where trailing holds bytes coalesced after the\n    upgrade headers (TCP may deliver the 101 and the first WS frame together;\n    discarding them would lose the first message). Requires HTTP/1.1 101 plus\n    a matching Sec-WebSocket-Accept so a 200 (or any non-101) fails fast even\n    when the accept hash happens to be valid.\n    \"\"\"\n    deadline = time.monotonic() + timeout\n    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)\n    s.settimeout(timeout)\n    try:\n        s.connect(path)\n        key = base64.b64encode(os.urandom(16)).decode()\n        expected = base64.b64encode(hashlib.sha1((key + WS_GUID).encode()).digest()).decode()\n        req = (\n            f\"GET /rpc HTTP/1.1\\r\\nHost: localhost\\r\\nUpgrade: websocket\\r\\n\"\n            f\"Connection: Upgrade\\r\\nSec-WebSocket-Key: {key}\\r\\nSec-WebSocket-Version: 13\\r\\n\\r\\n\"\n        ).encode()\n        s.settimeout(max(0.0, deadline - time.monotonic()))\n        s.sendall(req)\n        buf = b\"\"\n        while True:\n            if b\"\\r\\n\\r\\n\" in buf:\n                break\n            remaining = deadline - time.monotonic()\n            if remaining <= 0:\n                raise TimeoutError(\"WebSocket upgrade timed out\")\n            if len(buf) > 65536:\n                raise ConnectionError(\"WS upgrade headers too large\")\n            s.settimeout(remaining)\n            chunk = s.recv(4096)\n            if not chunk:\n                raise ConnectionError(\"daemon closed during WS upgrade\")\n            buf += chunk\n        head, _, trailing = buf.partition(b\"\\r\\n\\r\\n\")\n        lines = head.split(b\"\\r\\n\")\n        if not lines or lines[0].split(b\" \", 2)[:2] != [b\"HTTP/1.1\", b\"101\"]:\n            raise ConnectionError(f\"WS upgrade failed: {head[:200]!r}\")\n        accept = None\n        for line in lines[1:]:\n            name, sep, value = line.partition(b\":\")\n            if sep and name.strip().lower() == b\"sec-websocket-accept\":\n                accept = value.strip().decode(\"latin-1\")\n        if accept != expected:\n            raise ConnectionError(\"WS upgrade accept mismatch\")\n    except Exception:\n        try:\n            s.close()\n        except OSError:\n            pass\n        raise\n    # Keep one socket mode across reader and writer threads. Reads wait\n    # indefinitely in select; sends use their own absolute deadline.\n    s.setblocking(False)\n    return s, trailing\n\ndef mask_send(sock: socket.socket, payload: bytes, opcode: int = 1, deadline=None) -> None:\n    mask = os.urandom(4)\n    ln = len(payload)\n    if ln < 126:\n        hdr = bytes([0x80 | opcode, 0x80 | ln])\n    elif ln < 65536:\n        hdr = bytes([0x80 | opcode, 0x80 | 126]) + struct.pack(\"!H\", ln)\n    else:\n        hdr = bytes([0x80 | opcode, 0x80 | 127]) + struct.pack(\"!Q\", ln)\n    view = memoryview(hdr + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))\n    while view:\n        remaining = deadline - time.monotonic()\n        if remaining <= 0:\n            raise TimeoutError(\"socket write timed out\")\n        _, writable, _ = select.select([], [sock], [], remaining)\n        if not writable:\n            raise TimeoutError(\"socket write timed out\")\n        try:\n            n = sock.send(view)\n        except BlockingIOError:\n            continue\n        if not n:\n            raise ConnectionError(\"socket closed during write\")\n        view = view[n:]\n\ndef locked_send(sock: socket.socket, lock: threading.Lock, payload: bytes, opcode: int = 1, timeout: float = CONNECT_TIMEOUT_S) -> None:\n    \"\"\"Serialized send sharing one monotonic budget across lock wait + send.\n\n    A non-reading peer must never wedge pong writes or timeout cleanup: on\n    expiry raise TimeoutError so the caller closes and exits without hanging.\n    \"\"\"\n    if timeout is None:\n        timeout = CONNECT_TIMEOUT_S\n    deadline = time.monotonic() + timeout\n    if timeout <= 0:\n        raise TimeoutError(\"send budget expired\")\n    if not lock.acquire(timeout=timeout):\n        raise TimeoutError(\"send lock timed out\")\n    try:\n        remaining = deadline - time.monotonic()\n        if remaining <= 0:\n            raise TimeoutError(\"send budget expired\")\n        mask_send(sock, payload, opcode=opcode, deadline=deadline)\n    finally:\n        lock.release()\n\ndef _buffered_reader(sock: socket.socket, initial: bytes = b\"\"):\n    buf = bytearray(initial)\n    def recv(n):\n        while len(buf) < n:\n            select.select([sock], [], [])\n            try:\n                chunk = sock.recv(n - len(buf))\n            except BlockingIOError:\n                continue\n            if not chunk:\n                raise ConnectionError(\"eof\")\n            buf.extend(chunk)\n        out = bytes(buf[:n])\n        del buf[:n]\n        return out\n    return recv\n\ndef read_frame(recv):\n    hdr = recv(2)\n    fin = bool(hdr[0] & 0x80)\n    opcode = hdr[0] & 0x0F\n    masked = bool(hdr[1] & 0x80)\n    ln = hdr[1] & 0x7F\n    if ln == 126:\n        ln = struct.unpack(\"!H\", recv(2))[0]\n    elif ln == 127:\n        ln = struct.unpack(\"!Q\", recv(8))[0]\n    mask = recv(4) if masked else b\"\"\n    payload = recv(ln)\n    if masked:\n        payload = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))\n    return fin, opcode, payload\n\ndef read_message(recv, send_pong):\n    \"\"\"Next complete data message, assembling continuation frames.\n\n    Control frames are handled inline (pong answered, close reported) so a\n    fragmented message split around a ping still reassembles.\n    \"\"\"\n    opcode = None\n    parts = []\n    while True:\n        fin, op, payload = read_frame(recv)\n        if op == 0x8:\n            return (\"close\", None, b\"\")\n        if op == 0x9:\n            send_pong(payload)\n            continue\n        if op == 0xA:\n            continue\n        if op in (0x1, 0x2):\n            if opcode is not None:\n                raise ConnectionError(\"data frame inside fragmented message\")\n            if fin:\n                return (\"data\", op, payload)\n            opcode = op\n            parts.append(payload)\n            continue\n        if op == 0x0:\n            if opcode is None:\n                raise ConnectionError(\"stray continuation frame\")\n            parts.append(payload)\n            if fin:\n                return (\"data\", opcode, b\"\".join(parts))\n            continue\n        raise ConnectionError(f\"unsupported opcode {op}\")\n\ndef _is_daemon_response(payload: bytes, expect_id=None, known_ids=None) -> bool:\n    \"\"\"True only for the matching JSON-RPC response/error, never a notification.\n\n    The first-RPC timer must survive unrelated daemon notifications and foreign\n    responses: only the response/error whose id matches the client's initialize\n    (or, before it is known, any id the client already sent) proves the first\n    RPC got an answer. Timeouts clear it via the deadline, never via data.\n    \"\"\"\n    try:\n        text = payload.decode(\"utf-8\").strip()\n        msg = json.loads(text)\n    except Exception:\n        return False\n    if not isinstance(msg, dict):\n        return False\n    rid = msg.get(\"id\")\n    if rid is None or \"method\" in msg or (\"result\" not in msg and \"error\" not in msg):\n        return False\n    if expect_id is not None:\n        return rid == expect_id\n    if known_ids:\n        return rid in known_ids\n    return False\n\ndef _bounded_stdout_write(data: bytes, timeout: float = IO_TIMEOUT_S) -> None:\n    \"\"\"Write one daemon frame to stdout without hanging on a non-reading peer.\n\n    Waits for writability under the mid-session write budget and writes via\n    os.write in a loop, so a Desktop that stopped reading cannot hang the\n    bridge and then exit 1 on dirty stdout.\n    \"\"\"\n    if timeout is None:\n        timeout = IO_TIMEOUT_S\n    if timeout <= 0:\n        raise TimeoutError(\"stdout budget expired\")\n    fd = sys.stdout.fileno()\n    deadline = time.monotonic() + timeout\n    was_blocking = os.get_blocking(fd)\n    os.set_blocking(fd, False)\n    try:\n        view = memoryview(data)\n        while view:\n            remaining = deadline - time.monotonic()\n            if remaining <= 0:\n                raise TimeoutError(\"stdout write timed out\")\n            _, writable, _ = select.select([], [fd], [], remaining)\n            if not writable:\n                raise TimeoutError(\"stdout write timed out\")\n            try:\n                n = os.write(fd, view)\n            except BlockingIOError:\n                continue\n            view = view[n:]\n    finally:\n        os.set_blocking(fd, was_blocking)\n\ndef stdout_writer(sock: socket.socket, recv, send_pong, done: threading.Event, first_msg: threading.Event, output_forwarded: threading.Event, client_ids=None, init_state=None) -> None:\n    try:\n        while True:\n            kind, opcode, payload = read_message(recv, send_pong)\n            if kind == \"close\":\n                log(\"daemon WS close\")\n                return\n            if opcode == 0x1:\n                # Desktop StdioConnection expects newline-delimited JSON text\n                if not payload.endswith(b\"\\n\"):\n                    payload += b\"\\n\"\n            # Commit BEFORE writing: once a daemon byte is about to hit\n            # stdout, the session is dirty and the fallback must never run,\n            # even if the write itself blocks or fails.\n            output_forwarded.set()\n            _bounded_stdout_write(payload)\n            if opcode == 0x1:\n                expect = (init_state or {}).get(\"initialize_id\") if isinstance(init_state, dict) else None\n                if _is_daemon_response(payload, expect, client_ids or ()):\n                    first_msg.set()\n    except Exception as e:\n        log(f\"stdout_writer exit: {e}\")\n    finally:\n        done.set()\n\ndef main() -> int:\n    log(f\"start sock={SOCK}\")\n    try:\n        sock, pending = ws_connect(SOCK)\n    except Exception as e:\n        log(f\"connect failed: {e}\")\n        sys.stderr.write(f\"codex-stdio-to-daemon-ws: {e}\\n\")\n        return EXIT_PRE_STDIO\n    log(\"connected\")\n    connected_at = time.monotonic()\n    first_deadline = connected_at + FIRST_MESSAGE_TIMEOUT_S\n    send_lock = threading.Lock()\n    done = threading.Event()\n    first_msg = threading.Event()\n    output_forwarded = threading.Event()\n    client_ids = set()\n    init_state = {\"initialize_id\": None}\n\n    def _send_timeout() -> float:\n        # Before the first matching daemon response the remaining first-RPC\n        # budget bounds every send; after it each send gets the mid-session\n        # write budget. Idle reads are never timed out.\n        if not first_msg.is_set():\n            return max(0.0, first_deadline - time.monotonic())\n        return IO_TIMEOUT_S\n\n    def _cleanup_timeout() -> float:\n        # Timeout cleanup stays within the expired session budget: once the\n        # first-RPC deadline has passed, close directly instead of opening\n        # fresh windows that let a short budget take several timeout periods.\n        if not first_msg.is_set():\n            return max(0.0, first_deadline - time.monotonic())\n        return CONNECT_TIMEOUT_S\n\n    def send_pong(payload: bytes) -> None:\n        locked_send(sock, send_lock, payload, opcode=0xA, timeout=_send_timeout())\n    recv = _buffered_reader(sock, pending)\n    t = threading.Thread(target=stdout_writer, args=(sock, recv, send_pong, done, first_msg, output_forwarded, client_ids, init_state), daemon=True)\n    t.start()\n    # Byte-precise commit point: the fallback may run only while zero stdin\n    # bytes have left the pipe and no daemon payload was committed to stdout.\n    # Reads use os.read into a userspace line buffer (buffered readline could\n    # readahead past the commit point), and every byte read counts -- even a\n    # blank line. first_msg tracks the matching daemon response/error, never\n    # a notification.\n    stdin_bytes = 0\n    pending_in = b\"\"\n    clean_eof = False\n    try:\n        fd = sys.stdin.fileno()\n        while not done.is_set():\n            if not first_msg.is_set() and time.monotonic() >= first_deadline:\n                log(\"first daemon message timed out\")\n                break\n            ready, _, _ = select.select([fd], [], [], 0.5)\n            if not ready:\n                continue\n            chunk = os.read(fd, 65536)\n            if not chunk:\n                clean_eof = True\n                break\n            stdin_bytes += len(chunk)\n            pending_in += chunk\n            while b\"\\n\" in pending_in:\n                line, _, pending_in = pending_in.partition(b\"\\n\")\n                line = line.strip()\n                if not line:\n                    continue\n                try:\n                    try:\n                        obj = json.loads(line.decode(\"utf-8\"))\n                    except Exception:\n                        obj = None\n                    if isinstance(obj, dict) and obj.get(\"id\") is not None:\n                        client_ids.add(obj.get(\"id\"))\n                        if obj.get(\"method\") == \"initialize\" and init_state[\"initialize_id\"] is None:\n                            init_state[\"initialize_id\"] = obj.get(\"id\")\n                except Exception:\n                    pass\n                try:\n                    locked_send(sock, send_lock, line, timeout=_send_timeout())\n                except TimeoutError as e:\n                    log(f\"stdin forward timed out: {e}\")\n                    break\n                except Exception as e:\n                    log(f\"stdin forward failed: {e}\")\n                    break\n            else:\n                continue\n            break\n    except Exception as e:\n        log(f\"stdin loop exit: {e}\")\n    # Flush any buffered EOF-tail data BEFORE the WS Close: sending Close\n    # first would let the daemon discard the tail.\n    if clean_eof:\n        tail = pending_in.strip()\n        if tail and not done.is_set():\n            try:\n                locked_send(sock, send_lock, tail, timeout=_cleanup_timeout())\n            except Exception as e:\n                log(f\"eof flush failed: {e}\")\n    try:\n        locked_send(sock, send_lock, b\"\", opcode=0x8, timeout=_cleanup_timeout())\n    except Exception as e:\n        log(f\"close send failed: {e}\")\n    try:\n        try:\n            sock.shutdown(socket.SHUT_RDWR)\n        except OSError:\n            pass\n        sock.close()\n    except OSError:\n        pass\n    # Bound termination: wake the reader so no thread is left hung on recv.\n    t.join(timeout=0.5)\n    # A reader still exiting could commit output after this check. In that\n    # case pristine stdio cannot be proven, so never permit fallback.\n    if t.is_alive():\n        output_forwarded.set()\n    if clean_eof and (stdin_bytes or output_forwarded.is_set()):\n        log(\"exit\")\n        return EXIT_SERVED\n    # Reader died, first RPC timed out, post-upgrade I/O timed out, or stdin\n    # broke: fail open only while stdio is still pristine -- no stdin byte\n    # ever consumed AND no daemon payload ever committed to stdout. Committed\n    # output forces a mid-session exit so Desktop reconnects instead of\n    # falling back to stock Codex on a corrupted stream.\n    rc = EXIT_MID_SESSION if (stdin_bytes or output_forwarded.is_set()) else EXIT_PRE_STDIO\n    log(f\"exit rc={rc}\")\n    return rc\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n";
         __webpack_require__.d(__webpack_exports__, {}, {
             w: BRIDGE_SOURCE
         });
@@ -47254,19 +47416,30 @@ var __webpack_modules__ = {
             let daemon = false;
             let proxy = false;
             let generate = false;
+            let oneShot = false;
             for (const arg of argv ?? []){
+                if ([
+                    "--print-startup-config",
+                    "--startup-sign-out",
+                    "help",
+                    "--help",
+                    "-h",
+                    "--version",
+                    "-V"
+                ].includes(arg)) oneShot = true;
                 if (arg === "app-server") appServer = true;
                 else if (arg === "daemon") daemon = true;
                 else if (arg === "proxy") proxy = true;
                 else if (arg === "generate-ts" || arg === "generate-json-schema") generate = true;
             }
-            return appServer && !daemon && !proxy && !generate;
+            return appServer && !daemon && !proxy && !generate && !oneShot;
         }
         function renderWrapperScript({ realPath, bridgePath, wrapperLogPath, codexHome, bridgeLogPath }) {
             return `#!/bin/bash
 # Installed by \`gbot codex desktop-shim install\`. Rewrites ChatGPT Desktop's
 # \`codex ... app-server\` spawn into a stdio<->WebSocket bridge onto the managed
 # daemon's control socket. Reversible: \`gbot codex desktop-shim uninstall\`.
+# Startup configuration, sign-out, help and version requests use the real CLI.
 # The daemon is kept up by the LaunchAgent login script, not here: this hot path
 # never starts the daemon itself, so a wedged daemon lock cannot hang
 # Desktop. Fail-open runs ONLY while stdio is still pristine (no stdin
@@ -47299,9 +47472,10 @@ if [[ ! -x "$REAL" ]]; then
   fi
 fi
 
-has_app_server=0; has_daemon=0; has_proxy=0; has_generate=0
+has_app_server=0; has_daemon=0; has_proxy=0; has_generate=0; has_one_shot=0
 for a in "$@"; do
   case "$a" in
+    --print-startup-config|--startup-sign-out|help|--help|-h|--version|-V) has_one_shot=1 ;;
     app-server) has_app_server=1 ;;
     daemon) has_daemon=1 ;;
     proxy) has_proxy=1 ;;
@@ -47315,7 +47489,7 @@ preflight() {
   python3 -c 'import os,socket,sys; s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); s.settimeout(float(os.environ.get("CODEX_DESKTOP_PREFLIGHT_TIMEOUT","3"))); s.connect(sys.argv[1]); s.close()' "$SOCK" 2>/dev/null
 }
 
-if [[ "$has_app_server" -eq 1 && "$has_daemon" -eq 0 && "$has_proxy" -eq 0 && "$has_generate" -eq 0 ]]; then
+if [[ "$has_app_server" -eq 1 && "$has_daemon" -eq 0 && "$has_proxy" -eq 0 && "$has_generate" -eq 0 && "$has_one_shot" -eq 0 ]]; then
   if [[ -f "$BRIDGE" ]] && command -v python3 >/dev/null 2>&1; then
     if preflight; then
       echo "$(ts) rewrite -> stdio-ws bridge" >>"$LOG" 2>/dev/null || true
@@ -47822,11 +47996,11 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
     },
     "./src/core/gateway.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         var node_crypto__rspack_import_0 = __webpack_require__("node:crypto");
-        var _headers_js__rspack_import_5 = __webpack_require__("./src/core/headers.js");
-        var _app_session_js__rspack_import_1 = __webpack_require__("./src/core/app-session.js");
-        var _store_js__rspack_import_2 = __webpack_require__("./src/core/store.js");
-        var _url_policy_js__rspack_import_3 = __webpack_require__("./src/core/url-policy.js");
-        var _grok_approvals_js__rspack_import_4 = __webpack_require__("./src/core/grok-approvals.js");
+        var _headers_js__rspack_import_1 = __webpack_require__("./src/core/headers.js");
+        var _app_session_js__rspack_import_2 = __webpack_require__("./src/core/app-session.js");
+        var _store_js__rspack_import_3 = __webpack_require__("./src/core/store.js");
+        var _url_policy_js__rspack_import_4 = __webpack_require__("./src/core/url-policy.js");
+        var _grok_approvals_js__rspack_import_5 = __webpack_require__("./src/core/grok-approvals.js");
         class GatewayError extends Error {
             constructor(message, { status, method } = {}){
                 super(message);
@@ -47837,6 +48011,13 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         }
         const GATEWAY_TIMEOUT_MS = 30000;
         const GATEWAY_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+        const READ_ONLY_METHODS = new Set([
+            "listAgents",
+            "getAgentWorkflows",
+            "getAgentTranscriptTail",
+            "getAgentThread"
+        ]);
+        const reconnectStates = new WeakMap();
         function assertGatewayActive(signal) {
             if (signal?.aborted) {
                 const error = new GatewayError("Gateway submission cancelled before transmission");
@@ -47866,34 +48047,34 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             const url = (process.env.GROK_BOT_GATEWAY_URL || "").trim();
             if (url && token) {
                 return {
-                    gatewayUrl: (0, _url_policy_js__rspack_import_3.Re)(url.replace(/\/$/, ""), {
+                    gatewayUrl: (0, _url_policy_js__rspack_import_4.Re)(url.replace(/\/$/, ""), {
                         kind: "gateway"
                     }),
                     gatewayToken: token,
-                    gatewayHeaders: (0, _headers_js__rspack_import_5.gx)()
+                    gatewayHeaders: (0, _headers_js__rspack_import_1.gx)()
                 };
             }
             return null;
         }
-        function sessionFromApp() {
+        function sessionFromApp(options) {
             let loaded;
             try {
-                loaded = (0, _app_session_js__rspack_import_1.Z2)();
+                loaded = (0, _app_session_js__rspack_import_2.Z2)(options);
             } catch (error) {
                 if (accessTokenFromEnv()) return null;
                 throw error instanceof Error ? new GatewayError(error.message) : error;
             }
             if (!loaded) return null;
             return {
-                gatewayUrl: (0, _url_policy_js__rspack_import_3.Re)(loaded.gatewayUrl, {
+                gatewayUrl: (0, _url_policy_js__rspack_import_4.Re)(loaded.gatewayUrl, {
                     kind: "gateway"
                 }),
                 gatewayToken: loaded.gatewayToken,
-                gatewayHeaders: (0, _headers_js__rspack_import_5.bQ)((0, _headers_js__rspack_import_5.dk)(loaded.headers), (0, _headers_js__rspack_import_5.gx)())
+                gatewayHeaders: (0, _headers_js__rspack_import_1.bQ)((0, _headers_js__rspack_import_1.dk)(loaded.headers), (0, _headers_js__rspack_import_1.gx)())
             };
         }
         function hasGatewayAuth() {
-            return Boolean(gatewayOverride() || accessTokenFromEnv() || (0, _app_session_js__rspack_import_1.ZN)());
+            return Boolean(gatewayOverride() || accessTokenFromEnv() || (0, _app_session_js__rspack_import_2.ZN)() || (0, _app_session_js__rspack_import_2._T)());
         }
         async function readTextCapped(res, maxBytes) {
             if (!res.body || typeof res.body.getReader !== "function") {
@@ -47938,9 +48119,9 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             }
             return undefined;
         }
-        async function ensureSandbox(accessToken, { signal } = {}) {
+        async function ensureSandbox(accessToken, { signal, teamId } = {}) {
             assertGatewayActive(signal);
-            const url = (0, _url_policy_js__rspack_import_3.Re)(backendBase(), {
+            const url = (0, _url_policy_js__rspack_import_4.Re)(backendBase(), {
                 kind: "backend"
             }) + "/aiserver.v1.GrokBotService/EnsureSandBox";
             let res, body;
@@ -47949,7 +48130,12 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     method: "POST",
                     redirect: "error",
                     signal: gatewayDeadline(signal),
-                    headers: (0, _headers_js__rspack_import_5._6)(accessToken),
+                    headers: {
+                        ...(0, _headers_js__rspack_import_1._6)(accessToken),
+                        ...teamId === undefined ? {} : {
+                            "x-cursor-team-id": teamId
+                        }
+                    },
                     body: "{}"
                 });
                 body = await readJson(res);
@@ -47960,7 +48146,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             assertGatewayActive(signal);
             if (!res.ok) {
                 const detail = body.message || body.error || body.raw || res.statusText;
-                throw new GatewayError("EnsureSandBox failed: " + res.status + " " + (0, _url_policy_js__rspack_import_3.fp)(detail), {
+                throw new GatewayError("EnsureSandBox failed: " + res.status + " " + (0, _url_policy_js__rspack_import_4.fp)(detail), {
                     status: res.status,
                     method: "EnsureSandBox"
                 });
@@ -47971,39 +48157,109 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 throw new GatewayError("EnsureSandBox returned no gatewayUrl/gatewayToken. Auth may be a dashboard API key (those do not work).");
             }
             return {
-                gatewayUrl: (0, _url_policy_js__rspack_import_3.Re)(String(gatewayUrl).replace(/\/$/, ""), {
+                gatewayUrl: (0, _url_policy_js__rspack_import_4.Re)(String(gatewayUrl).replace(/\/$/, ""), {
                     kind: "gateway"
                 }),
                 gatewayToken: String(gatewayToken),
-                gatewayHeaders: (0, _headers_js__rspack_import_5.bQ)((0, _headers_js__rspack_import_5.Ew)(body), (0, _headers_js__rspack_import_5.gx)())
+                gatewayHeaders: (0, _headers_js__rspack_import_1.bQ)((0, _headers_js__rspack_import_1.Ew)(body), (0, _headers_js__rspack_import_1.gx)())
             };
         }
-        async function connectGateway({ signal } = {}) {
+        async function connectGateway({ signal, appSessionOptions } = {}) {
             assertGatewayActive(signal);
             const override = gatewayOverride();
             if (override) return override;
-            const fromApp = sessionFromApp();
-            if (fromApp) return fromApp;
+            const fromApp = sessionFromApp(appSessionOptions);
+            if (fromApp) {
+                let accountKey = null;
+                try {
+                    accountKey = (0, _app_session_js__rspack_import_2.B3)(appSessionOptions);
+                } catch  {}
+                if (accountKey) reconnectStates.set(fromApp, {
+                    accountKey,
+                    appSessionOptions,
+                    generation: 0,
+                    pending: null
+                });
+                return fromApp;
+            }
             const token = accessTokenFromEnv();
             if (!token) {
+                const credentials = (0, _app_session_js__rspack_import_2.gF)(appSessionOptions);
+                if (credentials) {
+                    const session = await ensureSandbox(credentials.accessToken, {
+                        signal,
+                        teamId: credentials.teamId
+                    });
+                    if ((0, _app_session_js__rspack_import_2.B3)(appSessionOptions) !== credentials.accountKey) {
+                        throw new GatewayError("Grok Bot active account changed during reconnect; refreshed route discarded.");
+                    }
+                    assertGatewayActive(signal);
+                    reconnectStates.set(session, {
+                        accountKey: credentials.accountKey,
+                        appSessionOptions,
+                        generation: 0,
+                        pending: null
+                    });
+                    return session;
+                }
                 throw new GatewayError("Set CURSOR_ACCESS_TOKEN, or GROK_BOT_GATEWAY_URL + GROK_BOT_GATEWAY_TOKEN. Do not use a Cursor dashboard API key.");
             }
-            return ensureSandbox(token, {
+            const session = await ensureSandbox(token, {
                 signal
             });
+            reconnectStates.set(session, {
+                accessToken: token,
+                generation: 0,
+                pending: null
+            });
+            return session;
         }
-        async function gatewayCall(session, method, body = {}, { signal } = {}) {
+        async function refreshGateway(session, state, failedGeneration, signal) {
             assertGatewayActive(signal);
-            const base = (0, _url_policy_js__rspack_import_3.Re)(session.gatewayUrl, {
+            if (state.generation !== failedGeneration) return;
+            if (!state.pending) {
+                const refresh = async ()=>{
+                    const credentials = state.accountKey ? (0, _app_session_js__rspack_import_2.gF)({
+                        ...state.appSessionOptions,
+                        expectedAccountKey: state.accountKey
+                    }) : {
+                        accessToken: state.accessToken
+                    };
+                    if (!credentials?.accessToken) {
+                        throw new GatewayError("No matching credentials available to reconnect the hibernated gateway.");
+                    }
+                    const fresh = await ensureSandbox(credentials.accessToken, {
+                        signal,
+                        teamId: credentials.teamId
+                    });
+                    if (state.accountKey && (0, _app_session_js__rspack_import_2.B3)(state.appSessionOptions) !== state.accountKey) {
+                        throw new GatewayError("Grok Bot active account changed during reconnect; refreshed route discarded.");
+                    }
+                    assertGatewayActive(signal);
+                    Object.assign(session, fresh);
+                    state.generation++;
+                };
+                state.pending = refresh().finally(()=>{
+                    state.pending = null;
+                });
+            }
+            await state.pending;
+            assertGatewayActive(signal);
+        }
+        async function gatewayCall(session, method, body = {}, { signal, reconnected = false } = {}) {
+            assertGatewayActive(signal);
+            const base = (0, _url_policy_js__rspack_import_4.Re)(session.gatewayUrl, {
                 kind: "gateway"
             });
             const url = base + "/api/" + method;
             const prompt = method === "sendPrompt";
+            const reconnectState = reconnectStates.get(session);
+            const generation = reconnectState?.generation;
             const options = {
                 method: "POST",
                 redirect: "error",
                 signal: gatewayDeadline(prompt ? undefined : signal),
-                headers: (0, _headers_js__rspack_import_5.A1)(session),
+                headers: (0, _headers_js__rspack_import_1.A1)(session),
                 body: JSON.stringify(body)
             };
             assertGatewayActive(signal);
@@ -48017,8 +48273,15 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             }
             if (!prompt) assertGatewayActive(signal);
             if (!res.ok) {
+                if (!reconnected && READ_ONLY_METHODS.has(method) && reconnectState && res.status === 417 && res.headers.get("x-anyrun-error-source") === "anyrun-proxy" && res.headers.get("x-anyrun-failure-reason") === "pod_hibernated") {
+                    await refreshGateway(session, reconnectState, generation, signal);
+                    return gatewayCall(session, method, body, {
+                        signal,
+                        reconnected: true
+                    });
+                }
                 const detail = data.message || data.error || data.raw || res.statusText;
-                throw new GatewayError(method + " failed: " + res.status + " " + (0, _url_policy_js__rspack_import_3.fp)(String(detail).slice(0, 300)), {
+                throw new GatewayError(method + " failed: " + res.status + " " + (0, _url_policy_js__rspack_import_4.fp)(String(detail).slice(0, 300)), {
                     status: res.status,
                     method
                 });
@@ -48092,8 +48355,8 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 name: input.name,
                 description: input.description || "",
                 title: input.title || "",
-                avatarShape: assertAvatar("shape", input.avatarShape, _store_js__rspack_import_2.Jb),
-                avatarColor: assertAvatar("color", input.avatarColor, _store_js__rspack_import_2.T7),
+                avatarShape: assertAvatar("shape", input.avatarShape, _store_js__rspack_import_3.Jb),
+                avatarColor: assertAvatar("color", input.avatarColor, _store_js__rspack_import_3.T7),
                 origin: "user"
             });
             return unwrapOne(data);
@@ -48108,8 +48371,8 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 description: patch.description !== undefined ? String(patch.description) : rec.description
             };
             if (patch.title !== undefined) profile.title = String(patch.title);
-            if (patch.avatarShape !== undefined) profile.avatarShape = assertAvatar("shape", patch.avatarShape, _store_js__rspack_import_2.Jb);
-            if (patch.avatarColor !== undefined) profile.avatarColor = assertAvatar("color", patch.avatarColor, _store_js__rspack_import_2.T7);
+            if (patch.avatarShape !== undefined) profile.avatarShape = assertAvatar("shape", patch.avatarShape, _store_js__rspack_import_3.Jb);
+            if (patch.avatarColor !== undefined) profile.avatarColor = assertAvatar("color", patch.avatarColor, _store_js__rspack_import_3.T7);
             await gatewayCall(session, "updateAgent", {
                 id: rec.id,
                 profile
@@ -48304,16 +48567,21 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     signal: extra.signal
                 });
             } catch (err) {
-                if (err && err.delivery == null) {
-                    err.delivery = err instanceof GatewayError && err.status != null && err.status < 500 ? "rejected" : "unknown";
-                }
-                if (err && err.targetId == null) err.targetId = rec.id;
-                if (err && err.delivery === "unknown" && err instanceof Error && !/delivery unknown/.test(err.message)) {
-                    err.message += " (delivery unknown; check the thread before resending)";
-                }
-                throw err;
+                const delivery = err?.delivery ?? (err instanceof GatewayError && err.status != null && err.status < 500 ? "rejected" : "unknown");
+                const error = delivery === "unknown" && err instanceof Error && !/delivery unknown/.test(err.message) ? Object.assign(new Error(err.message, {
+                    cause: err
+                }), err, {
+                    name: err.name
+                }) : err;
+                if (error && error.delivery == null) error.delivery = delivery;
+                if (error && error.targetId == null) error.targetId = rec.id;
+                if (error !== err) error.message += " (delivery unknown; check the thread before resending)";
+                throw error;
             }
-            const messageId = data && typeof data === "object" && typeof data.messageId === "string" ? data.messageId : null;
+            let messageId = data && typeof data === "object" && typeof data.messageId === "string" ? data.messageId : null;
+            if (!messageId && data && typeof data === "object" && data.accepted === true) {
+                messageId = await transcriptEntryIdForNonce(session, rec.id, body.clientNonce, extra.signal);
+            }
             return {
                 target: rec,
                 result: data && typeof data === "object" ? data : {},
@@ -48322,6 +48590,21 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     messageId
                 } : {}
             };
+        }
+        async function transcriptEntryIdForNonce(session, agentId, clientNonce, signal) {
+            try {
+                const data = await gatewayCall(session, "getAgentTranscriptTail", {
+                    id: agentId,
+                    limit: 20
+                }, {
+                    signal
+                });
+                const entries = data && Array.isArray(data.entries) ? data.entries : [];
+                const hit = entries.find((e)=>e && e.clientNonce === clientNonce && typeof e.id === "string" && e.id);
+                return hit ? hit.id : null;
+            } catch  {
+                return null;
+            }
         }
         async function getTranscriptTail(session, ref, limit = 40) {
             const rec = await resolveRef(session, ref);
@@ -48354,12 +48637,12 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     id: target.id,
                     name: target.name
                 },
-                approvals: transcript.entries.map(_grok_approvals_js__rspack_import_4.Ny).filter(Boolean),
+                approvals: transcript.entries.map(_grok_approvals_js__rspack_import_5.Ny).filter(Boolean),
                 coverage: "Latest 200 transcript entries only; older requests require the owning Grok UI."
             };
         }
         async function respondGrokApproval(session, ref, input) {
-            const { entryId, requestId, decision } = _grok_approvals_js__rspack_import_4.T5.parse({
+            const { entryId, requestId, decision } = _grok_approvals_js__rspack_import_5.T5.parse({
                 ...input,
                 target: ref
             });
@@ -48463,6 +48746,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         });
     },
     "./src/core/headers.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var _app_session_js__rspack_import_0 = __webpack_require__("./src/core/app-session.js");
         function normalizeHeaderMap(obj) {
             if (!obj || typeof obj !== "object" || Array.isArray(obj)) return {};
             const out = {};
@@ -48511,7 +48795,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 "connect-protocol-version": "1",
                 authorization: "Bearer " + accessToken,
                 "x-cursor-client-type": "sand",
-                "x-cursor-client-version": process.env.SAND_CLIENT_VERSION || "0.20.0",
+                "x-cursor-client-version": process.env.SAND_CLIENT_VERSION || (0, _app_session_js__rspack_import_0.AO)() || "0.20.0",
                 "x-sand-box-namespace": process.env.SAND_BOX_NAMESPACE || "prod"
             };
         }

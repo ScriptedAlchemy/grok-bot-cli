@@ -1,3 +1,6 @@
+import crypto from "node:crypto";
+import childProcess from "node:child_process";
+import { syncBuiltinESMExports } from "node:module";
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,7 +10,7 @@ import test from "node:test";
 import { grokBotGatewayDescriptorPath } from "../src/core/app-session.js";
 import { connectGateway, hasGatewayAuth } from "../src/core/gateway.js";
 
-function withEnv(values, fn) {
+async function withEnv(values, fn) {
   const prev = {};
   for (const key of Object.keys(values)) {
     prev[key] = process.env[key];
@@ -16,7 +19,7 @@ function withEnv(values, fn) {
     else process.env[key] = v;
   }
   try {
-    return fn();
+    return await fn();
   } finally {
     for (const key of Object.keys(values)) {
       if (prev[key] === undefined) delete process.env[key];
@@ -65,6 +68,7 @@ test("unusable app session falls through to CURSOR_ACCESS_TOKEN EnsureSandBox", 
 
   await withEnv(
     {
+      GROK_BOT_TEST: "1",
       HOME: home,
       USERPROFILE: home,
       CURSOR_ACCESS_TOKEN: "cursor-access-token",
@@ -86,10 +90,11 @@ test("unusable app session falls through to CURSOR_ACCESS_TOKEN EnsureSandBox", 
   );
 });
 
-test("removed token and gateway env aliases do not select gateway auth", () => {
+test("removed token and gateway env aliases do not select gateway auth", async () => {
   const home = mkdtempSync(join(tmpdir(), "gbot-connect-alias-home-"));
-  withEnv(
+  await withEnv(
     {
+      GROK_BOT_TEST: "1",
       HOME: home,
       USERPROFILE: home,
       XDG_CONFIG_HOME: join(home, ".config"),
@@ -116,6 +121,7 @@ test("unusable app session without access token surfaces the session error", asy
   const { home, env } = writeBrokenAppSession();
   await withEnv(
     {
+      GROK_BOT_TEST: "1",
       HOME: home,
       USERPROFILE: home,
       CURSOR_ACCESS_TOKEN: null,
@@ -134,4 +140,44 @@ test("unusable app session without access token surfaces the session error", asy
       );
     },
   );
+});
+
+
+test("missing descriptor connects through active desktop credentials", async t => {
+  if (process.platform !== "darwin") return t.skip("macOS keychain integration fixture");
+  const home = mkdtempSync(join(tmpdir(), "gbot-reconnect-"));
+  const dir = join(home, "Library/Application Support/Grok Bot");
+  mkdirSync(dir, { recursive: true });
+  const encrypt = value => {
+    const key = crypto.pbkdf2Sync("fixture-password", "saltysalt", 1003, 16, "sha1");
+    const cipher = crypto.createCipheriv("aes-128-cbc", key, Buffer.alloc(16, 32));
+    return Buffer.concat([Buffer.from("v10"), cipher.update(value), cipher.final()]).toString("base64");
+  };
+  writeFileSync(join(dir, "sand-secrets.json"), JSON.stringify({ version: 1,
+    "cursor-accounts": JSON.stringify({ active: "selected", accounts: {
+      selected: { "cursor-access-token": encrypt("selected-token"), "cursor-selected-team-id": encrypt("42") },
+      inactive: { "cursor-access-token": encrypt("wrong-token") },
+    } }),
+  }));
+  const originalExec = childProcess.execFileSync;
+  t.mock.method(childProcess, "execFileSync", (file, ...args) => file === "/usr/bin/security" ? "fixture-password" : originalExec(file, ...args));
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    calls++;
+    assert.equal(String(url), "http://127.0.0.1:1340/aiserver.v1.GrokBotService/EnsureSandBox");
+    assert.equal(options.headers.authorization, "Bearer selected-token");
+    assert.equal(options.headers["x-cursor-team-id"], "42");
+    assert.equal(options.redirect, "error");
+    assert.equal(options.body, "{}");
+    return new Response(JSON.stringify({ gatewayUrl: "http://127.0.0.1:1341", gatewayToken: "fresh-route" }));
+  });
+  await withEnv({ GROK_BOT_TEST: "1", HOME: home, CURSOR_ACCESS_TOKEN: null, CURSOR_API_BASE_URL: "http://127.0.0.1:1340",
+    GROK_BOT_GATEWAY_URL: null, GROK_BOT_GATEWAY_TOKEN: null }, async () => {
+    assert.equal(hasGatewayAuth(), true);
+    const session = await connectGateway();
+    assert.equal(session.gatewayToken, "fresh-route");
+    assert.equal(calls, 1);
+  });
 });
