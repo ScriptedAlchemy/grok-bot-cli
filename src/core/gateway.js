@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { ensureSandboxHeaders, headersFromEnsureSandbox, headersFromEnv, mergeGatewayHeaders, normalizeHeaderMap, requestHeaders } from "./headers.js";
-import { hasGrokBotAppCredentials, loadGrokBotAppCredentials, hasGrokBotGatewaySession, loadGrokBotGatewaySession } from "./app-session.js";
+import { hasGrokBotAppCredentials, loadGrokBotAppCredentials, loadGrokBotAppMachineId, hasGrokBotGatewaySession, loadGrokBotGatewaySession } from "./app-session.js";
 import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS } from "./store.js";
 import { assertAllowedCredentialUrl, redactSecrets } from "./url-policy.js";
 import { grokApproval, grokApprovalResponseSchema } from "./grok-approvals.js";
@@ -486,7 +486,14 @@ export async function sendPrompt(session, ref, prompt, extra = {}) {
   if (extra.replyToId) body.replyToId = extra.replyToId;
   let data;
   try {
-    data = await gatewayCall(session, "sendPrompt", body, { signal: extra.signal });
+    try {
+      data = await gatewayCall(session, "sendPrompt", body, { signal: extra.signal });
+    } catch (err) {
+      // Bots on Grok Bot's temporal harness no longer take prompts through the box: it refuses before
+      // delivering anything, so sending through the backend instead, as the app does, is safe.
+      if (!(err instanceof GatewayError && err.status === 502 && SAND_SEND_REFUSED.test(err.message))) throw err;
+      return await sendUserMessage(rec, body, { signal: extra.signal });
+    }
   } catch (err) {
     // Delivery states: the server answered no (rejected) vs the request may have landed (unknown).
     // Never retry an unknown delivery blindly; read the thread first.
@@ -503,6 +510,49 @@ export async function sendPrompt(session, ref, prompt, extra = {}) {
   // Only a confirmed receipt counts as accepted; anything else is unknown, never a silent accept.
   // ponytail: full send/execution correlation envelope stays in #37.
   return { target: rec, result: data && typeof data === "object" ? data : {}, delivery: messageId ? "accepted" : "unknown", ...(messageId ? { messageId } : {}) };
+}
+
+const SAND_SEND_REFUSED = /Sand ?box session is not permitted/i;
+
+// The app's x-cursor-checksum: a scrambled timestamp (in units of 10^6 ms) followed by the machine id.
+function machineChecksum(machineId, now = Date.now()) {
+  const t = Math.floor(now / 1e6);
+  const bytes = new Uint8Array([Math.floor(t / 2 ** 40) & 255, Math.floor(t / 2 ** 32) & 255, (t >> 24) & 255, (t >> 16) & 255, (t >> 8) & 255, t & 255]);
+  let k = 165;
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = (bytes[i] ^ k) + (i % 256);
+    k = bytes[i];
+  }
+  return Buffer.from(bytes).toString("base64url") + machineId;
+}
+
+// A user message through the backend's GrokBotService/SendGrokBotUserMessage, as the Grok Bot app sends it.
+async function sendUserMessage(rec, body, { signal } = {}) {
+  const token = accessTokenFromEnv();
+  const credentials = token ? { accessToken: token } : loadGrokBotAppCredentials();
+  if (!credentials) throw new GatewayError("The box refuses prompts for this bot and no signed-in Grok Bot account is available to send through the backend. Open the Grok Bot app.");
+  const machineId = loadGrokBotAppMachineId();
+  const url = assertAllowedCredentialUrl(backendBase(), { kind: "backend" }) + "/aiserver.v1.GrokBotService/SendGrokBotUserMessage";
+  const request = { agentId: rec.id, messageId: body.clientNonce, text: body.prompt, sentAtMs: String(Date.now()), ...(body.replyToId ? { replyToId: body.replyToId } : {}), ...(machineId ? { machineId } : {}) };
+  const res = await fetch(url, {
+    method: "POST",
+    redirect: "error",
+    signal: gatewayDeadline(undefined),
+    headers: {
+      ...ensureSandboxHeaders(credentials.accessToken),
+      ...(credentials.teamId === undefined ? {} : { "x-cursor-team-id": credentials.teamId }),
+      ...(machineId ? { "x-cursor-checksum": machineChecksum(machineId) } : {}),
+    },
+    body: JSON.stringify(request),
+  });
+  const data = await readJson(res);
+  if (!res.ok) {
+    const detail = data.message || data.error || data.raw || res.statusText;
+    const extra = data.details?.[0]?.debug?.details?.detail;
+    throw new GatewayError("SendGrokBotUserMessage failed: " + res.status + " " + redactSecrets(String(extra || detail).slice(0, 300)), { status: res.status, method: "SendGrokBotUserMessage" });
+  }
+  const accepted = data.dispatched === true || /ACCEPTED/.test(String(data.delivery || ""));
+  return { target: rec, result: data, delivery: accepted ? "accepted" : "unknown", ...(accepted ? { messageId: body.clientNonce } : {}) };
 }
 
 const AGENT_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

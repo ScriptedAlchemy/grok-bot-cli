@@ -61880,6 +61880,16 @@ var __webpack_modules__ = {
                 } : {}
             };
         }
+        function loadGrokBotAppMachineId({ home = (0, node_os__rspack_import_3.homedir)(), platform = process.platform, env = process.env, getKeychainPassword = readKeychainPassword } = {}) {
+            if (platform === "win32" || !SUPPORTED_PLATFORMS.has(platform)) return null;
+            const path = (0, node_path__rspack_import_4.join)(grokBotAppDataPath(home, platform, env), "sand-secrets.json");
+            if (!(0, node_fs__rspack_import_2.existsSync)(path)) return null;
+            const encrypted = JSON.parse((0, node_fs__rspack_import_2.readFileSync)(path, "utf8"))["cursor-machine-id"];
+            if (typeof encrypted !== "string" || !encrypted) return null;
+            const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
+            const password = platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10 ? LINUX_BASIC_TEXT_PASSWORD : getKeychainPassword(platform);
+            return decryptSafeStorageString(encrypted, password, platform).trim() || null;
+        }
         function readKeychainPassword(platform = process.platform) {
             if (platform === "linux") {
                 return (0, node_child_process__rspack_import_1.execFileSync)("secret-tool", [
@@ -61975,6 +61985,7 @@ var __webpack_modules__ = {
         }
         __webpack_require__.d(__webpack_exports__, {
             AO: ()=>grokBotAppVersion,
+            QA: ()=>loadGrokBotAppMachineId,
             Z2: ()=>loadGrokBotGatewaySession,
             dQ: ()=>grokBotGatewayDescriptorPath,
             gF: ()=>loadGrokBotAppCredentials
@@ -65813,9 +65824,16 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             if (extra.replyToId) body.replyToId = extra.replyToId;
             let data;
             try {
-                data = await gatewayCall(session, "sendPrompt", body, {
-                    signal: extra.signal
-                });
+                try {
+                    data = await gatewayCall(session, "sendPrompt", body, {
+                        signal: extra.signal
+                    });
+                } catch (err) {
+                    if (!(err instanceof GatewayError && err.status === 502 && SAND_SEND_REFUSED.test(err.message))) throw err;
+                    return await sendUserMessage(rec, body, {
+                        signal: extra.signal
+                    });
+                }
             } catch (err) {
                 if (err && err.delivery == null) {
                     err.delivery = err instanceof GatewayError && err.status != null && err.status < 500 ? "rejected" : "unknown";
@@ -65833,6 +65851,80 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 delivery: messageId ? "accepted" : "unknown",
                 ...messageId ? {
                     messageId
+                } : {}
+            };
+        }
+        const SAND_SEND_REFUSED = /Sand ?box session is not permitted/i;
+        function machineChecksum(machineId, now = Date.now()) {
+            const t = Math.floor(now / 1e6);
+            const bytes = new Uint8Array([
+                Math.floor(t / 2 ** 40) & 255,
+                Math.floor(t / 2 ** 32) & 255,
+                t >> 24 & 255,
+                t >> 16 & 255,
+                t >> 8 & 255,
+                t & 255
+            ]);
+            let k = 165;
+            for(let i = 0; i < bytes.length; i++){
+                bytes[i] = (bytes[i] ^ k) + i % 256;
+                k = bytes[i];
+            }
+            return Buffer.from(bytes).toString("base64url") + machineId;
+        }
+        async function sendUserMessage(rec, body, { signal } = {}) {
+            const token = accessTokenFromEnv();
+            const credentials = token ? {
+                accessToken: token
+            } : (0, _app_session_js__rspack_import_2.gF)();
+            if (!credentials) throw new GatewayError("The box refuses prompts for this bot and no signed-in Grok Bot account is available to send through the backend. Open the Grok Bot app.");
+            const machineId = (0, _app_session_js__rspack_import_2.QA)();
+            const url = (0, _url_policy_js__rspack_import_4.Re)(backendBase(), {
+                kind: "backend"
+            }) + "/aiserver.v1.GrokBotService/SendGrokBotUserMessage";
+            const request = {
+                agentId: rec.id,
+                messageId: body.clientNonce,
+                text: body.prompt,
+                sentAtMs: String(Date.now()),
+                ...body.replyToId ? {
+                    replyToId: body.replyToId
+                } : {},
+                ...machineId ? {
+                    machineId
+                } : {}
+            };
+            const res = await fetch(url, {
+                method: "POST",
+                redirect: "error",
+                signal: gatewayDeadline(undefined),
+                headers: {
+                    ...(0, _headers_js__rspack_import_1._6)(credentials.accessToken),
+                    ...credentials.teamId === undefined ? {} : {
+                        "x-cursor-team-id": credentials.teamId
+                    },
+                    ...machineId ? {
+                        "x-cursor-checksum": machineChecksum(machineId)
+                    } : {}
+                },
+                body: JSON.stringify(request)
+            });
+            const data = await readJson(res);
+            if (!res.ok) {
+                const detail = data.message || data.error || data.raw || res.statusText;
+                const extra = data.details?.[0]?.debug?.details?.detail;
+                throw new GatewayError("SendGrokBotUserMessage failed: " + res.status + " " + (0, _url_policy_js__rspack_import_4.fp)(String(extra || detail).slice(0, 300)), {
+                    status: res.status,
+                    method: "SendGrokBotUserMessage"
+                });
+            }
+            const accepted = data.dispatched === true || /ACCEPTED/.test(String(data.delivery || ""));
+            return {
+                target: rec,
+                result: data,
+                delivery: accepted ? "accepted" : "unknown",
+                ...accepted ? {
+                    messageId: body.clientNonce
                 } : {}
             };
         }

@@ -190,6 +190,23 @@ export function loadGrokBotAppCredentials({
   return { accessToken, ...(teamId && /^[1-9][0-9]*$/.test(teamId) ? { teamId } : {}) };
 }
 
+// The app's machine id (secret "cursor-machine-id"): the backend checks it, as x-cursor-checksum, on user sends.
+export function loadGrokBotAppMachineId({
+  home = homedir(),
+  platform = process.platform,
+  env = process.env,
+  getKeychainPassword = readKeychainPassword,
+} = {}) {
+  if (platform === "win32" || !SUPPORTED_PLATFORMS.has(platform)) return null;
+  const path = join(grokBotAppDataPath(home, platform, env), "sand-secrets.json");
+  if (!existsSync(path)) return null;
+  const encrypted = JSON.parse(readFileSync(path, "utf8"))["cursor-machine-id"];
+  if (typeof encrypted !== "string" || !encrypted) return null;
+  const prefix = Buffer.from(encrypted, "base64").subarray(0, 3).toString("latin1");
+  const password = platform === "linux" && prefix === SAFE_STORAGE_PREFIX_V10 ? LINUX_BASIC_TEXT_PASSWORD : getKeychainPassword(platform);
+  return decryptSafeStorageString(encrypted, password, platform).trim() || null;
+}
+
 function readKeychainPassword(platform = process.platform) {
   if (platform === "linux") {
     return execFileSync(
