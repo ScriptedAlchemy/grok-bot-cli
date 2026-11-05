@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { decodeFields } from "../src/core/backend-send.js";
 import test from "node:test";
 import fs from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
@@ -35,9 +36,16 @@ async function fixture(t, kind, phase) {
     await release.promise;
   }
   const server = createServer(async (req, res) => {
-    let raw = "";
-    for await (const chunk of req) raw += chunk;
-    const body = JSON.parse(raw);
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    if (req.url.endsWith("/SendGrokBotUserMessage")) {
+      const fields = decodeFields(Buffer.concat(chunks));
+      const text = (field) => new TextDecoder().decode(fields[field]);
+      prompts.push({ agentId: text(1), clientNonce: text(2), prompt: text(3) });
+      res.setHeader("content-type", "application/proto");
+      return res.end(Uint8Array.from([0x08, 1, 0x20, 2]));
+    }
+    const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     let response;
     if (req.url.endsWith("/EnsureSandBox")) {
       if (!held && phase === "auth" && sending()) await hold();
@@ -60,6 +68,12 @@ async function fixture(t, kind, phase) {
         phase === "written-unknown" && body.agentId === "target-a"
           ? {}
           : { messageId: `message-${prompts.length}` };
+    } else if (req.url === "/api/getAgentTranscriptTail") {
+      response = {
+        entries: prompts
+          .filter((p) => p.agentId === body.id && p.clientNonce)
+          .map((p) => ({ id: `entry-${p.clientNonce}`, clientNonce: p.clientNonce })),
+      };
     } else response = { entries: [] };
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify(response));
