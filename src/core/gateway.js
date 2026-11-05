@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ensureSandboxHeaders, headersFromEnsureSandbox, headersFromEnv, mergeGatewayHeaders, normalizeHeaderMap, requestHeaders } from "./headers.js";
 import { grokBotActiveAccountKey, hasGrokBotAppCredentials, hasGrokBotGatewaySession, loadGrokBotAppCredentials, loadGrokBotGatewaySession } from "./app-session.js";
+import { encodeSendRequest, refusalMessage } from "./backend-send.js";
 import { AVATAR_COLORS, AVATAR_SHAPES, MAX_GROUP_MEMBERS } from "./store.js";
 import { assertAllowedCredentialUrl, redactSecrets } from "./url-policy.js";
 import { grokApproval, grokApprovalResponseSchema } from "./grok-approvals.js";
@@ -489,6 +490,41 @@ export async function removeGroupMember(session, groupRef, memberRef) {
   return setGroupMembers(session, group.id, next);
 }
 
+// Sessions made from Cursor credentials (not a GROK_BOT_GATEWAY_URL override) send through the
+// backend; returns null when there are no such credentials so the gateway path still applies.
+async function backendSendPrompt(session, body, signal) {
+  const state = reconnectStates.get(session);
+  if (!state) return null;
+  const credentials = state.accountKey
+    ? loadGrokBotAppCredentials({ ...state.appSessionOptions, expectedAccountKey: state.accountKey })
+    : { accessToken: state.accessToken };
+  if (!credentials?.accessToken) return null;
+  const method = "SendGrokBotUserMessage";
+  const url = assertAllowedCredentialUrl(backendBase(), { kind: "backend" }) + "/aiserver.v1.GrokBotService/" + method;
+  const res = await fetch(url, {
+    method: "POST",
+    redirect: "error",
+    signal: gatewayDeadline(signal),
+    headers: {
+      ...ensureSandboxHeaders(credentials.accessToken),
+      "content-type": "application/proto",
+      "x-cursor-client-os": process.platform,
+      "x-cursor-client-source": "sand-desktop",
+      "x-ghost-mode": "true",
+      "x-request-id": randomUUID(),
+      ...(credentials.teamId === undefined ? {} : { "x-cursor-team-id": credentials.teamId }),
+    },
+    body: encodeSendRequest({ agentId: body.agentId, prompt: body.prompt, clientNonce: body.clientNonce }),
+  });
+  const buf = new Uint8Array(await res.arrayBuffer());
+  if (!res.ok) {
+    throw new GatewayError(method + " failed: " + res.status + " " + redactSecrets(new TextDecoder().decode(buf).slice(0, 300)), { status: res.status, method });
+  }
+  const refusal = refusalMessage(buf);
+  if (refusal != null) throw new GatewayError(method + " refused: " + refusal, { status: 403, method });
+  return { accepted: true };
+}
+
 export async function sendPrompt(session, ref, prompt, extra = {}) {
   assertGatewayActive(extra.signal);
   const rec = await resolveRef(session, ref, { signal: extra.signal });
@@ -500,7 +536,8 @@ export async function sendPrompt(session, ref, prompt, extra = {}) {
   if (extra.replyToId) body.replyToId = extra.replyToId;
   let data;
   try {
-    data = await gatewayCall(session, "sendPrompt", body, { signal: extra.signal });
+    data = await backendSendPrompt(session, body, extra.signal)
+      ?? await gatewayCall(session, "sendPrompt", body, { signal: extra.signal });
   } catch (err) {
     // Delivery states: the server answered no (rejected) vs the request may have landed (unknown).
     // Never retry an unknown delivery blindly; read the thread first.

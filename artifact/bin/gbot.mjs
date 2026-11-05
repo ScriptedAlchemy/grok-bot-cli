@@ -44595,6 +44595,82 @@ var __webpack_modules__ = {
             hd: ()=>inspectGrokBotGatewaySession
         });
     },
+    "./src/core/backend-send.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+        var node_crypto__rspack_import_0 = __webpack_require__("node:crypto");
+        const machineId = (0, node_crypto__rspack_import_0.randomUUID)();
+        function varint(value) {
+            const out = [];
+            let v = BigInt(value);
+            while(v >= 0x80n){
+                out.push(Number(v & 0x7fn) | 0x80);
+                v >>= 7n;
+            }
+            out.push(Number(v));
+            return out;
+        }
+        const str = (field, text)=>{
+            const bytes = new TextEncoder().encode(text);
+            return [
+                ...varint(field << 3 | 2),
+                ...varint(bytes.length),
+                ...bytes
+            ];
+        };
+        const num = (field, value)=>[
+                ...varint(field << 3),
+                ...varint(value)
+            ];
+        function encodeSendRequest({ agentId, prompt, clientNonce, sentAtMs = Date.now() }) {
+            return Uint8Array.from([
+                ...str(1, agentId),
+                ...str(2, clientNonce),
+                ...str(3, prompt),
+                ...num(4, sentAtMs),
+                ...num(13, 1),
+                ...str(16, machineId),
+                ...str(20, "en")
+            ]);
+        }
+        function decodeFields(buf) {
+            const out = {};
+            let i = 0;
+            const next = ()=>{
+                let v = 0n;
+                let shift = 0n;
+                let b;
+                do {
+                    b = buf[i++] ?? 0;
+                    v |= BigInt(b & 0x7f) << shift;
+                    shift += 7n;
+                }while (b & 0x80 && i < buf.length);
+                return v;
+            };
+            while(i < buf.length){
+                const key = next();
+                const field = Number(key >> 3n);
+                const wire = Number(key & 7n);
+                if (wire === 0) out[field] = Number(next());
+                else if (wire === 1) i += 8;
+                else if (wire === 5) i += 4;
+                else if (wire === 2) {
+                    const len = Number(next());
+                    out[field] = buf.slice(i, i + len);
+                    i += len;
+                } else break;
+            }
+            return out;
+        }
+        function refusalMessage(buf) {
+            const data = decodeFields(buf);
+            if (data[4] !== 4 && !data[5]) return null;
+            const refusal = data[5] ? decodeFields(data[5]) : {};
+            return refusal[2] ? new TextDecoder().decode(refusal[2]) : "refused";
+        }
+        __webpack_require__.d(__webpack_exports__, {
+            Kn: ()=>encodeSendRequest,
+            se: ()=>refusalMessage
+        });
+    },
     "./src/core/claude-channel.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
         var node_crypto__rspack_import_0 = __webpack_require__("node:crypto");
         var node_fs_promises__rspack_import_1 = __webpack_require__("node:fs/promises");
@@ -47998,9 +48074,10 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         var node_crypto__rspack_import_0 = __webpack_require__("node:crypto");
         var _headers_js__rspack_import_1 = __webpack_require__("./src/core/headers.js");
         var _app_session_js__rspack_import_2 = __webpack_require__("./src/core/app-session.js");
-        var _store_js__rspack_import_3 = __webpack_require__("./src/core/store.js");
-        var _url_policy_js__rspack_import_4 = __webpack_require__("./src/core/url-policy.js");
-        var _grok_approvals_js__rspack_import_5 = __webpack_require__("./src/core/grok-approvals.js");
+        var _backend_send_js__rspack_import_3 = __webpack_require__("./src/core/backend-send.js");
+        var _store_js__rspack_import_4 = __webpack_require__("./src/core/store.js");
+        var _url_policy_js__rspack_import_5 = __webpack_require__("./src/core/url-policy.js");
+        var _grok_approvals_js__rspack_import_6 = __webpack_require__("./src/core/grok-approvals.js");
         class GatewayError extends Error {
             constructor(message, { status, method } = {}){
                 super(message);
@@ -48047,7 +48124,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             const url = (process.env.GROK_BOT_GATEWAY_URL || "").trim();
             if (url && token) {
                 return {
-                    gatewayUrl: (0, _url_policy_js__rspack_import_4.Re)(url.replace(/\/$/, ""), {
+                    gatewayUrl: (0, _url_policy_js__rspack_import_5.Re)(url.replace(/\/$/, ""), {
                         kind: "gateway"
                     }),
                     gatewayToken: token,
@@ -48066,7 +48143,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             }
             if (!loaded) return null;
             return {
-                gatewayUrl: (0, _url_policy_js__rspack_import_4.Re)(loaded.gatewayUrl, {
+                gatewayUrl: (0, _url_policy_js__rspack_import_5.Re)(loaded.gatewayUrl, {
                     kind: "gateway"
                 }),
                 gatewayToken: loaded.gatewayToken,
@@ -48121,7 +48198,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         }
         async function ensureSandbox(accessToken, { signal, teamId } = {}) {
             assertGatewayActive(signal);
-            const url = (0, _url_policy_js__rspack_import_4.Re)(backendBase(), {
+            const url = (0, _url_policy_js__rspack_import_5.Re)(backendBase(), {
                 kind: "backend"
             }) + "/aiserver.v1.GrokBotService/EnsureSandBox";
             let res, body;
@@ -48146,7 +48223,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             assertGatewayActive(signal);
             if (!res.ok) {
                 const detail = body.message || body.error || body.raw || res.statusText;
-                throw new GatewayError("EnsureSandBox failed: " + res.status + " " + (0, _url_policy_js__rspack_import_4.fp)(detail), {
+                throw new GatewayError("EnsureSandBox failed: " + res.status + " " + (0, _url_policy_js__rspack_import_5.fp)(detail), {
                     status: res.status,
                     method: "EnsureSandBox"
                 });
@@ -48157,7 +48234,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 throw new GatewayError("EnsureSandBox returned no gatewayUrl/gatewayToken. Auth may be a dashboard API key (those do not work).");
             }
             return {
-                gatewayUrl: (0, _url_policy_js__rspack_import_4.Re)(String(gatewayUrl).replace(/\/$/, ""), {
+                gatewayUrl: (0, _url_policy_js__rspack_import_5.Re)(String(gatewayUrl).replace(/\/$/, ""), {
                     kind: "gateway"
                 }),
                 gatewayToken: String(gatewayToken),
@@ -48248,7 +48325,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         }
         async function gatewayCall(session, method, body = {}, { signal, reconnected = false } = {}) {
             assertGatewayActive(signal);
-            const base = (0, _url_policy_js__rspack_import_4.Re)(session.gatewayUrl, {
+            const base = (0, _url_policy_js__rspack_import_5.Re)(session.gatewayUrl, {
                 kind: "gateway"
             });
             const url = base + "/api/" + method;
@@ -48281,7 +48358,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     });
                 }
                 const detail = data.message || data.error || data.raw || res.statusText;
-                throw new GatewayError(method + " failed: " + res.status + " " + (0, _url_policy_js__rspack_import_4.fp)(String(detail).slice(0, 300)), {
+                throw new GatewayError(method + " failed: " + res.status + " " + (0, _url_policy_js__rspack_import_5.fp)(String(detail).slice(0, 300)), {
                     status: res.status,
                     method
                 });
@@ -48355,8 +48432,8 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 name: input.name,
                 description: input.description || "",
                 title: input.title || "",
-                avatarShape: assertAvatar("shape", input.avatarShape, _store_js__rspack_import_3.Jb),
-                avatarColor: assertAvatar("color", input.avatarColor, _store_js__rspack_import_3.T7),
+                avatarShape: assertAvatar("shape", input.avatarShape, _store_js__rspack_import_4.Jb),
+                avatarColor: assertAvatar("color", input.avatarColor, _store_js__rspack_import_4.T7),
                 origin: "user"
             });
             return unwrapOne(data);
@@ -48371,8 +48448,8 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 description: patch.description !== undefined ? String(patch.description) : rec.description
             };
             if (patch.title !== undefined) profile.title = String(patch.title);
-            if (patch.avatarShape !== undefined) profile.avatarShape = assertAvatar("shape", patch.avatarShape, _store_js__rspack_import_3.Jb);
-            if (patch.avatarColor !== undefined) profile.avatarColor = assertAvatar("color", patch.avatarColor, _store_js__rspack_import_3.T7);
+            if (patch.avatarShape !== undefined) profile.avatarShape = assertAvatar("shape", patch.avatarShape, _store_js__rspack_import_4.Jb);
+            if (patch.avatarColor !== undefined) profile.avatarColor = assertAvatar("color", patch.avatarColor, _store_js__rspack_import_4.T7);
             await gatewayCall(session, "updateAgent", {
                 id: rec.id,
                 profile
@@ -48550,6 +48627,57 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             const next = group.memberIds.filter((id)=>id !== member.id);
             return setGroupMembers(session, group.id, next);
         }
+        async function backendSendPrompt(session, body, signal) {
+            const state = reconnectStates.get(session);
+            if (!state) return null;
+            const credentials = state.accountKey ? (0, _app_session_js__rspack_import_2.gF)({
+                ...state.appSessionOptions,
+                expectedAccountKey: state.accountKey
+            }) : {
+                accessToken: state.accessToken
+            };
+            if (!credentials?.accessToken) return null;
+            const method = "SendGrokBotUserMessage";
+            const url = (0, _url_policy_js__rspack_import_5.Re)(backendBase(), {
+                kind: "backend"
+            }) + "/aiserver.v1.GrokBotService/" + method;
+            const res = await fetch(url, {
+                method: "POST",
+                redirect: "error",
+                signal: gatewayDeadline(signal),
+                headers: {
+                    ...(0, _headers_js__rspack_import_1._6)(credentials.accessToken),
+                    "content-type": "application/proto",
+                    "x-cursor-client-os": process.platform,
+                    "x-cursor-client-source": "sand-desktop",
+                    "x-ghost-mode": "true",
+                    "x-request-id": (0, node_crypto__rspack_import_0.randomUUID)(),
+                    ...credentials.teamId === undefined ? {} : {
+                        "x-cursor-team-id": credentials.teamId
+                    }
+                },
+                body: (0, _backend_send_js__rspack_import_3.Kn)({
+                    agentId: body.agentId,
+                    prompt: body.prompt,
+                    clientNonce: body.clientNonce
+                })
+            });
+            const buf = new Uint8Array(await res.arrayBuffer());
+            if (!res.ok) {
+                throw new GatewayError(method + " failed: " + res.status + " " + (0, _url_policy_js__rspack_import_5.fp)(new TextDecoder().decode(buf).slice(0, 300)), {
+                    status: res.status,
+                    method
+                });
+            }
+            const refusal = (0, _backend_send_js__rspack_import_3.se)(buf);
+            if (refusal != null) throw new GatewayError(method + " refused: " + refusal, {
+                status: 403,
+                method
+            });
+            return {
+                accepted: true
+            };
+        }
         async function sendPrompt(session, ref, prompt, extra = {}) {
             assertGatewayActive(extra.signal);
             const rec = await resolveRef(session, ref, {
@@ -48563,7 +48691,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             if (extra.replyToId) body.replyToId = extra.replyToId;
             let data;
             try {
-                data = await gatewayCall(session, "sendPrompt", body, {
+                data = await backendSendPrompt(session, body, extra.signal) ?? await gatewayCall(session, "sendPrompt", body, {
                     signal: extra.signal
                 });
             } catch (err) {
@@ -48637,12 +48765,12 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                     id: target.id,
                     name: target.name
                 },
-                approvals: transcript.entries.map(_grok_approvals_js__rspack_import_5.Ny).filter(Boolean),
+                approvals: transcript.entries.map(_grok_approvals_js__rspack_import_6.Ny).filter(Boolean),
                 coverage: "Latest 200 transcript entries only; older requests require the owning Grok UI."
             };
         }
         async function respondGrokApproval(session, ref, input) {
-            const { entryId, requestId, decision } = _grok_approvals_js__rspack_import_5.T5.parse({
+            const { entryId, requestId, decision } = _grok_approvals_js__rspack_import_6.T5.parse({
                 ...input,
                 target: ref
             });
