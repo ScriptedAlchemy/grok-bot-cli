@@ -512,7 +512,7 @@ export async function sendPrompt(session, ref, prompt, extra = {}) {
   return { target: rec, result: data && typeof data === "object" ? data : {}, delivery: messageId ? "accepted" : "unknown", ...(messageId ? { messageId } : {}) };
 }
 
-const SAND_SEND_REFUSED = /Sand ?box session is not permitted/i;
+const SAND_SEND_REFUSED = /Sand ?box session (is not permitted|may not make this request)/i;
 
 // The app's x-cursor-checksum: a scrambled timestamp (in units of 10^6 ms) followed by the machine id.
 function machineChecksum(machineId, now = Date.now()) {
