@@ -325,6 +325,47 @@ export async function createAgent(session, input) {
   return unwrapOne(data);
 }
 
+const PROFILE_FIELDS = ["name", "description", "title", "avatarShape", "avatarColor"];
+
+// Backend (Connect JSON) call with the app account's credentials; null for sessions without them
+// (GROK_BOT_GATEWAY_URL overrides), so callers fall back to the gateway alone.
+async function backendJson(session, method, body, signal) {
+  const state = reconnectStates.get(session);
+  if (!state) return null;
+  const credentials = state.accountKey
+    ? loadGrokBotAppCredentials({ ...state.appSessionOptions, expectedAccountKey: state.accountKey })
+    : { accessToken: state.accessToken };
+  if (!credentials?.accessToken) return null;
+  const url = assertAllowedCredentialUrl(backendBase(), { kind: "backend" }) + "/aiserver.v1.GrokBotService/" + method;
+  const res = await fetch(url, {
+    method: "POST",
+    redirect: "error",
+    signal: gatewayDeadline(signal),
+    headers: {
+      ...ensureSandboxHeaders(credentials.accessToken),
+      "x-cursor-client-os": process.platform,
+      "x-cursor-client-source": "sand-desktop",
+      "x-ghost-mode": "true",
+      "x-request-id": randomUUID(),
+      ...(credentials.teamId === undefined ? {} : { "x-cursor-team-id": credentials.teamId }),
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await readJson(res);
+  if (!res.ok) {
+    const detail = data.message || data.error || data.raw || res.statusText;
+    throw new GatewayError(method + " failed: " + res.status + " " + redactSecrets(String(detail).slice(0, 300)), { status: res.status, method });
+  }
+  return data;
+}
+
+// The backend id of a cloud bot this account owns, or null (local bots, groups we don't own, no credentials).
+async function ownedServerAgentId(session, agentId) {
+  const data = await backendJson(session, "ListGrokBotAgents", {});
+  const agent = (data?.agents || []).find((a) => a.agentId === agentId);
+  return agent && agent.viewerIsOwner !== false && agent.harness === "temporal" ? String(agent.id) : null;
+}
+
 export async function updateAgent(session, ref, patch = {}) {
   const rec = await resolveRef(session, ref);
   if (patch.name !== undefined && !String(patch.name).trim()) {
@@ -337,7 +378,20 @@ export async function updateAgent(session, ref, patch = {}) {
   if (patch.title !== undefined) profile.title = String(patch.title);
   if (patch.avatarShape !== undefined) profile.avatarShape = assertAvatar("shape", patch.avatarShape, AVATAR_SHAPES);
   if (patch.avatarColor !== undefined) profile.avatarColor = assertAvatar("color", patch.avatarColor, AVATAR_COLORS);
-  await gatewayCall(session, "updateAgent", { id: rec.id, profile });
+  // Grok Bot 1.1 keeps cloud bots' profiles on the backend: like the app, save the edited fields there
+  // first, then tell the box which fields the server now holds. A box-only write is undone by the next sync.
+  const editedFields = PROFILE_FIELDS.filter((field) => patch[field] !== undefined);
+  if (editedFields.length) {
+    let held = {};
+    const serverId = await ownedServerAgentId(session, rec.id);
+    if (serverId) {
+      const changed = Object.fromEntries(editedFields.map((field) => [field, profile[field]]));
+      const saved = await backendJson(session, "UpdateGrokBotAgent", { id: serverId, ...changed, partialUpdate: true });
+      const savedAtMs = Number(saved?.agent?.updatedAtMs);
+      held = { serverHeldFields: editedFields, ...(savedAtMs > 0 ? { serverSavedAtMs: savedAtMs } : {}) };
+    }
+    await gatewayCall(session, "updateAgent", { id: rec.id, profile, editedFields, ...held });
+  }
   if (patch.notifyOnAgentUpdates !== undefined) {
     await gatewayCall(session, "setAgentNotifyOnUpdates", { id: rec.id, isEnabled: Boolean(patch.notifyOnAgentUpdates) });
   }
@@ -442,15 +496,35 @@ function normalizeMemberIds(records, memberRefs) {
   return [...memberIds];
 }
 
+// Grok Bot 1.1 creates groups ("rooms") on the backend with CreateGrokBotRoom; the box mirrors them.
+// The gateway's createGroup now answers 502 "A Sand box session is not permitted" for box credentials.
+async function backendCreateRoom(session, { name, description, memberAgentIds }) {
+  const clientNonce = randomUUID();
+  const data = await backendJson(session, "CreateGrokBotRoom", {
+    agentId: clientNonce,
+    name,
+    description,
+    memberAgentIds,
+    humanMemberUserIds: [],
+  });
+  if (data === null) return null;
+  if (data?.agent?.agentId !== clientNonce) {
+    throw new GatewayError("CreateGrokBotRoom did not confirm the new group's id", { method: "CreateGrokBotRoom" });
+  }
+  // Wait (briefly) for the box to mirror the room so follow-up edits can resolve it.
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const rec = (await listAgents(session)).find((r) => r.id === clientNonce);
+    if (rec) return rec;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  return { id: clientNonce, name, description, memberIds: memberAgentIds, isGroup: true };
+}
+
 export async function createGroup(session, input) {
   const records = await listAgents(session);
   const memberAgentIds = normalizeMemberIds(records, input.memberIds || []);
-  const data = await gatewayCall(session, "createGroup", {
-    name: input.name,
-    description: input.description || "",
-    memberAgentIds,
-  });
-  const rec = unwrapOne(data);
+  const fields = { name: input.name, description: input.description || "", memberAgentIds };
+  const rec = await backendCreateRoom(session, fields) ?? unwrapOne(await gatewayCall(session, "createGroup", fields));
   const extras = {};
   if (input.title) extras.title = input.title;
   if (input.avatarShape) extras.avatarShape = input.avatarShape;

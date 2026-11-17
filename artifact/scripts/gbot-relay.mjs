@@ -22185,7 +22185,7 @@ var __webpack_modules__ = {
         function grokBotActiveAccountKey(options = {}) {
             return activeAppAccount(options)?.key ?? null;
         }
-        function loadGrokBotAppCredentials({ home = (0, node_os__rspack_import_3.homedir)(), platform = process.platform, env = process.env, appData, expectedAccountKey, getKeychainPassword = readKeychainPassword, unprotectData = unprotectWithDpapi } = {}) {
+        function loadGrokBotAppCredentials1({ home = (0, node_os__rspack_import_3.homedir)(), platform = process.platform, env = process.env, appData, expectedAccountKey, getKeychainPassword = readKeychainPassword, unprotectData = unprotectWithDpapi } = {}) {
             const effectiveEnv = sessionEnv({
                 env,
                 appData
@@ -22281,7 +22281,7 @@ var __webpack_modules__ = {
             B3: ()=>grokBotActiveAccountKey,
             Z2: ()=>loadGrokBotGatewaySession,
             dQ: ()=>grokBotGatewayDescriptorPath,
-            gF: ()=>loadGrokBotAppCredentials
+            gF: ()=>loadGrokBotAppCredentials1
         });
     },
     "./src/core/codex-bridge.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
@@ -25590,6 +25590,57 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             });
             return unwrapOne(data);
         }
+        const PROFILE_FIELDS = null && [
+            "name",
+            "description",
+            "title",
+            "avatarShape",
+            "avatarColor"
+        ];
+        async function backendJson(session, method, body, signal) {
+            const state = reconnectStates.get(session);
+            if (!state) return null;
+            const credentials = state.accountKey ? loadGrokBotAppCredentials({
+                ...state.appSessionOptions,
+                expectedAccountKey: state.accountKey
+            }) : {
+                accessToken: state.accessToken
+            };
+            if (!credentials?.accessToken) return null;
+            const url = assertAllowedCredentialUrl(backendBase(), {
+                kind: "backend"
+            }) + "/aiserver.v1.GrokBotService/" + method;
+            const res = await fetch(url, {
+                method: "POST",
+                redirect: "error",
+                signal: gatewayDeadline(signal),
+                headers: {
+                    ...ensureSandboxHeaders(credentials.accessToken),
+                    "x-cursor-client-os": process.platform,
+                    "x-cursor-client-source": "sand-desktop",
+                    "x-ghost-mode": "true",
+                    "x-request-id": randomUUID(),
+                    ...credentials.teamId === undefined ? {} : {
+                        "x-cursor-team-id": credentials.teamId
+                    }
+                },
+                body: JSON.stringify(body)
+            });
+            const data = await readJson(res);
+            if (!res.ok) {
+                const detail = data.message || data.error || data.raw || res.statusText;
+                throw new GatewayError(method + " failed: " + res.status + " " + redactSecrets(String(detail).slice(0, 300)), {
+                    status: res.status,
+                    method
+                });
+            }
+            return data;
+        }
+        async function ownedServerAgentId(session, agentId) {
+            const data = await backendJson(session, "ListGrokBotAgents", {});
+            const agent = (data?.agents || []).find((a)=>a.agentId === agentId);
+            return agent && agent.viewerIsOwner !== false && agent.harness === "temporal" ? String(agent.id) : null;
+        }
         async function updateAgent(session, ref, patch = {}) {
             const rec = await resolveRef(session, ref);
             if (patch.name !== undefined && !String(patch.name).trim()) {
@@ -25602,10 +25653,35 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             if (patch.title !== undefined) profile.title = String(patch.title);
             if (patch.avatarShape !== undefined) profile.avatarShape = assertAvatar("shape", patch.avatarShape, AVATAR_SHAPES);
             if (patch.avatarColor !== undefined) profile.avatarColor = assertAvatar("color", patch.avatarColor, AVATAR_COLORS);
-            await gatewayCall(session, "updateAgent", {
-                id: rec.id,
-                profile
-            });
+            const editedFields = PROFILE_FIELDS.filter((field)=>patch[field] !== undefined);
+            if (editedFields.length) {
+                let held = {};
+                const serverId = await ownedServerAgentId(session, rec.id);
+                if (serverId) {
+                    const changed = Object.fromEntries(editedFields.map((field)=>[
+                            field,
+                            profile[field]
+                        ]));
+                    const saved = await backendJson(session, "UpdateGrokBotAgent", {
+                        id: serverId,
+                        ...changed,
+                        partialUpdate: true
+                    });
+                    const savedAtMs = Number(saved?.agent?.updatedAtMs);
+                    held = {
+                        serverHeldFields: editedFields,
+                        ...savedAtMs > 0 ? {
+                            serverSavedAtMs: savedAtMs
+                        } : {}
+                    };
+                }
+                await gatewayCall(session, "updateAgent", {
+                    id: rec.id,
+                    profile,
+                    editedFields,
+                    ...held
+                });
+            }
             if (patch.notifyOnAgentUpdates !== undefined) {
                 await gatewayCall(session, "setAgentNotifyOnUpdates", {
                     id: rec.id,
@@ -25727,15 +25803,43 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 ...memberIds
             ];
         }
+        async function backendCreateRoom(session, { name, description, memberAgentIds }) {
+            const clientNonce = randomUUID();
+            const data = await backendJson(session, "CreateGrokBotRoom", {
+                agentId: clientNonce,
+                name,
+                description,
+                memberAgentIds,
+                humanMemberUserIds: []
+            });
+            if (data === null) return null;
+            if (data?.agent?.agentId !== clientNonce) {
+                throw new GatewayError("CreateGrokBotRoom did not confirm the new group's id", {
+                    method: "CreateGrokBotRoom"
+                });
+            }
+            for(let attempt = 0; attempt < 20; attempt++){
+                const rec = (await listAgents(session)).find((r)=>r.id === clientNonce);
+                if (rec) return rec;
+                await new Promise((resolve)=>setTimeout(resolve, 1000));
+            }
+            return {
+                id: clientNonce,
+                name,
+                description,
+                memberIds: memberAgentIds,
+                isGroup: true
+            };
+        }
         async function createGroup(session, input) {
             const records = await listAgents(session);
             const memberAgentIds = normalizeMemberIds(records, input.memberIds || []);
-            const data = await gatewayCall(session, "createGroup", {
+            const fields = {
                 name: input.name,
                 description: input.description || "",
                 memberAgentIds
-            });
-            const rec = unwrapOne(data);
+            };
+            const rec = await backendCreateRoom(session, fields) ?? unwrapOne(await gatewayCall(session, "createGroup", fields));
             const extras = {};
             if (input.title) extras.title = input.title;
             if (input.avatarShape) extras.avatarShape = input.avatarShape;
@@ -26001,7 +26105,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
                 ...session.gatewayHeaders || {}
             };
         }
-        function ensureSandboxHeaders(accessToken) {
+        function ensureSandboxHeaders1(accessToken) {
             return {
                 "content-type": "application/json",
                 "connect-protocol-version": "1",
@@ -26014,7 +26118,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         __webpack_require__.d(__webpack_exports__, {
             A1: ()=>requestHeaders,
             Ew: ()=>headersFromEnsureSandbox,
-            _6: ()=>ensureSandboxHeaders,
+            _6: ()=>ensureSandboxHeaders1,
             bQ: ()=>mergeGatewayHeaders,
             dk: ()=>normalizeHeaderMap,
             gx: ()=>headersFromEnv
@@ -28334,7 +28438,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             const h = String(hostname || "").toLowerCase();
             return isCursorApiHostname(h) || h.endsWith(".cursorvm.com");
         }
-        function assertAllowedCredentialUrl(rawUrl, opts = {}) {
+        function assertAllowedCredentialUrl1(rawUrl, opts = {}) {
             const kind = opts.kind || "gateway";
             const label = kind === "backend" ? "backend URL" : "gateway URL";
             let parsed;
@@ -28381,7 +28485,7 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             }
             return String(rawUrl).replace(/\/$/, "");
         }
-        function redactSecrets(text) {
+        function redactSecrets1(text) {
             let s = String(text);
             s = s.replace(/(^|[\s,{;])((?:set-cookie|cookie)\s*[:=]\s*)([^\n;]+?)(?=\s+(?:set-cookie|cookie|authorization|proxy-authorization)\b|\s*$)/gi, "$1$2<redacted>");
             s = s.replace(/(^|[\s,{;])((?:authorization|proxy-authorization)\s*[:=]\s*)(\S+(?:\s+\S+)?)/gi, "$1$2<redacted>");
@@ -28391,8 +28495,8 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
             return s;
         }
         __webpack_require__.d(__webpack_exports__, {
-            Re: ()=>assertAllowedCredentialUrl,
-            fp: ()=>redactSecrets
+            Re: ()=>assertAllowedCredentialUrl1,
+            fp: ()=>redactSecrets1
         });
     },
     "./src/core/user-machine-guidance.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
