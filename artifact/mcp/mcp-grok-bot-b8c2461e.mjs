@@ -66151,11 +66151,21 @@ ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
         function headersFromEnsureSandbox(body) {
             if (!body || typeof body !== "object") return {};
             const mapped = normalizeHeaderMap(body.gatewayHeaders || body.gateway_headers);
-            if (Object.keys(mapped).length) return mapped;
-            const token = body.anyrunNetworkToken || body.anyrun_network_token || body.networkToken;
-            return token ? {
-                "x-anyrun-network-token": String(token)
+            const portToken = body.gatewayPortToken || body.gateway_port_token;
+            const port = portToken ? {
+                "x-anyrun-port-token": String(portToken)
             } : {};
+            if (Object.keys(mapped).length) return {
+                ...mapped,
+                ...port
+            };
+            const token = body.anyrunNetworkToken || body.anyrun_network_token || body.networkToken;
+            return {
+                ...token ? {
+                    "x-anyrun-network-token": String(token)
+                } : {},
+                ...port
+            };
         }
         function headersFromEnv() {
             return parseGatewayHeaders(process.env.GROK_BOT_GATEWAY_HEADERS);

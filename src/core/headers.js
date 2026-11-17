@@ -22,9 +22,13 @@ export function parseGatewayHeaders(raw) {
 export function headersFromEnsureSandbox(body) {
   if (!body || typeof body !== "object") return {};
   const mapped = normalizeHeaderMap(body.gatewayHeaders || body.gateway_headers);
-  if (Object.keys(mapped).length) return mapped;
+  // Since mid-Nov 2026 the box's load balancer answers 404 "could not be routed" without the port
+  // token; the Grok Bot app (1.1) sends it as x-anyrun-port-token whenever EnsureSandBox returns one.
+  const portToken = body.gatewayPortToken || body.gateway_port_token;
+  const port = portToken ? { "x-anyrun-port-token": String(portToken) } : {};
+  if (Object.keys(mapped).length) return { ...mapped, ...port };
   const token = body.anyrunNetworkToken || body.anyrun_network_token || body.networkToken;
-  return token ? { "x-anyrun-network-token": String(token) } : {};
+  return { ...(token ? { "x-anyrun-network-token": String(token) } : {}), ...port };
 }
 
 export function headersFromEnv() {
