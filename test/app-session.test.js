@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -97,7 +97,7 @@ test("loads the signed-in Grok Bot gateway without manual tokens", () => {
   });
 });
 
-for (const version of [2, 3]) {
+for (const version of [2, 3, 4]) {
   test(`loads a version ${version} Grok Bot gateway entry`, () => {
     const home = writeWrappedDescriptor({
       version,
@@ -112,6 +112,7 @@ for (const version of [2, 3]) {
     const session = loadGrokBotGatewaySession({
       platform: "darwin",
       home,
+      now: () => 1_787_000_001_000,
       getKeychainPassword: () => "demo-password",
     });
 
@@ -123,6 +124,7 @@ for (const version of [2, 3]) {
     assert.deepEqual(inspectGrokBotGatewaySession({
       platform: "darwin",
       home,
+      now: () => 1_787_000_001_000,
       getKeychainPassword: () => "demo-password",
     }), { present: true, usable: true });
   });
@@ -193,7 +195,7 @@ for (const version of [2, 3]) {
 
 test("rejects an unsupported gateway descriptor version", () => {
   const home = writeWrappedDescriptor({
-    version: 4,
+    version: 5,
     encrypted: ENCRYPTED_DESCRIPTOR,
   });
 
@@ -206,10 +208,166 @@ test("rejects an unsupported gateway descriptor version", () => {
     (error) => {
       assert.equal(error.name, "GrokBotGatewaySessionError");
       assert.equal(error.code, "UNSUPPORTED_VERSION");
-      assert.match(error.message, /unsupported .*gateway descriptor version 4/i);
+      assert.match(error.message, /unsupported .*gateway descriptor version 5/i);
       return true;
     },
   );
+});
+
+test("rejects a version 4 gateway entry without a numeric savedAtMs timestamp before reading keychain", (t) => {
+  const home = writeWrappedDescriptor({
+    version: 4,
+    entries: { primary: { encrypted: ENCRYPTED_DESCRIPTOR } },
+  });
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+
+  assert.throws(
+    () => loadGrokBotGatewaySession({
+      platform: "darwin",
+      home,
+      getKeychainPassword: () => assert.fail("Invalid v4 entry must not access the keychain"),
+    }),
+    (error) => {
+      assert.equal(error.name, "GrokBotGatewaySessionError");
+      assert.equal(error.code, "INVALID_ENTRY");
+      assert.match(error.message, /savedAtMs/i);
+      return true;
+    },
+  );
+});
+
+test("enforces the 7-day savedAtMs TTL on version 4 descriptors before touching the keychain", (t) => {
+  const savedAtMs = 1_900_000_000_000;
+  const sevenDaysMs = 10080 * 60 * 1000;
+  const home = writeWrappedDescriptor({
+    version: 4,
+    entries: { primary: { savedAtMs, encrypted: ENCRYPTED_DESCRIPTOR } },
+  });
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+
+  // Exact boundary (now - savedAtMs === maxAgeMs) is still accepted.
+  const ok = loadGrokBotGatewaySession({
+    platform: "darwin",
+    home,
+    now: () => savedAtMs + sevenDaysMs,
+    getKeychainPassword: () => "demo-password",
+  });
+  assert.equal(ok.gatewayToken, "gateway-token");
+
+  // 1 ms past 7 days is expired without accessing the keychain.
+  assert.throws(
+    () => loadGrokBotGatewaySession({
+      platform: "darwin",
+      home,
+      now: () => savedAtMs + sevenDaysMs + 1,
+      getKeychainPassword: () => assert.fail("Expired v4 entry must not access the keychain"),
+    }),
+    (error) => {
+      assert.equal(error.name, "GrokBotGatewaySessionError");
+      assert.equal(error.code, "EXPIRED_DESCRIPTOR");
+      return true;
+    },
+  );
+});
+
+test("loads a version 4 Linux descriptor with port/sand/authorization headers and respects authorizationRefreshAtMs", (t) => {
+  const savedAtMs = 1_999_900_000_000;
+  const payload = JSON.stringify({
+    baseUrl: "https://box.example/",
+    token: "v4-access-token",
+    authorizationRefreshAtMs: 2_000_000_000_000,
+    headers: {
+      "x-anyrun-port-token": "v4-port-token",
+      "x-sand-gateway-token": "v4-gateway-token",
+      authorization: "Bearer v4-access-token",
+    },
+    egressTunnelHeaders: { "x-anyrun-port-token": "v4-egress-token" },
+    vncDisabled: true,
+  });
+  const home = mkdtempSync(join(tmpdir(), "gbot-home-"));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const descriptorPath = grokBotGatewayDescriptorPath(home, "linux", {});
+  mkdirSync(dirname(descriptorPath), { recursive: true });
+  writeFileSync(descriptorPath, JSON.stringify({
+    version: 4,
+    entries: {
+      primary: {
+        savedAtMs,
+        encrypted: encryptLinuxSafeStorage(payload, "v11", "keyring-password"),
+      },
+    },
+  }));
+
+  const session = loadGrokBotGatewaySession({
+    platform: "linux",
+    home,
+    env: {},
+    now: () => 1_999_999_999_000,
+    getKeychainPassword: () => "keyring-password",
+  });
+  assert.deepEqual(session, {
+    gatewayUrl: "https://box.example",
+    gatewayToken: "v4-access-token",
+    headers: {
+      "x-anyrun-port-token": "v4-port-token",
+      "x-sand-gateway-token": "v4-gateway-token",
+      authorization: "Bearer v4-access-token",
+    },
+  });
+
+  assert.throws(
+    () => loadGrokBotGatewaySession({
+      platform: "linux",
+      home,
+      env: {},
+      now: () => 2_000_000_000_000,
+      getKeychainPassword: () => "keyring-password",
+    }),
+    (error) => {
+      assert.equal(error.name, "GrokBotGatewaySessionError");
+      assert.equal(error.code, "EXPIRED_DESCRIPTOR");
+      return true;
+    },
+  );
+  assert.equal(
+    inspectGrokBotGatewaySession({
+      platform: "linux",
+      home,
+      env: {},
+      now: () => 2_000_000_000_000,
+      getKeychainPassword: () => "keyring-password",
+    }).code,
+    "EXPIRED_DESCRIPTOR",
+  );
+});
+
+test("rejects a decrypted gateway descriptor with blank fields, invalid headers, or invalid authorizationRefreshAtMs", (t) => {
+  for (const bad of [
+    { baseUrl: "   ", token: "gw" },
+    { baseUrl: "https://box.example", token: "   " },
+    { baseUrl: "https://box.example", token: "gw", headers: ["not-a-map"] },
+    { baseUrl: "https://box.example", token: "gw", headers: { "x-a": 123 } },
+    { baseUrl: "https://box.example", token: "gw", authorizationRefreshAtMs: "soon" },
+    { baseUrl: "https://box.example", token: "gw", authorizationRefreshAtMs: null },
+  ]) {
+    const home = mkdtempSync(join(tmpdir(), "gbot-home-"));
+    t.after(() => rmSync(home, { recursive: true, force: true }));
+    const descriptorPath = grokBotGatewayDescriptorPath(home, "linux", {});
+    mkdirSync(dirname(descriptorPath), { recursive: true });
+    writeFileSync(descriptorPath, JSON.stringify({
+      version: 4,
+      entries: {
+        primary: {
+          savedAtMs: 1_900_000_000_000,
+          encrypted: encryptLinuxSafeStorage(JSON.stringify(bad), "v10", "peanuts"),
+        },
+      },
+    }));
+    assert.throws(
+      () => loadGrokBotGatewaySession({ platform: "linux", home, env: {}, now: () => 1_900_000_001_000 }),
+      (error) => error.name === "GrokBotGatewaySessionError" && error.code === "INCOMPLETE_DESCRIPTOR",
+    );
+  }
 });
 
 test("rejects an incomplete decrypted gateway descriptor", () => {
@@ -394,63 +552,86 @@ test("loads the signed-in Grok Bot gateway on Windows", () => {
   });
 });
 
-test("loads a version 3 Windows descriptor through the DPAPI key provider", () => {
-  const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE, undefined, {
-    version: 3,
-    entries: {
-      primary: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 1_791_320_229_049 },
-    },
-  });
-  let keyReads = 0;
+for (const version of [3, 4]) {
+  test(`loads a version ${version} Windows descriptor through the DPAPI key provider`, () => {
+    const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE, undefined, {
+      version,
+      entries: {
+        primary: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 1_791_320_229_049 },
+      },
+    });
+    let keyReads = 0;
 
-  const session = loadGrokBotGatewaySession({
-    platform: "win32",
-    home: "/tmp/unused",
-    appData,
-    unprotectData: (blob) => {
-      keyReads += 1;
-      return unprotectDemoKey(blob);
-    },
-  });
+    const session = loadGrokBotGatewaySession({
+      platform: "win32",
+      home: "/tmp/unused",
+      appData,
+      now: () => 1_791_320_230_000,
+      unprotectData: (blob) => {
+        keyReads += 1;
+        return unprotectDemoKey(blob);
+      },
+    });
 
-  assert.equal(keyReads, 1);
-  assert.deepEqual(session, {
-    gatewayUrl: "https://box.example",
-    gatewayToken: "gateway-token",
-    headers: { "x-anyrun-network-token": "route-token" },
-  });
-});
-
-test("reports a version 3 Windows app session as usable", () => {
-  const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE, undefined, {
-    version: 3,
-    entries: { primary: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 1 } },
+    assert.equal(keyReads, 1);
+    assert.deepEqual(session, {
+      gatewayUrl: "https://box.example",
+      gatewayToken: "gateway-token",
+      headers: { "x-anyrun-network-token": "route-token" },
+    });
   });
 
-  assert.deepEqual(inspectGrokBotGatewaySession({
-    platform: "win32",
-    home: "/tmp/unused",
-    appData,
-    unprotectData: unprotectDemoKey,
-  }), { present: true, usable: true });
-});
+  test(`reports a version ${version} Windows app session as usable`, () => {
+    const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE, undefined, {
+      version,
+      entries: { primary: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 1 } },
+    });
 
-for (const [label, entries, code] of [
-  ["empty entries", {}, "EMPTY_ENTRIES"],
-  ["ambiguous entries", {
-    first: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 1 },
-    second: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 2 },
-  }, "AMBIGUOUS_ENTRIES"],
-  ["missing encrypted payload", { primary: { savedAtMs: 1 } }, "MISSING_ENCRYPTED_PAYLOAD"],
+    assert.deepEqual(inspectGrokBotGatewaySession({
+      platform: "win32",
+      home: "/tmp/unused",
+      appData,
+      now: () => 2,
+      unprotectData: unprotectDemoKey,
+    }), { present: true, usable: true });
+  });
+
+  for (const [label, entries, code] of [
+    ["empty entries", {}, "EMPTY_ENTRIES"],
+    ["ambiguous entries", {
+      first: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 1 },
+      second: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 2 },
+    }, "AMBIGUOUS_ENTRIES"],
+    ["missing encrypted payload", { primary: { savedAtMs: 1 } }, "MISSING_ENCRYPTED_PAYLOAD"],
+  ]) {
+    test(`rejects version ${version} Windows ${label} before unprotecting the key`, () => {
+      const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE, undefined, { version, entries });
+
+      assert.throws(() => loadGrokBotGatewaySession({
+        platform: "win32",
+        home: "/tmp/unused",
+        appData,
+        now: () => 2,
+        unprotectData: () => assert.fail("Invalid entries must not access the DPAPI key"),
+      }), (error) => error.code === code);
+    });
+  }
+}
+
+for (const [label, entries, nowMs, code] of [
+  ["missing savedAtMs", { primary: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR } }, 2, "INVALID_ENTRY"],
+  ["expired savedAtMs", { primary: { encrypted: WINDOWS_ENCRYPTED_DESCRIPTOR, savedAtMs: 1 } }, 1 + 10080 * 60 * 1000 + 1, "EXPIRED_DESCRIPTOR"],
 ]) {
-  test(`rejects version 3 Windows ${label} before unprotecting the key`, () => {
-    const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE, undefined, { version: 3, entries });
+  test(`rejects version 4 Windows ${label} before unprotecting the DPAPI key`, (t) => {
+    const appData = writeWindowsAppData(WINDOWS_LOCAL_STATE, undefined, { version: 4, entries });
+    t.after(() => rmSync(appData, { recursive: true, force: true }));
 
     assert.throws(() => loadGrokBotGatewaySession({
       platform: "win32",
       home: "/tmp/unused",
       appData,
-      unprotectData: () => assert.fail("Invalid entries must not access the DPAPI key"),
+      now: () => nowMs,
+      unprotectData: () => assert.fail("Invalid or expired v4 entry must not access the DPAPI key"),
     }), (error) => error.code === code);
   });
 }

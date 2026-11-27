@@ -21,16 +21,31 @@ class GrokBotGatewaySessionError extends Error {
   }
 }
 
-function encryptedPayload(wrapped) {
-  if (wrapped.version != null && wrapped.version !== 1 && wrapped.version !== 2 && wrapped.version !== 3) {
+const ENTRY_MAP_VERSIONS = new Set([2, 3, 4]);
+// Matches Grok Bot 1.3.0 gateway-descriptor v4 default maxAgeMs (7 days).
+const DESCRIPTOR_V4_MAX_AGE_MS = 10080 * 60 * 1000;
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function extractWrappedDescriptor(wrapped) {
+  if (!isPlainObject(wrapped)) {
+    throw new GrokBotGatewaySessionError(
+      "MISSING_ENCRYPTED_PAYLOAD",
+      "Grok Bot gateway descriptor is missing an encrypted payload.",
+    );
+  }
+  if (wrapped.version != null && wrapped.version !== 1 && !ENTRY_MAP_VERSIONS.has(wrapped.version)) {
     throw new GrokBotGatewaySessionError(
       "UNSUPPORTED_VERSION",
       `Unsupported Grok Bot gateway descriptor version ${wrapped.version}.`,
     );
   }
   let encrypted;
-  if (wrapped.version === 2 || wrapped.version === 3) {
-    const entries = Object.values(wrapped.entries ?? {});
+  let savedAtMs;
+  if (ENTRY_MAP_VERSIONS.has(wrapped.version)) {
+    const entries = isPlainObject(wrapped.entries) ? Object.values(wrapped.entries) : [];
     if (entries.length === 0) {
       throw new GrokBotGatewaySessionError(
         "EMPTY_ENTRIES",
@@ -43,7 +58,17 @@ function encryptedPayload(wrapped) {
         "Grok Bot gateway descriptor has multiple saved gateway entries and no active entry selection.",
       );
     }
-    encrypted = entries[0]?.encrypted;
+    const entry = entries[0];
+    if (wrapped.version === 4) {
+      if (!isPlainObject(entry) || typeof entry.savedAtMs !== "number" || !Number.isFinite(entry.savedAtMs)) {
+        throw new GrokBotGatewaySessionError(
+          "INVALID_ENTRY",
+          "Grok Bot gateway descriptor entry is missing a valid savedAtMs timestamp.",
+        );
+      }
+      savedAtMs = entry.savedAtMs;
+    }
+    encrypted = entry?.encrypted;
   } else {
     encrypted = wrapped.encrypted;
   }
@@ -53,7 +78,7 @@ function encryptedPayload(wrapped) {
       "Grok Bot gateway descriptor is missing an encrypted payload.",
     );
   }
-  return encrypted;
+  return { encrypted, savedAtMs };
 }
 
 function safeStorageKey(password, platform) {
@@ -299,6 +324,8 @@ export function loadGrokBotGatewaySession({
   home = homedir(),
   env = process.env,
   appData,
+  now = Date.now,
+  maxAgeMs = DESCRIPTOR_V4_MAX_AGE_MS,
   getKeychainPassword = readKeychainPassword,
   unprotectData = unprotectWithDpapi,
 } = {}) {
@@ -309,19 +336,55 @@ export function loadGrokBotGatewaySession({
   if (!existsSync(path)) return null;
 
   const wrapped = JSON.parse(readFileSync(path, "utf8"));
-  const encrypted = encryptedPayload(wrapped);
+  const { encrypted, savedAtMs } = extractWrappedDescriptor(wrapped);
+  // Enforce the v4 outer entry TTL before touching platform keychains or DPAPI,
+  // matching Grok Bot 1.3.0 gateway-descriptor store read semantics.
+  if (savedAtMs !== undefined && now() - savedAtMs > maxAgeMs) {
+    throw new GrokBotGatewaySessionError(
+      "EXPIRED_DESCRIPTOR",
+      "Grok Bot gateway descriptor has expired.",
+    );
+  }
   const clear = decryptAppSecret(encrypted, { platform, home, env: effectiveEnv, getKeychainPassword, unprotectData });
   const descriptor = JSON.parse(clear);
-  if (!descriptor.baseUrl || !descriptor.token) {
+  // Request headers require a non-empty gateway bearer token, so keep token required.
+  if (
+    !isPlainObject(descriptor) ||
+    typeof descriptor.baseUrl !== "string" || !descriptor.baseUrl.trim() ||
+    typeof descriptor.token !== "string" || !descriptor.token.trim()
+  ) {
     throw new GrokBotGatewaySessionError(
       "INCOMPLETE_DESCRIPTOR",
       "Decrypted Grok Bot gateway descriptor is incomplete.",
     );
   }
+  if (
+    descriptor.headers !== undefined &&
+    (!isPlainObject(descriptor.headers) || !Object.values(descriptor.headers).every((value) => typeof value === "string"))
+  ) {
+    throw new GrokBotGatewaySessionError(
+      "INCOMPLETE_DESCRIPTOR",
+      "Decrypted Grok Bot gateway descriptor has invalid headers.",
+    );
+  }
+  if (descriptor.authorizationRefreshAtMs !== undefined) {
+    if (typeof descriptor.authorizationRefreshAtMs !== "number" || !Number.isFinite(descriptor.authorizationRefreshAtMs)) {
+      throw new GrokBotGatewaySessionError(
+        "INCOMPLETE_DESCRIPTOR",
+        "Decrypted Grok Bot gateway descriptor has an invalid authorizationRefreshAtMs timestamp.",
+      );
+    }
+    if (now() >= descriptor.authorizationRefreshAtMs) {
+      throw new GrokBotGatewaySessionError(
+        "EXPIRED_DESCRIPTOR",
+        "Grok Bot gateway descriptor has expired.",
+      );
+    }
+  }
 
   return {
-    gatewayUrl: String(descriptor.baseUrl).replace(/\/$/, ""),
-    gatewayToken: String(descriptor.token),
+    gatewayUrl: descriptor.baseUrl.trim().replace(/\/$/, ""),
+    gatewayToken: descriptor.token.trim(),
     headers: descriptor.headers ?? {},
   };
 }
