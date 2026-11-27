@@ -322,3 +322,81 @@ test("Windows active credentials use DPAPI and AES-GCM without selecting another
     unprotectData: () => { throw new Error("must reject account before DPAPI"); },
   }), { code: "ACCOUNT_CHANGED" });
 });
+
+test("expired v4 descriptors (authorizationRefreshAtMs and 7-day savedAtMs TTL) fall through to EnsureSandBox using the active account", async (t) => {
+  for (const scenario of [
+    {
+      name: "authorizationRefreshAtMs",
+      savedAtMs: 1_999_900_000_000,
+      nowMs: 2_000_000_000_000,
+      inner: {
+        baseUrl: "http://127.0.0.1:1341",
+        token: "expired-gateway",
+        authorizationRefreshAtMs: 1_999_950_000_000,
+        headers: { "x-anyrun-port-token": "expired-port" },
+      },
+    },
+    {
+      name: "savedAtMs TTL",
+      savedAtMs: 1_900_000_000_000,
+      nowMs: 1_900_000_000_000 + 10080 * 60 * 1000 + 1,
+      inner: {
+        baseUrl: "http://127.0.0.1:1341",
+        token: "stale-gateway",
+        headers: { "x-anyrun-port-token": "stale-port" },
+      },
+    },
+  ]) {
+    const f = fixture(t);
+    writeFileSync(f.descriptor, JSON.stringify({
+      version: 4,
+      entries: {
+        only: {
+          savedAtMs: scenario.savedAtMs,
+          encrypted: encrypt(JSON.stringify(scenario.inner)),
+        },
+      },
+    }));
+    let ensures = 0;
+    t.mock.method(globalThis, "fetch", async (url) => {
+      if (url.endsWith("/EnsureSandBox")) { ensures++; return fresh(); }
+      return Response.json(roster);
+    });
+    const session = await connectGateway({ appSessionOptions: { ...f.appSessionOptions, now: () => scenario.nowMs } });
+    assert.equal(ensures, 1, scenario.name);
+    assert.equal(session.gatewayToken, "new-gateway", scenario.name);
+    assert.equal((await listAgents(session)).length, 1, scenario.name);
+  }
+});
+
+test("expired v4 descriptor without active credentials and malformed v4 entries fail closed with error codes", async (t) => {
+  const f = fixture(t);
+  // Remove active account credentials: expired descriptor must surface EXPIRED_DESCRIPTOR.
+  rmSync(join(f.dir, "sand-secrets.json"));
+  writeFileSync(f.descriptor, JSON.stringify({
+    version: 4,
+    entries: {
+      only: {
+        savedAtMs: 1,
+        encrypted: encrypt(JSON.stringify({ baseUrl: "http://127.0.0.1:1341", token: "stale" })),
+      },
+    },
+  }));
+  await assert.rejects(
+    connectGateway({ appSessionOptions: { ...f.appSessionOptions, now: () => 1 + 10080 * 60 * 1000 + 1 } }),
+    (err) => err.name === "GatewayError" && err.code === "EXPIRED_DESCRIPTOR",
+  );
+
+  // Restore active account credentials: corrupt/malformed v4 entry must NOT fall through to EnsureSandBox.
+  f.save();
+  writeFileSync(f.descriptor, JSON.stringify({
+    version: 4,
+    entries: {
+      only: { encrypted: encrypt(JSON.stringify({ baseUrl: "http://127.0.0.1:1341", token: "bad" })) },
+    },
+  }));
+  await assert.rejects(
+    connectGateway({ appSessionOptions: f.appSessionOptions }),
+    (err) => err.name === "GatewayError" && err.code === "INVALID_ENTRY",
+  );
+});

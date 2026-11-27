@@ -70,7 +70,15 @@ function sessionFromApp(options) {
     // Descriptor present but unusable (e.g. Windows Local State missing). Fall
     // through to CURSOR_ACCESS_TOKEN → EnsureSandBox when that token is set.
     if (accessTokenFromEnv()) return null;
-    throw error instanceof Error ? new GatewayError(error.message) : error;
+    // An expired cached v4 descriptor (savedAtMs TTL or authorizationRefreshAtMs elapsed)
+    // falls through to EnsureSandBox via active app credentials, matching the desktop app.
+    if (error?.code === "EXPIRED_DESCRIPTOR" && hasGrokBotAppCredentials(options)) return null;
+    if (error instanceof Error) {
+      const wrapped = new GatewayError(error.message);
+      if ("code" in error && error.code !== undefined) wrapped.code = error.code;
+      throw wrapped;
+    }
+    throw error;
   }
   if (!loaded) return null;
   return {
