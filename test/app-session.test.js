@@ -97,7 +97,7 @@ test("loads the signed-in Grok Bot gateway without manual tokens", () => {
   });
 });
 
-for (const version of [2, 3]) {
+for (const version of [2, 3, 4]) {
   test(`loads a version ${version} Grok Bot gateway entry`, () => {
     const home = writeWrappedDescriptor({
       version,
@@ -193,7 +193,7 @@ for (const version of [2, 3]) {
 
 test("rejects an unsupported gateway descriptor version", () => {
   const home = writeWrappedDescriptor({
-    version: 4,
+    version: 5,
     encrypted: ENCRYPTED_DESCRIPTOR,
   });
 
@@ -206,7 +206,7 @@ test("rejects an unsupported gateway descriptor version", () => {
     (error) => {
       assert.equal(error.name, "GrokBotGatewaySessionError");
       assert.equal(error.code, "UNSUPPORTED_VERSION");
-      assert.match(error.message, /unsupported .*gateway descriptor version 4/i);
+      assert.match(error.message, /unsupported .*gateway descriptor version 5/i);
       return true;
     },
   );
